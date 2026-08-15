@@ -216,7 +216,7 @@ export function CopyNode({ node }: { node: GenuiCopy }) {
         setTimeout(() => setCopied(false), 1500)
       }}
     >
-      {copied ? '✓ 已复制' : (node.label ?? '复制')}
+      {copied ? '✓ Copied' : (node.label ?? 'Copy')}
     </button>
   )
 }
@@ -238,8 +238,8 @@ export function MermaidNode({ node }: { node: GenuiMermaid }) {
     })
     return () => { alive = false }
   }, [code])
-  if (failed) return <div className={css.mermaidFallback}><pre>{code}</pre><div className={css.mermaidErr}>图语法有误，已降级显示源码</div></div>
-  if (html === null) return <div className={css.mermaidFallback}><pre>{code}</pre><div className={css.mermaidHint}>渲染中…</div></div>
+  if (failed) return <div className={css.mermaidFallback}><pre>{code}</pre><div className={css.mermaidErr}>Invalid diagram syntax — showing source instead</div></div>
+  if (html === null) return <div className={css.mermaidFallback}><pre>{code}</pre><div className={css.mermaidHint}>Rendering…</div></div>
   return <div className={css.mermaid} dangerouslySetInnerHTML={{ __html: html }} data-genui-mermaid />
 }
 
@@ -268,8 +268,8 @@ export function Scene3DNode({ node }: { node: GenuiScene3D }) {
     <div className={css.scene3dWrap} data-genui-scene3d>
       {node.title !== undefined && <div className={css.scene3dTitle}>{node.title}</div>}
       <div ref={ref} className={css.scene3dCanvas} />
-      {status === 'loading' && <div className={css.scene3dHint}>加载 3D 场景…</div>}
-      {status === 'error' && <div className={css.scene3dHint}>3D 渲染失败</div>}
+      {status === 'loading' && <div className={css.scene3dHint}>Loading 3D scene…</div>}
+      {status === 'error' && <div className={css.scene3dHint}>3D render failed</div>}
     </div>
   )
 }
@@ -388,11 +388,11 @@ export function QuizNode({ node, onAction }: {
       {answered && (
         <div className={css.quizResult} aria-live="polite">
           <div className={correct ? css.quizCorrectMsg : css.quizWrongMsg}>
-            {correct ? '✓ 回答正确！' : '✗ 再想想看'}
+            {correct ? '✓ Correct!' : '✗ Try again'}
             {chosen?.feedback !== undefined && <div className={css.quizFeedback}>{chosen.feedback}</div>}
           </div>
           {node.explanation !== undefined && <div className={css.quizExplanation}>{node.explanation}</div>}
-          <button type="button" className={css.quizRetry} onClick={() => setSelected(null)}>重新作答</button>
+          <button type="button" className={css.quizRetry} onClick={() => setSelected(null)}>Retake</button>
         </div>
       )}
     </div>

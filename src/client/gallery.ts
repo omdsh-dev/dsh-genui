@@ -8,104 +8,104 @@ import type { GenuiSpec } from './spec.ts'
 
 /** A single spec covering all 38 node types in the vocabulary. */
 export const gallerySpec: GenuiSpec = {
-  title: 'GenUI · 组件画廊',
+  title: 'GenUI · Component gallery',
   gap: 14,
   items: [
-    { type: 'text', size: 'h1', content: '排版层级' },
-    { type: 'text', size: 'h2', content: '二级标题' },
-    { type: 'text', size: 'h3', content: '三级标题' },
-    { type: 'text', size: 'body', content: '正文：组件白名单渲染，不经过任意 HTML 路径。' },
-    { type: 'text', size: 'muted', content: '弱化文本' },
-    { type: 'text', size: 'caption', content: '说明文字', center: true },
+    { type: 'text', size: 'h1', content: 'Typography scale' },
+    { type: 'text', size: 'h2', content: 'Secondary heading' },
+    { type: 'text', size: 'h3', content: 'Tertiary heading' },
+    { type: 'text', size: 'body', content: 'Body: rendered from the component whitelist, never through arbitrary HTML.' },
+    { type: 'text', size: 'muted', content: 'Muted text' },
+    { type: 'text', size: 'caption', content: 'Caption', center: true },
     { type: 'row', items: [
-      { type: 'badge', label: '成功', tone: 'success' },
-      { type: 'badge', label: '警告', tone: 'warn' },
-      { type: 'badge', label: '危险', tone: 'danger' },
-      { type: 'badge', label: '强调', tone: 'accent', icon: '★' },
+      { type: 'badge', label: 'Success', tone: 'success' },
+      { type: 'badge', label: 'Warning', tone: 'warn' },
+      { type: 'badge', label: 'Danger', tone: 'danger' },
+      { type: 'badge', label: 'Accent', tone: 'accent', icon: '★' },
       { type: 'avatar', name: 'Alice' },
       { type: 'avatar', name: 'Bob', color: '#3d9e8f' },
-      { type: 'link', label: '详情链接' },
+      { type: 'link', label: 'Details link' },
     ], wrap: true },
     { type: 'divider' },
     { type: 'grid', cols: 3, items: [
       { type: 'stat', label: 'CPU', value: '42%', delta: '+3.1%' },
-      { type: 'stat', label: '内存', value: '6.8 GB', delta: '-1.2%' },
-      { type: 'stat', label: '请求数', value: '128.4k' },
+      { type: 'stat', label: 'Memory', value: '6.8 GB', delta: '-1.2%' },
+      { type: 'stat', label: 'Requests', value: '128.4k' },
     ] },
-    { type: 'progress', label: '训练进度', value: 72, valueLabel: '72%' },
-    { type: 'card', title: '性能指标', items: [
-      { type: 'table', columns: ['指标', 'Q1', 'Q2', 'Q3'], rows: [
-        ['延迟', 92, 87, 81], ['吞吐', '1.2k', '1.4k', '1.6k'], ['错误率', '0.3%', '0.2%', '0.1%'],
+    { type: 'progress', label: 'Training progress', value: 72, valueLabel: '72%' },
+    { type: 'card', title: 'Performance metrics', items: [
+      { type: 'table', columns: ['Metric', 'Q1', 'Q2', 'Q3'], rows: [
+        ['Latency', 92, 87, 81], ['Throughput', '1.2k', '1.4k', '1.6k'], ['Error rate', '0.3%', '0.2%', '0.1%'],
       ] },
       { type: 'keyvalue', pairs: [
-        { key: '版本', value: 'v0.1.0' }, { key: '环境', value: 'production' }, { key: '区域', value: 'cn-east' },
+        { key: 'Version', value: 'v0.1.0' }, { key: 'Environment', value: 'production' }, { key: 'Region', value: 'cn-east' },
       ] },
     ] },
     { type: 'list', items: [
-      { title: '标题项', desc: '带描述的列表项' },
-      '纯文本列表项',
-      { title: '另一个标题' },
+      { title: 'Title item', desc: 'List item with a description' },
+      'Plain text list item',
+      { title: 'Another title' },
     ] },
     { type: 'chart', kind: 'bars', data: [
-      { label: '一', value: 10 }, { label: '二', value: 20 }, { label: '三', value: 15 },
+      { label: 'One', value: 10 }, { label: 'Two', value: 20 }, { label: 'Three', value: 15 },
     ] },
     { type: 'chart', kind: 'line', data: [
-      { label: '周一', value: 8 }, { label: '周二', value: 12 }, { label: '周三', value: 9 },
+      { label: 'Mon', value: 8 }, { label: 'Tue', value: 12 }, { label: 'Wed', value: 9 },
     ] },
     { type: 'chart', kind: 'donut', data: [
       { label: 'A', value: 30 }, { label: 'B', value: 70 },
     ] },
     { type: 'chart', data: [], series: [
-      { label: '本月', data: [{ label: 'Q1', value: 3 }, { label: 'Q2', value: 5 }] },
-      { label: '上月', data: [{ label: 'Q1', value: 2 }, { label: 'Q2', value: 4 }] },
+      { label: 'This month', data: [{ label: 'Q1', value: 3 }, { label: 'Q2', value: 5 }] },
+      { label: 'Last month', data: [{ label: 'Q1', value: 2 }, { label: 'Q2', value: 4 }] },
     ] },
     { type: 'tabs', tabs: [
-      { label: '概览', items: [{ type: 'text', content: '标签页一的内容' }] },
-      { label: '明细', items: [{ type: 'list', items: ['明细 A', '明细 B'] }] },
-      { label: '图表', items: [{ type: 'chart', kind: 'donut', data: [{ label: 'X', value: 40 }, { label: 'Y', value: 60 }] }] },
+      { label: 'Overview', items: [{ type: 'text', content: 'Content of tab one' }] },
+      { label: 'Details', items: [{ type: 'list', items: ['Detail A', 'Detail B'] }] },
+      { label: 'Chart', items: [{ type: 'chart', kind: 'donut', data: [{ label: 'X', value: 40 }, { label: 'Y', value: 60 }] }] },
     ] },
     { type: 'col', gap: 8, items: [
-      { type: 'button', label: '主按钮', tone: 'primary' },
-      { type: 'button', label: '危险', tone: 'danger', small: true },
-      { type: 'button', label: '成功', tone: 'success' },
-      { type: 'button', label: '幽灵', tone: 'ghost', icon: '↗' },
+      { type: 'button', label: 'Primary button', tone: 'primary' },
+      { type: 'button', label: 'Danger', tone: 'danger', small: true },
+      { type: 'button', label: 'Success', tone: 'success' },
+      { type: 'button', label: 'Ghost', tone: 'ghost', icon: '↗' },
     ] },
     { type: 'row', items: [
-      { type: 'input', label: '名称', placeholder: '输入…' },
-      { type: 'select', label: '环境', options: ['dev', 'staging', 'production'] },
+      { type: 'input', label: 'Name', placeholder: 'Type…' },
+      { type: 'select', label: 'Environment', options: ['dev', 'staging', 'production'] },
     ], wrap: true },
     { type: 'row', items: [
-      { type: 'checkbox', label: '自动保存', checked: true },
-      { type: 'switch', label: '通知', checked: true },
-      { type: 'radio', label: '主题', options: ['浅色', '深色', '跟随系统'] },
+      { type: 'checkbox', label: 'Auto-save', checked: true },
+      { type: 'switch', label: 'Notifications', checked: true },
+      { type: 'radio', label: 'Theme', options: ['Light', 'Dark', 'System'] },
     ], wrap: true },
-    { type: 'textarea', label: '备注', placeholder: '多行输入…', rows: 3 },
+    { type: 'textarea', label: 'Notes', placeholder: 'Multi-line input…', rows: 3 },
     { type: 'accordion', items: [
-      { title: '第一项', items: [{ type: 'json', value: { ok: true, count: 3 } }] },
-      { title: '第二项', items: [{ type: 'code', lang: 'ts', code: 'export const x = 1' }] },
+      { title: 'First item', items: [{ type: 'json', value: { ok: true, count: 3 } }] },
+      { title: 'Second item', items: [{ type: 'code', lang: 'ts', code: 'export const x = 1' }] },
     ] },
-    { type: 'copy', label: '复制令牌', text: 'sk-1234567890' },
-    { type: 'plot', title: '波动叠加', xMin: -6.28, xMax: 6.28, series: [
+    { type: 'copy', label: 'Copy token', text: 'sk-1234567890' },
+    { type: 'plot', title: 'Wave overlay', xMin: -6.28, xMax: 6.28, series: [
       { expr: 'sin(x)', label: 'sin(x)', color: '#4f8ef7' },
       { expr: '0.8*cos(x)', label: 'cos', color: '#3ecf8e' },
     ] },
-    { type: 'callout', tone: 'info', title: '提示', content: '画廊覆盖全部组件词汇。' },
+    { type: 'callout', tone: 'info', title: 'Tip', content: 'The gallery covers the full component vocabulary.' },
     { type: 'steps', current: 2, steps: [
-      { title: '起草', desc: '写规格' }, { title: '渲染', desc: '画组件' }, { title: '验证', desc: '跑测试' },
+      { title: 'Draft', desc: 'Write spec' }, { title: 'Render', desc: 'Draw components' }, { title: 'Verify', desc: 'Run tests' },
     ] },
     { type: 'diff', diffs: [
       { path: 'a.ts', oldText: 'const x = 1', newText: 'const x = 2' },
     ] },
     { type: 'code', lang: 'json', code: '{"hello": "world"}' },
-    { type: 'mermaid', code: 'graph TD\nA[模型] --> B[渲染器]\nB --> C[组件]' },
-    { type: 'scene3d', title: '几何演示', ambient: 1, meshes: [
+    { type: 'mermaid', code: 'graph TD\nA[Model] --> B[Renderer]\nB --> C[Components]' },
+    { type: 'scene3d', title: 'Geometry demo', ambient: 1, meshes: [
       { shape: 'box', color: '#4f8ef7', position: [-1.4, 0, 0], rotation: [0.5, 0.8, 0] },
       { shape: 'sphere', color: '#3ecf8e', position: [0, 0, 0] },
       { shape: 'cone', color: '#e0a458', position: [1.4, 0, 0] },
     ] },
     { type: 'timeline', items: [
-      { title: '发布 v0.1', desc: '首个可用版本', time: '08-01' },
-      { title: '事件循环', desc: 'action 回流', time: '08-08' },
+      { title: 'Release v0.1', desc: 'First usable version', time: '08-01' },
+      { title: 'Event loop', desc: 'action round-trip', time: '08-08' },
     ] },
     { type: 'file-tree', items: [
       { name: 'src', type: 'dir', children: [
@@ -114,10 +114,10 @@ export const gallerySpec: GenuiSpec = {
       ] },
       { name: 'README.md', type: 'file' },
     ] },
-    { type: 'breadcrumb', items: ['首页', '组件', '画廊'] },
+    { type: 'breadcrumb', items: ['Home', 'Components', 'Gallery'] },
     { type: 'quiz', question: '1 + 1 = ?', id: 'gallery-q1', options: [
-      { label: '1', feedback: '再想想' }, { label: '2', correct: true }, { label: '3' },
-    ], explanation: '二进制里 1+1=10，十进制里是 2。' },
+      { label: '1', feedback: 'Try again' }, { label: '2', correct: true }, { label: '3' },
+    ], explanation: 'In binary, 1+1=10; in decimal it is 2.' },
     { type: 'spacer' },
   ],
 }

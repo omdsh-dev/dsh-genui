@@ -68,13 +68,13 @@ function panelActionSend(ctx: Context, sessionId: SessionId): GenuiPanelInjected
       if (conversation === undefined) return
       const payloadText = Object.keys(payload).length === 0
         ? ''
-        : ` 组件数据: ${JSON.stringify(payload)}`
-      void conversation.send(`[genui-action] ${action}。用户刚刚在面板中触发了动作 "${action}"，请根据组件数据执行相应操作，只输出一个 panel:true 的 dsh-ui 围栏来更新面板，回复文本至多一行 10 字以内的确认（如"已刷新"），不要解释、不要普通围栏。${payloadText}`).catch((err: unknown) => {
+        : ` Component data: ${JSON.stringify(payload)}`
+      void conversation.send(`[genui-action] ${action}. The user just triggered an action in the panel "${action}", act on the component data, and output only a panel:true dsh-ui fence to update the panel, replying with at most one line of confirmation up to 10 characters (e.g."Refreshed"), no explanations, no ordinary fences.${payloadText}`).catch((err: unknown) => {
         // A failed prompt (session gone, agent busy) drops the action; the
         // panel stays interactive — the component is not disabled. Log the
         // failure WITHOUT the action payload or any secret values (the
         // message may contain field content).
-        console.warn(`[genui] 面板动作 "${action}" 发送失败（session ${sessionId}）：`, err instanceof Error ? err.message : String(err))
+        console.warn(`[genui] panel action "${action}" failed to send (session ${sessionId}): `, err instanceof Error ? err.message : String(err))
       })
     },
   }
@@ -87,10 +87,10 @@ function sendPanelInstruction(ctx: Context, sessionId: SessionId, instruction: s
   const scoped = ctx.sessions.scope(sessionId)
   const conversation = scoped?.get('conversation') as IConversation | undefined
   if (conversation === undefined) return
-  void conversation.send(`用户执行了 /panel 并请求：${instruction}。请只输出一个 panel:true 的 dsh-ui 围栏来更新会话面板，内容按请求定制；回复文本至多一行 10 字以内的确认（如"已更新"），不要解释、不要普通围栏。`).catch((err: unknown) => {
+  void conversation.send(`The user ran /panel and requested: ${instruction}. Output only a panel:true dsh-ui fence to update the session panel, customizing the content per the request; reply with at most one line of confirmation up to 10 characters (e.g."Updated"), no explanations, no ordinary fences.`).catch((err: unknown) => {
     // A failed prompt drops the instruction; the default panel stays
     // visible. Log without the instruction text (may contain secrets).
-    console.warn(`[genui] /panel 指令发送失败（session ${sessionId}）：`, err instanceof Error ? err.message : String(err))
+    console.warn(`[genui] /panel command failed to send (session ${sessionId}): `, err instanceof Error ? err.message : String(err))
   })
 }
 
@@ -105,8 +105,8 @@ function sendInlineGenuiAction(ctx: Context, sessionId: SessionId, action: strin
   if (conversation === undefined) return
   const payloadText = Object.keys(payload).length === 0
     ? ''
-    : ` 组件数据: ${JSON.stringify(payload)}`
-  void conversation.send(`[genui-action] ${action}。用户刚刚在界面中触发了动作 "${action}"，请根据组件数据执行相应操作，并用 dsh-ui 输出更新后的界面。${payloadText}`).catch(() => {
+    : ` Component data: ${JSON.stringify(payload)}`
+  void conversation.send(`[genui-action] ${action}. The user just triggered an action in the interface "${action}", act on the component data and output the updated interface using dsh-ui.${payloadText}`).catch(() => {
     // A failed prompt (session gone, agent busy) drops the action;
     // the UI stays interactive — the component is not disabled.
   })
@@ -122,7 +122,7 @@ export function apply(ctx: Context): () => void {
   const registerFn = (primitives as unknown as HostFenceExt).registerFenceRenderer
   const disposers: Array<() => void> = typeof registerFn === 'function'
     ? [registerFn('dsh-ui', renderGenuiFence)]
-    : (console.info('[genui] fence-registry 扩展点不存在（原版 DSH）——启用 DOM 渲染通道'),
+    : (console.info('[genui] fence-registry extension point missing (vanilla DSH) — enabling the DOM render channel'),
       [installDomFenceRenderer(ctx, (sessionId, action, payload) => sendInlineGenuiAction(ctx, sessionId, action, payload))])
   // Idle prefetch of the lazy engine assets: the browser downloads them at
   // LOW priority whenever the page is idle, so the first mermaid/3D node in

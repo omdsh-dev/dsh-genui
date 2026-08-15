@@ -57,7 +57,7 @@ export function ClickFeedbackButton({ className, disabled, onClick, children }: 
       }}
     >
       {children}
-      {sent && <span className={css.btnSent}>✓ 已触发</span>}
+      {sent && <span className={css.btnSent}>✓ Triggered</span>}
     </button>
   )
 }

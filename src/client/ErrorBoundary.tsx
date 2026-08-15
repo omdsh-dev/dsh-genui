@@ -57,7 +57,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return (
       <div style={fallbackStyle} role="alert" data-genui-error>
         <span style={{ fontWeight: 600 }}>
-          ⚠️ {this.props.label ?? '此界面'}渲染失败（已隔离，不影响其他内容）
+          ⚠️ {this.props.label ?? 'this widget'} render failed (isolated; other content unaffected)
         </span>
         <span style={{ opacity: 0.75, overflowWrap: 'anywhere' }}>{error.message}</span>
       </div>

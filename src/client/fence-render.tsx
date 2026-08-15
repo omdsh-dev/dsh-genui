@@ -82,7 +82,7 @@ function FenceFallback({ raw, fenceKey }: { raw: string; fenceKey: Key }) {
     <div ref={ref}>
       {diagnostic !== null && (
         <div style={FENCE_ERROR_STYLE} role="alert">
-          ⚠️ dsh-ui fence JSON 解析失败{diagnostic} —— 围栏保持为代码块；请让模型检查并修复 JSON 后重发。
+          ⚠️ dsh-ui fence JSON parse failed{diagnostic} — the fence stays a code block; ask the model to check and fix the JSON, then resend.
         </div>
       )}
       <CodeBlock key={fenceKey} code={`${raw}\n`} lang="dsh-ui" />
@@ -154,7 +154,7 @@ function renderInlineFence(key: Key, context: GenuiFenceContext | undefined, spe
     // Repaired specs render SILENTLY: once the UI renders, no amber note
     // tells the user something was wrong — only an unrecoverable body keeps
     // the red diagnostic.
-    <ErrorBoundary key={context?.source?.id ?? key} label="该界面">
+    <ErrorBoundary key={context?.source?.id ?? key} label="this widget">
       <GenuiBlock
         spec={spec}
         // v2.7 durable state: session + stable source + content fingerprint —

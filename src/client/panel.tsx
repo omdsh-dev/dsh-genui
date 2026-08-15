@@ -136,7 +136,7 @@ export function GenuiPanel({ sessionId, sendGenuiAction }: GenuiPanelProps) {
         <div
           role="separator"
           aria-orientation="horizontal"
-          aria-label="调整面板高度"
+          aria-label="Adjust panel height"
           className={`${css.panelResizeHandle}${resizing ? ` ${css.panelResizeHandleActive}` : ''}`}
           onPointerDown={startResize}
         />
@@ -148,8 +148,8 @@ export function GenuiPanel({ sessionId, sendGenuiAction }: GenuiPanelProps) {
           aria-expanded={!collapsed}
           onClick={() => setCollapsed(c => !c)}
         >
-          <span className={css.panelBadge}>面板</span>
-          <span className={css.panelTitle}>{spec.title ?? 'GenUI 面板'}</span>
+          <span className={css.panelBadge}>Panel</span>
+          <span className={css.panelTitle}>{spec.title ?? 'GenUI panel'}</span>
           <span className={css.panelChevron} aria-hidden>{collapsed ? '▸' : '▾'}</span>
         </button>
       </div>
@@ -161,7 +161,7 @@ export function GenuiPanel({ sessionId, sendGenuiAction }: GenuiPanelProps) {
           style={bodyHeight === null ? undefined : { height: bodyHeight }}
         >
           <GenuiActionContext.Provider value={sendGenuiAction}>
-            <ErrorBoundary label="面板">
+            <ErrorBoundary label="Panel">
               {/* content-fingerprinted: same panel spec re-published restores its state */}
               <GenuiBlock spec={spec} stateKey={panelStateKey(sessionId, JSON.stringify(spec))} />
             </ErrorBoundary>

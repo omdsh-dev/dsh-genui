@@ -144,7 +144,7 @@ function countNodes(spec: GenuiSpec): number {
 /** Tool-call title shared by the pending and completed presentations. */
 function cardTitle(args: unknown): string | undefined {
   const spec = repairGenuiSpec(specOf(args))
-  return spec === null ? undefined : `渲染 UI：${spec.title ?? '未命名'}`
+  return spec === null ? undefined : `Render UI: ${spec.title ?? 'Untitled'}`
 }
 
 /**
@@ -174,10 +174,10 @@ export function createRenderUiTool(): ToolDefinition {
     async execute(args: unknown): Promise<JsonValue> {
       const spec = repairGenuiSpec(specOf(args))
       if (spec === null) {
-        return 'render_ui：spec 无效 —— 根对象需要 "items" 数组（组件树白名单见系统提示词），请修正后重试。'
+        return 'render_ui: invalid spec — the root object needs an "items" array (component whitelist is in the system prompt); fix it and retry.'
       }
-      const title = spec.title ?? '未命名'
-      return `已渲染 UI「${title}」（${countNodes(spec)} 个组件）。用户现在可以看到这张卡片；组件带 action 时，用户交互会以 [genui-action] 消息发回给你，届时请重新渲染更新后的界面。`
+      const title = spec.title ?? 'Untitled'
+      return `Rendered UI "${title}" (${countNodes(spec)} components). The user can now see this card; when a component carries an action, user interactions come back to you as [genui-action] messages — re-render the updated interface then.`
     },
     presentCall(args: unknown): GenericCallView | undefined {
       const title = cardTitle(args)
@@ -265,17 +265,17 @@ function bracketDiagnostic(raw: string): string {
   const diffs: string[] = []
   if (c['{'] !== c['}']) {
     const d = c['{'] - c['}']
-    diffs.push(`{ ×${c['{']} / } ×${c['}']} → ${d > 0 ? `缺 ${d} 个 }` : `多 ${-d} 个 }`}`)
+    diffs.push(`{ ×${c['{']} / } ×${c['}']} → ${d > 0 ? `missing ${d} closing brace` : `extra ${-d} closing brace`}`)
   }
   if (c['['] !== c[']']) {
     const d = c['['] - c[']']
-    diffs.push(`[ ×${c['[']} / ] ×${c[']']} → ${d > 0 ? `缺 ${d} 个 ]` : `多 ${-d} 个 ]`}`)
+    diffs.push(`[ ×${c['[']} / ] ×${c[']']} → ${d > 0 ? `missing ${d} closing bracket` : `extra ${-d} closing bracket`}`)
   }
-  return diffs.length === 0 ? '' : `  括号计数：${diffs.join('；')}（长表格最易在收尾处错位，如把 ]]}]} 写成 ]}]}]}）\n`
+  return diffs.length === 0 ? '' : `  bracket count: ${diffs.join('; ')} (long tables most often misalign at the tail, e.g. ]]}]} written as ]}]}]})\n`
 }
 
 const COMMON_CAUSES =
-  '常见原因：① 收尾括号错位/缺失（{ 与 }、[ 与 ] 数量不相等）② 字符串值内用了半角引号 "（中文引语请用 “” 或 「」）③ 尾随逗号 ④ 字符串未闭合'
+  'Common causes: ① closing brackets misaligned or missing ({ vs } / [ vs ] counts differ) ② half-width quotes " inside string values ③ trailing commas ④ unterminated strings'
 
 /** Build the validate_dsh_ui tool definition (registered alongside render_ui). */
 export function createValidateDshUiTool(): ToolDefinition {
@@ -292,7 +292,7 @@ export function createValidateDshUiTool(): ToolDefinition {
     async execute(args: unknown): Promise<JsonValue> {
       const raw = fenceTextOf(args)
       if (raw === null || raw.trim() === '') {
-        return '❌ validate_dsh_ui：缺少 spec 参数 —— 把围栏 JSON 文本作为 spec 传入。'
+        return '❌ validate_dsh_ui: missing spec argument — pass the fence JSON text as spec.'
       }
       let parsed: unknown
       try {
@@ -305,21 +305,21 @@ export function createValidateDshUiTool(): ToolDefinition {
         // the whole fence by hand is where the next typo comes from.
         const repaired = completeFenceJson(raw)
         if (repaired !== null && repairGenuiSpec(JSON.parse(repaired.text) as unknown) !== null) {
-          return `❌ dsh-ui 围栏 JSON 解析失败：${detail}。\n${bracketDiagnostic(raw)}  已自动修复 ${repaired.repairs} 处，下面是修复后的 JSON，直接作为围栏正文发出即可（无需再验证）：\n\`\`\`\n${repaired.text}\n\`\`\``
+          return `❌ dsh-ui fence JSON parse failed: ${detail}.\n${bracketDiagnostic(raw)}  Auto-repaired ${repaired.repairs} spot(s); below is the repaired JSON — emit it directly as the fence body (no need to re-validate):\n\`\`\`\n${repaired.text}\n\`\`\``
         }
-        return `❌ dsh-ui 围栏 JSON 解析失败：${detail}。\n${bracketDiagnostic(raw)}  自动修复未能恢复（结构损坏），请按错误信息修正后重新调用本工具验证，通过后再发出围栏。\n${COMMON_CAUSES}`
+        return `❌ dsh-ui fence JSON parse failed: ${detail}.\n${bracketDiagnostic(raw)}  Auto-repair could not recover (structure corrupted); fix per the error message and re-run this tool to validate before emitting the fence.\n${COMMON_CAUSES}`
       }
       const spec = repairGenuiSpec(parsed)
       if (spec === null) {
-        return '❌ 不是合法 GenUI spec：根对象需要 "items" 数组，且每个节点 type 必须在白名单内（见系统提示词）。请修正后重新验证。'
+        return '❌ Not a valid GenUI spec: the root object needs an "items" array, and every node type must be on the whitelist (see the system prompt). Fix it and re-validate.'
       }
-      return `✅ dsh-ui spec 合法（${countNodes(spec)} 个组件），可以发出围栏。`
+      return `✅ dsh-ui spec valid (${countNodes(spec)} components) — you can emit the fence.`
     },
     presentCall(): GenericCallView | undefined {
-      return { card: 'generic', title: '验证 dsh-ui 围栏', kind: 'other' }
+      return { card: 'generic', title: 'Validate dsh-ui fence', kind: 'other' }
     },
     presentResult(): GenericResultView | undefined {
-      return { card: 'generic', title: '验证 dsh-ui 围栏' }
+      return { card: 'generic', title: 'Validate dsh-ui fence' }
     },
   }
 }

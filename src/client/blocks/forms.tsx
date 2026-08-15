@@ -130,7 +130,7 @@ export function SubmitNode({ node, onAction, answers }: {
       <div className={css.gradeWrap} data-genui-grade>
         <div className={css.gradeScore}>
           <span className={css.gradeScoreValue}>{score} / {graded.length}</span>
-          <span className={css.gradeScoreLabel}>得分{graded.length < scope.length ? `（${scope.length - graded.length} 题无答案未计分）` : ''}</span>
+          <span className={css.gradeScoreLabel}>Score{graded.length < scope.length ? ` (${scope.length - graded.length} unanswered questions not scored)` : ''}</span>
         </div>
         <div className={css.gradeList}>
           {scope.map(g => {
@@ -142,7 +142,7 @@ export function SubmitNode({ node, onAction, answers }: {
               return (
                 <div key={g} className={css.gradeItem}>
                   <span className={css.gradeQ}>{m.label}</span>
-                  <span className={css.gradeAns}>你的答案：{entry}</span>
+                  <span className={css.gradeAns}>Your answer: {entry}</span>
                 </div>
               )
             }
@@ -152,8 +152,8 @@ export function SubmitNode({ node, onAction, answers }: {
                 <span className={css.gradeQ}>{m.label}</span>
                 <span className={css.gradeTag}>{isCorrect ? '✓' : '✗'}</span>
                 <span className={css.gradeAns}>
-                  你的答案：{entry}
-                  {!isCorrect && <span className={css.gradeRight}> 正确答案：{correct}</span>}
+                  Your answer: {entry}
+                  {!isCorrect && <span className={css.gradeRight}> Correct answer: {correct}</span>}
                 </span>
                 {m.explanation !== undefined && <span className={css.gradeExp}>{m.explanation}</span>}
               </div>
@@ -170,7 +170,7 @@ export function SubmitNode({ node, onAction, answers }: {
             }
           }}
         >
-          重新作答
+          Retake
         </button>
       </div>
     )
@@ -201,7 +201,7 @@ export function SubmitNode({ node, onAction, answers }: {
       >
         {node.label}
       </button>
-      {total > 0 && <span className={css.submitHint} aria-live="polite">已选 {answered}/{total}</span>}
+      {total > 0 && <span className={css.submitHint} aria-live="polite">Selected {answered}/{total}</span>}
     </div>
   )
 }
@@ -373,7 +373,7 @@ export function SelectNode({ node, onAction, answers }: {
           send(v)
         }}
       >
-        {value === null && <option value="" hidden disabled>请选择…</option>}
+        {value === null && <option value="" hidden disabled>Select…</option>}
         {options.map((o, i) => <option key={i} value={o}>{o}</option>)}
       </select>
     </label>

@@ -340,13 +340,13 @@ export const PlotBlock = memo(function PlotBlock({
         </svg>
       ) : (
         <div className={css.empty}>
-          {series.map((s, i) => <div key={i} className={css.emptyRow}>{s.expr} — 无法绘制（表达式无效或范围非法）</div>)}
+          {series.map((s, i) => <div key={i} className={css.emptyRow}>{s.expr} — cannot plot (invalid expression or invalid range)</div>)}
         </div>
       )}
       {hasParams && (
         <div className={css.sliders}>
           <div className={css.slidersHead}>
-            <span className={css.slidersTitle}>参数调节</span>
+            <span className={css.slidersTitle}>Parameters</span>
             <button
               type="button"
               className={css.resetBtn}
@@ -362,7 +362,7 @@ export const PlotBlock = memo(function PlotBlock({
                 setAnimProgress(0)
               }}
             >
-              ↺ 重置
+              ↺ Reset
             </button>
           </div>
           {series.map((s, si) => (s.params ?? []).map(p => {
@@ -407,7 +407,7 @@ export const PlotBlock = memo(function PlotBlock({
               }
             }}
           >
-            {playing ? '⏸ 暂停' : '▶ 播放动画'}
+            {playing ? '⏸ Pause' : '▶ Play animation'}
           </button>
           {playing && (
             <div className={css.animTrack}>

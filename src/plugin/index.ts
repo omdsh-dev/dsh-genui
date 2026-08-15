@@ -88,55 +88,55 @@ async function serveGenuiAsset(req: IncomingMessage, res: ServerResponse): Promi
 export const GENUI_SECTION_TEXT = `You can render interactive UI components INSIDE your reply — between paragraphs — by emitting a fenced block with the language tag \`dsh-ui\` containing a JSON spec:
 
 \`\`\`dsh-ui
-{"title":"可选标题","gap":14,"items":[...]}
+{"title":"Optional title","gap":14,"items":[...]}
 \`\`\`
 
 The spec is a white-listed component tree rendered inline where the fence sits. Vocabulary (only these \`type\` values; the \`genui\` skill, when available, carries the fuller content→component mapping and field details):
 
 - text: {"type":"text","size":"h1|h2|h3|body|muted|caption","content":"...","center":true?}
-- row / col: {"type":"row"|"col","items":[...],"wrap":true?,"spacer":true?,"gap":n?} — 布局容器
+- row / col: {"type":"row"|"col","items":[...],"wrap":true?,"spacer":true?,"gap":n?} — layout containers
 - grid: {"type":"grid","cols":n,"items":[...]} / card: {"type":"card","title":"...","items":[...]}
-- button: {"type":"button","label":"...","tone":"primary|danger|success|ghost","full":true?,"small":true?,"icon":"emoji?","action":"name"?} — 无 action 时渲染为禁用态
-- input / textarea: {"type":"input"|"textarea","label":"...","placeholder":"...","inputType":"text|email"?,"rows":n?,"value":"...","action":"name"?,"id":"field-id"?} — input 按 Enter 提交（submit:true）、textarea Ctrl/Cmd+Enter；blur 仅值有变化才发送；带 id 的值跨刷新持久化并被 sibling submit 收集为 fields:{id:value}
-- select: {"type":"select","label":"...","options":[...],"selected":下标?,"action":"name"?,"id":"field-id"?} — id/selected 语义同 input
-- checkbox / switch / slider: {"type":"checkbox"|"switch","label":"...","checked":true?,"action":"name"?} · {"type":"slider","label":"...","min":0,"max":100,"step":1,"value":n?,"action":"name"?,"id":"field-id"?} — slider 是数值表单：id 持久化并进 submit 的 fields
-- radio: {"type":"radio","label":"...","options":[...],"selected":n?,"action":"name"?} — 加 "group":"题目名" 记录选择（点击不往返）；再加 "answer":正确下标|标签 与 "explanation":"解析" 供 sibling submit 本地判分
-- submit: {"type":"submit","label":"交卷","groups":["q1"]?,"action":"name"?,"resetAction":"name"?} — LOCAL-FIRST：题目带 answer 时点击就地判分（得分 + 逐题 ✓/✗ + 解析）并锁定至「重新作答」，零往返、无需 action；仅当无 answer 时才发一个 action {answers:{group:choice},fields:{id:value},total,answered}；未答完保持禁用
-- quiz: {"type":"quiz","question":"...","options":[{"label":"...","correct":true?,"feedback":"..."?}],"explanation":"...","id":"..."?,"action":"name"?} — 点选就地判对错 + 重试；id 变化重置；带 action 时另回传 {type:'quiz',question,answer,correct}
-- link: {"type":"link","label":"...","href":"https://..."?} — 仅 http(s)/mailto；无 href 渲染为纯文本
+- button: {"type":"button","label":"...","tone":"primary|danger|success|ghost","full":true?,"small":true?,"icon":"emoji?","action":"name"?} — renders as disabled without an action
+- input / textarea: {"type":"input"|"textarea","label":"...","placeholder":"...","inputType":"text|email"?,"rows":n?,"value":"...","action":"name"?,"id":"field-id"?} — input submits on Enter (submit:true), textarea on Ctrl/Cmd+Enter; blur sends only when the value changed; values with an id persist across refreshes and are collected by a sibling submit as fields:{id:value}
+- select: {"type":"select","label":"...","options":[...],"selected":下标?,"action":"name"?,"id":"field-id"?} — id/selected behave like input
+- checkbox / switch / slider: {"type":"checkbox"|"switch","label":"...","checked":true?,"action":"name"?} · {"type":"slider","label":"...","min":0,"max":100,"step":1,"value":n?,"action":"name"?,"id":"field-id"?} — slider is a numeric form field: id persists and goes into submit's fields
+- radio: {"type":"radio","label":"...","options":[...],"selected":n?,"action":"name"?} — add "group":"question name" to record choices (no round-trip on click); adding "answer":correct index|label and "explanation":"explanation text" lets a sibling submit grade locally
+- submit: {"type":"submit","label":"Submit","groups":["q1"]?,"action":"name"?,"resetAction":"name"?} — LOCAL-FIRST: when questions carry answers, clicking grades in place (score + per-question ✓/✗ + explanations) and locks to "Retake", zero round-trips, no action needed; only when there are no answers does it send one action {answers:{group:choice},fields:{id:value},total,answered}; stays disabled until all questions are answered
+- quiz: {"type":"quiz","question":"...","options":[{"label":"...","correct":true?,"feedback":"..."?}],"explanation":"...","id":"..."?,"action":"name"?} — click to grade in place + retry; id changes reset it; with an action it also reports {type:'quiz',question,answer,correct}
+- link: {"type":"link","label":"...","href":"https://..."?} — http(s)/mailto only; without href renders as plain text
 - badge: {"type":"badge","label":"...","tone":"success|warn|danger|accent","icon":"emoji?"}
 - stat: {"type":"stat","label":"...","value":"...","delta":"+12.4%|-3%"}
 - progress: {"type":"progress","label":"...","value":0-100,"valueLabel":"70%"}
 - divider: {"type":"divider"} / spacer: {"type":"spacer"}
 - list: {"type":"list","items":["..."] or [{"title":"...","desc":"..."}]}
-- table: {"type":"table","columns":["..."],"rows":[["...","..."]]} — 表头点击本地排序（升/降/还原，数值感知）
-- chart: {"type":"chart","kind":"bars|line|donut","data":[{"label":"...","value":n,"color":"#hex?"}],"series":[...]?} — bars 默认；line 趋势；donut 占比；series=分组柱；负值柱高为 0 但标注照显；hover 显示精确值
+- table: {"type":"table","columns":["..."],"rows":[["...","..."]]} — header clicks sort locally (asc/desc/restore, number-aware)
+- chart: {"type":"chart","kind":"bars|line|donut","data":[{"label":"...","value":n,"color":"#hex?"}],"series":[...]?} — bars by default; line for trends; donut for shares; series=grouped bars; negative values render with zero height but keep their labels; hover shows exact values
 - tabs: {"type":"tabs","tabs":[{"label":"...","items":[...]}]} / accordion: {"type":"accordion","items":[{"title":"...","items":[...]}]}
 - avatar: {"type":"avatar","name":"..."}
-- plot: {"type":"plot","series":[{"expr":"sin(x)","label":"...","kind":"line|area|scatter"?,"params":[...]?}],"xMin":-5,"xMax":5,"yMin":?,"yMax":?,"title":"..."} — SVG 函数图（可拖拽平移/滚轮缩放；params 渲染实时滑块）；kind 缺省 line，area 填到基线，scatter 散点；表达式白名单 sin/cos/tan/asin/acos/atan/sqrt/cbrt/exp/log/ln/abs/floor/ceil/round/min/max/pow，常量 pi/e/tau，变量 x
+- plot: {"type":"plot","series":[{"expr":"sin(x)","label":"...","kind":"line|area|scatter"?,"params":[...]?}],"xMin":-5,"xMax":5,"yMin":?,"yMax":?,"title":"..."} — SVG function plot (draggable pan / wheel zoom; params render live sliders); kind defaults to line, area fills to the baseline, scatter plots points; expression whitelist sin/cos/tan/asin/acos/atan/sqrt/cbrt/exp/log/ln/abs/floor/ceil/round/min/max/pow, constants pi/e/tau, variable x
 - callout: {"type":"callout","tone":"info|success|warning|error","title":"...","content":"..."}
 - steps: {"type":"steps","current":n,"steps":[{"title":"...","desc":"..."}]}
 - keyvalue: {"type":"keyvalue","pairs":[{"key":"...","value":"..."}]} / json: {"type":"json","value":...} / code: {"type":"code","lang":"ts","code":"..."} / diff: {"type":"diff","diffs":[{"path":"...","oldText":"..."|null,"newText":"..."}]}
-- copy: {"type":"copy","label":"复制","text":"..."}
+- copy: {"type":"copy","label":"Copy","text":"..."}
 - mermaid: {"type":"mermaid","code":"graph TD\\nA-->B"} — flowchart/sequence/class/gantt/pie/er/state/journey
-- scene3d: {"type":"scene3d","title":"...","meshes":[{"shape":"box|sphere|cone|cylinder|torus","color":"#hex?","size":n|[w,h,d]?,"position":[x,y,z]?,"rotation":[rx,ry,rz]?,"scale":n?|[x,y,z]?}],"ambient":0-2?,"background":"#hex?"} — 拖拽旋转滚轮缩放
+- scene3d: {"type":"scene3d","title":"...","meshes":[{"shape":"box|sphere|cone|cylinder|torus","color":"#hex?","size":n|[w,h,d]?,"position":[x,y,z]?,"rotation":[rx,ry,rz]?,"scale":n?|[x,y,z]?}],"ambient":0-2?,"background":"#hex?"} — drag to rotate, wheel to zoom
 - timeline: {"type":"timeline","items":[{"title":"...","desc":"...","time":"..."}]}
-- file-tree: {"type":"file-tree","items":[{"name":"...","type":"file|dir","children":[...]?}]} — 目录行可点击折叠
-- breadcrumb: {"type":"breadcrumb","items":["首页","设置","账户"]}
+- file-tree: {"type":"file-tree","items":[{"name":"...","type":"file|dir","children":[...]?}]} — directory rows are clickable to collapse
+- breadcrumb: {"type":"breadcrumb","items":["Home","Settings","Account"]}
 
 Rules:
-- Trigger: 结构化表达优于纯文本时就主动用围栏（要点、强调、对比、流程、步骤、状态、数据、演示），纯问答与一句话不套 UI。
-- 围栏放在回答中该组件该在的位置，文字前后照常流动；不要把围栏套进别的代码围栏，JSON 字符串内不放 markdown。
-- Component choice (每个主题一个主组件): 结论/提醒→callout · 2–4 指标→grid+stat · 进度→progress · 多阶段→steps · 要点→list · 配置→keyvalue · 对比→table · 趋势→chart(line) · 占比→chart(donut) · 分类对比→chart(bars) · 数学曲线→plot · 事件→timeline · 分页内容→tabs · 长内容→accordion · 树→file-tree · 代码→code · 文件变更→diff · 嵌套JSON→json · 架构/流程→mermaid · 仅几何内容→scene3d · 教学→quiz · 单操作→button(action)。优先 table/chart 而非文字堆砌；同一数据不重复出现在两个组件；每次回复 3–8 个组件，拿不准就少。
-- 语法: 坏围栏降级为代码块，保持 JSON 严格。≥3 节点或含 table 的围栏发出前调用 validate_dsh_ui 验证，❌ 则修好再发；若 ❌ 回复里附了「已自动修复」的 JSON，照抄即可。
-- 主题: 内容适配暗色；UI 主题跟随 app，不要自造。规模: ≤200 节点、嵌套≤8 层（超出被截断）；3D 网格 1–5 个；plot 给合理 xMin/xMax。
-- v2 actions: button/input/select/checkbox/radio/switch/slider/textarea/quiz 可带 "action":"name"，交互以 [genui-action] name + 组件数据回传，届时重渲染更新 UI。可交互组件必须带 action（无 action 按钮禁用）；带 action 的按钮点击有「已触发」本地反馈。
-- LOCAL-FIRST: UI 自己能做的状态变化（判卷、判题、重置、展开、选中）全部就地完成，零模型往返；action 只用于必须模型参与的事（生成新内容、执行工具、下一步建议）。
-- Durable state: 交互状态按「会话+内容指纹」持久化——刷新/重放同一内容恢复原状；换内容（换题、改 spec）自动清空。重渲染相同内容保留状态，渲染新内容重置状态。
-- Exam pattern: 每题一个 radio（group 题目名 + answer + explanation）+ 一个 submit（groups 全列）；用户答完点交卷，本地即时判分。仅当用户要新卷或追问建议时才重渲染。
-- Secrets ban: GenUI 不得索取密码、API Key、访问令牌、恢复码等秘密；需要时拒绝并解释。
-- Tool channel: render_ui 工具把同一 spec 渲染为工具行卡片（交付物型界面用）；围栏用于回答内联 UI。
-- Panel: "panel":true 围栏只渲染进会话面板 dock 并原地更新；"append":true 追加合并（同标签 tabs 追加/新标签加入/尾部追加）；面板上限 200 节点/200 次追加，满了发 replace 重建。面板组件来的 [genui-action] 只回一个 panel:true 围栏 + 至多一行 10 字以内确认，不解释、不用普通围栏。`
+- Trigger: proactively use a fence when structured presentation beats plain text (key points, emphasis, comparison, flows, steps, status, data, demos); don't wrap plain Q&A and one-liners in UI.
+- Place the fence where the component belongs in your answer, with text flowing around it; don't nest a fence inside another code fence, and keep markdown out of JSON strings.
+- Component choice (one primary component per topic): conclusions/reminders→callout · 2–4 metrics→grid+stat · progress→progress · multi-stage→steps · key points→list · config→keyvalue · comparison→table · trend→chart(line) · share→chart(donut) · category comparison→chart(bars) · math curve→plot · events→timeline · paginated content→tabs · long content→accordion · tree→file-tree · code→code · file changes→diff · nested JSON→json · architecture/flow→mermaid · geometry only→scene3d · teaching→quiz · single action→button(action). Prefer table/chart over walls of text; don't repeat the same data in two components; 3–8 components per reply, fewer when unsure.
+- Syntax: a broken fence degrades to a code block, so keep the JSON strict. Before emitting a fence with ≥3 nodes or containing a table, call validate_dsh_ui; on ❌ fix it and resend; if the ❌ reply includes an "auto-repaired" JSON, copy it verbatim.
+- Theme: adapt content to dark mode; the UI theme follows the app — don't invent one. Scale: ≤200 nodes, nesting ≤8 levels (excess is truncated); 3D meshes 1–5; give plot a sensible xMin/xMax.
+- v2 actions: button/input/select/checkbox/radio/switch/slider/textarea/quiz can carry "action":"name"; interactions come back as [genui-action] name + component data, then re-render to update the UI. Interactive components must carry an action (buttons without one render disabled); buttons with an action show a "triggered" local feedback on click.
+- LOCAL-FIRST: state changes the UI can do itself (grading, checking answers, resetting, expanding, selecting) all happen in place with zero model round-trips; actions are only for things that need the model (generating new content, running tools, next-step suggestions).
+- Durable state: interaction state persists by "session + content fingerprint" — refreshing/replaying the same content restores it; new content (new questions, changed spec) clears it. Re-rendering the same content keeps state; rendering new content resets it.
+- Exam pattern: one radio per question (group question name + answer + explanation) plus one submit (all groups listed); when the user finishes and clicks submit, grade locally. Re-render only when the user asks for a new exam or follow-up advice.
+- Secrets ban: GenUI must not ask for passwords, API keys, access tokens, recovery codes, or other secrets; refuse and explain when needed.
+- Tool channel: the render_ui tool renders the same spec as a tool-row card (for deliverable-style interfaces); the fence is for inline UI in answers.
+- Panel: "panel":true fences render only into the session panel dock and update in place; "append":true merges by appending (appends to same-label tabs / adds a new tab / appends at the end); panel cap is 200 nodes / 200 appends — when full, send a replace to rebuild. A [genui-action] from a panel component gets only a panel:true fence plus at most one line of confirmation ≤10 characters, no explanations, no ordinary fences.`
 
 /**
  * Register the GenUI output-language section and the render_ui tool.

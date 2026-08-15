@@ -242,7 +242,7 @@ export function DonutNode({ chart }: { chart: GenuiChart }) {
           return el
         })}
         <text x="60" y="58" textAnchor="middle" className={css.donutTotal}>{total >= 1000 ? `${Math.round(total / 100) / 10}k` : String(total)}</text>
-        <text x="60" y="74" textAnchor="middle" className={css.donutTotalLabel}>合计</text>
+        <text x="60" y="74" textAnchor="middle" className={css.donutTotalLabel}>Total</text>
       </svg>
       <div className={css.donutLegend}>
         {data.map((d, i) => (

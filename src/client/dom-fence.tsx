@@ -188,7 +188,7 @@ function findFenceCandidates(scope: ParentNode = document): HTMLElement[] {
     // renderer install so future drift is never silent again.
     if (!driftWarned) {
       driftWarned = true
-      console.warn('[dsh-genui] 围栏表面类名未被已知选择器命中（宿主 DOM 漂移），已按 label+pre 结构识别 dsh-ui 围栏')
+      console.warn('[dsh-genui] fence surface class name did not match any known selector (host DOM drift); recognized the dsh-ui fence by its label+pre structure')
     }
     out.push(surface)
     seen.add(surface)

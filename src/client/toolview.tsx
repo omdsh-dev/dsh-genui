@@ -57,7 +57,7 @@ export function GenuiToolView({ toolName, block, sessionId }: ToolCallViewProps)
   }
   return (
     <div className={css.tool} data-genui-tool>
-      <ErrorBoundary label="工具卡片">
+      <ErrorBoundary label="Tool card">
         {/* callId is stable across replay → tool-card interaction state is durable */}
         <GenuiBlock spec={spec} stateKey={toolStateKey(sessionId, block.callId)} />
       </ErrorBoundary>

@@ -36,7 +36,7 @@ export function describeJsonFailure(raw: string): string | null {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     const pos = msg.match(/position (\d+)/i)
-    const where = pos !== null ? `（字符 ${pos[1]} 附近）` : ''
+    const where = pos !== null ? ` (near character ${pos[1]})` : ''
     return `${where}${msg.slice(0, 140)}`
   }
 }

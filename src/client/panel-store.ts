@@ -324,7 +324,7 @@ function diagnosePanelBlocked(sessionId: string, op: PanelOperation, state: Sess
   if (diagnosedBlocked.has(key)) return
   diagnosedBlocked.add(key)
   console.warn(
-    `[genui] 面板操作被重放屏障拒绝（source ${op.sourceId}，order[0]=${op.order[0]} ≤ replayBarrier ${state.replayBarrier} / localBarrier ${state.localBarrier}）。历史消息重放被拒是预期行为；若是刚发送的新消息，说明消息序号推导异常，请报告。`,
+    `[genui] panel action rejected by the replay barrier (source ${op.sourceId}, order[0]=${op.order[0]} ≤ replayBarrier ${state.replayBarrier} / localBarrier ${state.localBarrier}）。历史消息重放被拒是预期行为；若是刚发送的新消息，说明消息序号推导异常，请报告。`,
   )
 }
 
@@ -361,7 +361,7 @@ export function diagnosePanelBudget(sessionId: string, sourceId: string): void {
   if (diagnosedOverflow.has(key)) return
   diagnosedOverflow.add(key)
   console.warn(
-    `[genui] 面板已到节点/操作上限（${limits.maxNodes} 节点、${limits.maxAppends} 条追加），本次 append 被拒绝；请让模型发送 replace 更新面板。`,
+    `[genui] the panel reached its node/append limit (${limits.maxNodes} nodes, ${limits.maxAppends} appends); this append was rejected — have the model send a replace update instead.`,
   )
 }
 
