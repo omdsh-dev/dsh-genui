@@ -164,11 +164,20 @@ export function apply(ctx: Context): () => void {
 }
 
 // Browser services the client entry needs: the slots registry (toolview +
-// dock), sessions (scoped conversation send behind actions), and
-// inputTriggers (the /panel command source). This declaration is what the
-// host's fiber inject waiting uses — without it apply() runs before the
-// services bind and the whole plugin tree fails the boot sweep.
-export const inject = ['slots', 'sessions', 'inputTriggers']
+// dock) and sessions (scoped conversation send behind actions). This
+// declaration is what the host's fiber inject waiting uses — without it
+// apply() runs before the services bind and the whole plugin tree fails the
+// boot sweep.
+//
+// inputTriggers (the /panel command source) is deliberately NOT declared:
+// cordis `inject` is a hard activation gate — a declared service that is
+// never provided (pristine DSH shells ship no inputTriggers provider) parks
+// the fiber in waiting forever and apply() never runs, silently killing all
+// GenUI rendering. The apply() body already treats it as optional via
+// ctx.get('inputTriggers') and falls back to disabling only the /panel
+// command, so the optional-lookup pattern (the same one dsh-vision-toolkit
+// uses for `slash`/`inputTriggers`) is correct here.
+export const inject = ['slots', 'sessions']
 
 // Re-export the registry renderer for the test suite (setup.ts registers it
 // exactly like apply() does on contract hosts).

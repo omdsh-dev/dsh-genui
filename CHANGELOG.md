@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+### 修复
+- **原版 DSH（0.1.0-rc.6）壳上 dsh-ui 围栏全部静默不渲染**：client 入口硬注入声明 `inject: ['slots','sessions','inputTriggers']` 把 `inputTriggers` 当成了激活前置——但 cordis 的 `inject` 是**硬激活门控**：声明的服务永不出现（原版 DSH 壳没有任何插件提供 `inputTriggers` 服务，仅有 vision-toolkit 以 `ctx.inject()` 可选订阅）→ fiber 永久停在 waiting、`apply()` 永不执行 → 渲染器整体未启动：围栏保持代码块、控制台零报错。修复：从硬注入列表移除 `inputTriggers`，`/panel` 改为 `ctx.inject(['inputTriggers'], …)` **可选订阅**（服务与 slots/sessions 由不同 bundle 并发提供，任意到场顺序都能正确注册；缺失时仅不注册 `/panel`，渲染不受影响）；带该服务的宿主行为不变，原版壳上 GenUI 恢复渲染
+### 测试
+- 回归钉更新（数量不变）：`dom-fence.spec.tsx` 的注入列表断言改为 `['sessions','slots']`——原断言含 `inputTriggers`，与硬激活门控语义冲突（见上条修复说明），注释附原因；jsdom 端到端补充验证：DOM 通道在无 `inputTriggers` 的宿主上发现围栏并渲染 callout/chart
+
 ## [0.8.5] - 2026-08-16
 ### 发布
 - **发布规范对齐 `plugin_check`（issue #15）**：

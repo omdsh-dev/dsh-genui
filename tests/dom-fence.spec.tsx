@@ -82,7 +82,10 @@ describe('installDomFenceRenderer', () => {
   it('declares its cordis service injects (boot sweep depends on it)', () => {
     // 回归钉：曾丢失 inject 导出 → 宿主 fiber inject waiting 失效 →
     // apply 早于 slots 服务运行 → 整页 "Failed to load plugins"。
-    expect([...inject].sort()).toEqual(['inputTriggers', 'sessions', 'slots'])
+    // inputTriggers 刻意不在硬注入列表里：cordis `inject` 是硬激活门控，
+    // 原版 DSH 壳不提供该服务 → fiber 永久 waiting、apply 永不执行 →
+    // 全部 dsh-ui 围栏静默保持代码块。apply() 体内已用 ctx.get() 可选降级。
+    expect([...inject].sort()).toEqual(['sessions', 'slots'])
   })
 
   it('renders a settled dsh-ui fence into its own root and hides the stock block', async () => {
