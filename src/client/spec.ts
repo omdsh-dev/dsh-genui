@@ -561,7 +561,33 @@ export function parseGenuiSpec(raw: string): GenuiSpec | null {
   } catch {
     return null
   }
-  return isGenuiSpec(value) ? value : null
+  if (isGenuiSpec(value)) return value
+  // Single-component roots are part of the documented fence vocabulary
+  // (e.g. {"type":"callout","tone":"info","title":"…","content":"…"} as the
+  // whole body) — wrap them into a col so the items-gated pipeline renders
+  // them. panel/append hoist onto the wrapper so panel routing keeps working.
+  return wrapSingleComponentRoot(value)
+}
+
+/**
+ * Wrap a bare component object into a col root. Returns null when `value` is
+ * not component-shaped (no usable `type`). `panel`/`append` live on the root
+ * spec, so they are hoisted onto the wrapper.
+ */
+export function wrapSingleComponentRoot(value: unknown): GenuiSpec | null {
+  if (typeof value !== 'object' || value === null) return null
+  const v = value as { type?: unknown; panel?: unknown; append?: unknown }
+  if (typeof v.type !== 'string' || v.type === '') return null
+  // GenuiCol is structurally a GenuiSpec (items + optional gap); panel and
+  // append are GenuiSpec-only root flags, added after construction.
+  const wrapped: GenuiCol = {
+    type: 'col',
+    items: [value as GenuiNode],
+  }
+  const root: GenuiSpec = wrapped
+  if (v.panel === true) root.panel = true
+  if (v.append === true) root.append = true
+  return root
 }
 
 /** Basic structural guard: is this object a valid GenuiSpec? */

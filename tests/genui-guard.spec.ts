@@ -3,7 +3,7 @@
 // `repairGenuiSpec` before rendering, so these invariants protect the UI.
 import { describe, expect, it } from 'vitest'
 import { GENUI_LIMITS, repairGenuiSpec, validateGenuiSpec } from '../src/client/guard.ts'
-import { isGenuiSpec } from '../src/client/spec.ts'
+import { isGenuiSpec, parseGenuiSpec } from '../src/client/spec.ts'
 
 const text = (content: string) => ({ type: 'text', content })
 
@@ -40,6 +40,56 @@ describe('repairGenuiSpec: root shape', () => {
     expect(once).not.toBeNull()
     expect(twice).toEqual(once)
     expect(isGenuiSpec(once)).toBe(true)
+  })
+})
+
+describe('repairGenuiSpec: single-component roots', () => {
+  it('wraps a bare component root into a col (documented fence vocabulary)', () => {
+    const spec = repairGenuiSpec({ type: 'callout', tone: 'info', title: '核心观察', content: '你好' })
+    expect(spec).not.toBeNull()
+    // The repaired GenuiSpec carries no `type` (root spec field set) — the
+    // observable wrap effect is the items array holding the bare component.
+    expect(spec?.items).toHaveLength(1)
+    expect((spec?.items[0] as { type: string }).type).toBe('callout')
+    expect(isGenuiSpec(spec)).toBe(true)
+  })
+
+  it('hoists panel/append from the bare component onto the wrapper', () => {
+    const spec = repairGenuiSpec({ type: 'text', content: 'x', panel: true, append: true })
+    expect(spec?.panel).toBe(true)
+    expect(spec?.append).toBe(true)
+    const inner = spec?.items[0] as { panel?: unknown; append?: unknown }
+    expect(inner.panel).toBeUndefined()
+    expect(inner.append).toBeUndefined()
+  })
+
+  it('still rejects non-component objects without an items array', () => {
+    expect(repairGenuiSpec({ title: 'x' })).toBeNull()
+    expect(repairGenuiSpec({ foo: 1 })).toBeNull()
+  })
+
+  it('idempotent: a wrapped single root repairs to itself', () => {
+    const once = repairGenuiSpec({ type: 'stat', label: 'L', value: '1' })
+    const twice = repairGenuiSpec(once)
+    expect(twice).toEqual(once)
+  })
+})
+
+describe('validateGenuiSpec / parseGenuiSpec: single-component roots', () => {
+  it('accepts a bare component as valid', () => {
+    const result = validateGenuiSpec({ type: 'callout', tone: 'info', title: 'T', content: 'c' })
+    expect(result.ok).toBe(true)
+  })
+
+  it('parseGenuiSpec wraps a single-component fence body', () => {
+    const spec = parseGenuiSpec(JSON.stringify({ type: 'keyvalue', pairs: [{ key: 'a', value: 'b' }] }))
+    expect(spec?.type).toBe('col')
+    expect((spec?.items[0] as { type: string }).type).toBe('keyvalue')
+  })
+
+  it('parseGenuiSpec still rejects non-component junk', () => {
+    expect(parseGenuiSpec('{"foo":1}')).toBeNull()
+    expect(parseGenuiSpec('not json')).toBeNull()
   })
 })
 

@@ -25,6 +25,7 @@
  */
 import { GENUI_LIMITS } from './guard.ts'
 import { isGenuiSpec, type GenuiSpec } from './spec.ts'
+import { wrapSingleComponentRoot } from './spec.ts'
 
 /** Default repair-candidate budget (adjustable; see the design doc). */
 export const MAX_PARTIAL_REPAIR_ATTEMPTS = 32
@@ -124,7 +125,11 @@ function closeSuffix(stack: string[]): string {
 function trySpec(candidate: string): GenuiSpec | null {
   try {
     const value: unknown = JSON.parse(candidate)
-    return isGenuiSpec(value) ? value : null
+    if (isGenuiSpec(value)) return value
+    // Single-component roots are part of the documented fence vocabulary
+    // (e.g. a bare {"type":"callout",…} body) — wrap into a col so the
+    // items-gated pipeline renders them (panel/append hoisted).
+    return wrapSingleComponentRoot(value)
   } catch {
     return null
   }

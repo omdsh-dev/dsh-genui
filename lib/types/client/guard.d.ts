@@ -69,9 +69,11 @@ export interface GenuiValidation {
 }
 /**
  * Deterministically repair a raw spec value into a renderable GenuiSpec.
- * Returns null only when the root is not an object with an `items` array;
- * every other defect is healed by dropping/clamping/truncating. Idempotent:
- * repairing a repaired spec is a no-op.
+ * Returns null only when the root is not an object with an `items` array
+ * (a bare component root is wrapped into a col first — the documented fence
+ * vocabulary allows single-component bodies); every other defect is healed by
+ * dropping/clamping/truncating. Idempotent: repairing a repaired spec is a
+ * no-op.
  */
 export declare function repairGenuiSpec(value: unknown): GenuiSpec | null;
 /**

@@ -14,6 +14,26 @@ describe('parsePartialGenuiSpec', () => {
     expect(spec?.items).toHaveLength(1)
   })
 
+  it('wraps a single-component root into a col (documented fence vocabulary)', () => {
+    // Regression: bare component bodies (no root `items`) were rejected —
+    // the DOM channel kept the code block with a parse-failure warning.
+    const spec = parsePartialGenuiSpec('{"type":"callout","tone":"info","title":"T","content":"c"}')
+    expect(spec).not.toBeNull()
+    expect(spec!.items).toHaveLength(1)
+    expect((spec!.items[0] as { type: string }).type).toBe('callout')
+  })
+
+  it('hoists panel/append from a single-component root onto the wrapper', () => {
+    const spec = parsePartialGenuiSpec('{"type":"text","content":"x","panel":true,"append":true}')
+    expect(spec?.panel).toBe(true)
+    expect(spec?.append).toBe(true)
+  })
+
+  it('still rejects non-component roots without an items array', () => {
+    expect(parsePartialGenuiSpec('{"title":"x"}')).toBeNull()
+    expect(parsePartialGenuiSpec('{"foo":1}')).toBeNull()
+  })
+
   it('extracts finished components while the array is still growing', () => {
     // 第 1 个元素完成，第 2 个未写完 —— 应只返回第 1 个
     const spec = parsePartialGenuiSpec('{"items":[{"type":"text","content":"A"},{"type":"stat","labe')

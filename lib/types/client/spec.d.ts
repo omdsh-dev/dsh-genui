@@ -457,5 +457,11 @@ export interface GenuiQuiz {
 }
 /** Parse the raw fence body as a GenuiSpec, or null when it is not one. */
 export declare function parseGenuiSpec(raw: string): GenuiSpec | null;
+/**
+ * Wrap a bare component object into a col root. Returns null when `value` is
+ * not component-shaped (no usable `type`). `panel`/`append` live on the root
+ * spec, so they are hoisted onto the wrapper.
+ */
+export declare function wrapSingleComponentRoot(value: unknown): GenuiSpec | null;
 /** Basic structural guard: is this object a valid GenuiSpec? */
 export declare function isGenuiSpec(value: unknown): value is GenuiSpec;

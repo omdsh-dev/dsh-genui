@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+### 修复
+- **单组件根围栏被静默拒绝（JSON 有效却永远保持代码块）**：`parsePartialGenuiSpec` / `repairGenuiSpec` / `validateGenuiSpec` 三处入口都强制根节点必须带 `items` 数组——而注入的围栏词汇表把单组件（`{"type":"callout",…}` 直接作根）列为合法写法 → 这类围栏 JSON 完全有效、渲染器却拒绝：DOM 通道报一次「does not parse」后保持代码块（控制台有告警，页面无效果）。修复：新增 `wrapSingleComponentRoot`（spec.ts），单组件根自动包裹为 `col`（`panel`/`append` 提升到包裹层，面板路由不受影响），解析/修复/校验三条路径统一归一化，渲染器与 `validate_dsh_ui` 工具行为一致
+### 测试
+- 370 → 380（+10：genui-guard +7（单组件根包裹/panel-append 提升/非组件拒绝/幂等/校验通过/parseGenuiSpec 包裹/垃圾拒绝）、genui-partial +3（单组件根包裹/panel-append 提升/非组件拒绝））；本地环境其余失败均为宿主源码树依赖（install-script chmod / skill-md yaml 版本），与本次变更无关
+
 ## [0.8.5] - 2026-08-16
 ### 发布
 - **发布规范对齐 `plugin_check`（issue #15）**：

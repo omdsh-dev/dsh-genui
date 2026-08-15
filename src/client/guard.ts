@@ -19,6 +19,7 @@
  *   are elided.
  */
 import type { GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSeries, GenuiScene3D, GenuiSpec } from './spec.ts'
+import { wrapSingleComponentRoot } from './spec.ts'
 
 /** Hard resource limits enforced by repair (and mirrored at render time). */
 export const GENUI_LIMITS = {
@@ -708,13 +709,20 @@ function repairQuizOptions(v: unknown): Array<{ label: string; correct?: boolean
 
 /**
  * Deterministically repair a raw spec value into a renderable GenuiSpec.
- * Returns null only when the root is not an object with an `items` array;
- * every other defect is healed by dropping/clamping/truncating. Idempotent:
- * repairing a repaired spec is a no-op.
+ * Returns null only when the root is not an object with an `items` array
+ * (a bare component root is wrapped into a col first — the documented fence
+ * vocabulary allows single-component bodies); every other defect is healed by
+ * dropping/clamping/truncating. Idempotent: repairing a repaired spec is a
+ * no-op.
  */
 export function repairGenuiSpec(value: unknown): GenuiSpec | null {
   const v = obj(value)
-  if (v === undefined || !Array.isArray(v.items)) return null
+  if (v === undefined) return null
+  if (!Array.isArray(v.items)) {
+    const wrapped = wrapSingleComponentRoot(value)
+    if (wrapped === null) return null
+    return repairGenuiSpec(wrapped)
+  }
   const ctx: RepairCtx = { remaining: GENUI_LIMITS.maxNodes }
   return {
     ...opt('title', str(v.title, GENUI_LIMITS.maxString)),
@@ -777,7 +785,13 @@ export function validateGenuiSpec(value: unknown): GenuiValidation {
   const errors: string[] = []
   const v = obj(value)
   if (v === undefined) return { ok: false, errors: ['spec root must be an object'] }
-  if (!Array.isArray(v.items)) return { ok: false, errors: ['spec.items must be an array'] }
+  if (!Array.isArray(v.items)) {
+    // Single-component root: validate through the wrapped form so the tool
+    // agrees with the renderer about what is a valid fence body.
+    const wrapped = wrapSingleComponentRoot(value)
+    if (wrapped !== null) return validateGenuiSpec(wrapped)
+    return { ok: false, errors: ['spec.items must be an array'] }
+  }
   if (v.title !== undefined && typeof v.title !== 'string') errors.push('spec.title must be a string')
   if (v.gap !== undefined && (typeof v.gap !== 'number' || !Number.isFinite(v.gap))) errors.push('spec.gap must be a finite number')
   let count = 0
