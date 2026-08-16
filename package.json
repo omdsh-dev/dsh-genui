@@ -1,7 +1,7 @@
 {
   "name": "@omdsh-dev/dsh-genui",
   "description": "GenUI for DeepSeek Harness: interactive UI components rendered inline in assistant replies via the ```dsh-ui fence — layout, charts, plots, forms, quizzes, mermaid, 3D scenes, and an action event loop back to the model. Ships the fence-teaching host plugin, the browser renderer (client half), and the genui skill.",
-  "version": "0.8.3",
+  "version": "0.8.5",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/plugin/index.d.ts",
@@ -35,7 +35,11 @@
     "README.zh-CN.md",
     "CHANGELOG.md",
     "demo-prompts.md",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "lib",
+    "src",
+    "tsconfig.json",
+    "tsdown.config.ts"
   ],
   "publishConfig": {
     "access": "public"
@@ -74,6 +78,7 @@
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.0.0",
+    "@types/node": "^22.19.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@types/three": "^0.185.4",
@@ -92,7 +97,8 @@
   "scripts": {
     "build": "rm -rf lib && tsc -p tsconfig.json && tsdown",
     "test": "vitest run",
-    "check": "rm -rf lib && tsc -p tsconfig.json && vitest run && tsdown"
+    "check": "rm -rf lib && tsc -p tsconfig.json && vitest run && tsdown",
+    "prepack": "node scripts/prepack.mjs"
   },
   "dsh": {
     "bundle": {

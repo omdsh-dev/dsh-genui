@@ -90,13 +90,22 @@ function isTextNode(node: Node): node is Text {
  * surfaces use a span; the ONLY structural invariants across hosts are "a
  * leaf element holds exactly the lang text" and "it lives outside the code
  * body" — a fence whose code literally contains the text `dsh-ui` must not
- * self-identify through its body. */
+ * self-identify through its body. A container holding SEVERAL code blocks
+ * must not self-identify through a nested block's label either (issue #13:
+ * the shared markdown root was mistaken for a dsh-ui fence and hid the whole
+ * message, losing every other code block). */
 function infostringOf(block: Element): string | null {
   const pre = block.querySelector('pre')
   for (const el of block.querySelectorAll('*')) {
     if (el.childElementCount !== 0) continue
     if (el.textContent !== 'dsh-ui') continue
     if (pre !== null && pre.contains(el)) continue
+    // A leaf label that belongs to a NESTED known code surface is that
+    // surface's banner, not `block`'s own banner. Only accept labels whose
+    // nearest known surface is `block` itself (or none — unknown surfaces
+    // stay supported by the structural backstop).
+    const owner = el.closest(CODE_BLOCK_SELECTORS)
+    if (owner !== null && owner !== block) continue
     return 'dsh-ui'
   }
   return null
@@ -165,6 +174,13 @@ function findFenceCandidates(scope: ParentNode = document): HTMLElement[] {
     seen.add(el)
   }
   for (const pre of scope.querySelectorAll<HTMLElement>('pre')) {
+    // `<pre>` bodies inside a known surface were already handled by the
+    // selector pass. Walking up from them again would climb PAST their own
+    // (non-dsh-ui or dsh-ui) surface into a shared container — e.g. a
+    // markdown root holding both a dsh-ui fence and a python block — and
+    // the backstop would mislabel that whole container as a fence, hiding
+    // every other code block with it (issue #13).
+    if (pre.closest(CODE_BLOCK_SELECTORS) !== null) continue
     const surface = surfaceOf(pre, scope)
     if (surface === null || seen.has(surface)) continue
     // Host DOM drift diagnostic: the fence renders (structural backstop),

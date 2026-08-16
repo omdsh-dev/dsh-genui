@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.5] - 2026-08-16
+### 发布
+- **发布规范对齐 `plugin_check`（issue #15）**：
+  - 新增 bundle 源码入口 `src/index.ts`（`import type {}` 先引入 dsh client runtime 的 cordis Context 增广再重导出 `src/plugin/index`，规避 TS 5.9 从根入口进入时全局增广顺序不稳定的类型错误）；tsdown node 入口改为命名入口 `{ index: 'src/index.ts', invariant: 'src/plugin/invariant.ts' }` 并固定 `entryFileNames`，保持发布布局 `lib/index.js` + `lib/invariant.js` 不变；
+  - `tsconfig`：`outDir` 改为 `lib`（与 `main` 的 `lib/` 前缀对齐）、新增 `declarationDir: "lib/types"`（类型输出布局不变）、显式 `types: ["node"]`（devDependencies 同步补 `@types/node`，消除隐式 Node 类型依赖）；
+  - `files` 增补 `lib`、`src` 目录声明；新增 `scripts.prepack = pnpm run build`，发布 tarball 前强制重建 lib，clean checkout 可复现发布产物。
+  - 已知非本仓库可修项：`plugin_check` 的 org-name 政策目前只放行 `@deepseek-ai/*`/`@dsh-external/*`/`dsh-*`，`@omdsh-dev/dsh-genui` 为社区组织公开发布名，保持不变；其 `missing-peer: cordis` 提示基于旧 cordis 键名，本包实际依赖 `@deepseek-ai/cordis@^4.0.1`，不添加幻影 peer。
+### 测试
+- 全量 373 项（271 passed / 102 skipped）0 失败；`plugin_check` 从 3 errors / 4 warnings 收敛为 1 error / 1 warning（仅剩上述命名政策与旧 peer 键提示）。
+
+## [0.8.4] - 2026-08-16
+### 修复
+- **genui 与普通代码块共存时整条消息被吞（issue #13）**：同一消息容器里 `dsh-ui` 围栏和 python/ts/bash 等普通代码块共存时，DOM 通道的结构兜底从普通代码块的 `<pre>` 向上回溯，越过它自己的 `.md-code-block` 把共享的 `.markdown` 根容器误判为「dsh-ui 围栏」→ 整条消息 `display:none`、只剩 GenUI，普通代码块丢失。修复两层：① 兜底循环跳过已由已知表面选择器命中的 `<pre>`（这些块已处理，不再向上回溯）；② 标签判定不认领「属于嵌套已知代码块」的 banner（`owner !== block` 即跳过），共享容器不能再通过嵌套围栏的标签自证。未知类名表面的结构兜底能力保持不变（回归测试覆盖：未知表面 + 已知 python 块并存时仍照常渲染）
+### 测试
+- 275 → 278（+3 issue #13 回归：dsh-ui + python 并存时 dsh-ui 正常接管、python 与共享根容器不被隐藏/接管且无漂移误报；同根两个 dsh-ui 块各自渲染、面板 fold 以第二个为准；未知表面 + 已知 python 块并存时兜底仍生效）
+
 ## [0.8.3] - 2026-08-14
 ### 修复
 - **DOM 通道在异形宿主上静默不渲染（issue #6）**：DOM 通道的围栏发现此前依赖单一表面契约——选择器只认 `.md-code-block`，语言标签只认 banner 里的**叶子 `div`**。部分 DSH 0.1.0-rc.6 部署（deepsuite 风格渲染栈）把围栏渲染成 `.code-block` / `.code-block-small`，标签是 `span`，正文还可能被 content div 包裹 → 插件完全找不到围栏：保持代码块、控制台零报错（与报告完全一致）。修复为**多表面发现**：

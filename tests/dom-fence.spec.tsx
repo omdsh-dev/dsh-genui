@@ -685,3 +685,106 @@ describe('multi-surface discovery across host DOM shapes (issue #6)', () => {
     }
   })
 })
+
+describe('shared markdown root with mixed code blocks (issue #13)', () => {
+  // 回归钉 #13: 同一消息容器里 dsh-ui 围栏和 python/ts/bash 等普通代码块
+  // 共存时，结构兜底从普通代码块的 <pre> 向上回溯，越过它自己的
+  // .md-code-block 把共享的 .markdown 根容器误判为「dsh-ui 围栏」→ 整条消息
+  // display:none，python 代码块被吞掉。兜底必须跳过已知表面的 <pre>，且
+  // 标签判定不得认领嵌套代码块的 banner。
+
+  /** Shared markdown root: the host renders one `.markdown` wrapper around
+   * every code block of a message. */
+  function markdownRoot(): HTMLElement {
+    const root = document.createElement('div')
+    root.className = 'markdown'
+    return root
+  }
+
+  it('renders the dsh-ui fence and keeps a sibling python block untouched', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const row = assistantRow('s30')
+    const root = markdownRoot()
+    const genui = stockCodeBlock(VALID_SPEC, 'dsh-ui')
+    const python = stockCodeBlock('@dataclass\nclass LineSegment:\n    points: list', 'python')
+    root.appendChild(genui)
+    root.appendChild(python)
+    row.appendChild(root)
+    document.body.appendChild(row)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('sess-13-1', send), send)
+    try {
+      await tick()
+      await tick()
+      // dsh-ui 围栏正常接管；python 块与共享根容器都不许被隐藏或接管。
+      expect(genui.hasAttribute('data-genui-rendered')).toBe(true)
+      expect(genui.style.display).toBe('none')
+      expect(python.hasAttribute('data-genui-rendered')).toBe(false)
+      expect(python.style.display).toBe('')
+      expect(python.textContent).toContain('LineSegment')
+      expect(root.style.display).toBe('')
+      // 恰好一个 genui 容器，且挂在 dsh-ui 块之后，而不是整条消息之后。
+      expect(row.querySelectorAll('.genui-dom-fence')).toHaveLength(1)
+      expect(root.querySelectorAll('.genui-dom-fence')).toHaveLength(1)
+      const container = row.querySelector('.genui-dom-fence')
+      expect(container?.previousElementSibling).toBe(genui)
+      expect(container!.textContent).toContain('你好，世界')
+      // 不该出现「未知表面类名」漂移告警：两个表面都是已知选择器命中的。
+      const drift = warn.mock.calls.filter(([m]) => String(m).includes('围栏表面类名未被已知选择器命中'))
+      expect(drift).toHaveLength(0)
+    } finally {
+      dispose()
+      warn.mockRestore()
+    }
+  })
+
+  it('renders the dsh-ui fence when the shared root contains TWO dsh-ui blocks', async () => {
+    const row = assistantRow('s31')
+    const root = markdownRoot()
+    const first = stockCodeBlock(PANEL_SPEC, 'dsh-ui')
+    const second = stockCodeBlock('{"panel":true,"title":"面板B","items":[{"type":"text","content":"B"}]}', 'dsh-ui')
+    root.appendChild(first)
+    root.appendChild(second)
+    row.appendChild(root)
+    document.body.appendChild(row)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('sess-13-2', send), send)
+    try {
+      await tick()
+      // 两个 dsh-ui 块各自接管；面板 fold 走各自的 source，后者赢得 dock。
+      expect(first.hasAttribute('data-genui-rendered')).toBe(true)
+      expect(second.hasAttribute('data-genui-rendered')).toBe(true)
+      expect(root.style.display).toBe('')
+      expect(root.querySelectorAll('.genui-dom-fence')).toHaveLength(2)
+      expect(getPanelSpec('sess-13-2')?.title).toBe('面板B')
+    } finally {
+      dispose()
+    }
+  })
+
+  it('keeps the structural backstop working for an unknown surface beside a known python block', async () => {
+    // 加固不能把结构兜底一并误杀：未知类名表面的 <pre> 没有已知祖先，仍要
+    // 通过 label+pre 兜底被发现；旁边已知类名的 python 块继续被忽略。
+    const row = assistantRow('s32')
+    const root = markdownRoot()
+    const unknown = deepsuiteCodeBlock(VALID_SPEC, 'dsh-ui', 'host-fence-v99')
+    const python = stockCodeBlock('print("hello")', 'python')
+    root.appendChild(unknown)
+    root.appendChild(python)
+    row.appendChild(root)
+    document.body.appendChild(row)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('sess-13-3', send), send)
+    try {
+      await tick()
+      expect(unknown.hasAttribute('data-genui-rendered')).toBe(true)
+      expect(unknown.style.display).toBe('none')
+      expect(python.hasAttribute('data-genui-rendered')).toBe(false)
+      expect(python.style.display).toBe('')
+      expect(root.style.display).toBe('')
+      expect(root.querySelectorAll('.genui-dom-fence')).toHaveLength(1)
+    } finally {
+      dispose()
+    }
+  })
+})

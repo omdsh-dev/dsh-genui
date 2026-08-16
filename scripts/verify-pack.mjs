@@ -32,6 +32,9 @@ for (const entry of Object.values(pkgJson.exports)) {
 const required = [
   'package.json', 'LICENSE', 'SKILL.md', 'README.md', 'CHANGELOG.md', 'demo-prompts.md', 'cordis.patch.yml',
   'lib/assets/mermaid.js', 'lib/assets/three.js',
+  // plugin_check 发布规范（issue #15）：tarball 必须携带可复现构建所需的
+  // 源码入口与构建配置，prepack 已在打包前重建 lib。
+  'src/index.ts', 'tsconfig.json', 'tsdown.config.ts',
   ...exportTargets,
 ]
 
@@ -53,8 +56,7 @@ try {
   }
 
   const forbidden = [...paths].filter(p =>
-    p.startsWith('src/')
-    || p.endsWith('.map')
+    p.endsWith('.map')
     || p.includes('.tsbuildinfo')
     || /^lib\/types\/.*\.js$/.test(p),
   )
