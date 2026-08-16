@@ -85,6 +85,7 @@ dsh plugin --profile web add link:$PWD
 
 - **Answer-as-UI**: components are embedded in the reply and appear as they stream — no waiting for the whole message
 - **30+ components**: cards, tables, charts, forms, tabs, accordions, file trees, timelines, diffs…
+- **ECharts integration**: the `echart` node renders full ECharts charts with theme-aware colors, tooltips, and legends. Two modes: **preset shorthand** (`preset: 'bar' | 'line' | 'area' | 'pie' | 'scatter'` + `data`/`series`) for quick upgrade from the `chart` node, or **full option** (`option` field) for custom chart types, dataZoom, visualMap, and other advanced ECharts features. The echarts engine (~1 MB) is lazy-loaded on demand — the main bundle never carries it, and conversations without `echart` nodes never download it
 - **Function plots**: `plot` draws curves; parameter sliders redraw in real time, with optional auto-animation
 
 <p align="center">
@@ -121,11 +122,25 @@ The model outputs this fence (written for the browser — you don't need to read
 
 What you see: two stat cards.
 
+### ECharts example
+
+```dsh-ui
+{"title":"Q1 Revenue","items":[
+  {"type":"echart","title":"Monthly Revenue","preset":"bar","data":[
+    {"label":"Jan","value":98},
+    {"label":"Feb","value":112},
+    {"label":"Mar","value":128}
+  ]}
+]}
+```
+
+What you see: a themed bar chart with tooltips and axis labels — rendered by ECharts, lazy-loaded on demand.
+
 ## 🔧 How it works
 
 The model writes the interface description as JSON inside a `dsh-ui` fence; the browser-side renderer (`src/client`) claims this language through the main repo's `fence-registry` interface and renders it. Components are whitelisted — the model can't smuggle in HTML/scripts; function expressions go through a standalone parser, never `eval`.
 
-The core render package stays light (≈110 KB min / 28 KB gzip); the mermaid and three.js engines are bundled separately as on-demand assets (loaded through the plugin's self-registered HTTP routes the first time they're used), so startup only downloads the rendering core.
+The core render package stays light (≈110 KB min / 28 KB gzip); the mermaid, three.js, and echarts engines are bundled separately as on-demand assets (loaded through the plugin's self-registered HTTP routes the first time they're used), so startup only downloads the rendering core.
 
 ## ❓ FAQ
 
@@ -133,7 +148,7 @@ The core render package stays light (≈110 KB min / 28 KB gzip); the mermaid an
 - **Chat UI goes blank when rendering a dsh-ui fence?** Your dsh is too old — update dsh first, then reinstall the plugin.
 - **`dsh: pnpm not found on PATH`?** Install pnpm, then **open a new terminal** and retry (`corepack enable` or `npm i -g pnpm`).
 - **Stuck on git credentials / 404 during install?** The repo is public (`omdsh-dev/dsh-genui`) — the git URL above needs no login; a 404 for `@omdsh-dev/dsh-genui` means the npm package has not been published yet.
-- **Installed but scene3d/mermaid don't render?** The engines (mermaid / three) are no longer inlined in client.js — they load on demand the first time they're used (`/plugins/@omdsh-dev/dsh-genui/assets/*.js`, hosted by the plugin's own HTTP routes). First restart dsh web + hard refresh (Cmd+Shift+R); still broken, remove and reinstall (`dsh plugin --profile web remove @omdsh-dev/dsh-genui`, then add again). Hosts without the asset routes degrade to source/load-error hints — update dsh.
+- **Installed but scene3d/mermaid/echarts don't render?** The engines (mermaid / three / echarts) are no longer inlined in client.js — they load on demand the first time they're used (`/plugins/@omdsh-dev/dsh-genui/assets/*.js`, hosted by the plugin's own HTTP routes). First restart dsh web + hard refresh (Cmd+Shift+R); still broken, remove and reinstall (`dsh plugin --profile web remove @omdsh-dev/dsh-genui`, then add again). Hosts without the asset routes degrade to source/load-error hints — update dsh.
 - **Model not outputting fences?** New sessions pick it up after a restart; or just say "output it with dsh-ui".
 - **No lib/ after cloning?** Build it yourself: `pnpm install && pnpm run check`.
 

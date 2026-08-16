@@ -85,6 +85,7 @@ dsh plugin --profile web add link:$PWD
 
 - **回答即界面**：组件嵌在回答里，边生成边出现，不用等整段写完
 - **30+ 组件**：卡片、表格、图表、表单、标签页、折叠面板、文件树、时间线、diff……
+- **ECharts 集成**：`echart` 节点渲染完整的 ECharts 图表，自动适配主题色、提示框和图例。两种模式：**预设简写**（`preset: 'bar' | 'line' | 'area' | 'pie' | 'scatter'` + `data`/`series`）可从 `chart` 节点快速升级；**完整选项**（`option` 字段）支持自定义图表类型、dataZoom、visualMap 等高级 ECharts 功能。echarts 引擎（~1 MB）按需懒加载——主包不含引擎，没有 `echart` 节点的对话不会下载它
 - **函数图**：`plot` 画曲线，参数滑块拖动实时重绘，支持自动动画
 
 <p align="center">
@@ -121,11 +122,25 @@ dsh plugin --profile web add link:$PWD
 
 你看到的是两张统计卡片。
 
+### ECharts 示例
+
+```dsh-ui
+{"title":"Q1 收入","items":[
+  {"type":"echart","title":"月度收入","preset":"bar","data":[
+    {"label":"1月","value":98},
+    {"label":"2月","value":112},
+    {"label":"3月","value":128}
+  ]}
+]}
+```
+
+你看到的是一张带提示框和坐标轴的主题色柱状图——由 ECharts 渲染，按需懒加载。
+
 ## 🔧 原理
 
 模型把界面描述写成 JSON 放进 `dsh-ui` 围栏，浏览器端渲染器（`src/client`）通过主仓 `fence-registry` 接口认领这门语言并渲染。组件是白名单的，模型塞不进 HTML/脚本；函数表达式走独立解析器，不用 eval。
 
-主渲染包保持轻量（≈110 KB min / 28 KB gzip），mermaid 与 three.js 引擎单独打包为按需资产（首次用到时经插件自注册的 HTTP 路由加载），启动时只下载渲染核心。
+主渲染包保持轻量（≈110 KB min / 28 KB gzip），mermaid、three.js 与 echarts 引擎单独打包为按需资产（首次用到时经插件自注册的 HTTP 路由加载），启动时只下载渲染核心。
 
 ## ❓ 常见问题
 
@@ -133,7 +148,7 @@ dsh plugin --profile web add link:$PWD
 - **渲染 dsh-ui fence 时聊天界面白屏？** dsh 版本太旧——先更新 dsh 再重装插件。
 - **`dsh: pnpm not found on PATH`？** 装 pnpm 后**新开终端**再试（`corepack enable` 或 `npm i -g pnpm`）。
 - **安装时卡在 git 凭据/404？** 仓库是公开的（`omdsh-dev/dsh-genui`），上面的 git URL 无需登录；`@omdsh-dev/dsh-genui` 返回 404，表示 npm 包尚未发布。
-- **装了但 scene3d/mermaid 不渲染？** 引擎（mermaid / three）不再内联进 client.js——它们在首次用到时按需加载（`/plugins/@omdsh-dev/dsh-genui/assets/*.js`，插件自带 HTTP 路由托管）。先重启 dsh web + 硬刷新（Cmd+Shift+R）；仍不渲染就卸掉重装（`dsh plugin --profile web remove @omdsh-dev/dsh-genui` 后再 add）。旧版宿主缺少资产路由时会降级显示源码/加载失败提示，更新 dsh 即可。
+- **装了但 scene3d/mermaid/echarts 不渲染？** 引擎（mermaid / three / echarts）不再内联进 client.js——它们在首次用到时按需加载（`/plugins/@omdsh-dev/dsh-genui/assets/*.js`，插件自带 HTTP 路由托管）。先重启 dsh web + 硬刷新（Cmd+Shift+R）；仍不渲染就卸掉重装（`dsh plugin --profile web remove @omdsh-dev/dsh-genui` 后再 add）。旧版宿主缺少资产路由时会降级显示源码/加载失败提示，更新 dsh 即可。
 - **模型不主动输出？** 重启后新会话生效；或直接说"用 dsh-ui 输出"。
 - **clone 后没有 lib/？** `pnpm install && pnpm run check` 自己构建。
 
