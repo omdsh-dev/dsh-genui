@@ -28,4 +28,4 @@ export declare function assetUrl(file: string): string;
  * @param name - 'mermaid' or 'three'.
  * @returns the registered engine surface.
  */
-export declare function loadGenuiAsset<T>(name: 'mermaid' | 'three'): Promise<T>;
+export declare function loadGenuiAsset<T>(name: 'mermaid' | 'three' | 'echarts'): Promise<T>;

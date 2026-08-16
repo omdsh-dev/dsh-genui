@@ -60,6 +60,9 @@ export declare const GENUI_LIMITS: {
     readonly maxKeyValuePairs: 24;
     /** Maximum `file-tree` nesting. */
     readonly maxTreeDepth: 6;
+    /** Maximum depth of an `echart` option object (prevents pathological nested
+     * ECharts configs from stalling the guard walk). */
+    readonly maxEChartOptionDepth: 10;
 };
 /** Result of `validateGenuiSpec`. */
 export interface GenuiValidation {

@@ -742,6 +742,44 @@
 /* ---------- scene3d ---------- */
 
 .scene3dWrap { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
+
+/* ---------- echart ---------- */
+
+.echartWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-sm);
+  padding: var(--dsl-g-gap-md);
+  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block));
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-surface);
+}
+.echartTitle {
+  font-size: var(--dsl-g-font-title);
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+.echartCanvas {
+  width: 100%;
+  min-height: 0;
+}
+.echartHint {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: var(--dsl-g-font-meta);
+}
+.echartFallback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-sm);
+  padding: var(--dsl-g-gap-md);
+  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block));
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-surface);
+}
+.echartErr {
+  color: var(--dsw-alias-state-error-primary, #ff6b6b);
+  font-size: var(--dsl-g-font-meta);
+}
 .scene3dTitle { font-size: var(--dsl-g-font-title); font-weight: 700; color: var(--dsw-alias-label-primary); }
 .scene3dCanvas {
   height: 240px;

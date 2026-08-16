@@ -182,4 +182,5 @@ export default [
   clientConfig,
   assetConfig('mermaid', 'src/client/asset-mermaid.ts'),
   assetConfig('three', 'src/client/asset-three.ts'),
+  assetConfig('echarts', 'src/client/asset-echarts.ts'),
 ]

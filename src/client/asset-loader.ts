@@ -52,7 +52,7 @@ const pending = new Map<string, Promise<Record<string, unknown>>>()
  * @param name - 'mermaid' or 'three'.
  * @returns the registered engine surface.
  */
-export function loadGenuiAsset<T>(name: 'mermaid' | 'three'): Promise<T> {
+export function loadGenuiAsset<T>(name: 'mermaid' | 'three' | 'echarts'): Promise<T> {
   const file = `${name}.js`
   const existing = pending.get(file)
   if (existing !== undefined) return existing as Promise<T>

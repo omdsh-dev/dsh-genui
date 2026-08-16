@@ -1,4 +1,5 @@
 import type { GenuiChart, GenuiTable } from '../spec.ts';
+export declare const CHART_COLORS: string[];
 export declare function TableNode({ node }: {
     node: GenuiTable;
 }): import("react").JSX.Element;

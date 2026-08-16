@@ -9,7 +9,7 @@
  * are operable, but events do NOT flow back to the model.
  */
 /** One node in the component tree. */
-export type GenuiNode = GenuiText | GenuiRow | GenuiCol | GenuiGrid | GenuiCard | GenuiButton | GenuiInput | GenuiSelect | GenuiCheckbox | GenuiLink | GenuiBadge | GenuiStat | GenuiProgress | GenuiDivider | GenuiList | GenuiTable | GenuiChart | GenuiTabs | GenuiAvatar | GenuiSpacer | GenuiPlot | GenuiCallout | GenuiSteps | GenuiKeyValue | GenuiDiff | GenuiJson | GenuiCode | GenuiRadio | GenuiSubmit | GenuiSwitch | GenuiSlider | GenuiTextarea | GenuiAccordion | GenuiCopy | GenuiMermaid | GenuiScene3D | GenuiTimeline | GenuiFileTree | GenuiBreadcrumb | GenuiQuiz;
+export type GenuiNode = GenuiText | GenuiRow | GenuiCol | GenuiGrid | GenuiCard | GenuiButton | GenuiInput | GenuiSelect | GenuiCheckbox | GenuiLink | GenuiBadge | GenuiStat | GenuiProgress | GenuiDivider | GenuiList | GenuiTable | GenuiChart | GenuiTabs | GenuiAvatar | GenuiSpacer | GenuiPlot | GenuiCallout | GenuiSteps | GenuiKeyValue | GenuiDiff | GenuiJson | GenuiCode | GenuiRadio | GenuiSubmit | GenuiSwitch | GenuiSlider | GenuiTextarea | GenuiAccordion | GenuiCopy | GenuiMermaid | GenuiScene3D | GenuiTimeline | GenuiFileTree | GenuiBreadcrumb | GenuiQuiz | GenuiEChart;
 export interface GenuiSpec {
     /** Short title shown as the card banner. */
     title?: string;
@@ -454,6 +454,44 @@ export interface GenuiQuiz {
      * (`{type:'quiz', question, answer, correct}`) so the model can collect
      * or grade it. */
     action?: string;
+}
+/** Preset chart kinds the `echart` node can build from `data`/`series` without
+ * a full ECharts option. Each maps to a themed option template. */
+export type EChartPreset = 'bar' | 'line' | 'area' | 'pie' | 'scatter';
+/** ECharts node: renders a full ECharts chart. Two modes:
+ *
+ * 1. **Full option** (`option` set): the model provides a standard ECharts
+ *    `EChartsCoreOption` object directly. This is the escape hatch for
+ *    custom chart types, complex series, or advanced features (dataZoom,
+ *    visualMap, etc.).
+ * 2. **Preset shorthand** (`preset` + `data`/`series`): the model provides
+ *    the same simple `data`/`series` shape as the `chart` node, and the
+ *    component builds a themed ECharts option automatically. This is the
+ *    easy upgrade path: change `type: 'chart'` to `type: 'echart'` and add
+ *    `preset`.
+ *
+ * The echarts engine is lazy-loaded (lib/assets/echarts.js) only when an
+ * `echart` node appears in a spec. */
+export interface GenuiEChart {
+    type: 'echart';
+    /** Optional title shown above the chart. */
+    title?: string;
+    /** Chart height in pixels (default 300). */
+    height?: number;
+    /** Preset: builds the ECharts option from `data`/`series` when `option`
+     * is absent. */
+    preset?: EChartPreset;
+    /** Simple data for preset mode (same shape as `chart.data`). */
+    data?: GenuiChartDatum[];
+    /** Multi-series for preset mode (same shape as `chart.series`). */
+    series?: Array<{
+        label: string;
+        color?: string;
+        data: GenuiChartDatum[];
+    }>;
+    /** Full ECharts option object. When present, `preset`/`data`/`series` are
+     * ignored. This is a pass-through to `echarts.setOption`. */
+    option?: Record<string, unknown>;
 }
 /** Parse the raw fence body as a GenuiSpec, or null when it is not one. */
 export declare function parseGenuiSpec(raw: string): GenuiSpec | null;

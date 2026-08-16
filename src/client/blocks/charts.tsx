@@ -8,7 +8,7 @@ import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../guard.ts'
 import type { GenuiChart, GenuiTable } from '../spec.ts'
 
-const CHART_COLORS = [
+export const CHART_COLORS = [
   'var(--dsw-static-deepseek-400)',
   'var(--dsw-static-green-400)',
   'var(--dsw-static-amber-400)',

@@ -61,6 +61,9 @@ export const GENUI_LIMITS = {
   maxKeyValuePairs: 24,
   /** Maximum `file-tree` nesting. */
   maxTreeDepth: 6,
+  /** Maximum depth of an `echart` option object (prevents pathological nested
+   * ECharts configs from stalling the guard walk). */
+  maxEChartOptionDepth: 10,
 } as const
 
 /** Result of `validateGenuiSpec`. */
@@ -149,6 +152,7 @@ const CHART_KINDS = ['bars', 'line', 'donut'] as const
 const PLOT_KINDS = ['line', 'area', 'scatter'] as const
 const MESH_SHAPES = ['box', 'sphere', 'cone', 'cylinder', 'torus'] as const
 const FILE_TYPES = ['file', 'dir'] as const
+const ECHART_PRESETS = ['bar', 'line', 'area', 'pie', 'scatter'] as const
 
 /* ---------------- repair ---------------- */
 
@@ -442,6 +446,34 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
         ...opt('action', str(v.action, 200)),
       }
     }
+    case 'echart': {
+      // Preset shorthand data/series reuse the chart repair helpers.
+      const data = v.data !== undefined ? repairChartData(v.data, GENUI_LIMITS.maxChartPoints) : undefined
+      const series = v.series !== undefined && Array.isArray(v.series)
+        ? repairSeries(v.series, GENUI_LIMITS.maxPlotSeries, GENUI_LIMITS.maxChartPoints)
+        : undefined
+      // Full option: depth-bounded pass-through (the model writes the ECharts
+      // option object; the guard walks it to cap nesting but does not
+      // validate ECharts semantics — that is echarts' own job).
+      const sanitized = v.option !== undefined ? sanitizeEChartOption(v.option, 0) : undefined
+      // A chart option root is always a plain object; a scalar root is
+      // invalid, so degrade to preset/data/series handling (option dropped).
+      const option: Record<string, unknown> | undefined =
+        sanitized === undefined || typeof sanitized !== 'object' || sanitized === null || Array.isArray(sanitized)
+          ? undefined
+          : sanitized as Record<string, unknown>
+      // At least one of preset+data or option must be present.
+      if (option === undefined && data === undefined && series === undefined) return null
+      return {
+        type: 'echart',
+        ...opt('title', str(v.title, GENUI_LIMITS.maxString)),
+        ...opt('height', int(v.height, 100, 800)),
+        ...opt('preset', enu(v.preset, ECHART_PRESETS)),
+        ...opt('data', data),
+        ...opt('series', series),
+        ...opt('option', option),
+      }
+    }
     default:
       // Plugin-registered custom node types are opaque to the guard: pass
       // through unchanged (the renderer's default branch resolves them).
@@ -707,6 +739,42 @@ function repairQuizOptions(v: unknown): Array<{ label: string; correct?: boolean
 }
 
 /**
+ * Sanitize an ECharts option object: depth-bounded pass-through that strips
+ * dangerous values (functions, `url()` in styles) but preserves the object
+ * shape ECharts needs. Scalars are KEPT: ECharts options are full of them,
+ * including inside `data` arrays (`data: [120, 150, 180]`,
+ * `xAxis.data: ['1月', '2月']`). Previously a scalar hit the plain-object
+ * gate below and returned undefined, so every primitive-valued array was
+ * filtered to empty and dropped — a chart with a full `option` rendered
+ * with empty series (blank canvas). This is a safety walk, not an ECharts
+ * semantic validator.
+ */
+function sanitizeEChartOption(v: unknown, depth: number): unknown {
+  if (depth > GENUI_LIMITS.maxEChartOptionDepth) return undefined
+  // Scalars pass through: numbers/strings/booleans/null are legal ECharts
+  // values both as object fields and as array elements.
+  if (typeof v === 'string') {
+    const s = v.slice(0, GENUI_LIMITS.maxString)
+    return s.toLowerCase().includes('url(') ? undefined : s
+  }
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  if (typeof v === 'boolean') return v
+  if (v === null) return null
+  if (Array.isArray(v)) {
+    const arr = v.map(item => sanitizeEChartOption(item, depth + 1)).filter(item => item !== undefined)
+    return arr.length > 0 ? arr : undefined
+  }
+  const o = obj(v)
+  if (o === undefined) return undefined
+  const out: Record<string, unknown> = {}
+  for (const [key, val] of Object.entries(o)) {
+    const s = sanitizeEChartOption(val, depth + 1)
+    if (s !== undefined) out[key] = s
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/**
  * Deterministically repair a raw spec value into a renderable GenuiSpec.
  * Returns null only when the root is not an object with an `items` array;
  * every other defect is healed by dropping/clamping/truncating. Idempotent:
@@ -947,6 +1015,12 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
     case 'quiz':
       if (typeof v.question !== 'string') errors.push(`${at}: type 'quiz' requires question (string)`)
       if (!Array.isArray(v.options)) errors.push(`${at}: type 'quiz' requires options (array)`)
+      break
+    case 'echart':
+      if (v.option === undefined && v.data === undefined && v.series === undefined) {
+        errors.push(`${at}: type 'echart' requires option, data, or series`)
+      }
+      isNum('height')
       break
     default:
       // Unknown type: plugin-registered custom nodes are valid when a
