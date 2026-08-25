@@ -16,8 +16,13 @@
    literals here are only last-resort fallbacks for hosts without the token
    sheets. */
 
-.block {
-  /* ── design tokens (design system v2) ── */
+.block,
+.panel {
+  /* ── design tokens (design system v2) ──
+     Declared on both the inline fence root and the session panel root: the
+     panel header sits OUTSIDE the inner .block, so without the shared
+     declaration its --dsl-g-* references resolved to undefined (the badge
+     gap/padding collapsed to zero). */
   --dsl-g-radius-surface: 12px;
   --dsl-g-radius-control: 8px;
   --dsl-g-radius-pill: 999px;
@@ -46,7 +51,9 @@
   --dsl-g-tint: 8%;
   --dsl-g-tint-strong: 14%;
   --dsl-g-font-mono: var(--ds-font-family-code, ui-monospace, 'SF Mono', monospace);
+}
 
+.block {
   /* Inline in the conversation: no canvas, no border, no padding — the
      components themselves (card/quiz/plot/…) carry the surfaces. A slab
      around every fence was tried and rejected: a lone stat or text node
@@ -1145,9 +1152,16 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 .panel {
   /* Distinct from ordinary inline fences: accent border + badge header so a
      session panel is recognizable at a glance. */
-  margin: 10px 14px 2px;
+  /* Align with the host's composer width axis (same geometry as the TodoDock
+     cards it shares conversation.input.dock with): centered, inset by the
+     side clearance and the dock inset chain, capped at the composer card
+     width. Falls back to safe literals when the host does not define the
+     --dsh-composer-* tokens. */
+  margin: 10px auto 2px;
+  width: calc(100% - var(--dsh-composer-side-clearance, 16px) * 2 - var(--dsh-composer-dock-inset, 8px) * 4);
+  max-width: calc(var(--dsh-composer-card-max-width, 780px) - var(--dsh-composer-dock-inset, 8px) * 4);
   border: 1px solid color-mix(in srgb, var(--dsw-alias-state-business-primary, #4f8ef7) 35%, transparent);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--dsw-alias-bg-layer-1, rgba(255, 255, 255, 0.04));
   overflow: hidden;
 }
@@ -1155,12 +1169,18 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 .panelHeader {
   display: flex;
   align-items: center;
+  /* Header/body divider so the panel reads as a card with a title bar, not a
+     slab with text glued to it (user report: "body 缺少内边框"). */
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.25));
 }
 
 .panelToggle {
   display: flex;
   align-items: center;
-  gap: var(--dsl-g-gap-sm);
+  /* 10px matches the TodoDock header rhythm (gap: 10px) — the badge and the
+     title no longer collapse together once the shared --dsl-g-gap-sm token
+     reaches this element. */
+  gap: 10px;
   flex: 1 1 auto;
   min-width: 0;
   padding: 9px 14px;
@@ -1231,9 +1251,13 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 }
 
 .panelChevron {
+  /* Same glyph cell + color as the TodoDock header chevron (grid-centered,
+     label-tertiary), so the arrow reads as a host control, not typed text. */
+  display: grid;
+  place-items: center;
+  flex: none;
   margin-left: auto;
-  color: var(--dsw-alias-label-secondary, rgba(255, 255, 255, 0.55));
-  font-size: var(--dsl-g-font-meta);
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .panelBody {
