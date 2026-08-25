@@ -948,7 +948,7 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 }
 
 .reveal {
-  animation: genuiReveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: genuiReveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 /* "✓ 已触发" confirmation chip: appears next to the button without layout

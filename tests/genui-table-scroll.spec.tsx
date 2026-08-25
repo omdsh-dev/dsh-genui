@@ -59,4 +59,12 @@ describe('GenUI table overflow', () => {
     expect(rule).toContain('min-width: 0')
     expect(rule).toContain('max-width: 100%')
   })
+
+  it('releases the reveal transform after animation', () => {
+    const css = readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
+    const match = /\.reveal\s*\{([^}]*)\}/.exec(css)
+    expect(match, 'reveal rule must exist').not.toBeNull()
+    expect(match![1]).toContain('backwards')
+    expect(match![1]).not.toContain('both')
+  })
 })
