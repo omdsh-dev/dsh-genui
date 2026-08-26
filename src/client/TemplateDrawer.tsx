@@ -18,10 +18,8 @@ import css from './TemplateDrawer.module.css'
 export interface TemplateDrawerProps {
   /** 试用：把模板指令插入当前输入框草稿。 */
   onUse: (instruction: string) => void
-  /** 当前 tab（由面板 header 按钮决定）。 */
+  /** 当前面板（模板中心/成就页），由面板 header 按钮控制。 */
   tab: 'templates' | 'achievements'
-  /** 切 tab（面板 header 按钮同步）。 */
-  onSwitchTab: (tab: 'templates' | 'achievements') => void
 }
 
 const CATEGORIES = ['全部', '仪表盘', '数据', '流程', '图表', '交互', '测验', '高级'] as const
@@ -47,7 +45,7 @@ function copyText(text: string): Promise<void> {
   })
 }
 
-export function TemplateDrawer({ onUse, tab, onSwitchTab }: TemplateDrawerProps) {
+export function TemplateDrawer({ onUse, tab }: TemplateDrawerProps) {
   const [category, setCategory] = useState<Category>('全部')
   const [selected, setSelected] = useState<GenuiTemplate | null>(null)
   const [copied, setCopied] = useState(false)
@@ -78,14 +76,6 @@ export function TemplateDrawer({ onUse, tab, onSwitchTab }: TemplateDrawerProps)
 
   return (
     <div className={css.wrap} data-genui-templates={tab === 'templates' ? undefined : 'achievements'}>
-      <div className={css.modeTabs} role="tablist" aria-label="探索内容">
-        <button role="tab" aria-selected={tab === 'templates'} className={`${css.modeTab}${tab === 'templates' ? ` ${css.modeTabActive}` : ''}`} onClick={() => onSwitchTab('templates')}>
-          模板
-        </button>
-        <button role="tab" aria-selected={tab === 'achievements'} className={`${css.modeTab}${tab === 'achievements' ? ` ${css.modeTabActive}` : ''}`} onClick={() => onSwitchTab('achievements')}>
-          成就
-        </button>
-      </div>
       {tab === 'achievements' ? (
         <div className={css.achievements} data-genui-achievements>
           <ErrorBoundary label="成就页">

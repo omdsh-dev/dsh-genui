@@ -10,29 +10,7 @@
   overflow: auto;
 }
 
-/* ---- mode tabs (模板 | 成就) ---- */
-.modeTabs {
-  display: flex;
-  gap: 8px;
-}
-
-.modeTab {
-  padding: 4px 12px;
-  border: 1px solid var(--dsw-alias-border-l1, rgba(255, 255, 255, 0.12));
-  border-radius: 999px;
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, rgba(255, 255, 255, 0.6));
-  font-size: 12px;
-  line-height: 1.5;
-  cursor: pointer;
-}
-
-.modeTabActive {
-  border-color: var(--dsw-alias-state-business-primary, #4f8ef7);
-  color: var(--dsw-alias-state-business-primary, #4f8ef7);
-  background: color-mix(in srgb, var(--dsw-alias-state-business-primary, #4f8ef7) 14%, transparent);
-}
-
+/* ---- achievements tab ---- */
 .achievements {
   display: flex;
   flex-direction: column;

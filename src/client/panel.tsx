@@ -260,7 +260,6 @@ export function GenuiPanel({ sessionId, sendGenuiAction, insertTemplate }: Genui
           {drawer !== null ? (
             <TemplateDrawer
               tab={drawer}
-              onSwitchTab={setDrawer}
               onUse={(text) => {
                 recordTemplateUse()
                 insertTemplate(text)

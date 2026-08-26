@@ -7,7 +7,7 @@ import { TemplateDrawer } from '../src/client/TemplateDrawer.tsx'
 import { GENUI_TEMPLATES } from '../src/client/templates.ts'
 
 const renderDrawer = (onUse: (t: string) => void = () => {}): ReturnType<typeof render> =>
-  render(<TemplateDrawer tab="templates" onSwitchTab={() => {}} onUse={onUse} />)
+  render(<TemplateDrawer tab="templates" onUse={onUse} />)
 
 beforeEach(() => {
   localStorage.clear()
@@ -69,11 +69,12 @@ describe('TemplateDrawer', () => {
     expect(writeText.mock.calls[0][0]).toContain('dsh-ui')
   })
 
-  it('成就 tab 渲染成就页（dsh-ui 自渲染）', () => {
-    const withTab = render(<TemplateDrawer tab="achievements" onSwitchTab={() => {}} onUse={() => {}} />)
-    expect(screen.getByRole('tab', { name: '成就' })).toBeTruthy()
+  it('成就面板渲染成就页（dsh-ui 自渲染，无多余 mode tabs）', () => {
+    const withTab = render(<TemplateDrawer tab="achievements" onUse={() => {}} />)
     expect(document.querySelector('[data-genui-achievements]')).toBeTruthy()
     expect(screen.getByText(/GenUI 探索成就/)).toBeTruthy()
+    // 抽屉内不再有「模板|成就」mode 切换（面板 header 按钮负责）
+    expect(screen.queryByRole('tab', { name: '成就' })).toBeNull()
     withTab.unmount()
   })
 })
