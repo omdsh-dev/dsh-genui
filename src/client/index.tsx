@@ -77,6 +77,16 @@ function panelActionSend(ctx: Context, sessionId: SessionId): GenuiPanelInjected
         console.warn(`[genui] 面板动作 "${action}" 发送失败（session ${sessionId}）：`, err instanceof Error ? err.message : String(err))
       })
     },
+    insertTemplate: (text) => {
+      // Same insert channel as dsh-memory's organizeMemory: the standard
+      // conversation.input.for(scope).setDraft — templates land in the
+      // composer draft, not a queued message, so the user can edit before
+      // sending.
+      const input = (conversation as unknown as {
+        input?: { for?(actx: unknown): { setDraft(text: string): void } | undefined }
+      } | undefined)?.input?.for?.(scoped)
+      input?.setDraft(text)
+    },
   }
 }
 

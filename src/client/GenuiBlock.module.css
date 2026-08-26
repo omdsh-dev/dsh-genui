@@ -1231,6 +1231,65 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   opacity: 1;
 }
 
+/* ---- 0.9.4 template center & onboarding ---- */
+.panelTpl {
+  flex: 0 0 auto;
+  height: 26px;
+  margin-right: 4px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--dsw-alias-border-l1, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, rgba(255, 255, 255, 0.6));
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.panelTpl:hover {
+  background: rgba(255, 255, 255, 0.08);
+  opacity: 1;
+}
+
+.panelTplActive {
+  border-color: var(--dsw-alias-state-business-primary, #4f8ef7);
+  color: var(--dsw-alias-state-business-primary, #4f8ef7);
+}
+
+.panelOnboard .panelHeader {
+  cursor: default;
+}
+
+.panelOnboardText {
+  flex: 1;
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-secondary, rgba(255, 255, 255, 0.6));
+}
+
+.panelFlash {
+  padding: 6px 12px;
+  border-top: 1px solid var(--dsw-alias-border-l1, rgba(255, 255, 255, 0.12));
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-state-success-primary, #6ccb5f);
+  background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #6ccb5f) 8%, transparent);
+}
+
+.panelHint {
+  padding: 6px 14px;
+  border-top: 1px solid var(--dsw-alias-border-l1, rgba(255, 255, 255, 0.12));
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-state-business-primary, #4f8ef7);
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary, #4f8ef7) 8%, transparent);
+}
+
 .panelBadge {
   flex: none;
   font-size: 11px;

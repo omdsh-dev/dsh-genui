@@ -4,6 +4,9 @@ import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
 export interface GenuiPanelInjected {
     sessionId: string;
     sendGenuiAction: GenuiActionHandler;
+    /** Template center "try it": insert the template instruction into the
+     *  current composer draft (standard conversation.input.for channel). */
+    insertTemplate: (text: string) => void;
 }
 export type GenuiPanelProps = PropsRuntime<'conversation.input.dock'> & GenuiPanelInjected;
 /**
@@ -12,4 +15,4 @@ export type GenuiPanelProps = PropsRuntime<'conversation.input.dock'> & GenuiPan
  * default so the dock never steals the message flow's scroll room; the
  * header always shows the current panel title.
  */
-export declare function GenuiPanel({ sessionId, sendGenuiAction }: GenuiPanelProps): import("react").JSX.Element | null;
+export declare function GenuiPanel({ sessionId, sendGenuiAction, insertTemplate }: GenuiPanelProps): import("react").JSX.Element | null;
