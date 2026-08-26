@@ -644,7 +644,11 @@
 .gradeList { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
 .gradeItem {
   display: grid;
-  grid-template-columns: auto auto 1fr;
+  /* Question on its own full row (see .gradeQ), then tag | answer. The
+     answer column must be minmax(0,1fr): a bare 1fr child defaults to
+     min-width:auto, so a long question in an auto column squeezes the
+     answer down to one CJK glyph per line (#62). */
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 6px 10px;
   align-items: baseline;
   font-size: var(--dsl-g-font-title);
@@ -656,13 +660,13 @@
 }
 .gradeItemOk { border-color: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) 30%, transparent); }
 .gradeItemNo { border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) 30%, transparent); }
-.gradeQ { font-weight: 600; color: var(--dsw-alias-label-primary); }
+.gradeQ { grid-column: 1 / -1; margin-bottom: 8px; overflow-wrap: anywhere; font-weight: 600; color: var(--dsw-alias-label-primary); }
 .gradeTag { font-weight: 700; }
 .gradeItemOk .gradeTag { color: var(--dsw-alias-state-success-primary, #3ecf8e); }
 .gradeItemNo .gradeTag { color: var(--dsw-alias-state-error-primary, #ff6b6b); }
-.gradeAns { color: var(--dsw-alias-label-secondary); }
+.gradeAns { overflow-wrap: anywhere; color: var(--dsw-alias-label-secondary); }
 .gradeRight { color: var(--dsw-alias-state-error-primary, #ffb3b3); }
-.gradeExp { grid-column: 1 / -1; font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-tertiary); line-height: 1.5; }
+.gradeExp { grid-column: 1 / -1; overflow-wrap: anywhere; font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-tertiary); line-height: 1.5; }
 
 .switchRow { display: flex; align-items: center; justify-content: space-between; gap: var(--dsl-g-gap-md); cursor: pointer; }
 .switchRow:focus-within .switch { box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint-strong), transparent); }

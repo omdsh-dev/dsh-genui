@@ -290,15 +290,28 @@ export const PlotBlock = memo(function PlotBlock({
     setView(prev => ({ xMin: d.xMin + dx, xMax: d.xMax + dx, yMin: prev.yMin, yMax: prev.yMax }))
   }
   const onPointerUp = (): void => { dragRef.current = null }
-  const onWheel = (e: React.WheelEvent): void => {
-    const span = xMax - xMin
-    const factor = e.deltaY > 0 ? 1.15 : 1 / 1.15
-    const next = span * factor
-    const rect = (e.currentTarget as Element).getBoundingClientRect()
-    const cx = fromX(((e.clientX - rect.left) / rect.width) * WIDTH)
-    const left = cx - ((cx - xMin) / span) * next
-    setView(prev => ({ xMin: left, xMax: left + next, yMin: prev.yMin, yMax: prev.yMax }))
-  }
+
+  // Wheel-to-zoom must not scroll the enclosing dialog (#63): React attaches
+  // onWheel as a passive listener, where preventDefault() is ignored and the
+  // event bubbles up to the scroll container. Register natively with
+  // { passive: false } instead — the same pattern as the 3D scene viewer.
+  const svgRef = useRef<SVGSVGElement | null>(null)
+  useEffect(() => {
+    const el = svgRef.current
+    if (el === null) return
+    const onWheel = (e: WheelEvent): void => {
+      e.preventDefault()
+      const span = xMax - xMin
+      const factor = e.deltaY > 0 ? 1.15 : 1 / 1.15
+      const next = span * factor
+      const rect = el.getBoundingClientRect()
+      const cx = fromX(((e.clientX - rect.left) / rect.width) * WIDTH)
+      const left = cx - ((cx - xMin) / span) * next
+      setView(prev => ({ xMin: left, xMax: left + next, yMin: prev.yMin, yMax: prev.yMax }))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [xMin, xMax])
 
   const hasParams = series.some(s => (s.params?.length ?? 0) > 0)
 
@@ -312,11 +325,11 @@ export const PlotBlock = memo(function PlotBlock({
           role="img"
           aria-label={title ?? 'function plot'}
           className={css.surface}
+          ref={svgRef}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerLeave={onPointerUp}
-          onWheel={onWheel}
         >
           {/* y grid */}
           {yTicks.map(t => (

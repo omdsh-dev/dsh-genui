@@ -28,6 +28,24 @@ if (typeof globalThis.requestAnimationFrame !== 'function') {
   globalThis.cancelAnimationFrame = (id: number) => clearTimeout(id)
 }
 
+// Node 26 + jsdom 25 on Windows: localStorage is absent unless
+// --localstorage-file is passed; the durable-state/interaction-store specs
+// exercise it. Inject a minimal in-memory stub that honors the storage API
+// surface those specs use.
+if (typeof window.localStorage === 'undefined') {
+  const store = new Map<string, string>()
+  const localStorageStub: Storage = {
+    get length(): number { return store.size },
+    clear(): void { store.clear() },
+    getItem(key: string): string | null { return store.has(key) ? store.get(key)! : null },
+    key(index: number): string | null { return [...store.keys()][index] ?? null },
+    removeItem(key: string): void { store.delete(key) },
+    setItem(key: string, value: string): void { store.set(key, String(value)) },
+  }
+  Object.defineProperty(window, 'localStorage', { value: localStorageStub, configurable: true })
+  Object.defineProperty(globalThis, 'localStorage', { value: localStorageStub, configurable: true })
+}
+
 // jsdom lacks PointerEvent: the panel resize drag and pointer interactions
 // in general rely on it. A MouseEvent subclass carries pointerId/pointerType
 // so fireEvent.pointerDown/pointerMove/pointerUp behave like the browser.
