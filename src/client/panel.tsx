@@ -43,6 +43,9 @@ const PANEL_HEIGHT_MAX = 600
  *  shown once beside the first rendered spec, never again. */
 const ONBOARD_KEY = 'dsh.genui.panel-hint'
 
+// Achievement telemetry re-exports (already injected at apply).
+import { recordPanel, recordTemplateUse } from './achievement-store.ts'
+
 /** Injection face built per session in apply (scoped conversation send). */
 export interface GenuiPanelInjected {
   sessionId: string
@@ -69,8 +72,9 @@ export function GenuiPanel({ sessionId, sendGenuiAction, insertTemplate }: Genui
   const [resizing, setResizing] = useState(false)
   const dragStart = useRef<{ y: number; height: number } | null>(null)
   const bodyRef = useRef<HTMLDivElement | null>(null)
-  // Template center (0.9.4): drawer open + a transient flash under the header.
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  // Template center (0.9.4) + achievements (0.9.5): the drawer host —
+  // null = closed, 'templates' | 'achievements' = open on that tab.
+  const [drawer, setDrawer] = useState<null | 'templates' | 'achievements'>(null)
   const [flash, setFlash] = useState<string | null>(null)
   const flashTimer = useRef(0)
   const hasSpec = spec !== null && spec.items.length > 0
@@ -96,6 +100,11 @@ export function GenuiPanel({ sessionId, sendGenuiAction, insertTemplate }: Genui
     }, 6000)
     return () => window.clearTimeout(t)
   }, [hint])
+  // Achievement telemetry (0.9.5): one panel appearance per dock mount.
+  useEffect(() => {
+    if (!hasSpec) return
+    recordPanel()
+  }, [hasSpec])
 
   // Explicit expand requests (the /panel command) open the dock even when the
   // user collapsed it manually: the monotone token guarantees a fresh request
@@ -195,7 +204,7 @@ export function GenuiPanel({ sessionId, sendGenuiAction, insertTemplate }: Genui
           onClick={() => setCollapsed(c => !c)}
         >
           <span className={css.panelBadge}>面板</span>
-          <span className={css.panelTitle}>{spec?.title ?? (drawerOpen ? 'GenUI 模板中心' : 'GenUI 面板')}</span>
+          <span className={css.panelTitle}>{spec?.title ?? (drawer !== null ? 'GenUI 探索' : 'GenUI 面板')}</span>
           <span className={css.panelChevron} aria-hidden>
             {/* Host-style glyphs (same icon set as the TodoDock header) instead of typed arrows. */}
             {collapsed ? <IconChevronUpOutline14 /> : <IconChevronDownOutline14 />}
@@ -205,12 +214,23 @@ export function GenuiPanel({ sessionId, sendGenuiAction, insertTemplate }: Genui
             new users and a quick-start entry for everyone. */}
         <button
           type="button"
-          className={`${css.panelTpl}${drawerOpen ? ` ${css.panelTplActive}` : ''}`}
+          className={`${css.panelTpl}${drawer === 'templates' ? ` ${css.panelTplActive}` : ''}`}
           aria-label="模板中心"
           title="模板中心：预览并试用 GenUI 示例"
-          onClick={() => { setCollapsed(false); setDrawerOpen(o => !o) }}
+          onClick={() => { setCollapsed(false); setDrawer(d => (d === 'templates' ? null : 'templates')) }}
         >
           模板
+        </button>
+        {/* Achievements (0.9.5): the exploration trophies, rendered by GenUI
+            itself (dogfooding). */}
+        <button
+          type="button"
+          className={`${css.panelTpl}${drawer === 'achievements' ? ` ${css.panelTplActive}` : ''}`}
+          aria-label="探索成就"
+          title="探索成就：解锁徽章与进度"
+          onClick={() => { setCollapsed(false); setDrawer(d => (d === 'achievements' ? null : 'achievements')) }}
+        >
+          成就
         </button>
         {/* In-place dismiss (issue #23): the same local override `/panel
             clear` applies — persists to localStorage, notifies subscribers,
@@ -225,7 +245,7 @@ export function GenuiPanel({ sessionId, sendGenuiAction, insertTemplate }: Genui
           <span aria-hidden>✕</span>
         </button>
       </div>
-      {hint && !drawerOpen && (
+      {hint && drawer === null && (
         <div className={css.panelHint} role="status">
           💡 这是 GenUI 会话面板：点右上角「模板」可浏览并试用示例
         </div>
@@ -237,9 +257,12 @@ export function GenuiPanel({ sessionId, sendGenuiAction, insertTemplate }: Genui
           data-genui-panel-body
           style={bodyHeight === null ? undefined : { height: bodyHeight }}
         >
-          {drawerOpen ? (
+          {drawer !== null ? (
             <TemplateDrawer
+              tab={drawer}
+              onSwitchTab={setDrawer}
               onUse={(text) => {
+                recordTemplateUse()
                 insertTemplate(text)
                 showFlash('指令已插入输入框，发送即可让模型生成')
               }}

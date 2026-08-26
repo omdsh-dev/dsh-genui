@@ -10,11 +10,18 @@ import { GENUI_TEMPLATES, type GenuiTemplate } from './templates.ts'
 import { GenuiBlock } from './GenuiBlock.tsx'
 import { ErrorBoundary } from './ErrorBoundary.tsx'
 import { panelStateKey } from './interaction-store.ts'
+import { buildAchievementsSpec } from './achievements.ts'
+import { getAchievementSnapshot, subscribeAchievements } from './achievement-store.ts'
+import { useSyncExternalStore } from 'react'
 import css from './TemplateDrawer.module.css'
 
 export interface TemplateDrawerProps {
   /** 试用：把模板指令插入当前输入框草稿。 */
   onUse: (instruction: string) => void
+  /** 当前 tab（由面板 header 按钮决定）。 */
+  tab: 'templates' | 'achievements'
+  /** 切 tab（面板 header 按钮同步）。 */
+  onSwitchTab: (tab: 'templates' | 'achievements') => void
 }
 
 const CATEGORIES = ['全部', '仪表盘', '数据', '流程', '图表', '交互', '测验', '高级'] as const
@@ -40,11 +47,17 @@ function copyText(text: string): Promise<void> {
   })
 }
 
-export function TemplateDrawer({ onUse }: TemplateDrawerProps) {
+export function TemplateDrawer({ onUse, tab, onSwitchTab }: TemplateDrawerProps) {
   const [category, setCategory] = useState<Category>('全部')
   const [selected, setSelected] = useState<GenuiTemplate | null>(null)
   const [copied, setCopied] = useState(false)
   const timer = useRef(0)
+  // Achievements tab: live state snapshot.
+  const achievements = useSyncExternalStore(subscribeAchievements, () => getAchievementSnapshot())
+  const achievementSpec = useMemo(
+    () => buildAchievementsSpec(achievements.state, achievements.unlocked),
+    [achievements],
+  )
 
   const items = useMemo(
     () => (category === '全部' ? [...GENUI_TEMPLATES] : GENUI_TEMPLATES.filter(t => t.category === category)),
@@ -64,52 +77,70 @@ export function TemplateDrawer({ onUse }: TemplateDrawerProps) {
   }
 
   return (
-    <div className={css.wrap} data-genui-templates>
-      <div className={css.cats} role="tablist" aria-label="模板分类">
-        {CATEGORIES.map(c => (
-          <button
-            key={c}
-            type="button"
-            role="tab"
-            aria-selected={category === c}
-            className={`${css.cat}${category === c ? ` ${css.catActive}` : ''}`}
-            onClick={() => { setCategory(c); setSelected(null) }}
-          >
-            {c}
-          </button>
-        ))}
+    <div className={css.wrap} data-genui-templates={tab === 'templates' ? undefined : 'achievements'}>
+      <div className={css.modeTabs} role="tablist" aria-label="探索内容">
+        <button role="tab" aria-selected={tab === 'templates'} className={`${css.modeTab}${tab === 'templates' ? ` ${css.modeTabActive}` : ''}`} onClick={() => onSwitchTab('templates')}>
+          模板
+        </button>
+        <button role="tab" aria-selected={tab === 'achievements'} className={`${css.modeTab}${tab === 'achievements' ? ` ${css.modeTabActive}` : ''}`} onClick={() => onSwitchTab('achievements')}>
+          成就
+        </button>
       </div>
-      <div className={css.list}>
-        {items.map(tpl => (
-          <button
-            key={tpl.id}
-            type="button"
-            className={`${css.card}${selected?.id === tpl.id ? ` ${css.cardActive}` : ''}`}
-            onClick={() => setSelected(prev => (prev?.id === tpl.id ? null : tpl))}
-          >
-            <span className={css.cardName}>{tpl.name}</span>
-            <span className={css.cardMeta}>{tpl.category}</span>
-            <span className={css.cardDesc}>{tpl.description}</span>
-          </button>
-        ))}
-      </div>
-      {selected !== null && (
-        <div className={css.detail} data-genui-template-preview>
-          <div className={css.toolbar}>
-            <span className={css.toolbarTitle}>{selected.name}</span>
-            <button type="button" className={css.try} onClick={() => onUse(selected.instruction)}>
-              试用：插入输入框
-            </button>
-            <button type="button" className={css.copy} onClick={() => void copy(selected.instruction)}>
-              {copied ? '✓ 已复制' : '复制指令'}
-            </button>
-          </div>
-          <div className={css.preview}>
-            <ErrorBoundary label="模板预览">
-              <GenuiBlock spec={selected.demo} stateKey={panelStateKey('genui-tpl', selected.id)} />
-            </ErrorBoundary>
-          </div>
+      {tab === 'achievements' ? (
+        <div className={css.achievements} data-genui-achievements>
+          <ErrorBoundary label="成就页">
+            <GenuiBlock spec={achievementSpec} stateKey={panelStateKey('genui-achievements', JSON.stringify(achievementSpec))} />
+          </ErrorBoundary>
         </div>
+      ) : (
+        <>
+          <div className={css.cats} role="tablist" aria-label="模板分类">
+            {CATEGORIES.map(c => (
+              <button
+                key={c}
+                type="button"
+                role="tab"
+                aria-selected={category === c}
+                className={`${css.cat}${category === c ? ` ${css.catActive}` : ''}`}
+                onClick={() => { setCategory(c); setSelected(null) }}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <div className={css.list}>
+            {items.map(tpl => (
+              <button
+                key={tpl.id}
+                type="button"
+                className={`${css.card}${selected?.id === tpl.id ? ` ${css.cardActive}` : ''}`}
+                onClick={() => setSelected(prev => (prev?.id === tpl.id ? null : tpl))}
+              >
+                <span className={css.cardName}>{tpl.name}</span>
+                <span className={css.cardMeta}>{tpl.category}</span>
+                <span className={css.cardDesc}>{tpl.description}</span>
+              </button>
+            ))}
+          </div>
+          {selected !== null && (
+            <div className={css.detail} data-genui-template-preview>
+              <div className={css.toolbar}>
+                <span className={css.toolbarTitle}>{selected.name}</span>
+                <button type="button" className={css.try} onClick={() => onUse(selected.instruction)}>
+                  试用：插入输入框
+                </button>
+                <button type="button" className={css.copy} onClick={() => void copy(selected.instruction)}>
+                  {copied ? '✓ 已复制' : '复制指令'}
+                </button>
+              </div>
+              <div className={css.preview}>
+                <ErrorBoundary label="模板预览">
+                  <GenuiBlock spec={selected.demo} stateKey={panelStateKey('genui-tpl', selected.id)} />
+                </ErrorBoundary>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

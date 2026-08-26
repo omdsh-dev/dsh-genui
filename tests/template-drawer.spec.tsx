@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TemplateDrawer } from '../src/client/TemplateDrawer.tsx'
 import { GENUI_TEMPLATES } from '../src/client/templates.ts'
 
+const renderDrawer = (onUse: (t: string) => void = () => {}): ReturnType<typeof render> =>
+  render(<TemplateDrawer tab="templates" onSwitchTab={() => {}} onUse={onUse} />)
+
 beforeEach(() => {
   localStorage.clear()
 })
@@ -16,7 +19,7 @@ afterEach(() => {
 
 describe('TemplateDrawer', () => {
   it('渲染全部分类 chip 与模板卡片', () => {
-    render(<TemplateDrawer onUse={() => {}} />)
+    renderDrawer()
     for (const c of ['全部', '仪表盘', '数据', '流程', '图表', '交互', '测验', '高级']) {
       expect(screen.getByRole('tab', { name: c })).toBeTruthy()
     }
@@ -25,15 +28,15 @@ describe('TemplateDrawer', () => {
     }
   })
 
-  it('分类过滤：点「图表」只显示图表类模板', () => {
-    render(<TemplateDrawer onUse={() => {}} />)
+  it('分类过滤：点「测验」只显示图表类模板', () => {
+    renderDrawer()
     fireEvent.click(screen.getByRole('tab', { name: '测验' }))
     expect(screen.queryByText('项目仪表盘')).toBeNull()
     expect(screen.getByText('随堂测验')).toBeTruthy()
   })
 
   it('点击卡片：预览渲染 demo 并显示「试用/复制」', async () => {
-    render(<TemplateDrawer onUse={() => {}} />)
+    renderDrawer()
     fireEvent.click(screen.getByText('项目仪表盘'))
     // Demo 预览由 GenuiBlock 渲染：首屏应有示例标题与 stat 标签
     const preview = document.querySelector('[data-genui-template-preview]')
@@ -45,7 +48,7 @@ describe('TemplateDrawer', () => {
 
   it('「试用」回调收到模板指令', () => {
     const onUse = vi.fn()
-    render(<TemplateDrawer onUse={onUse} />)
+    renderDrawer(onUse)
     fireEvent.click(screen.getByText('项目仪表盘'))
     fireEvent.click(screen.getByRole('button', { name: '试用：插入输入框' }))
     expect(onUse).toHaveBeenCalledTimes(1)
@@ -57,12 +60,20 @@ describe('TemplateDrawer', () => {
     const writeText = vi.fn()
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     const onUse = vi.fn()
-    render(<TemplateDrawer onUse={onUse} />)
+    renderDrawer(onUse)
     fireEvent.click(screen.getByText('项目仪表盘'))
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /复制指令/ }))
     })
     expect(writeText).toHaveBeenCalledTimes(1)
     expect(writeText.mock.calls[0][0]).toContain('dsh-ui')
+  })
+
+  it('成就 tab 渲染成就页（dsh-ui 自渲染）', () => {
+    const withTab = render(<TemplateDrawer tab="achievements" onSwitchTab={() => {}} onUse={() => {}} />)
+    expect(screen.getByRole('tab', { name: '成就' })).toBeTruthy()
+    expect(document.querySelector('[data-genui-achievements]')).toBeTruthy()
+    expect(screen.getByText(/GenUI 探索成就/)).toBeTruthy()
+    withTab.unmount()
   })
 })

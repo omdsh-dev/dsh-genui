@@ -32,6 +32,7 @@ import { renderGenuiFence, type GenuiFenceContext } from './fence-render.tsx'
 import { createPanelSlashSource } from './panel-command.ts'
 import { GenuiPanel, type GenuiPanelInjected } from './panel.tsx'
 import { GenuiToolView } from './toolview.tsx'
+import { mountAchievementToasts } from './achievement-toast.tsx'
 import type { InputTriggerServiceContract } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { assetUrl } from './asset-loader.ts'
 
@@ -140,6 +141,8 @@ export function apply(ctx: Context): () => void {
   // a session usually hits a warm cache instead of paying the fetch on first
   // use. Never blocks first paint; the loader still handles a miss.
   prefetchGenuiAssets()
+  // Achievement toasts (0.9.5): a body-level stack independent of the panel.
+  disposers.push(mountAchievementToasts())
   // Keyed toolview: the harness dispatches 'tool.call.toolview' by wire tool
   // name; registering under 'render_ui' gives the tool's result card the
   // GenUI renderer (reading the repaired spec from result meta). The toolview

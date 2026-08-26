@@ -10,6 +10,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useGenuiAction } from './action-context.ts'
 import css from './GenuiBlock.module.css'
 import { loadBlockState, saveBlockState } from './interaction-store.ts'
+import { recordFence, recordInteraction } from './achievement-store.ts'
 import { renderNode } from './blocks/render-node.tsx'
 import type { AnswersState, GenuiBlockProps, QuestionMeta } from './blocks/state.ts'
 import type { GenuiSpec } from './spec.ts'
@@ -127,6 +128,15 @@ export const GenuiBlock = memo(function GenuiBlock({ spec, stateKey }: GenuiBloc
     }),
     [answers, fields, secretFields, meta, locked, round, setAnswer, setField, registerSecretField, registerMeta, clear],
   )
+  // Achievement telemetry: every emitted action counts as one interaction
+  // (the debounced emit fires once per real user action).
+  const trackedAction = useMemo(() => {
+    if (onAction === undefined) return undefined
+    return (action: string, payload: Record<string, unknown>): void => {
+      recordInteraction()
+      onAction(action, payload)
+    }
+  }, [onAction])
   // Durable save (debounced 300ms — typing in a field fires per keystroke).
   // Secret field values are stripped before writing: passwords never persist.
   useEffect(() => {
@@ -143,6 +153,11 @@ export const GenuiBlock = memo(function GenuiBlock({ spec, stateKey }: GenuiBloc
     }, 300)
     return () => clearTimeout(timer)
   }, [stateKey, answers, locked, fields, secretFields])
+  // Achievement telemetry (0.9.5): the store dedupes by spec fingerprint, so
+  // streaming re-renders and replays count once per distinct content.
+  useEffect(() => {
+    recordFence(spec)
+  }, [spec])
   return (
     <div className={css.block} data-genui>
       {spec.title !== undefined && <div className={css.banner}>{spec.title}</div>}
@@ -157,7 +172,7 @@ export const GenuiBlock = memo(function GenuiBlock({ spec, stateKey }: GenuiBloc
             className={css.reveal}
             style={{ animationDelay: `${Math.min(i * 90, 720)}ms` }}
           >
-            {renderNode(c, i, onAction, 0, answersState)}
+            {renderNode(c, i, trackedAction, 0, answersState)}
           </div>
         ))}
       </div>
