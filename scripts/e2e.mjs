@@ -23,7 +23,7 @@
 
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
-import { createWriteStream } from 'node:fs'
+import { createWriteStream, rmSync } from 'node:fs'
 import { mkdtemp, mkdir, copyFile, rm, writeFile, appendFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
@@ -37,7 +37,13 @@ const DSH_ROOT = process.env.DSH_ROOT ?? resolve(process.env.HOME ?? '', '.dsh/s
 const DSH_BIN = process.env.DSH_BIN ?? join(DSH_ROOT, 'apps/cli/lib/bin.js')
 if (!resolve(DSH_BIN).startsWith('/')) fail('DSH_BIN 必须是绝对路径')
 if (!existsSync(DSH_BIN)) fail(`DSH_BIN 不存在: ${DSH_BIN}（在 DSH_ROOT 内先 pnpm run build）`)
-const arg = (name) => process.argv[process.argv.indexOf(name) + 1]
+const arg = (name) => {
+  const index = process.argv.indexOf(name)
+  return index === -1 ? undefined : process.argv[index + 1]
+}
+function findDshWebUrl(output) {
+  return output.match(/dsh web: (http:\/\/127\.0\.0\.1:\d+\/\?token=[A-Za-z0-9_-]+)/u)?.[1]
+}
 const PORT = Number(arg('--port') ?? 3088)
 const KEEP = process.argv.includes('--keep')
 const SMOKE = process.argv.includes('--smoke')
@@ -87,6 +93,12 @@ const killWeb = () => {
   try { process.kill(webChild.pid, 'SIGTERM') } catch { /* already gone */ }
   webChild = null
 }
+
+// fail() 会直接退出；exit 钩子保证失败路径也只清理本脚本创建的临时环境。
+process.on('exit', () => {
+  killWeb()
+  if (!KEEP) rmSync(DSH_HOME, { recursive: true, force: true })
+})
 
 const cleanup = async () => {
   killWeb()
@@ -143,19 +155,25 @@ try {
 
   log(`启动 dsh web (port ${PORT}, DSH_HOME=${DSH_HOME})...`)
   const logStream = createWriteStream(webLog, { flags: 'a' })
-  webChild = spawn(DSH_BIN, ['web', '--port', String(PORT)], {
+  webChild = spawn(DSH_BIN, ['web', '--no-open', '--port', String(PORT)], {
     env, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
   })
-  webChild.stdout.pipe(logStream)
-  webChild.stderr.pipe(logStream)
+  let webOutput = ''
+  const captureWebOutput = (chunk) => {
+    logStream.write(chunk)
+    webOutput += chunk.toString()
+  }
+  webChild.stdout.on('data', captureWebOutput)
+  webChild.stderr.on('data', captureWebOutput)
   const BASE = `http://127.0.0.1:${PORT}`
-  let ready = false
+  let readyUrl
   for (let i = 0; i < 120; i++) {
     if (webChild.exitCode !== null) break
-    try { const res = await fetch(BASE); if (res.ok) { ready = true; break } } catch { /* booting */ }
+    readyUrl = findDshWebUrl(webOutput)
+    if (readyUrl !== undefined) break
     await new Promise(r => setTimeout(r, 1000))
   }
-  if (!ready) {
+  if (readyUrl === undefined) {
     await logTail()
     fail(`dsh web 120s 内未就绪（日志: ${webLog}）`)
   }
@@ -166,26 +184,41 @@ try {
   const browser = await chromium.launch({ channel: 'chrome', headless: true })
   const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } })
   const pageErrors = []
+  const pageMessages = []
+  page.on('console', message => pageMessages.push(message.text()))
   page.on('pageerror', e => pageErrors.push(String(e)))
-  await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.goto(readyUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.waitForTimeout(5000)
 
-  // client.js 必须 200（插件 bundle 可加载）；404 直接失败
-  const clientRes = await fetch(`${BASE}/plugins/@changfenhuang/dsh-genui/client.js`)
+  // 0.1.2 起只服务启动图公告的不可变组合 URL，不再开放旧版单包裸路径。
+  const boot = await page.evaluate(() => {
+    const boot = window.__DSH_BOOT__
+    if (boot === null || typeof boot !== 'object' || !Array.isArray(boot.entries)) return undefined
+    return { entries: boot.entries.length, clientUrl: boot.entries.find(entry => entry.id === '@changfenhuang/dsh-genui')?.url }
+  })
+  if (boot?.entries === 0) {
+    await page.screenshot({ path: join(artifactsDir, 'e2e-fail-empty-host-boot.png') })
+    fail('dsh 宿主启动图为空（连内置浏览器插件都未注册）')
+  }
+  if (boot?.clientUrl === undefined) fail('启动图缺少 @changfenhuang/dsh-genui（插件未注册）')
+  const clientRes = await fetch(`${BASE}${boot.clientUrl}`)
   if (!clientRes.ok) {
     await page.screenshot({ path: join(artifactsDir, 'e2e-fail-client404.png') })
     await logTail()
-    fail(`client.js 返回 ${clientRes.status}（插件 bundle 未加载）`)
+    fail(`启动图公告的 GenUI bundle 返回 ${clientRes.status}`)
   }
-  log(`✓ client.js ${clientRes.status}`)
+  log(`✓ 启动图 GenUI bundle ${clientRes.status}`)
 
   if (pageErrors.length > 0) {
     await page.screenshot({ path: join(artifactsDir, 'e2e-fail-pageerror.png') })
     fail(`页面异常: ${pageErrors.slice(0, 3).join(' | ')}`)
   }
+  if (!pageMessages.some(message => message.includes('[genui] client active; fence-channel='))) {
+    fail('GenUI bundle 已下载，但客户端入口未激活')
+  }
 
   if (SMOKE) {
-    log('smoke 模式：安装 → 启动 → client.js 200 → 无页面异常 → 插件 boot 均通过')
+    log('smoke 模式：安装 → 登录 → 启动图资源 200 → 无页面异常 → 插件 boot 均通过')
     await browser.close()
     await cleanup()
     console.log('PASS smoke e2e（不消耗模型额度）')
