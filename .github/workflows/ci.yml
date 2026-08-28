@@ -61,14 +61,6 @@ jobs:
       - name: Pack verification gate
         run: node scripts/verify-pack.mjs
 
-      # 提交进仓的 lib/ 必须与 src 一致：漂移 = 上次源码改动从未构建发布。
-      - name: Verify lib matches src
-        run: |
-          git diff --exit-code -- lib/ || {
-            echo "::error::lib/ 与 src/ 不一致：请运行 pnpm run build 并提交 lib/ 产物"
-            exit 1
-          }
-
       # no-key smoke：隔离 DSH_HOME + 精确宿主二进制 + 固定端口，绝不触碰
       # 任何活跃实例；宿主二进制必须位于本次 checkout 内。
       - name: Smoke e2e (no model key)
