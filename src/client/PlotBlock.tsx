@@ -194,29 +194,44 @@ export const PlotBlock = memo(function PlotBlock({
 
   useEffect(() => {
     if (!playing || animParam === null) return
-    const from = params[`${animParam.si}:${animParam.param.name}`] ?? animParam.param.value
+    const key = `${animParam.si}:${animParam.param.name}`
+    let cycleFrom = params[key] ?? animParam.param.value
     const to = animParam.param.animateTo!
-    const duration = animParam.param.durationMs ?? 4000
-    const start = performance.now()
+    const duration = Math.max(0, animParam.param.durationMs ?? 4000)
+    let cycleStart = performance.now()
     const tick = (now: number): void => {
-      const t = Math.min(1, (now - start) / duration)
+      const t = duration === 0 ? 1 : Math.min(1, Math.max(0, (now - cycleStart) / duration))
       const eased = 1 - Math.pow(1 - t, 3) // easeOutCubic
-      const value = from + (to - from) * eased
-      setParams(prev => ({ ...prev, [`${animParam.si}:${animParam.param.name}`]: value }))
+      const value = cycleFrom + (to - cycleFrom) * eased
+      setParams(prev => ({ ...prev, [key]: value }))
       setAnimProgress(t)
       if (t < 1) {
         animRef.current = requestAnimationFrame(tick)
       } else if (animParam.param.loop === true) {
-        setParams(prev => ({ ...prev, [`${animParam.si}:${animParam.param.name}`]: animParam.param.value }))
+        cycleFrom = animParam.param.value
+        cycleStart = now
+        setParams(prev => ({ ...prev, [key]: cycleFrom }))
         setAnimProgress(0)
-        animRef.current = requestAnimationFrame(() => setPlaying(p => p))
+        animRef.current = requestAnimationFrame(tick)
       } else {
+        animRef.current = null
         setPlaying(false)
       }
     }
     animRef.current = requestAnimationFrame(tick)
-    return () => { if (animRef.current !== null) cancelAnimationFrame(animRef.current) }
-  }, [playing, animParam?.si, animParam?.param.name, animParam?.param.animateTo])
+    return () => {
+      if (animRef.current !== null) cancelAnimationFrame(animRef.current)
+      animRef.current = null
+    }
+  }, [
+    playing,
+    animParam?.si,
+    animParam?.param.name,
+    animParam?.param.value,
+    animParam?.param.animateTo,
+    animParam?.param.durationMs,
+    animParam?.param.loop,
+  ])
 
   const xMin = view.xMin
   const xMax = view.xMax
