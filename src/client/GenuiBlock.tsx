@@ -67,11 +67,11 @@ function specEquivalent(a: GenuiSpec, b: GenuiSpec): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
-/**
- * Render a GenUI spec as an inline block. Falls back to nothing when the spec
- * carries no items (the fence renderer already refused non-specs before us).
- */
-export const GenuiBlock = memo(function GenuiBlock({ spec, stateKey }: GenuiBlockProps) {
+/** Stateful implementation. Its mount lifetime is the interaction-state
+ * lifetime: useState seeds durable data exactly once, and every later save
+ * belongs to the same stateKey. The exported shell below owns the React key
+ * that enforces this invariant for every caller. */
+function GenuiBlockInstance({ spec, stateKey }: GenuiBlockProps) {
   const gap = spec.gap ?? 16
   const onAction = useDebouncedAction(useGenuiAction())
   // v2.5/v2.6 answers registry: grouped radios record selections + question
@@ -179,4 +179,16 @@ export const GenuiBlock = memo(function GenuiBlock({ spec, stateKey }: GenuiBloc
       </div>
     </div>
   )
+}
+
+/**
+ * Render a GenUI spec as an inline block. `stateKey` is also the durable
+ * component identity: changing it remounts the stateful implementation so
+ * state loaded for one block can never leak into or be saved under another
+ * key. Identity-less streaming renders deliberately share one stable
+ * volatile instance, preserving local interaction state as the spec grows.
+ */
+export const GenuiBlock = memo(function GenuiBlock(props: GenuiBlockProps) {
+  const instanceKey = props.stateKey === undefined ? 'volatile' : `durable:${props.stateKey}`
+  return <GenuiBlockInstance key={instanceKey} {...props} />
 }, (prev, next) => prev.stateKey === next.stateKey && specEquivalent(prev.spec, next.spec))
