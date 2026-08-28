@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
-/** Native image display for model-authored, browser-reachable sources. */
+import type { GenuiImage } from '../spec.ts';
+/** Native image display; source safety is enforced by repairGenuiSpec/safeMediaSrc. */
 export declare function ImageNode({ node }: {
-    node: unknown;
+    node: GenuiImage;
 }): ReactNode;

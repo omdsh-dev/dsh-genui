@@ -1,12 +1,10 @@
 /**
- * GenUI gallery: one spec exercising every white-listed node type, used as
- * the canonical full-vocabulary sample (tests render it and assert every
- * component family appears; docs and demos reuse it as the "show everything"
- * fence).
+ * GenUI gallery: canonical broad-coverage sample of built-in node types.
+ * Docs, demos, and renderer tests reuse it as the component gallery fence.
  */
 import type { GenuiSpec } from './spec.ts'
 
-/** A single spec covering all 41 node types in the vocabulary. */
+/** Canonical gallery spec for the built-in GenUI component vocabulary. */
 export const gallerySpec: GenuiSpec = {
   title: 'GenUI · 组件画廊',
   gap: 14,
