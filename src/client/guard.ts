@@ -283,6 +283,14 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
       if (label === undefined) return null
       return { type: 'link', label, ...opt('href', safeHref(v.href)) }
     }
+    case 'image': {
+      const src = safeMediaSrc(v.src)
+      if (src === undefined) return null
+      return {
+        type: 'image', src,
+        ...opt('alt', str(v.alt, GENUI_LIMITS.maxString)),
+      }
+    }
     case 'audio': {
       const src = safeMediaSrc(v.src)
       if (src === undefined) return null
@@ -1179,7 +1187,7 @@ export function countGenuiNodes(value: unknown, cap = Number.POSITIVE_INFINITY):
  * `"type"` strings (e.g. file-tree's `{type:'file'}` children). */
 export const GENUI_NODE_TYPES: ReadonlySet<string> = new Set([
   'accordion', 'audio', 'avatar', 'badge', 'breadcrumb', 'button', 'callout', 'card', 'chart',
-  'checkbox', 'code', 'col', 'copy', 'diff', 'divider', 'file-tree', 'grid', 'input', 'json',
+  'checkbox', 'code', 'col', 'copy', 'diff', 'divider', 'file-tree', 'grid', 'image', 'input', 'json',
   'keyvalue', 'link', 'list', 'mermaid', 'plot', 'progress', 'quiz', 'radio', 'row', 'scene3d',
   'select', 'slider', 'spacer', 'stat', 'steps', 'submit', 'switch', 'table', 'tabs', 'text',
   'textarea', 'timeline', 'video', 'echart', 'diagram',
@@ -1315,7 +1323,7 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       if (typeof v.label !== 'string') errors.push(`${at}: type '${type}' requires label (string)`)
       isStr('label')
       break
-    case 'audio': case 'video':
+    case 'image': case 'audio': case 'video':
       if (typeof v.src !== 'string') errors.push(`${at}: type '${type}' requires src (string)`)
       isStr('src')
       isStr('alt')

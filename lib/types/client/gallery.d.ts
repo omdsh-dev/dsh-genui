@@ -5,5 +5,5 @@
  * fence).
  */
 import type { GenuiSpec } from './spec.ts';
-/** A single spec covering all 40 node types in the vocabulary. */
+/** A single spec covering all 41 node types in the vocabulary. */
 export declare const gallerySpec: GenuiSpec;

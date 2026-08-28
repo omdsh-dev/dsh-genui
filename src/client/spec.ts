@@ -21,6 +21,7 @@ export type GenuiNode =
   | GenuiSelect
   | GenuiCheckbox
   | GenuiLink
+  | GenuiImage
   | GenuiAudio
   | GenuiVideo
   | GenuiBadge
@@ -149,6 +150,14 @@ export interface GenuiLink {
    * styled text — never a dead clickable-looking control.
    */
   href?: string
+}
+
+/** User-controlled image from a browser-reachable URL. */
+export interface GenuiImage {
+  type: 'image'
+  src: string
+  /** Visible caption and accessible image description. */
+  alt?: string
 }
 
 /** User-controlled audio from a browser-reachable URL. */
@@ -517,7 +526,6 @@ export interface GenuiScene3D {
 }
 
 /* ---------------- v1.4: more content structure ---------------- */
-
 export interface GenuiTimelineItem {
   /** Title of the event. */
   title: string

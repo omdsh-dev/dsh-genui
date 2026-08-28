@@ -20,6 +20,7 @@ import {
   MermaidNode, PlotNode, QuizNode, Scene3DNode, StepsNode, TabsNode, TimelineNode,
 } from './advanced.tsx'
 import { DiagramNode } from './diagram/index.tsx'
+import { ImageNode } from './image.tsx'
 
 import { EChartNode } from '../EChartNode.tsx'
 
@@ -58,6 +59,7 @@ export function renderNode(
   // against the same limit; this is the belt-and-suspenders for direct
   // GenuiBlock use and plugin-registered custom renderers.
   if (depth > GENUI_LIMITS.maxDepth) return null
+
   switch (node.type) {
     case 'text': {
       const size = node.size ?? 'body'
@@ -143,6 +145,7 @@ export function renderNode(
         ? <a key={key} className={css.link} href={href} target="_blank" rel="noopener noreferrer">{node.label}</a>
         : <span key={key} className={css.linkText}>{node.label}</span>
     }
+    case 'image': return <ImageNode key={`${key}:${node.src}`} node={node} />
     case 'audio': return <AudioNode key={`${key}:${node.src}`} node={node} />
     case 'video': return <VideoNode key={`${key}:${node.src}`} node={node} />
     case 'badge': {
