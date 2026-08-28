@@ -346,7 +346,6 @@ export const TimelineNode = memo(function TimelineNode({ node }: { node: GenuiTi
  * — click a dir to fold/unfold, default fully open. Zero model round trip. */
 export const FileTreeNode = memo(function FileTreeNode({ node }: { node: GenuiFileTree }) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
-  const pathKey = (depth: number, i: number): string => `${depth}-${i}`
   const toggle = (k: string): void => {
     setCollapsed(prev => {
       const next = new Set(prev)
@@ -355,27 +354,26 @@ export const FileTreeNode = memo(function FileTreeNode({ node }: { node: GenuiFi
       return next
     })
   }
-  const renderNode = (n: GenuiFileTreeNode, depth: number, i: number): ReactNode => {
+  const renderNode = (n: GenuiFileTreeNode, depth: number, path: string): ReactNode => {
     if (depth > GENUI_LIMITS.maxTreeDepth) return null
     const isDir = n.type === 'dir' || (n.children !== undefined && n.children.length > 0)
-    const k = pathKey(depth, i)
-    const folded = isDir && collapsed.has(k)
+    const folded = isDir && collapsed.has(path)
     return (
-      <div key={k} className={css.ftRow} style={{ paddingLeft: `${depth * 16}px` }}>
+      <div key={path} className={css.ftRow} style={{ paddingLeft: `${depth * 16}px` }}>
         <button
           type="button"
           className={css.ftNameBtn}
           aria-expanded={isDir ? !folded : undefined}
-          onClick={isDir ? () => toggle(k) : undefined}
+          onClick={isDir ? () => toggle(path) : undefined}
         >
           <span className={`${css.ftIcon} ${isDir ? css.ftIconDir : ''}`} aria-hidden>{isDir ? (folded ? '▸' : '▾') : '·'}</span>
           <span className={`${css.ftName} ${isDir ? css.ftDir : ''}`}>{n.name}</span>
         </button>
-        {isDir && !folded && (n.children ?? []).map((c, ci) => renderNode(c, depth + 1, ci))}
+        {isDir && !folded && (n.children ?? []).map((c, ci) => renderNode(c, depth + 1, `${path}/${ci}`))}
       </div>
     )
   }
-  return <div className={css.fileTree}>{node.items.slice(0, GENUI_LIMITS.maxListItems).map((n, i) => renderNode(n, 0, i))}</div>
+  return <div className={css.fileTree}>{node.items.slice(0, GENUI_LIMITS.maxListItems).map((n, i) => renderNode(n, 0, String(i)))}</div>
 })
 
 /** Quiz: a self-contained teaching question. Selecting an option marks it
