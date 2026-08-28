@@ -264,26 +264,32 @@ export const CopyNode = memo(function CopyNode({ node }: { node: GenuiCopy }) {
   )
 })
 
+type MermaidRenderState =
+  | { status: 'loading' }
+  | { status: 'ready'; html: string }
+  | { status: 'error' }
+
 /** Mermaid: lazily loaded diagram renderer. */
 export const MermaidNode = memo(function MermaidNode({ node }: { node: GenuiMermaid }) {
-  const [html, setHtml] = useState<string | null>(null)
-  const [failed, setFailed] = useState(false)
+  const [state, setState] = useState<MermaidRenderState>({ status: 'loading' })
   const code = node.code.slice(0, GENUI_LIMITS.maxMermaid)
   useEffect(() => {
     let alive = true
-    void import('../mermaid-lazy.ts').then(async m => {
+    setState({ status: 'loading' })
+    void (async () => {
       try {
+        const m = await import('../mermaid-lazy.ts')
         const svg = await m.renderMermaid(code)
-        if (alive) setHtml(svg)
+        if (alive) setState({ status: 'ready', html: svg })
       } catch {
-        if (alive) setFailed(true)
+        if (alive) setState({ status: 'error' })
       }
-    })
+    })()
     return () => { alive = false }
   }, [code])
-  if (failed) return <div className={css.mermaidFallback}><pre>{code}</pre><div className={css.mermaidErr}>图语法有误，已降级显示源码</div></div>
-  if (html === null) return <div className={css.mermaidFallback}><pre>{code}</pre><div className={css.mermaidHint}>渲染中…</div></div>
-  return <div className={css.mermaid} dangerouslySetInnerHTML={{ __html: html }} data-genui-mermaid />
+  if (state.status === 'error') return <div className={css.mermaidFallback}><pre>{code}</pre><div className={css.mermaidErr}>图语法有误，已降级显示源码</div></div>
+  if (state.status === 'loading') return <div className={css.mermaidFallback}><pre>{code}</pre><div className={css.mermaidHint}>渲染中…</div></div>
+  return <div className={css.mermaid} dangerouslySetInnerHTML={{ __html: state.html }} data-genui-mermaid />
 })
 
 /** Scene3D: three.js WebGL canvas, lazily imported. */
