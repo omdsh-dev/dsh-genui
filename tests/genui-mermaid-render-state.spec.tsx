@@ -28,25 +28,36 @@ describe('Mermaid render state', () => {
     expect(screen.getByText('渲染中…')).toBeTruthy()
 
     await waitFor(() => {
-      expect(view.container.querySelector('[data-genui-mermaid]')?.innerHTML).toContain('valid diagram')
+      const rendered = view.container.querySelector('[data-genui-mermaid]')
+      expect(rendered).not.toBeNull()
+      expect(rendered!.innerHTML).toContain('valid diagram')
     })
     expect(screen.queryByText('图语法有误，已降级显示源码')).toBeNull()
   })
 
   it('clears an old rendered SVG while new code is loading', async () => {
-    let resolveNext: ((svg: string) => void) | undefined
+    let resolveNext!: (svg: string) => void
+    const nextRender = new Promise<string>(resolve => { resolveNext = resolve })
     renderMermaidMock
       .mockResolvedValueOnce('<svg><text>first</text></svg>')
-      .mockImplementationOnce(() => new Promise<string>(resolve => { resolveNext = resolve }))
+      .mockReturnValueOnce(nextRender)
 
     const view = render(<MermaidNode node={node('graph TD\nA --> B')} />)
-    await waitFor(() => expect(view.container.querySelector('[data-genui-mermaid]')?.innerHTML).toContain('first'))
+    await waitFor(() => {
+      const rendered = view.container.querySelector('[data-genui-mermaid]')
+      expect(rendered).not.toBeNull()
+      expect(rendered!.innerHTML).toContain('first')
+    })
 
     view.rerender(<MermaidNode node={node('graph TD\nC --> D')} />)
     expect(screen.getByText('渲染中…')).toBeTruthy()
     expect(view.container.querySelector('[data-genui-mermaid]')).toBeNull()
 
-    resolveNext?.('<svg><text>second</text></svg>')
-    await waitFor(() => expect(view.container.querySelector('[data-genui-mermaid]')?.innerHTML).toContain('second'))
+    resolveNext('<svg><text>second</text></svg>')
+    await waitFor(() => {
+      const rendered = view.container.querySelector('[data-genui-mermaid]')
+      expect(rendered).not.toBeNull()
+      expect(rendered!.innerHTML).toContain('second')
+    })
   })
 })
