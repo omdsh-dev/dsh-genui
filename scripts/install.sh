@@ -1,12 +1,12 @@
 #!/bin/sh
-# dsh-genui 一键安装脚本（公开仓库：omdsh-dev/dsh-genui，git URL 安装无需登录）
+# dsh-genui 一键安装脚本（通过 npm 公开包安装，无需 npm 账号）
 #
 # 用法:
 #   ./scripts/install.sh            # 装进默认 web profile
 #   ./scripts/install.sh tui        # 装进自定义 profile
 #
-# 做什么: 检查三个前置（dsh / pnpm / 仓库可访问）→ 用 git URL 方式把插件
-# 装进 profile → 同步 genui skill（带文件安全边界）→ 提示重启验证。
+# 做什么: 检查两个前置（dsh / pnpm）→ 从 npm 安装插件
+# → 同步 genui skill（带文件安全边界）→ 提示重启验证。
 # 与手装唯一区别是多了前置自检，安装命令本身和 README 一致。
 
 set -eu
@@ -23,8 +23,7 @@ if [ "$fail_early" = 1 ]; then
   exit 1
 fi
 
-REPO_URL="git+https://github.com/omdsh-dev/dsh-genui.git"
-GIT_URL="https://github.com/omdsh-dev/dsh-genui.git"
+PACKAGE_SPEC="@changfenhuang/dsh-genui"
 DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
 # Web 会话的 skill 服务从 agentsHome（默认 ~/.agents）发现技能，dshHome 的
 # ~/.dsh/skills 在部分宿主演进中不再进入会话目录 —— 两个根都同步，模型从哪
@@ -37,7 +36,7 @@ ok()   { printf "${GREEN}✓ %s${NC}\n" "$1"; }
 warn() { printf "${YELLOW}! %s${NC}\n" "$1"; }
 
 # ── skill 同步：模型从技能根读 SKILL.md，不是仓库那份 ──
-# 从已安装的包内解析 SKILL.md（成员机器是 git 安装；开发机 link 安装会解析
+# 从已安装的包内解析 SKILL.md（正常安装来自 npm；开发机 link 安装会解析
 # 到本地 checkout）。目标按七类状态处理，任何情况下都不跟随写入别人的文件：
 #   不存在 / 普通文件  → 同目录临时文件 + 原子 mv（创建或替换）
 #   符号链接指向同一文件 → 成功跳过，不改链接（开发机 ln -s 场景）
@@ -119,12 +118,6 @@ if ! command -v pnpm >/dev/null 2>&1; then
 fi
 ok "pnpm: $(pnpm --version)"
 
-# ── 前置 3: 仓库可访问（公开仓库，无需登录；只验网络可达）─────────────────────────────
-if ! GIT_TERMINAL_PROMPT=0 git ls-remote "$GIT_URL" HEAD >/dev/null 2>&1; then
-  fail "无法访问仓库 $GIT_URL —— 请检查网络/代理后重试。"
-fi
-ok "GitHub 公开仓库可访问"
-
 # ── 已装检测（幂等）────────────────────────────────────────────────────────
 PROFILE_PKG="$DSH_HOME/profiles/$PROFILE/package.json"
 if [ -f "$PROFILE_PKG" ] && grep -q "dsh-genui" "$PROFILE_PKG" 2>/dev/null; then
@@ -136,8 +129,8 @@ if [ -f "$PROFILE_PKG" ] && grep -q "dsh-genui" "$PROFILE_PKG" 2>/dev/null; then
 fi
 
 # ── 安装 ───────────────────────────────────────────────────────────────────
-echo "安装中（拉取插件代码并安装依赖，约 1-2 分钟）..."
-dsh plugin --profile "$PROFILE" add "$REPO_URL"
+echo "安装中（从 npm 拉取公开包并安装依赖）..."
+dsh plugin --profile "$PROFILE" add "$PACKAGE_SPEC"
 sync_skill
 
 echo
