@@ -22,7 +22,7 @@
 |---|---|---|
 | See the complete DSH flow first | [40-second real walkthrough](#40-second-walkthrough) | Components are rendered inside a real DSH conversation. |
 | Inspect concrete UI outputs | [Three real outputs](#three-real-outputs-inside-a-dsh-reply) | Monitoring, function plots, and composable layout primitives. |
-| Try it in your own DSH | [Quick start](#quick-start) | A public Git install, a prompt to run, and an activation check. |
+| Try it in your own DSH | [Quick start](#quick-start) | A public npm install, a prompt to run, and an activation check. |
 | Learn the JSON language | [Component syntax](./SKILL.md) | The supported, guarded `dsh-ui` component specification. |
 
 ## Watch the real interface
@@ -101,8 +101,6 @@ Install and activate in DSH (one command, all dependencies included):
 ```sh
 # Public npm package (works without an npm account)
 dsh plugin --profile web add @changfenhuang/dsh-genui
-# Or install directly from the public GitHub source
-dsh plugin --profile web add git+https://github.com/omdsh-dev/dsh-genui.git
 ```
 
 To add it only as a Node dependency in an existing project:
@@ -113,7 +111,7 @@ npm install @changfenhuang/dsh-genui
 
 > `npm install` only adds the dependency; it does not register the plugin with DSH. Use `dsh plugin add` above when installing it into DSH.
 
-> ⚠️ **Don't use `link:` on a freshly cloned directory** — `link:` does not install the plugin's dependencies (mermaid / three / react), so the renderer will break. Use the git URL form above; reserve `link:` for local development iteration (see below).
+> ⚠️ **Don't use `link:` on a freshly cloned directory** — `link:` does not install the plugin's dependencies (mermaid / three / react), so the renderer will break. Use the npm command above for normal installation; reserve `link:` for local development iteration (see below).
 
 ### Migrating from the old `@omdsh-dev` package name
 
@@ -124,7 +122,7 @@ dsh plugin --profile web remove @omdsh-dev/dsh-genui
 dsh plugin --profile web add @changfenhuang/dsh-genui
 ```
 
-This migration is required once for old GitHub-spec installs. New npm and GitHub installs created with the commands above use the current dependency key.
+This migration is required once for old GitHub-spec installs. New installs should use the npm command above and will use the current dependency key.
 
 ### Verify the install in 60 seconds
 
@@ -135,16 +133,6 @@ Use dsh-ui to draw a stats dashboard with a sortable service table.
 ```
 
 You should see the reply turn into an in-place dashboard rather than a code block. For an unambiguous technical check, open the browser console: successful activation prints `[genui] client active; fence-channel=registry|dom`.
-
-### One-click script (recommended)
-
-After cloning, just run it — the script checks the prerequisites above, performs the install, and prompts you to restart:
-
-```sh
-git clone https://github.com/omdsh-dev/dsh-genui.git
-cd dsh-genui
-./scripts/install.sh
-```
 
 ### Developer iteration (link mode)
 
@@ -226,7 +214,7 @@ The core render package stays light (≈110 KB min / 28 KB gzip); the mermaid, t
 - **Rendering as a code block?** First check the browser console for `[genui] client active; fence-channel=registry|dom`. If absent, the client bundle was not activated even if its URL returns 200 — align the profile dependency, `package.json.name`, `cordis.patch.yml`, ModuleLoader id, and configured bundle name. If present, inspect the fence label/body; registry-less hosts automatically use the DOM channel.
 - **Chat UI goes blank when rendering a dsh-ui fence?** Your dsh is too old — update dsh first, then reinstall the plugin.
 - **`dsh: pnpm not found on PATH`?** Install pnpm, then **open a new terminal** and retry (`corepack enable` or `npm i -g pnpm`).
-- **Stuck on git credentials / 404 during install?** The repository and npm package are public and require no login. Run `npm view @changfenhuang/dsh-genui version` to verify the package name and public registry; if a newly published version still returns 404, retry shortly or use the GitHub install command above in the meantime.
+- **npm install returns 404?** The npm package is public and requires no login. Run `npm view @changfenhuang/dsh-genui version` to verify the package name and public registry; if a newly published version still returns 404, retry shortly.
 - **Installed but scene3d/mermaid/echarts don't render?** The engines (mermaid / three / echarts) are no longer inlined in client.js — they load on demand the first time they're used (`/plugins/@changfenhuang/dsh-genui/assets/*.js`, hosted by the plugin's own HTTP routes). First restart dsh web + hard refresh (Cmd+Shift+R); still broken, remove and reinstall (`dsh plugin --profile web remove @changfenhuang/dsh-genui`, then add again). Hosts without the asset routes degrade to source/load-error hints — update dsh.
 - **Model not outputting fences?** New sessions pick it up after a restart; or just say "output it with dsh-ui".
 - **No lib/ after cloning?** Build it yourself: `pnpm install && pnpm run check`.
@@ -244,7 +232,6 @@ The real chain end to end: start a temporary dsh web → install the plugin → 
 
 ```sh
 DEEPSEEK_API_KEY=sk-... node scripts/e2e.mjs          # link-installs the current workspace
-DEEPSEEK_API_KEY=sk-... node scripts/e2e.mjs --install git   # friend path (git URL)
 ```
 
 Prereqs: `dsh`/`pnpm` on PATH, `DEEPSEEK_API_KEY`, and the main repo's web build output (playwright resolves it from the main repo). On PASS it saves an `e2e-final.png` screenshot.
