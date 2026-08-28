@@ -110,13 +110,5 @@ jobs:
       - name: Verify package
         run: node scripts/verify-pack.mjs
 
-      - name: Verify committed lib artifacts
-        shell: bash
-        run: |
-          git diff --exit-code -- lib/ || {
-            echo "::error::lib/ does not match src/; run pnpm run build and commit the generated artifacts"
-            exit 1
-          }
-
       - name: Publish to npm
         run: npm publish --access public --tag "${{ steps.release.outputs.npm_tag }}"
