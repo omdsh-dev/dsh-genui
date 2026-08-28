@@ -121,8 +121,13 @@ export function TabsNode({ tabs, onAction, depth = 0, answers }: {
   const [active, setActive] = useState(0)
   const uid = useId()
   const list = tabs.tabs.slice(0, GENUI_LIMITS.maxTabs)
-  const current = list[active]
+  const safeActive = list.length === 0 ? 0 : Math.min(active, list.length - 1)
+  const current = list[safeActive]
+  useEffect(() => {
+    if (safeActive !== active) setActive(safeActive)
+  }, [active, safeActive])
   const move = (next: number): void => {
+    if (list.length === 0) return
     const n = (next + list.length) % list.length
     setActive(n)
     document.getElementById(`${uid}-tab-${n}`)?.focus()
@@ -134,8 +139,8 @@ export function TabsNode({ tabs, onAction, depth = 0, answers }: {
         role="tablist"
         aria-orientation="horizontal"
         onKeyDown={e => {
-          if (e.key === 'ArrowRight') { e.preventDefault(); move(active + 1) }
-          else if (e.key === 'ArrowLeft') { e.preventDefault(); move(active - 1) }
+          if (e.key === 'ArrowRight') { e.preventDefault(); move(safeActive + 1) }
+          else if (e.key === 'ArrowLeft') { e.preventDefault(); move(safeActive - 1) }
           else if (e.key === 'Home') { e.preventDefault(); move(0) }
           else if (e.key === 'End') { e.preventDefault(); move(list.length - 1) }
         }}
@@ -146,10 +151,10 @@ export function TabsNode({ tabs, onAction, depth = 0, answers }: {
             id={`${uid}-tab-${i}`}
             type="button"
             role="tab"
-            aria-selected={i === active}
+            aria-selected={i === safeActive}
             aria-controls={`${uid}-panel-${i}`}
-            tabIndex={i === active ? 0 : -1}
-            className={`${css.tab} ${i === active ? css.tabActive : ''}`}
+            tabIndex={i === safeActive ? 0 : -1}
+            className={`${css.tab} ${i === safeActive ? css.tabActive : ''}`}
             onClick={() => setActive(i)}
           >
             {tab.label}
@@ -157,7 +162,7 @@ export function TabsNode({ tabs, onAction, depth = 0, answers }: {
         ))}
       </div>
       {current !== undefined && (
-        <div className={css.col} role="tabpanel" id={`${uid}-panel-${active}`} aria-labelledby={`${uid}-tab-${active}`}>
+        <div className={css.col} role="tabpanel" id={`${uid}-panel-${safeActive}`} aria-labelledby={`${uid}-tab-${safeActive}`}>
           {current.items.map((c, i) => renderNode(c, i, onAction, depth + 1, answers))}
         </div>
       )}
