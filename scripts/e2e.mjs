@@ -10,11 +10,11 @@
  * 截图保留到当前目录；清理在 finally 中完成，只杀自己起的进程组。
  *
  * 用法：
- *   node scripts/e2e.mjs [--port 3088] [--keep] [--install link|git|tarball]
+ *   node scripts/e2e.mjs [--port 3088] [--keep] [--install link|npm|tarball]
  *                        [--tarball <路径> --tarball-sha256 <sha>] [--smoke]
  *
  *   --install link    （默认）装当前工作区，测的就是当前代码
- *   --install git     从 git URL 安装（公开仓库）
+ *   --install npm     从公开 npm 包安装
  *   --install tarball 必须给 --tarball 绝对路径与 --tarball-sha256（防假安装）
  *   --smoke           不要求模型 Key：安装 → 启动 → 首页/client.js 200 →
  *                     无页面异常 → 插件 boot；不跑模型链路
@@ -56,7 +56,7 @@ const fail = (msg) => { console.error(`✗ ${msg}`); process.exit(1) }
 const log = (msg) => console.log(`· ${msg}`)
 
 // ── 预检：参数、端口、工具 ─────────────────────────────────────────────────
-if (!['link', 'git', 'tarball'].includes(INSTALL)) fail(`--install 仅允许 link | git | tarball，收到 "${INSTALL}"`)
+if (!['link', 'npm', 'tarball'].includes(INSTALL)) fail(`--install 仅允许 link | npm | tarball，收到 "${INSTALL}"`)
 if (INSTALL === 'tarball') {
   if (!TARBALL || !TARBALL_SHA) fail('tarball 模式必须提供 --tarball <绝对路径> 与 --tarball-sha256 <sha256>')
   if (!resolve(TARBALL).startsWith('/')) fail('--tarball 必须是绝对路径')
@@ -117,10 +117,10 @@ const logTail = async (n = 30) => {
 
 try {
   // ── 安装插件 ────────────────────────────────────────────────────────────
-  if (INSTALL === 'git') {
-    log('安装插件（git+https，公开仓库）...')
-    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', 'git+https://github.com/omdsh-dev/dsh-genui.git'], { env, stdio: 'inherit' })
-    if (r.status !== 0) fail('git URL 安装失败（见上方输出）')
+  if (INSTALL === 'npm') {
+    log('安装插件（npm 公开包）...')
+    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', '@changfenhuang/dsh-genui'], { env, stdio: 'inherit' })
+    if (r.status !== 0) fail('npm 安装失败（见上方输出）')
   } else if (INSTALL === 'tarball') {
     log(`安装插件（tarball ${TARBALL}）...`)
     const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', TARBALL], { env, stdio: 'inherit' })
