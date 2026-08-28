@@ -101,4 +101,4 @@ export declare const BreadcrumbNode: import("react").NamedExoticComponent<{
  * names stay independent. The model round-trip takes seconds, so a few
  * hundred ms of trailing delay is imperceptible — and it stops bursts of
  * queued user turns.
- */
+ */ 
