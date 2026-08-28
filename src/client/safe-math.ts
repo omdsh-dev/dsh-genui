@@ -139,7 +139,35 @@ class SafeMathParser {
 
   private parseNumber(): number {
     const start = this.i
-    while (this.i < this.src.length && /[0-9.eE+\-]/.test(this.src[this.i]!)) this.i++
+    let sawDigit = false
+
+    while (this.i < this.src.length && /[0-9]/.test(this.src[this.i]!)) {
+      sawDigit = true
+      this.i++
+    }
+
+    if (this.peek() === '.') {
+      this.i++
+      while (this.i < this.src.length && /[0-9]/.test(this.src[this.i]!)) {
+        sawDigit = true
+        this.i++
+      }
+    }
+
+    if (!sawDigit) {
+      throw new ParseError(`invalid number '${this.src.slice(start, this.i)}'`, start)
+    }
+
+    if (this.peek() === 'e' || this.peek() === 'E') {
+      this.i++
+      if (this.peek() === '+' || this.peek() === '-') this.i++
+      const exponentStart = this.i
+      while (this.i < this.src.length && /[0-9]/.test(this.src[this.i]!)) this.i++
+      if (this.i === exponentStart) {
+        throw new ParseError(`invalid number '${this.src.slice(start, this.i)}'`, start)
+      }
+    }
+
     const text = this.src.slice(start, this.i)
     const value = Number(text)
     if (Number.isNaN(value)) throw new ParseError(`invalid number '${text}'`, start)
