@@ -354,6 +354,8 @@ export function installDomFenceRenderer(
   driftWarned = false
   plausibilityWarned = false
   const mounts = new Map<HTMLElement, Mount>()
+  let disposed = false
+  let rafId: number | null = null
 
   const sessionIdOf = (): SessionId | undefined => {
     try {
@@ -513,6 +515,7 @@ export function installDomFenceRenderer(
    * the streaming→settled transition), repair surgery, then take over every
    * new dsh-ui block — settled or still streaming. */
   function sweep(): void {
+    if (disposed) return
     for (const [block, mount] of mounts) {
       if (!block.isConnected) {
         unmountBlock(block)
@@ -605,12 +608,11 @@ export function installDomFenceRenderer(
     }
   }
 
-  let scheduled = false
   const schedule = (): void => {
-    if (scheduled) return
-    scheduled = true
-    requestAnimationFrame(() => {
-      scheduled = false
+    if (disposed || rafId !== null) return
+    rafId = requestAnimationFrame(() => {
+      rafId = null
+      if (disposed) return
       sweep()
     })
   }
@@ -634,8 +636,13 @@ export function installDomFenceRenderer(
   sweep()
 
   return () => {
+    disposed = true
     observer.disconnect()
     window.clearInterval(interval)
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId)
+      rafId = null
+    }
     for (const block of Array.from(mounts.keys())) unmountBlock(block)
   }
 }
