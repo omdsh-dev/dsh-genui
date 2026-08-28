@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // install.sh file-safety boundaries, driven through a REAL shell with a
-// temp DSH_HOME and stubbed dsh/pnpm/git. The script's idempotent branch
+// temp DSH_HOME and stubbed dsh/pnpm. The script's idempotent branch
 // (profile already lists dsh-genui) runs only the skill sync, so every
 // target state is exercised without touching any real profile. The key
 // property: a symlink pointing at another file is never written through —
@@ -19,6 +19,7 @@ interface Env {
   home: string
   profile: string
   dest: string
+  agentsDest: string
   run: (profile?: string) => { status: number; stdout: string }
 }
 
@@ -27,13 +28,12 @@ function makeEnv(): Env {
   const home = join(root, 'dshhome')
   const agentsHome = join(root, 'agentshome')
   const profile = join(home, 'profiles', 'web')
-  // stub commands on PATH: dsh (version), pnpm (version), git (ls-remote ok)
+  // stub commands on PATH: dsh / pnpm version checks
   const bin = join(root, 'bin')
   mkdirSync(bin, { recursive: true })
   writeFileSync(join(bin, 'dsh'), '#!/bin/sh\necho "dsh test-version"\n')
   writeFileSync(join(bin, 'pnpm'), '#!/bin/sh\necho "11.7.0"\n')
-  writeFileSync(join(bin, 'git'), '#!/bin/sh\nexit 0\n')
-  for (const name of ['dsh', 'pnpm', 'git']) {
+  for (const name of ['dsh', 'pnpm']) {
     execFileSync('chmod', ['+x', join(bin, name)])
   }
   // simulated installed package (no exports map → legacy subpath resolve)
