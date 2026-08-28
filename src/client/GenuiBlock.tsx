@@ -21,31 +21,32 @@ export const GENUI_ACTION_DEBOUNCE_MS = 300
  * Wrap the harness action callback with the per-action trailing debounce.
  * Absent provider = v1 behavior (components are display-only, callback
  * stays undefined). Pending timers are cleared on unmount so a click that
- * never fired does not leak into the next mount.
+ * never fired does not leak into the next mount. Timers live in one stable
+ * map and read the latest handler through a ref, so provider updates cannot
+ * leave stale callbacks behind.
  */
 function useDebouncedAction(onAction: GenuiBlockProps['onAction'] | undefined): GenuiBlockProps['onAction'] {
-  const pending = useRef<Map<string, ReturnType<typeof setTimeout>> | null>(null)
+  const pending = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const actionRef = useRef(onAction)
+  actionRef.current = onAction
+
   useEffect(() => {
     return () => {
-      const timers = pending.current
-      if (timers === null) return
-      for (const timer of timers.values()) clearTimeout(timer)
-      timers.clear()
+      for (const timer of pending.current.values()) clearTimeout(timer)
+      pending.current.clear()
     }
   }, [])
-  return useMemo(() => {
-    if (onAction === undefined) return undefined
-    const timers = new Map<string, ReturnType<typeof setTimeout>>()
-    pending.current = timers
-    return (action: string, payload: Record<string, unknown>): void => {
-      const existing = timers.get(action)
-      if (existing !== undefined) clearTimeout(existing)
-      timers.set(action, setTimeout(() => {
-        timers.delete(action)
-        onAction(action, payload)
-      }, GENUI_ACTION_DEBOUNCE_MS))
-    }
-  }, [onAction])
+
+  const debounced = useCallback((action: string, payload: Record<string, unknown>): void => {
+    const existing = pending.current.get(action)
+    if (existing !== undefined) clearTimeout(existing)
+    pending.current.set(action, setTimeout(() => {
+      pending.current.delete(action)
+      actionRef.current?.(action, payload)
+    }, GENUI_ACTION_DEBOUNCE_MS))
+  }, [])
+
+  return onAction === undefined ? undefined : debounced
 }
 
 /**
