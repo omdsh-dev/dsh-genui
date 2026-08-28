@@ -20,6 +20,8 @@ export interface GenuiBlockProps {
    * v2.7: durable-state key (session + slot + content fingerprint). When set,
    * interaction state (radio answers, submit lock, field values) persists to
    * localStorage and restores on refresh / re-render of the same content.
+   * Changing this key also starts a fresh in-memory interaction-state lifetime;
+   * callers only provide stateKey — GenuiBlock owns the matching React identity.
    */
   stateKey?: string | undefined
 }
