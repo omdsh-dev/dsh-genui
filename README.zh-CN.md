@@ -22,7 +22,7 @@
 |---|---|---|
 | 先看完整 DSH 流程 | [40 秒真实录屏](#40-秒完整演示) | 组件确实出现在 DSH 的真实对话里。 |
 | 看具体界面是什么样 | [三类真实输出](#一条-dsh-回答里的三类真实输出) | 监控、函数绘图和可组合的布局组件。 |
-| 立刻在自己的 DSH 里试 | [快速开始](#-快速开始) | 公开 Git 安装、验证提示词与激活检查。 |
+| 立刻在自己的 DSH 里试 | [快速开始](#-快速开始) | npm 公开包安装、验证提示词与激活检查。 |
 | 学会 JSON 界面描述 | [组件语法](./SKILL.md) | 受白名单约束的 `dsh-ui` 组件规范。 |
 
 ## 观看真实界面
@@ -101,8 +101,6 @@ https://github.com/user-attachments/assets/f5db33ec-7471-4d4a-a85b-79c9962ab4ef
 ```sh
 # npm 公开包安装（无需 npm 账号）
 dsh plugin --profile web add @changfenhuang/dsh-genui
-# 也可以直接从 GitHub 公开源码安装
-dsh plugin --profile web add git+https://github.com/omdsh-dev/dsh-genui.git
 ```
 
 如果只想把它作为 Node 依赖加入现有项目：
@@ -113,7 +111,7 @@ npm install @changfenhuang/dsh-genui
 
 > `npm install` 只添加依赖，不会把插件注册到 DSH；在 DSH 中使用时仍应执行上面的 `dsh plugin add`。
 
-> ⚠️ **别用 `link:` 装一个刚 clone 的目录**——`link:` 不会安装插件的依赖（mermaid / three / react），装完渲染器会挂。请用上面的 git URL 方式；只有本地开发迭代才用 link:（见下文）。
+> ⚠️ **别用 `link:` 装一个刚 clone 的目录**——`link:` 不会安装插件的依赖（mermaid / three / react），装完渲染器会挂。正常安装请使用上面的 npm 命令；只有本地开发迭代才用 `link:`（见下文）。
 
 ### 从旧 `@omdsh-dev` 包名迁移
 
@@ -124,7 +122,7 @@ dsh plugin --profile web remove @omdsh-dev/dsh-genui
 dsh plugin --profile web add @changfenhuang/dsh-genui
 ```
 
-这次迁移只针对改名前留下的 GitHub 源安装。此后使用上面的 npm 或 GitHub 命令新装，都会采用当前依赖键。
+这次迁移只针对改名前留下的 GitHub 源安装。此后新装统一使用上面的 npm 命令，并采用当前依赖键。
 
 ### 60 秒验证安装
 
@@ -135,16 +133,6 @@ dsh plugin --profile web add @changfenhuang/dsh-genui
 ```
 
 正常情况下，回答会原地变成仪表盘，而不是显示成代码块。想做最明确的技术确认时，打开浏览器控制台：成功激活会打印 `[genui] client active; fence-channel=registry|dom`。
-
-### 一键脚本（推荐）
-
-clone 后直接跑，脚本会检查上述前置、执行安装、并提示重启：
-
-```sh
-git clone https://github.com/omdsh-dev/dsh-genui.git
-cd dsh-genui
-./scripts/install.sh
-```
 
 ### 开发者迭代（link 模式）
 
@@ -232,7 +220,7 @@ dsh plugin --profile web add link:$PWD
 - **显示成代码块？** 先在浏览器控制台找 `[genui] client active; fence-channel=registry|dom`。没有这行，即使 `client.js` 返回 200，也只是下载了文件、没有激活：请对齐网页配置依赖名、`package.json.name`、`cordis.patch.yml`、ModuleLoader id 和配置中的 bundle 名。出现这行后再查围栏标签/正文；宿主没有 registry 时会自动走 DOM 通道。
 - **渲染 dsh-ui fence 时聊天界面白屏？** dsh 版本太旧——先更新 dsh 再重装插件。
 - **`dsh: pnpm not found on PATH`？** 装 pnpm 后**新开终端**再试（`corepack enable` 或 `npm i -g pnpm`）。
-- **安装时卡在 git 凭据/404？** 仓库和 npm 包都是公开的，无需登录。先执行 `npm view @changfenhuang/dsh-genui version` 核对包名与公共仓库；若 npm 新版本刚发布仍返回 404，稍后重试，或暂时使用上面的 GitHub 安装命令。
+- **npm 安装返回 404？** npm 包是公开的，无需登录。先执行 `npm view @changfenhuang/dsh-genui version` 核对包名与公共 registry；若新版本刚发布仍返回 404，稍后重试。
 - **装了但 scene3d/mermaid/echarts 不渲染？** 引擎（mermaid / three / echarts）不再内联进 client.js——它们在首次用到时按需加载（`/plugins/@changfenhuang/dsh-genui/assets/*.js`，插件自带 HTTP 路由托管）。先重启 dsh web + 硬刷新（Cmd+Shift+R）；仍不渲染就卸掉重装（`dsh plugin --profile web remove @changfenhuang/dsh-genui` 后再 add）。旧版宿主缺少资产路由时会降级显示源码/加载失败提示，更新 dsh 即可。
 - **模型不主动输出？** 重启后新会话生效；或直接说"用 dsh-ui 输出"。
 - **clone 后没有 lib/？** `pnpm install && pnpm run check` 自己构建。
@@ -250,7 +238,6 @@ pnpm run check   # 类型检查 + 全量测试 + 构建
 
 ```sh
 DEEPSEEK_API_KEY=sk-... node scripts/e2e.mjs          # link 安装当前工作区
-DEEPSEEK_API_KEY=sk-... node scripts/e2e.mjs --install git   # 朋友路径（git URL）
 ```
 
 前置：`dsh`/`pnpm` 在 PATH、`DEEPSEEK_API_KEY`、主仓 web 构建产物（playwright 从主仓解析）。PASS 时保存 `e2e-final.png` 截图。
