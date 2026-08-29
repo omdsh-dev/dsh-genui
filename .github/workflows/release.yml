@@ -19,6 +19,7 @@ jobs:
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name }}
       PRERELEASE: ${{ github.event.release.prerelease }}
+      HOST_REF: ${{ github.event.release.prerelease && 'dsh-v0.1.2-alpha.1' || 'dsh-v0.1.1-rc.2' }}
 
     steps:
       # actions/checkout@v4
@@ -50,6 +51,12 @@ jobs:
 
           if [ "$RELEASE_TAG" != "v$VERSION" ]; then
             echo "::error::release tag ($RELEASE_TAG) does not match package.json version (v$VERSION)"
+            exit 1
+          fi
+
+          VERSION_PRERELEASE="$(node -e 'console.log(process.argv[1].split("+")[0].includes("-") ? "true" : "false")' "$VERSION")"
+          if [ "$PRERELEASE" != "$VERSION_PRERELEASE" ]; then
+            echo "::error::package version prerelease state ($VERSION_PRERELEASE) does not match GitHub release prerelease state ($PRERELEASE)"
             exit 1
           fi
 
@@ -87,8 +94,7 @@ jobs:
         run: |
           DSH_ROOT="$GITHUB_WORKSPACE/../../.dsh/source/current"
           mkdir -p "$(dirname "$DSH_ROOT")"
-          git clone --depth 1 https://github.com/deepseek-ai/deepseek-harness.git "$DSH_ROOT"
-          git -C "$DSH_ROOT" checkout master
+          git clone --depth 1 --branch "$HOST_REF" https://github.com/deepseek-ai/deepseek-harness.git "$DSH_ROOT"
           test -f "$DSH_ROOT/packages/client/ui-primitives/src/index.ts" || {
             echo "::error::DSH host preflight failed: ui-primitives source is missing"
             exit 1
@@ -109,6 +115,12 @@ jobs:
 
       - name: Verify package
         run: node scripts/verify-pack.mjs
+
+      - name: Smoke selected release channel
+        run: node scripts/e2e.mjs --smoke --install link --port 3190
+        env:
+          DSH_ROOT: ${{ github.workspace }}/../../.dsh/source/current
+          DSH_BIN: ${{ github.workspace }}/../../.dsh/source/current/apps/cli/lib/bin.js
 
       - name: Publish to npm
         run: npm publish --access public --tag "${{ steps.release.outputs.npm_tag }}"

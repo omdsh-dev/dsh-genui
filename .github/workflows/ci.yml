@@ -10,15 +10,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 默认两矩阵（发布负责人可按支持面增删）：
-        #  - Node 22 + 最低宿主：目标宿主 ref 需在受支持分支上稳定可拉取；
-        #    宿主契约合并后，把 HOST_REF_22 填成含该契约的完整 SHA。
-        #  - Node 24 + main：前向集成（拉当前 main 的 HEAD）。
+        # latest 必须继续兼容已发布 rc；next 才能依赖 alpha 契约。
+        # 宿主发布新版本时显式更新这里，禁止跟随可变的 master 冒充验收。
         include:
           - node: 22
-            host-ref: "master" # OSS 宿主默认分支
+            host-ref: "dsh-v0.1.1-rc.2"
           - node: 24
-            host-ref: "master"
+            host-ref: "dsh-v0.1.2-alpha.1"
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -35,12 +33,11 @@ jobs:
       # 宿主 checkout 统一落在 $GITHUB_WORKSPACE/../../.dsh/source/current
       # （= $GITHUB_WORKSPACE 的规范化父级 .dsh）——这样 vitest alias 与
       # tsconfig paths 里 `../../.dsh/...` 的相对解析在 GitHub 上同样成立。
-      - name: Clone dsh main repo at DSH_ROOT
+      - name: Clone pinned DSH host at DSH_ROOT
         run: |
           DSH_ROOT="$GITHUB_WORKSPACE/../../.dsh/source/current"
           mkdir -p "$(dirname "$DSH_ROOT")"
-          git clone --depth 1 "https://github.com/deepseek-ai/deepseek-harness.git" "$DSH_ROOT"
-          git -C "$DSH_ROOT" checkout "${{ matrix.host-ref }}"
+          git clone --depth 1 --branch "${{ matrix.host-ref }}" "https://github.com/deepseek-ai/deepseek-harness.git" "$DSH_ROOT"
           test -f "$DSH_ROOT/packages/client/ui-primitives/src/index.ts" || { echo "::error::宿主预检失败：ui-primitives 源码缺失"; exit 1; }
           echo "HOST_SHA=$(git -C "$DSH_ROOT" rev-parse HEAD)" >> "$GITHUB_ENV"
 

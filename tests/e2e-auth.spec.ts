@@ -8,9 +8,10 @@ if (match === null) throw new Error('e2e script must define findDshWebUrl')
 const findDshWebUrl = Function(`${match[0]}; return findDshWebUrl`)() as (output: string) => string | undefined
 
 describe('dsh web authentication', () => {
-  it('extracts only the tokenized local startup URL', () => {
+  it('extracts tokenized alpha and bare rc startup URLs', () => {
     expect(findDshWebUrl('booting\ndsh web: http://127.0.0.1:3190/?token=abc_DEF-123\n'))
       .toBe('http://127.0.0.1:3190/?token=abc_DEF-123')
-    expect(findDshWebUrl('dsh web: http://127.0.0.1:3190/')).toBeUndefined()
+    expect(findDshWebUrl('dsh web: http://127.0.0.1:3190'))
+      .toBe('http://127.0.0.1:3190')
   })
 })

@@ -42,7 +42,7 @@ const arg = (name) => {
   return index === -1 ? undefined : process.argv[index + 1]
 }
 function findDshWebUrl(output) {
-  return output.match(/dsh web: (http:\/\/127\.0\.0\.1:\d+\/\?token=[A-Za-z0-9_-]+)/u)?.[1]
+  return output.match(/dsh web: (http:\/\/127\.0\.0\.1:\d+(?:\/\?token=[A-Za-z0-9_-]+)?)/u)?.[1]
 }
 const PORT = Number(arg('--port') ?? 3088)
 const KEEP = process.argv.includes('--keep')
@@ -190,7 +190,7 @@ try {
   await page.goto(readyUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.waitForTimeout(5000)
 
-  // 0.1.2 起只服务启动图公告的不可变组合 URL，不再开放旧版单包裸路径。
+  // 0.1.2 起使用启动图公告的不可变组合 URL；更早的受支持宿主使用裸插件地址。
   const boot = await page.evaluate(() => {
     const boot = window.__DSH_BOOT__
     if (boot === null || typeof boot !== 'object' || !Array.isArray(boot.entries)) return undefined
@@ -200,14 +200,14 @@ try {
     await page.screenshot({ path: join(artifactsDir, 'e2e-fail-empty-host-boot.png') })
     fail('dsh 宿主启动图为空（连内置浏览器插件都未注册）')
   }
-  if (boot?.clientUrl === undefined) fail('启动图缺少 @changfenhuang/dsh-genui（插件未注册）')
-  const clientRes = await fetch(`${BASE}${boot.clientUrl}`)
+  const clientUrl = boot?.clientUrl ?? '/plugins/@changfenhuang/dsh-genui/client.js'
+  const clientRes = await fetch(`${BASE}${clientUrl}`)
   if (!clientRes.ok) {
     await page.screenshot({ path: join(artifactsDir, 'e2e-fail-client404.png') })
     await logTail()
-    fail(`启动图公告的 GenUI bundle 返回 ${clientRes.status}`)
+    fail(`GenUI bundle 返回 ${clientRes.status}`)
   }
-  log(`✓ 启动图 GenUI bundle ${clientRes.status}`)
+  log(`✓ GenUI bundle ${clientRes.status}`)
 
   if (pageErrors.length > 0) {
     await page.screenshot({ path: join(artifactsDir, 'e2e-fail-pageerror.png') })

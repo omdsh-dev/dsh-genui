@@ -61,6 +61,7 @@
 ## [Unreleased]
 ### 发布
 - npm 发布作用域改为个人账号 `@changfenhuang/dsh-genui`；GitHub 仓库继续保留在 `omdsh-dev` 组织。同步更新运行时模块标识、资源路由、安装脚本、文档和测试，不保留旧 npm 名称兼容层。
+- **正式版与测试版分流**：发布版本带预发布后缀时必须勾选 GitHub Pre-release，并只进入 npm `next`；无后缀版本只能作为正式 Release 进入 `latest`。CI 与发布验收固定覆盖 `dsh-v0.1.1-rc.2` / `dsh-v0.1.2-alpha.1`，不再跟随可变的宿主开发分支。
 
 ### 兼容性
 - **dsh 0.1.0-rc.8**：对齐全部宿主 peer 依赖并补齐实际使用的 conversation、input-trigger、session 直接声明；改用 ui-tool 的公开客户端入口，测试和构建不再读取本机旧源码快照。`tsc`、`tsdown`、Vitest 全通过（316 passed / 104 skipped，0 失败）。
