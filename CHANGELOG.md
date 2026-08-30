@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+### 修复
+- **streaming EChart nested option**：partial parser只把已闭合的top-level `items[]`成员作为可渲染component，不再在tooltip、grid或单侧axis刚闭合时补全外层EChart；full option柱状图不会因中间缺少配对axis而触发ECharts `getAxesOnZeroOf`异常。
+
 ## [0.9.6] - 2026-08-28
 ### 兼容性
 - **dsh 0.1.2-alpha.1**：真机验收改为读取新版 Web 启动时生成的一次性令牌地址，先建立浏览器登录态，再按启动图公告的不可变组合地址检查插件资源；后台启动显式使用 `--no-open`，不再误开用户浏览器。插件运行代码和宿主配置契约无需兼容层，也未修改 dsh 本体；官方标签源码构建在 Node 24.13 下完成 macOS 真机页面激活，启动图资源返回 200。Node 24.11 会令该宿主启动图为空，验收与本机入口已固定使用 24.13。
