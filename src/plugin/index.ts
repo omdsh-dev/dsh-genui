@@ -14,8 +14,9 @@ import { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-tools'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRenderUiTool, createValidateDshUiTool } from './tool.ts'
 
@@ -98,7 +99,7 @@ The spec is a white-listed component tree rendered inline where the fence sits. 
 
 - 布局: text · row · col · grid · card · divider · spacer
 - 展示: badge · stat · progress · list · table · keyvalue · avatar · audio · video · timeline · file-tree · breadcrumb · callout · steps · diff · json · code · copy
-- 图表: chart (bars|line|donut) · echart (preset|option) · plot (函数图)
+- 图表: chart {"type":"chart","kind":"bars|line|donut","data":[{"label":"...","value":n,"color":"#hex?"}],"series":[...]?} · echart (preset|option) · plot (函数图)
 - 交互: button · input · textarea · select · checkbox · switch · slider · radio · submit · quiz · link · tabs · accordion
 - 高级: mermaid (flowchart/sequence/class/gantt/pie/er/state/journey) · diagram (编辑级架构/流程图，27 种 kind) · scene3d (3D WebGL)
 
@@ -122,6 +123,40 @@ Rules:
 // inject entries are hard requirements, so the registry is probed at runtime
 // instead (see apply).
 export const inject = ['systemPrompt']
+
+type BundledSkill = {
+  name: string
+  description: string
+  source: 'bundled'
+  provider: string
+  path: string
+  resourceBase: { kind: 'directory'; path: string }
+  content: string
+}
+
+type SkillRegistry = {
+  register(skill: BundledSkill): () => void
+}
+
+/** Load the packaged skill from both source and built module locations. */
+function bundledSkill(): BundledSkill {
+  const moduleDirectory = dirname(fileURLToPath(new URL(import.meta.url)))
+  const path = basename(moduleDirectory) === 'plugin'
+    ? resolve(moduleDirectory, '../../SKILL.md')
+    : resolve(moduleDirectory, '../SKILL.md')
+  const raw = readFileSync(path, 'utf8')
+  const end = raw.indexOf('\n---\n', 4)
+  if (!raw.startsWith('---\n') || end < 0) throw new Error('genui SKILL.md has invalid frontmatter')
+  return {
+    name: 'genui',
+    description: 'GenUI 完整组件与字段规范，用于生成 dsh-ui 结构化交互界面。',
+    source: 'bundled',
+    provider: '@changfenhuang/dsh-genui',
+    path,
+    resourceBase: { kind: 'directory', path: dirname(path) },
+    content: raw.slice(end + 5),
+  }
+}
 
 export function apply(ctx: Context): void {
   ctx.systemPrompt.section({
@@ -154,6 +189,11 @@ export function apply(ctx: Context): void {
   tryRegister(undefined)
   ctx.on('internal/service', (name: string, value: unknown) => {
     if (name === 'tools') tryRegister(value as { register(tool: unknown): unknown })
+  })
+
+  ctx.inject(['skills'], (skillCtx) => {
+    const skills = (skillCtx as Context & { skills: SkillRegistry }).skills
+    skills.register(bundledSkill())
   })
 
   // Lazy-engine asset route: same optional-probe pattern as the tools

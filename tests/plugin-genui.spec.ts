@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context, Service } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import * as GenUI from '../src/plugin/index.ts'
 
@@ -38,6 +38,8 @@ describe('genui:fence section', () => {
     for (const type of ['text', 'card', 'grid', 'stat', 'table', 'audio', 'video', 'chart', 'tabs', 'button', 'progress', 'plot', 'callout', 'steps', 'diff', 'mermaid', 'scene3d']) {
       expect(text).toContain(type)
     }
+    expect(text).toContain('"kind":"bars|line|donut"')
+    expect(text).toContain('"label":"...","value":n')
   })
 
   it('keeps the full type whitelist in the slim section within the token budget', async () => {
@@ -89,6 +91,38 @@ describe('genui:fence section', () => {
     expect(registered).toHaveLength(2)
     const names = registered.map(t => (t as { name: string }).name).sort()
     expect(names).toEqual(['render_ui', 'validate_dsh_ui'])
+  })
+
+  it('registers the bundled genui skill when the skill service binds after the plugin', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    const registered: Array<Record<string, unknown>> = []
+    class TestSkillRegistry extends Service {
+      constructor(inner: Context) { super(inner, 'skills') }
+
+      register(skill: Record<string, unknown>): () => void {
+        return this.ctx.effect(() => {
+          registered.push(skill)
+          return () => {
+            const index = registered.indexOf(skill)
+            if (index >= 0) registered.splice(index, 1)
+          }
+        }, 'test skill registration')
+      }
+    }
+    const genui = await ctx.plugin(GenUI)
+    await ctx.plugin(TestSkillRegistry)
+    expect(registered).toHaveLength(1)
+    expect(registered[0]).toMatchObject({
+      name: 'genui',
+      provider: '@changfenhuang/dsh-genui',
+      source: 'bundled',
+    })
+    expect(String(registered[0]!.description)).toContain('完整组件与字段规范')
+    expect(String(registered[0]!.content)).toContain('chart:')
+    expect(String(registered[0]!.content)).not.toContain('name: genui')
+    await genui.dispose()
+    expect(registered).toHaveLength(0)
   })
 
   it('keeps the fence channel without a tools service', async () => {

@@ -99,6 +99,20 @@ describe('render_ui execute', () => {
       spy.mockRestore()
     }
   })
+
+  it('rejects chart aliases and invalid data instead of silently rendering bars', async () => {
+    await expect(tool.execute({
+      spec: {
+        items: [{
+          type: 'chart',
+          variant: 'line',
+          data: [{ label: 1, value: '128' }],
+        }],
+      },
+    })).rejects.toThrow(
+      'items[0].variant is unsupported; use kind; items[0].data[0].label must be a string; items[0].data[0].value must be a finite number',
+    )
+  })
 })
 
 describe('render_ui projections', () => {
@@ -152,6 +166,47 @@ describe('validate_dsh_ui tool', () => {
     expect(value).toContain('❌')
     expect(value).toContain('声明了 2 个组件')
     expect(value).toContain('仅成功解析出 1 个')
+  })
+
+  it('reports the chart kind contract and field-level data errors', async () => {
+    const value = String(await vtool.execute({
+      spec: {
+        items: [{
+          type: 'chart',
+          variant: 'line',
+          kind: 'area',
+          data: [{ label: 1, value: Number.NaN }],
+        }],
+      },
+    }))
+    expect(value).toContain('❌ chart 字段验证失败')
+    expect(value).toContain('items[0].variant is unsupported; use kind')
+    expect(value).toContain('items[0].kind must be bars, line, or donut')
+    expect(value).toContain('items[0].data[0].label must be a string')
+    expect(value).toContain('items[0].data[0].value must be a finite number')
+  })
+
+  it('keeps chart field validation after repairing fence JSON syntax', async () => {
+    const value = String(await vtool.execute({
+      spec: '{"items":[{"type":"chart","variant":"line","data":[{"label":"周一","value":128}],}],}',
+    }))
+    expect(value).toContain('❌ chart 字段验证失败')
+    expect(value).toContain('items[0].variant is unsupported; use kind')
+    expect(value).not.toContain('无需再验证')
+  })
+
+  it('accepts the compact chart signature with unknown extension fields', async () => {
+    const value = String(await vtool.execute({
+      spec: {
+        items: [{
+          type: 'chart',
+          kind: 'line',
+          data: [{ label: '周一', value: 128, extension: true }],
+          extension: { owner: 'another-plugin' },
+        }],
+      },
+    }))
+    expect(value).toContain('✅')
   })
 
   it('stays green when object-shaped tables heal instead of dropping', async () => {
