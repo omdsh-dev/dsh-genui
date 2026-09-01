@@ -24,6 +24,7 @@ import { parsePartialGenuiSpec } from './parse-partial.ts'
 import { applyPanelOperation, diagnosePanelBudget, type PanelOperationStatus } from './panel-store.ts'
 import type { GenuiSpec } from './spec.ts'
 import { completeFenceJson, describeJsonFailure, isCompleteJson, repairFenceJson } from '../shared/fence-repair.ts'
+import { validateRenderableChartSemantics } from '../plugin/chart-contract.ts'
 
 /** Settled fence source identity (data shape, host-independent). */
 export interface GenuiFenceSource {
@@ -53,6 +54,14 @@ const FENCE_ERROR_STYLE: CSSProperties = {
   whiteSpace: 'pre-wrap',
 }
 
+/** Return a chart-semantic diagnostic for parseable raw fence content. */
+function chartSemanticFailure(raw: string): string | null {
+  const parsed = parsePartialGenuiSpec(raw)
+  if (parsed === null) return null
+  const errors = validateRenderableChartSemantics(parsed)
+  return errors.length === 0 ? null : errors.join('；')
+}
+
 /**
  * Fallback for a ```dsh-ui fence whose body has no finished component yet.
  * Two very different situations land here and they must not be conflated:
@@ -64,11 +73,11 @@ const FENCE_ERROR_STYLE: CSSProperties = {
  *    correct rendering (partial JSON must never look like an error).
  *
  * 2. **Settled defect** — the message is finished but the body still does
- *    not parse as JSON (a malformed fence like a missing `}`). This used to
- *    fail silently: the fence degraded to a code block with no hint, and the
- *    author had no way to know the UI never rendered. Once the streaming
- *    marker is gone, surface a compact diagnostic with the parse position so
- *    the defect is visible instead of silent.
+ *    not parse as JSON (a malformed fence like a missing `}`) or violates the
+ *    native chart contract. This used to fail silently: the fence degraded to
+ *    a code block with no hint, and the author had no way to know the UI never
+ *    rendered. Once the streaming marker is gone, surface a compact diagnostic
+ *    so the defect is visible instead of silent.
  */
 function FenceFallback({ raw, fenceKey }: { raw: string; fenceKey: Key }) {
   const ref = useRef<HTMLDivElement | null>(null)
@@ -77,12 +86,18 @@ function FenceFallback({ raw, fenceKey }: { raw: string; fenceKey: Key }) {
     const node = ref.current
     if (node !== null && node.closest('[data-streaming]') === null) setSettled(true)
   })
-  const diagnostic = settled && raw.trim() !== '' ? describeJsonFailure(raw) : null
+  const chartDiagnostic = settled ? chartSemanticFailure(raw) : null
+  const parseDiagnostic = settled && chartDiagnostic === null && raw.trim() !== '' ? describeJsonFailure(raw) : null
   return (
     <div ref={ref}>
-      {diagnostic !== null && (
+      {chartDiagnostic !== null && (
         <div style={FENCE_ERROR_STYLE} role="alert">
-          ⚠️ dsh-ui fence JSON 解析失败{diagnostic} —— 围栏保持为代码块；请让模型检查并修复 JSON 后重发。
+          ⚠️ dsh-ui chart 字段验证失败：{chartDiagnostic} —— 围栏保持为代码块；请修正 chart 字段后重发。
+        </div>
+      )}
+      {chartDiagnostic === null && parseDiagnostic !== null && (
+        <div style={FENCE_ERROR_STYLE} role="alert">
+          ⚠️ dsh-ui fence JSON 解析失败{parseDiagnostic} —— 围栏保持为代码块；请让模型检查并修复 JSON 后重发。
         </div>
       )}
       <CodeBlock key={fenceKey} code={`${raw}\n`} lang="dsh-ui" />
@@ -115,6 +130,12 @@ function FencePanelPublisher({ sessionId, sourceId, order, spec }: {
   return null
 }
 
+/** Repair one parsed value only when its native charts are actually renderable. */
+function repairRenderableSpec(value: unknown): GenuiSpec | null {
+  if (validateRenderableChartSemantics(value).length > 0) return null
+  return repairGenuiSpec(value)
+}
+
 /**
  * Resolve a raw fence body to a guarded spec.
  *
@@ -124,21 +145,24 @@ function FencePanelPublisher({ sessionId, sourceId, order, spec }: {
  * - Tier-2 completion (missing quotes/brackets): settled renders only —
  *   `context.source` exists exclusively once the message finished, so
  *   streaming halves are never completed early.
+ * - Native chart semantics are checked before repair on every candidate so
+ *   aliases, empty collections, or line/donut series cannot repair into a
+ *   default/blank chart.
  */
 export function resolveGenuiSpec(raw: string, context?: GenuiFenceContext): GenuiSpec | null {
   const parsed = parsePartialGenuiSpec(raw)
-  let spec = parsed === null ? null : repairGenuiSpec(parsed)
+  let spec = parsed === null ? null : repairRenderableSpec(parsed)
   if (spec === null) {
     const repaired = repairFenceJson(raw)
     if (repaired !== null) {
       const reparsed = parsePartialGenuiSpec(repaired.text)
-      spec = reparsed === null ? null : repairGenuiSpec(reparsed)
+      spec = reparsed === null ? null : repairRenderableSpec(reparsed)
     }
     if (spec === null && context?.source !== undefined) {
       const completed = completeFenceJson(raw)
       if (completed !== null) {
         const reparsed = parsePartialGenuiSpec(completed.text)
-        spec = reparsed === null ? null : repairGenuiSpec(reparsed)
+        spec = reparsed === null ? null : repairRenderableSpec(reparsed)
       }
     }
   }
