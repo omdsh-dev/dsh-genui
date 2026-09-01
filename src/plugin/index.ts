@@ -127,10 +127,12 @@ export const inject = ['systemPrompt']
 const BUNDLED_SKILL_RANK = 600
 const BUNDLED_SKILL_PROVIDER = 'dsh-genui'
 const BUNDLED_SKILL_DESCRIPTION = 'GenUI 完整组件与字段规范，用于生成 dsh-ui 结构化交互界面。'
+const BUNDLED_SKILL_INVOCATION = { modelInvocable: true, userInvocable: true } as const
 
 type BundledSkill = {
   name: string
   description: string
+  invocation: typeof BUNDLED_SKILL_INVOCATION
   source: 'bundled'
   provider: string
   path: string
@@ -165,6 +167,7 @@ function bundledSkill(): BundledSkill {
   return {
     name: 'genui',
     description: BUNDLED_SKILL_DESCRIPTION,
+    invocation: BUNDLED_SKILL_INVOCATION,
     source: 'bundled',
     provider: BUNDLED_SKILL_PROVIDER,
     path,
@@ -179,6 +182,7 @@ function bundledSkillProvider(): BundledSkillProvider {
   const candidate: BundledSkillCandidate = {
     name: skill.name,
     description: skill.description,
+    invocation: skill.invocation,
     source: skill.source,
     provider: skill.provider,
     path: skill.path,
