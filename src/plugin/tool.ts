@@ -24,9 +24,9 @@ import type { GenericCallView, GenericResultView, JsonSchemaNode, ToolDefinition
 import type { GenuiSpec } from '../client/spec.ts'
 import {
   GENUI_LIMITS, countDeclaredGenuiNodes, countGenuiNodes, repairGenuiSpec,
-  validateGenuiChartSemantics,
 } from '../client/guard.ts'
 import { completeFenceJson } from '../shared/fence-repair.ts'
+import { validateRenderableChartSemantics } from './chart-contract.ts'
 
 /**
  * Arguments schema: an open `spec` slot. The schema must NOT reject anything
@@ -176,7 +176,7 @@ export function createRenderUiTool(): ToolDefinition {
     },
     async execute(args: unknown): Promise<JsonValue> {
       const input = specOf(args)
-      const chartErrors = validateGenuiChartSemantics(input)
+      const chartErrors = validateRenderableChartSemantics(input)
       if (chartErrors.length > 0) {
         throw new Error('render_ui spec invalid: ' + chartErrors.join('; '))
       }
@@ -287,7 +287,7 @@ const COMMON_CAUSES =
 
 /** Return the model-facing chart field failure for one parsed fence body. */
 function chartValidationFailure(value: unknown): string | undefined {
-  const errors = validateGenuiChartSemantics(value)
+  const errors = validateRenderableChartSemantics(value)
   return errors.length === 0 ? undefined : `❌ chart 字段验证失败：\n- ${errors.join('\n- ')}`
 }
 

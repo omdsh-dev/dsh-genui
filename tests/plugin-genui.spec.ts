@@ -40,6 +40,7 @@ describe('genui:fence section', () => {
     }
     expect(text).toContain('"kind":"bars|line|donut"')
     expect(text).toContain('"label":"...","value":n')
+    expect(text).toContain('series 仅 bars')
   })
 
   it('keeps the full type whitelist in the slim section within the token budget', async () => {
@@ -93,34 +94,52 @@ describe('genui:fence section', () => {
     expect(names).toEqual(['render_ui', 'validate_dsh_ui'])
   })
 
-  it('registers the bundled genui skill when the skill service binds after the plugin', async () => {
+  it('registers genui as a real bundled provider when the skill service binds after the plugin', async () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    const registered: Array<Record<string, unknown>> = []
+    type Candidate = Record<string, unknown>
+    type Provider = {
+      name: string
+      list(): Promise<Candidate[]>
+      get(candidate: Candidate): Promise<Record<string, unknown>>
+    }
+    const registered: Provider[] = []
     class TestSkillRegistry extends Service {
       constructor(inner: Context) { super(inner, 'skills') }
 
-      register(skill: Record<string, unknown>): () => void {
+      registerProvider(create: () => Provider): () => void {
+        const provider = create()
         return this.ctx.effect(() => {
-          registered.push(skill)
+          registered.push(provider)
           return () => {
-            const index = registered.indexOf(skill)
+            const index = registered.indexOf(provider)
             if (index >= 0) registered.splice(index, 1)
           }
-        }, 'test skill registration')
+        }, 'test bundled skill provider registration')
       }
     }
     const genui = await ctx.plugin(GenUI)
     await ctx.plugin(TestSkillRegistry)
     expect(registered).toHaveLength(1)
-    expect(registered[0]).toMatchObject({
+    const provider = registered[0]!
+    expect(provider.name).toBe('dsh-genui')
+    const candidates = await provider.list()
+    expect(candidates).toHaveLength(1)
+    expect(candidates[0]).toMatchObject({
       name: 'genui',
-      provider: '@changfenhuang/dsh-genui',
+      provider: 'dsh-genui',
+      source: 'bundled',
+      rank: 600,
+    })
+    const skill = await provider.get(candidates[0]!)
+    expect(skill).toMatchObject({
+      name: 'genui',
+      provider: 'dsh-genui',
       source: 'bundled',
     })
-    expect(String(registered[0]!.description)).toContain('完整组件与字段规范')
-    expect(String(registered[0]!.content)).toContain('chart:')
-    expect(String(registered[0]!.content)).not.toContain('name: genui')
+    expect(String(skill.description)).toContain('完整组件与字段规范')
+    expect(String(skill.content)).toContain('chart:')
+    expect(String(skill.content)).not.toContain('name: genui')
     await genui.dispose()
     expect(registered).toHaveLength(0)
   })
