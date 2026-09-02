@@ -35,6 +35,21 @@ describe('/panel slash source', () => {
     expect(candidates[0]!.name).toBe('panel')
   })
 
+  it('filters the candidate by query prefix so the group vanishes for unmatched queries', async () => {
+    const call = (query: string): Promise<readonly { name: string }[]> =>
+      source.candidates!({ sessionId: SID } as never, { query, position: 'leading', signal: new AbortController().signal })
+    // Bare "/" and any prefix of "panel" (case-insensitive) keep the candidate.
+    for (const query of ['', 'p', 'pa', 'PANEL', ' panel ']) {
+      expect(await call(query)).toHaveLength(1)
+    }
+    // Anything else must drop the group: an unfiltered group stays the only
+    // ready non-empty group for unmatched queries and steals the menu's
+    // default highlight from real command/skill candidates.
+    for (const query of ['sk', 'venus', 'zzz', 'panels']) {
+      expect(await call(query)).toHaveLength(0)
+    }
+  })
+
   it('publishes the default spec and requests expansion on pick', async () => {
     const before = getPanelExpandToken(SID)
     const outcome = source.onPick!({
