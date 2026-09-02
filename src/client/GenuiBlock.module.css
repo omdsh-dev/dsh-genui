@@ -350,7 +350,6 @@
   line-height: 1.5;
 }
 .table tr:last-child td { border-bottom: none; }
-.table tbody tr { transition: background 0.12s; }
 .table tbody tr:hover { background: var(--dsl-g-hover); }
 /* Numeric columns (auto-detected) right-align with tabular numerals — the
    table's data voice. */
@@ -965,8 +964,7 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 /* "✓ 已触发" confirmation chip: appears next to the button without layout
    shift risk (it inherits the flex row's gap). `backwards`, not `both`: the
    chip's natural (post-animation) style is already visible/no-transform, so
-   pinning the end keyframe would only keep a translateY(0) transform layer
-   alive forever — the exact mechanism behind issues #55/#69. */
+   pinning the end keyframe would only retain an unnecessary transform. */
 .btnSent { animation: genuiPopIn 0.2s ease backwards; }
 
 /* 尊重用户的减弱动效偏好 */

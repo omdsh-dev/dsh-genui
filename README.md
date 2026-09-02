@@ -174,7 +174,9 @@ The following is the detailed capability reference. Every behavior is constraine
 - **Accessibility**: tabs/accordions/switches/progress bars carry full ARIA and keyboard navigation (arrow keys switch tabs, Home/End jump)
 - **Zero intrusion**: without the plugin, fences are just code blocks — no errors, no session pollution
 
-Component JSON syntax: [SKILL.md](./SKILL.md) (also copyable to `~/.dsh/skills/genui/` to boost the model).
+Component JSON syntax lives in [SKILL.md](./SKILL.md). On hosts with the public skill registry, the plugin registers this bundled `genui` skill automatically, so new Sessions receive the complete component and field catalog without copying files into `~/.dsh`.
+
+`chart` stays the compact three-kind renderer: use `kind: 'bars' | 'line' | 'donut'` with finite numeric `data[].value` fields. `validate_dsh_ui` reports `variant`, unsupported kinds, and invalid datum fields explicitly; `render_ui` rejects the same errors instead of silently rendering the default bars view. Unknown extension fields remain allowed.
 
 ## 📄 Example
 

@@ -138,7 +138,7 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
     const labels = grouped[0]!.data.map(d => d.label)
     const max = Math.max(...grouped.flatMap(s => s.data.map(d => Number(d.value) || 0)), 1)
     return (
-      <div className={css.chart}>
+      <div className={css.chart} data-genui-chart="bars">
         <div className={css.chartPlot}>
           {[0, 25, 50, 75].map(p => (
             <span key={p} className={p === 0 ? css.baseline : css.gridline} style={{ bottom: `${p}%` }} />
@@ -181,7 +181,7 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
   // and used to collapse the bar entirely.
   const max = Math.max(...data.map(d => Number(d.value) || 0), 1)
   return (
-    <div className={css.chart}>
+    <div className={css.chart} data-genui-chart="bars">
       <div className={css.chartPlot}>
         {[0, 25, 50, 75].map(p => (
           <span key={p} className={p === 0 ? css.baseline : css.gridline} style={{ bottom: `${p}%` }} />
@@ -233,7 +233,7 @@ export const LineChartNode = memo(function LineChartNode({ chart }: { chart: Gen
     return t.toFixed(1)
   }
   return (
-    <div className={css.lineChart}>
+    <div className={css.lineChart} data-genui-chart="line">
       <svg width="100%" viewBox={`0 0 ${W} ${H}`}>
         {ticks.map((t, i) => {
           const y = padT + (1 - (t - min) / span) * (H - padT - padB)
@@ -277,7 +277,7 @@ export const DonutNode = memo(function DonutNode({ chart }: { chart: GenuiChart 
   const C = 2 * Math.PI * R
   let offset = 0
   return (
-    <div className={css.donut}>
+    <div className={css.donut} data-genui-chart="donut">
       <svg width="120" height="120" viewBox="0 0 120 120">
         <circle cx="60" cy="60" r={R} fill="none" strokeWidth="14" className={css.donutTrack} />
         {clamped.map((d, i) => {

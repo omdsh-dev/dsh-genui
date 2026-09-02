@@ -1,7 +1,7 @@
 {
   "name": "@changfenhuang/dsh-genui",
   "description": "GenUI for DeepSeek Harness: interactive UI components rendered inline in assistant replies via the ```dsh-ui fence — layout, charts, plots, forms, quizzes, mermaid, 3D scenes, and an action event loop back to the model. Ships the fence-teaching host plugin, the browser renderer (client half), and the genui skill.",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/plugin/index.d.ts",
@@ -64,6 +64,7 @@
     "react": "^18.3.1"
   },
   "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.8 || >=0.1.1-rc.0 <0.2.0",
     "@deepseek-ai/dsh-client-ui-conversation": "^0.1.0-rc.8 || >=0.1.1-rc.0 <0.2.0",
     "@deepseek-ai/dsh-client-ui-input-trigger": "^0.1.0-rc.8 || >=0.1.1-rc.0 <0.2.0",
@@ -73,9 +74,9 @@
     "@deepseek-ai/dsh-invariants": "^0.1.0-rc.8 || >=0.1.1-rc.0 <0.2.0",
     "@deepseek-ai/dsh-llm": "^0.1.0-rc.8 || >=0.1.1-rc.0 <0.2.0",
     "@deepseek-ai/dsh-session": "^0.1.0-rc.8 || >=0.1.1-rc.0 <0.2.0",
+    "@deepseek-ai/dsh-skill": "^0.1.0-rc.8 || >=0.1.1-rc.0 <0.2.0",
     "@deepseek-ai/dsh-system-prompt": "^0.1.0-rc.8 || >=0.1.1-rc.0 <0.2.0",
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.8 || >=0.1.1-rc.0 <0.2.0",
-    "@deepseek-ai/cordis": "^4.0.1",
     "react": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
@@ -85,18 +86,18 @@
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@types/three": "^0.185.4",
+    "echarts": "^5.6.0",
     "jsdom": "^25.0.0",
     "lightningcss": "^1.25.0",
+    "mermaid": "11.16.0",
+    "react-dom": "^18.3.1",
+    "three": "^0.180.0",
     "tsdown": "^0.22.2",
     "tsx": "^4.0.0",
     "typescript": "^5.6.0",
     "vite": "^6.0.0",
     "vitest": "^3.0.0",
-    "echarts": "^5.6.0",
-    "yaml": "^2.4.2",
-    "mermaid": "11.16.0",
-    "three": "^0.180.0",
-    "react-dom": "^18.3.1"
+    "yaml": "^2.4.2"
   },
   "scripts": {
     "build": "rm -rf lib && tsc -p tsconfig.json && tsdown",

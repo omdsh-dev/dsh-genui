@@ -8,7 +8,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GenuiScene3D } from '../src/client/spec.ts'
 import { mountScene } from '../src/client/scene3d-core.ts'
 
-const { renderSpy } = vi.hoisted(() => ({ renderSpy: vi.fn() }))
+const { renderSpy, cameraPositionSpy } = vi.hoisted(() => ({
+  renderSpy: vi.fn(),
+  cameraPositionSpy: vi.fn(),
+}))
 
 vi.mock('three', () => {
   class FakeGeometry {}
@@ -30,7 +33,7 @@ vi.mock('three', () => {
       dispose() {}
     },
     PerspectiveCamera: class {
-      position = { set() {} }
+      position = { set: cameraPositionSpy }
       lookAt() {}
     },
     Scene: class {
@@ -61,6 +64,7 @@ const SCENE: GenuiScene3D = {
 afterEach(() => {
   document.body.innerHTML = ''
   renderSpy.mockClear()
+  cameraPositionSpy.mockClear()
 })
 
 describe('scene3d event-driven rendering', () => {
@@ -92,6 +96,38 @@ describe('scene3d event-driven rendering', () => {
     expect(renderSpy).toHaveBeenCalledTimes(2) // released: no re-render
     fireEvent.wheel(canvas, { deltaY: 120 })
     expect(renderSpy).toHaveBeenCalledTimes(3)
+    dispose()
+  })
+
+  it('dragging right follows the pointer horizontally', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const dispose = await mountScene(container, SCENE)
+    const canvas = container.querySelector('canvas')!
+    const [initialX, initialY, initialZ] = cameraPositionSpy.mock.calls.at(-1) as number[]
+
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10, pointerId: 2 })
+    fireEvent.pointerMove(canvas, { clientX: 20, clientY: 10, pointerId: 2 })
+
+    const [nextX, nextY, nextZ] = cameraPositionSpy.mock.calls.at(-1) as number[]
+    expect(nextX).toBeLessThan(initialX)
+    expect(nextY).toBeCloseTo(initialY)
+    expect(nextZ).toBeGreaterThan(initialZ)
+    dispose()
+  })
+
+  it('dragging down follows the pointer vertically', async () => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const dispose = await mountScene(container, SCENE)
+    const canvas = container.querySelector('canvas')!
+    const [, initialY] = cameraPositionSpy.mock.calls.at(-1) as number[]
+
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10, pointerId: 3 })
+    fireEvent.pointerMove(canvas, { clientX: 10, clientY: 20, pointerId: 3 })
+
+    const [, nextY] = cameraPositionSpy.mock.calls.at(-1) as number[]
+    expect(nextY).toBeGreaterThan(initialY)
     dispose()
   })
 

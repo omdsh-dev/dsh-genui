@@ -59,6 +59,10 @@
 - **guard 容错升级 + validate_dsh_ui 丢弃告警（issue #42）**：table 自愈对象形态（`{title,key}` antd 风格列提取表头、`rows`/`data` 对象数组按列键展平为二维行，非标量单元格字符串化保对齐）；tabs 接受 `content` 作 `items` 别名（数组或单组件）；`countGenuiNodes` 补齐 row/col/grid/card 容器递归（此前计数偏低，掩盖丢弃）；`validate_dsh_ui` 新增声明数 vs 解析数对比（`countDeclaredGenuiNodes` + 白名单过滤，避开 file-tree `{type:'file'}` 误报），声明多于解析时返回 ❌ 并给出丢弃数量与常见原因，不再对半空树绿灯放行。
 
 ## [Unreleased]
+### 修复
+- **GenUI skill 自动进入会话目录**：Host 插件在公开 skill registry 到场时注册包内 `SKILL.md`，新会话可直接发现 `genui`，无需用户复制文件；插件卸载同步移除该 runtime skill。
+- **chart 字段错误不再静默变成柱图**：常驻 prompt 携带紧凑 `kind/data` 签名；`validate_dsh_ui` 与 `render_ui` 共同拒绝 `variant`、非法 kind、非字符串 label 和非有限数字 value，且保留未知扩展字段。
+
 ### 发布
 - npm 发布作用域改为个人账号 `@changfenhuang/dsh-genui`；GitHub 仓库继续保留在 `omdsh-dev` 组织。同步更新运行时模块标识、资源路由、安装脚本、文档和测试，不保留旧 npm 名称兼容层。
 - **正式版与测试版分流**：发布版本带预发布后缀时必须勾选 GitHub Pre-release，并只进入 npm `next`；无后缀版本只能作为正式 Release 进入 `latest`。CI 与发布验收固定覆盖 `dsh-v0.1.1-rc.2` / `dsh-v0.1.2-alpha.1`，不再跟随可变的宿主开发分支。

@@ -1194,52 +1194,87 @@ export const GENUI_NODE_TYPES: ReadonlySet<string> = new Set([
 ])
 
 /**
- * Count DECLARED nodes in a raw spec tree: objects whose `type` is a
+ * Visit and count declared nodes in a raw spec tree: objects whose `type` is a
  * white-listed string, descending the same containers `countGenuiNodes`
- * walks. `validate_dsh_ui` compares this with the repaired count to surface
- * children the repair silently dropped (blank-render class of bugs, issue
- * #42) instead of reporting a green check on a half-empty tree.
+ * walks. Callers can inspect field semantics or compare the count with the
+ * repaired tree without maintaining another traversal.
  */
-export function countDeclaredGenuiNodes(value: unknown, cap = Number.POSITIVE_INFINITY): number {
+function visitDeclaredGenuiNodes(
+  value: unknown,
+  cap: number,
+  visit: (node: Record<string, unknown>, at: string) => void,
+): number {
   let count = 0
   const declared = (candidate: unknown): boolean => {
     const o = obj(candidate)
     return o !== undefined && typeof o.type === 'string' && GENUI_NODE_TYPES.has(o.type)
   }
-  const walk = (list: unknown): void => {
+  function walk(list: unknown, path: string): void {
     if (!Array.isArray(list)) return
-    for (const item of list) {
+    for (let index = 0; index < list.length; index++) {
+      walkNode(list[index], `${path}[${index}]`)
       if (count >= cap) return
-      if (!declared(item)) continue
-      count += 1
-      const v = obj(item)
-      if (v === undefined) continue
-      if (v.type === 'tabs' && Array.isArray(v.tabs)) {
-        for (const t of v.tabs) walkItemsOf(t)
-      } else if (v.type === 'accordion' && Array.isArray(v.items)) {
-        for (const it of v.items) walkItemsOf(it)
-      } else if ((v.type === 'row' || v.type === 'col' || v.type === 'grid' || v.type === 'card') && Array.isArray(v.items)) {
-        walk(v.items)
-      } else if (v.type === 'list' && Array.isArray(v.items)) {
-        for (const li of v.items) {
-          if (declared(li)) walk([li])
-        }
+    }
+  }
+  function walkNode(item: unknown, at: string): void {
+    if (count >= cap || !declared(item)) return
+    const v = obj(item)
+    if (v === undefined) return
+    count += 1
+    visit(v, at)
+    if (v.type === 'tabs' && Array.isArray(v.tabs)) {
+      for (let tab = 0; tab < v.tabs.length; tab++) {
+        walkItemsOf(v.tabs[tab], `${at}.tabs[${tab}]`)
+      }
+    } else if (v.type === 'accordion' && Array.isArray(v.items)) {
+      for (let row = 0; row < v.items.length; row++) {
+        walkItemsOf(v.items[row], `${at}.items[${row}]`)
+      }
+    } else if ((v.type === 'row' || v.type === 'col' || v.type === 'grid' || v.type === 'card') && Array.isArray(v.items)) {
+      walk(v.items, `${at}.items`)
+    } else if (v.type === 'list' && Array.isArray(v.items)) {
+      for (let row = 0; row < v.items.length; row++) {
+        walkNode(v.items[row], `${at}.items[${row}]`)
       }
     }
   }
-  const walkItemsOf = (holder: unknown): void => {
+  function walkItemsOf(holder: unknown, path: string): void {
     const o = obj(holder)
     if (o === undefined) return
     const items = o.items !== undefined ? o.items : o.content
-    if (Array.isArray(items)) walk(items)
-    else if (declared(items)) walk([items])
+    if (Array.isArray(items)) walk(items, `${path}.items`)
+    else walkNode(items, `${path}.items`)
   }
   const root = obj(value)
   if (root === undefined) return count
   // Single-component root (no items array): the root itself is the declared node.
-  if (!Array.isArray(root.items) && declared(value)) walk([value])
-  else walk(root.items)
+  if (!Array.isArray(root.items) && declared(value)) walkNode(value, 'spec')
+  else walk(root.items, 'items')
   return count
+}
+
+/**
+ * Count white-listed nodes declared by a raw spec before repair drops invalid entries.
+ * @param value - raw GenUI spec.
+ * @param cap - traversal ceiling.
+ * @returns declared node count up to the ceiling.
+ */
+export function countDeclaredGenuiNodes(value: unknown, cap = Number.POSITIVE_INFINITY): number {
+  return visitDeclaredGenuiNodes(value, cap, () => {})
+}
+
+/**
+ * Return field-level chart errors without changing other repairable component families.
+ * @param value - raw GenUI spec.
+ * @returns chart semantic errors in tree order.
+ */
+export function validateGenuiChartSemantics(value: unknown): string[] {
+  const errors: string[] = []
+  visitDeclaredGenuiNodes(value, GENUI_LIMITS.maxNodes + 1, (node, at) => {
+    if (node.type !== 'chart') return
+    validateChartNode(node, at, errors)
+  })
+  return errors
 }
 
 /**
@@ -1288,6 +1323,59 @@ export function validateGenuiSpec(value: unknown): GenuiValidation {
 }
 
 type Walker = (list: unknown, depth: number, path: string) => void
+
+function validateChartData(value: unknown, at: string, errors: string[]): void {
+  if (!Array.isArray(value)) return
+  for (let index = 0; index < value.length; index++) {
+    const datum = obj(value[index])
+    const path = `${at}[${index}]`
+    if (datum === undefined) {
+      errors.push(`${path} must be an object`)
+      continue
+    }
+    if (typeof datum.label !== 'string') errors.push(`${path}.label must be a string`)
+    if (typeof datum.value !== 'number' || !Number.isFinite(datum.value)) {
+      errors.push(`${path}.value must be a finite number`)
+    }
+    if (datum.color !== undefined && typeof datum.color !== 'string') {
+      errors.push(`${path}.color must be a string`)
+    }
+  }
+}
+
+function validateChartSeries(value: unknown, at: string, errors: string[]): void {
+  if (!Array.isArray(value)) return
+  for (let index = 0; index < value.length; index++) {
+    const series = obj(value[index])
+    const path = `${at}[${index}]`
+    if (series === undefined) {
+      errors.push(`${path} must be an object`)
+      continue
+    }
+    if (typeof series.label !== 'string') errors.push(`${path}.label must be a string`)
+    if (series.color !== undefined && typeof series.color !== 'string') {
+      errors.push(`${path}.color must be a string`)
+    }
+    if (!Array.isArray(series.data)) errors.push(`${path}.data must be an array`)
+    validateChartData(series.data, `${path}.data`, errors)
+  }
+}
+
+function validateChartNode(v: Record<string, unknown>, at: string, errors: string[]): void {
+  if (!Array.isArray(v.data) && !Array.isArray(v.series)) {
+    errors.push(`${at}: type 'chart' requires data or series (array)`)
+  }
+  if (v.variant !== undefined) errors.push(`${at}.variant is unsupported; use kind`)
+  if (v.data !== undefined && !Array.isArray(v.data)) errors.push(`${at}.data must be an array`)
+  if (v.series !== undefined && !Array.isArray(v.series)) errors.push(`${at}.series must be an array`)
+  if (v.kind !== undefined
+    && (typeof v.kind !== 'string'
+      || !CHART_KINDS.includes(v.kind as typeof CHART_KINDS[number]))) {
+    errors.push(`${at}.kind must be bars, line, or donut`)
+  }
+  validateChartData(v.data, `${at}.data`, errors)
+  validateChartSeries(v.series, `${at}.series`, errors)
+}
 
 function validateNode(value: unknown, depth: number, at: string, errors: string[], walk: Walker): void {
   if (depth > GENUI_LIMITS.maxDepth) {
@@ -1386,7 +1474,7 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       if (!Array.isArray(v.rows)) errors.push(`${at}: type 'table' requires rows (array)`)
       break
     case 'chart':
-      if (!Array.isArray(v.data) && !Array.isArray(v.series)) errors.push(`${at}: type 'chart' requires data or series (array)`)
+      validateChartNode(v, at, errors)
       break
     case 'tabs': {
       if (!Array.isArray(v.tabs)) errors.push(`${at}: type 'tabs' requires tabs (array)`)

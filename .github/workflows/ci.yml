@@ -76,3 +76,29 @@ jobs:
             e2e-*.png
             dsh-web.log
           if-no-files-found: ignore
+
+  windows-pack:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Pack
+        run: npm pack --json

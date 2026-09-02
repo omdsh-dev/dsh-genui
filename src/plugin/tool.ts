@@ -22,8 +22,11 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { JsonValue } from '@deepseek-ai/dsh-session'
 import type { GenericCallView, GenericResultView, JsonSchemaNode, ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type { GenuiSpec } from '../client/spec.ts'
-import { GENUI_LIMITS, countDeclaredGenuiNodes, countGenuiNodes, repairGenuiSpec } from '../client/guard.ts'
+import {
+  GENUI_LIMITS, countDeclaredGenuiNodes, countGenuiNodes, repairGenuiSpec,
+} from '../client/guard.ts'
 import { completeFenceJson } from '../shared/fence-repair.ts'
+import { validateRenderableChartSemantics } from './chart-contract.ts'
 
 /**
  * Arguments schema: an open `spec` slot. The schema must NOT reject anything
@@ -172,7 +175,12 @@ export function createRenderUiTool(): ToolDefinition {
       },
     },
     async execute(args: unknown): Promise<JsonValue> {
-      const spec = repairGenuiSpec(specOf(args))
+      const input = specOf(args)
+      const chartErrors = validateRenderableChartSemantics(input)
+      if (chartErrors.length > 0) {
+        throw new Error('render_ui spec invalid: ' + chartErrors.join('; '))
+      }
+      const spec = repairGenuiSpec(input)
       if (spec === null) {
         return 'render_ui：spec 无效 —— 根对象需要 "items" 数组（组件树白名单见系统提示词），请修正后重试。'
       }
@@ -277,6 +285,12 @@ function bracketDiagnostic(raw: string): string {
 const COMMON_CAUSES =
   '常见原因：① 收尾括号错位/缺失（{ 与 }、[ 与 ] 数量不相等）② 字符串值内用了半角引号 "（中文引语请用 “” 或 「」）③ 尾随逗号 ④ 字符串未闭合'
 
+/** Return the model-facing chart field failure for one parsed fence body. */
+function chartValidationFailure(value: unknown): string | undefined {
+  const errors = validateRenderableChartSemantics(value)
+  return errors.length === 0 ? undefined : `❌ chart 字段验证失败：\n- ${errors.join('\n- ')}`
+}
+
 /** Build the validate_dsh_ui tool definition (registered alongside render_ui). */
 export function createValidateDshUiTool(): ToolDefinition {
   return {
@@ -304,11 +318,18 @@ export function createValidateDshUiTool(): ToolDefinition {
         // FIXED JSON instead of asking it to re-author the fix — re-writing
         // the whole fence by hand is where the next typo comes from.
         const repaired = completeFenceJson(raw)
-        if (repaired !== null && repairGenuiSpec(JSON.parse(repaired.text) as unknown) !== null) {
-          return `❌ dsh-ui 围栏 JSON 解析失败：${detail}。\n${bracketDiagnostic(raw)}  已自动修复 ${repaired.repairs} 处，下面是修复后的 JSON，直接作为围栏正文发出即可（无需再验证）：\n\`\`\`\n${repaired.text}\n\`\`\``
+        if (repaired !== null) {
+          const repairedValue = JSON.parse(repaired.text) as unknown
+          const chartFailure = chartValidationFailure(repairedValue)
+          if (chartFailure !== undefined) return chartFailure
+          if (repairGenuiSpec(repairedValue) !== null) {
+            return `❌ dsh-ui 围栏 JSON 解析失败：${detail}。\n${bracketDiagnostic(raw)}  已自动修复 ${repaired.repairs} 处，下面是修复后的 JSON，直接作为围栏正文发出即可（无需再验证）：\n\`\`\`\n${repaired.text}\n\`\`\``
+          }
         }
         return `❌ dsh-ui 围栏 JSON 解析失败：${detail}。\n${bracketDiagnostic(raw)}  自动修复未能恢复（结构损坏），请按错误信息修正后重新调用本工具验证，通过后再发出围栏。\n${COMMON_CAUSES}`
       }
+      const chartFailure = chartValidationFailure(parsed)
+      if (chartFailure !== undefined) return chartFailure
       const spec = repairGenuiSpec(parsed)
       if (spec === null) {
         return '❌ 不是合法 GenUI spec：根对象需要 "items" 数组，且每个节点 type 必须在白名单内（见系统提示词）。请修正后重新验证。'

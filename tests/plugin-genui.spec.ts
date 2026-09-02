@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
+import SkillRegistry from '@deepseek-ai/dsh-skill'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import * as GenUI from '../src/plugin/index.ts'
 
@@ -38,6 +39,9 @@ describe('genui:fence section', () => {
     for (const type of ['text', 'card', 'grid', 'stat', 'table', 'audio', 'video', 'chart', 'tabs', 'button', 'progress', 'plot', 'callout', 'steps', 'diff', 'mermaid', 'scene3d']) {
       expect(text).toContain(type)
     }
+    expect(text).toContain('"kind":"bars|line|donut"')
+    expect(text).toContain('"label":"...","value":n')
+    expect(text).toContain('series 仅 bars')
   })
 
   it('keeps the full type whitelist in the slim section within the token budget', async () => {
@@ -89,6 +93,53 @@ describe('genui:fence section', () => {
     expect(registered).toHaveLength(2)
     const names = registered.map(t => (t as { name: string }).name).sort()
     expect(names).toEqual(['render_ui', 'validate_dsh_ui'])
+  })
+
+  it('registers genui through the real skill registry', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    await ctx.plugin(SkillRegistry)
+
+    const genui = await ctx.plugin(GenUI)
+
+    expect(await ctx.skills.list()).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        name: 'genui',
+        provider: 'dsh-genui',
+        source: 'bundled',
+        invocation: {
+          modelInvocable: true,
+          userInvocable: true,
+        },
+      }),
+    ]))
+
+    const skill = await ctx.skills.get('genui')
+    expect(skill).toMatchObject({
+      name: 'genui',
+      provider: 'dsh-genui',
+      source: 'bundled',
+    })
+    expect(skill?.description).toContain('完整组件与字段规范')
+    expect(skill?.content).toContain('chart:')
+    expect(skill?.content).not.toContain('name: genui')
+
+    await genui.dispose()
+    expect((await ctx.skills.list()).find(skill => skill.name === 'genui')).toBeUndefined()
+  })
+
+  it('registers genui when the real skill service binds after the plugin', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    await ctx.plugin(GenUI)
+    await ctx.plugin(SkillRegistry)
+
+    expect((await ctx.skills.list()).find(skill => skill.name === 'genui')).toMatchObject({
+      name: 'genui',
+      provider: 'dsh-genui',
+      source: 'bundled',
+    })
+    expect(await ctx.skills.get('genui')).toBeDefined()
   })
 
   it('keeps the fence channel without a tools service', async () => {

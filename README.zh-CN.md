@@ -180,7 +180,9 @@ dsh plugin --profile web add link:$PWD
 - **探索成就**：同一 dock 的「成就」按钮——12 个成就（初次相见 → 蓝图之魂），按渲染/交互/面板/模板埋点计数，解锁弹 toast，成就页由 `dsh-ui` 渲染自己的列表；只存计数（localStorage），绝不读取消息内容；隐藏成就（传说）解锁前显示「？」。
 - **首次提示**：第一块面板出现时显示 6 秒一次性提示（指向「模板」按钮），不打扰式引导。
 
-组件 JSON 语法见 [SKILL.md](./SKILL.md)（也可复制到 `~/.dsh/skills/genui/` 增强模型使用）。
+组件 JSON 语法见 [SKILL.md](./SKILL.md)。宿主提供公开 skill registry 时，插件会自动注册内置 `genui` skill，因此新会话无需向 `~/.dsh` 复制文件即可获得完整组件与字段目录。
+
+`chart` 保持三种图形的紧凑渲染器：使用 `kind: 'bars' | 'line' | 'donut'`，且 `data[].value` 必须是有限数字。`validate_dsh_ui` 会明确报告误用的 `variant`、不支持的 kind 和非法数据字段；`render_ui` 对同样错误直接失败，不再静默渲染默认柱图。未知扩展字段仍允许存在。
 
 ## 📄 示例
 

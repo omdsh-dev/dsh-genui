@@ -99,6 +99,34 @@ describe('render_ui execute', () => {
       spy.mockRestore()
     }
   })
+
+  it('rejects chart aliases and invalid data instead of silently rendering bars', async () => {
+    await expect(tool.execute({
+      spec: {
+        items: [{
+          type: 'chart',
+          variant: 'line',
+          data: [{ label: 1, value: '128' }],
+        }],
+      },
+    })).rejects.toThrow(
+      'items[0].variant is unsupported; use kind; items[0].data[0].label must be a string; items[0].data[0].value must be a finite number',
+    )
+  })
+
+  it('rejects series-only line charts instead of rendering an empty plot', async () => {
+    await expect(tool.execute({
+      spec: {
+        items: [{
+          type: 'chart',
+          kind: 'line',
+          series: [{ label: 'A', data: [{ label: '周一', value: 128 }] }],
+        }],
+      },
+    })).rejects.toThrow(
+      'items[0].series is only supported for bars; items[0].data is required for line',
+    )
+  })
 })
 
 describe('render_ui projections', () => {
@@ -152,6 +180,82 @@ describe('validate_dsh_ui tool', () => {
     expect(value).toContain('❌')
     expect(value).toContain('声明了 2 个组件')
     expect(value).toContain('仅成功解析出 1 个')
+  })
+
+  it('reports the chart kind contract and field-level data errors', async () => {
+    const value = String(await vtool.execute({
+      spec: {
+        items: [{
+          type: 'chart',
+          variant: 'line',
+          kind: 'area',
+          data: [{ label: 1, value: Number.NaN }],
+        }],
+      },
+    }))
+    expect(value).toContain('❌ chart 字段验证失败')
+    expect(value).toContain('items[0].variant is unsupported; use kind')
+    expect(value).toContain('items[0].kind must be bars, line, or donut')
+    expect(value).toContain('items[0].data[0].label must be a string')
+    expect(value).toContain('items[0].data[0].value must be a finite number')
+  })
+
+  it('rejects line/donut series and empty chart collections before rendering', async () => {
+    const line = String(await vtool.execute({
+      spec: {
+        items: [{
+          type: 'chart',
+          kind: 'line',
+          series: [{ label: 'A', data: [{ label: '周一', value: 128 }] }],
+        }],
+      },
+    }))
+    expect(line).toContain('items[0].series is only supported for bars')
+    expect(line).toContain('items[0].data is required for line')
+
+    const empty = String(await vtool.execute({
+      spec: {
+        items: [{
+          type: 'chart',
+          data: [],
+          series: [{ label: 'A', data: [] }],
+        }],
+      },
+    }))
+    expect(empty).toContain('items[0].data must not be empty')
+    expect(empty).toContain('items[0].series[0].data must not be empty')
+
+    const emptySeries = String(await vtool.execute({
+      spec: { items: [{ type: 'chart', series: [] }] },
+    }))
+    expect(emptySeries).toContain('items[0].series must not be empty')
+  })
+
+  it('keeps chart field validation after repairing fence JSON syntax', async () => {
+    const value = String(await vtool.execute({
+      spec: '{"items":[{"type":"chart","variant":"line","data":[{"label":"周一","value":128}],}],}',
+    }))
+    expect(value).toContain('❌ chart 字段验证失败')
+    expect(value).toContain('items[0].variant is unsupported; use kind')
+    expect(value).not.toContain('无需再验证')
+  })
+
+  it('allows unknown chart extension fields but native repair ignores them', async () => {
+    const raw = {
+      items: [{
+        type: 'chart',
+        kind: 'line',
+        data: [{ label: '周一', value: 128, extension: true }],
+        extension: { owner: 'another-plugin' },
+      }],
+    }
+    const value = String(await vtool.execute({ spec: raw }))
+    expect(value).toContain('✅')
+    const meta = tool.output.presentationMeta!({ spec: raw }) as {
+      items: Array<Record<string, unknown> & { data?: Array<Record<string, unknown>> }>
+    }
+    expect(meta.items[0]).not.toHaveProperty('extension')
+    expect(meta.items[0]!.data?.[0]).not.toHaveProperty('extension')
   })
 
   it('stays green when object-shaped tables heal instead of dropping', async () => {

@@ -135,8 +135,11 @@ export async function mountScene(container: HTMLElement, scene: GenuiScene3D): P
   }
   const onPointerMove = (e: PointerEvent): void => {
     if (!isDragging) return
-    theta -= (e.clientX - prevX) * 0.01
-    phi = Math.max(0.1, Math.min(Math.PI - 0.1, phi + (e.clientY - prevY) * 0.01))
+    // Drag follows the cursor (standard orbit feel): dragging right/left
+    // sweeps the azimuth with the pointer, dragging up/down tilts the polar
+    // angle with the pointer (phi grows from +Y down toward the equator).
+    theta += (e.clientX - prevX) * 0.01
+    phi = Math.max(0.1, Math.min(Math.PI - 0.1, phi - (e.clientY - prevY) * 0.01))
     prevX = e.clientX
     prevY = e.clientY
     orbit()
