@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+### 修复
+- **/panel 候选按 query 前缀过滤（issue #98）**：`createPanelSlashSource` 的 `candidates` 此前无视 `req.query` 恒返回 `panel` 一项——输入与指令/技能都不匹配的 query 时，genui 组成了菜单里唯一 ready 非空的分组，宿主 `menuReduce` 的 `firstHighlight` 落到 `panel` 且后续不让位，默认高亮被抢占；此时按 Enter 走 `pick-highlighted` 会误执行 `/panel` 而非目标命令/技能。现在 query 非空且不是 `panel` 前缀（大小写不敏感）时返回空数组，该分组从菜单消失。`matchEnter` 行为不变（裸 `/panel` 回车照常认领）。
+
 ## [0.9.6] - 2026-08-28
 ### 兼容性
 - **dsh 0.1.2-alpha.1**：真机验收改为读取新版 Web 启动时生成的一次性令牌地址，先建立浏览器登录态，再按启动图公告的不可变组合地址检查插件资源；后台启动显式使用 `--no-open`，不再误开用户浏览器。插件运行代码和宿主配置契约无需兼容层，也未修改 dsh 本体；官方标签源码构建在 Node 24.13 下完成 macOS 真机页面激活，启动图资源返回 200。Node 24.11 会令该宿主启动图为空，验收与本机入口已固定使用 24.13。

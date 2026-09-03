@@ -103,11 +103,20 @@ export function createPanelSlashSource(sendInstruction: (sessionId: SessionId, i
     trigger: '/',
     name: 'genui',
     order: 60,
-    candidates: async (_session, _req) => [{
-      name: 'panel',
-      description: '开启 GenUI 面板（/panel clear 清空；/panel <指令> 定制内容）',
-      hint: '/panel',
-    }],
+    candidates: async (_session, req) => {
+      // Filter by query prefix: once the user types past "panel" the genui
+      // group must disappear. Unfiltered candidates kept this group the only
+      // ready non-empty group for unmatched queries, so the menu's default
+      // highlight fell through to `panel` and Enter picked it instead of the
+      // intended command/skill candidate.
+      const query = req.query.toLowerCase()
+      if (query !== '' && !'panel'.startsWith(query)) return []
+      return [{
+        name: 'panel',
+        description: '开启 GenUI 面板（/panel clear 清空；/panel <指令> 定制内容）',
+        hint: '/panel',
+      }]
+    },
     onPick(pick) {
       return { claim: panelClaim(pick.session.sessionId, sendInstruction) }
     },
