@@ -8,9 +8,10 @@
  * 1. Full parse first (the common settled case) — at most one.
  * 2. ONE left-to-right scan collects the repair candidates: every position
  *    where the prefix is bracket-balanced (trailing comma / fence tail) and
- *    every `}` object close within the depth budget (an unfinished trailing
- *    element, closed by appending the remaining brackets). The ring buffer
- *    keeps only the longest-direction candidates (≤ MAX_PARTIAL_REPAIR_ATTEMPTS),
+ *    every top-level `items[]` component close (an unfinished trailing
+ *    component is dropped by closing the root array/object). Partial candidates
+ *    must parse as a spec root; bare components wait for their own root close.
+ *    The ring buffer keeps only the longest-direction candidates (≤ MAX_PARTIAL_REPAIR_ATTEMPTS),
  *    so the work is O(n) with a hard parse-attempt cap — a pathological
  *    input can never re-scan prefixes or burn seconds in JSON.parse.
  * 3. Candidates are tried longest first; the first that parses as a GenUI
@@ -19,11 +20,10 @@
  * The result is only ever a PREFIX of the intended spec, so it is always
  * safe to render: components already present are complete and valid.
  *
- * `ponytail:` the 32-candidate / 33-parse budget is the protection ceiling
- * for depth 8 / 200 nodes; only real streaming samples proving a recovery
- * shortfall justify switching to a tokenizing parser.
+ * `ponytail:` the 32-candidate / 33-parse budget is the protection ceiling;
+ * only real streaming samples proving a recovery shortfall justify switching
+ * to a tokenizing parser.
  */
-import { GENUI_LIMITS } from './guard.ts'
 import { isGenuiSpec, type GenuiSpec } from './spec.ts'
 import { wrapSingleComponentRoot } from './spec.ts'
 
@@ -48,9 +48,9 @@ export interface PartialCandidate {
  *  (skipping strings/escapes correctly) and records:
  *  - every position where the prefix is fully balanced (trailing comma or
  *    fence tail) — candidate with an empty closing suffix;
- *  - every `}` object close whose remaining depth fits the spec budget —
- *    candidate with the remaining brackets closed (an unfinished trailing
- *    element).
+ *  - every top-level `items[]` component close — candidate with the root
+ *    array/object closed (an unfinished trailing component is dropped). Nested
+ *    object closes are not candidates because their component is still partial.
  *  Candidates are ring-buffered to the attempts budget (the LAST pushes are
  *  the longest), then returned longest-first, deduplicated by end. The scan
  *  stops at the first unbalanced close — earlier balanced prefixes remain
@@ -93,10 +93,11 @@ export function collectPartialCandidates(raw: string): { candidates: PartialCand
         // balanced prefixes recorded earlier stay valid. Stop scanning.
         break
       }
-      if (ch === '}' && stack.length <= GENUI_LIMITS.maxDepth) {
-        // A finished object element: closing the remaining brackets yields
-        // the longest legal prefix (an unfinished trailing element drops).
-        push({ end: scanned + 1, closingSuffix: closeSuffix(stack) })
+      if (ch === '}' && stack.length === 2 && stack[0] === '{' && stack[1] === '[') {
+        // Only a direct root-array member can be a finished component.
+        // Partial parsing later requires an actual spec root, so a bare
+        // component's data[] member cannot become a candidate.
+        push({ end: scanned + 1, closingSuffix: ']}' })
       }
       if (stack.length === 0) {
         // Whole prefix balanced: a complete-JSON candidate (trailing comma /
@@ -114,22 +115,15 @@ export function collectPartialCandidates(raw: string): { candidates: PartialCand
   return { candidates: deduped.slice(0, repairAttemptsLimit), scannedChars: scanned }
 }
 
-/** Closing brackets for the remaining open stack (top first). */
-function closeSuffix(stack: string[]): string {
-  let suffix = ''
-  for (let i = stack.length - 1; i >= 0; i--) suffix += stack[i] === '{' ? '}' : ']'
-  return suffix
-}
-
 /** Try to parse a candidate as a GenuiSpec. */
-function trySpec(candidate: string): GenuiSpec | null {
+function trySpec(candidate: string, allowSingleComponentRoot: boolean): GenuiSpec | null {
   try {
     const value: unknown = JSON.parse(candidate)
     if (isGenuiSpec(value)) return value
     // Single-component roots are part of the documented fence vocabulary
     // (e.g. a bare {"type":"callout",…} body) — wrap into a col so the
     // items-gated pipeline renders them (panel/append hoisted).
-    return wrapSingleComponentRoot(value)
+    return allowSingleComponentRoot ? wrapSingleComponentRoot(value) : null
   } catch {
     return null
   }
@@ -146,14 +140,14 @@ export function parsePartialGenuiSpec(raw: string): GenuiSpec | null {
   if (text === '') return null
 
   // 1. Full parse (settled / already-complete body).
-  const full = trySpec(text)
+  const full = trySpec(text, true)
   if (full !== null) return full
 
   // 2. Bounded repair: ONE forward scan, at most `repairAttemptsLimit`
   //    candidates, longest first — never a re-scan per `}`.
   const { candidates } = collectPartialCandidates(text)
   for (const candidate of candidates) {
-    const spec = trySpec(text.slice(0, candidate.end) + candidate.closingSuffix)
+    const spec = trySpec(text.slice(0, candidate.end) + candidate.closingSuffix, false)
     if (spec !== null) return spec
   }
 
