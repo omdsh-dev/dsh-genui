@@ -109,7 +109,7 @@ export function createPanelSlashSource(sendInstruction: (sessionId: SessionId, i
       // ready non-empty group for unmatched queries, so the menu's default
       // highlight fell through to `panel` and Enter picked it instead of the
       // intended command/skill candidate.
-      const query = (req?.query ?? '').trim().toLowerCase()
+      const query = req.query.toLowerCase()
       if (query !== '' && !'panel'.startsWith(query)) return []
       return [{
         name: 'panel',

@@ -39,13 +39,13 @@ describe('/panel slash source', () => {
     const call = (query: string): Promise<readonly { name: string }[]> =>
       source.candidates!({ sessionId: SID } as never, { query, position: 'leading', signal: new AbortController().signal })
     // Bare "/" and any prefix of "panel" (case-insensitive) keep the candidate.
-    for (const query of ['', 'p', 'pa', 'PANEL', ' panel ']) {
+    for (const query of ['', 'p', 'pa', 'PANEL']) {
       expect(await call(query)).toHaveLength(1)
     }
     // Anything else must drop the group: an unfiltered group stays the only
     // ready non-empty group for unmatched queries and steals the menu's
     // default highlight from real command/skill candidates.
-    for (const query of ['sk', 'venus', 'zzz', 'panels']) {
+    for (const query of ['sk', 'venus', 'zzz', 'panels', ' panel ']) {
       expect(await call(query)).toHaveLength(0)
     }
   })
