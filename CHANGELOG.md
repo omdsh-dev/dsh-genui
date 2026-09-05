@@ -1,6 +1,12 @@
 # Changelog
 
 ## [Unreleased]
+
+## [0.9.8] - 2026-09-05
+### 兼容性
+- 支持 DSH 0.1.2-rc.1 与 0.1.3-alpha.1：依赖范围显式允许这两个预发布系列，CI 和发布验收固定到对应官方标签。
+- 真机验收使用宿主当前的可编辑输入区发送消息，删除旧文本框路径。
+
 ### 修复
 - **/panel 候选按 query 前缀过滤（issue #98）**：`createPanelSlashSource` 的 `candidates` 此前无视 `req.query` 恒返回 `panel` 一项——输入与指令/技能都不匹配的 query 时，genui 组成了菜单里唯一 ready 非空的分组，宿主 `menuReduce` 的 `firstHighlight` 落到 `panel` 且后续不让位，默认高亮被抢占；此时按 Enter 走 `pick-highlighted` 会误执行 `/panel` 而非目标命令/技能。现在 query 非空且不是 `panel` 前缀（大小写不敏感）时返回空数组，该分组从菜单消失。`matchEnter` 行为不变（裸 `/panel` 回车照常认领）。
 
