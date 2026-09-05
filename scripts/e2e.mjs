@@ -236,22 +236,14 @@ try {
   }
   await page.waitForTimeout(1500)
 
-  // 等 composer 真正可用（inert/disabled 全脱离）再填——不许静默跳过
+  // 使用宿主公开标记定位可编辑输入区，等待会话初始化完成。
   await page.waitForFunction(() => {
-    const t = document.querySelector('textarea')
-    return t !== null && !t.disabled && !t.closest('[inert]') && !t.hasAttribute('inert')
-  }, { timeout: 30000 }).catch(() => {})
-  const composerReady = await page.evaluate(() => {
-    const t = document.querySelector('textarea')
-    return t !== null && !t.disabled && !t.closest('[inert]') && !t.hasAttribute('inert')
-  })
-  if (!composerReady) {
-    await page.screenshot({ path: join(artifactsDir, 'e2e-fail-composer.png') })
-    await logTail()
-    fail('composer 30s 内未脱离 inert/disabled')
-  }
-  await page.locator('textarea').first().fill(PROMPT)
-  await page.getByRole('button', { name: '发送消息' }).click().catch(() => page.keyboard.press('Enter'))
+    const input = document.querySelector('[data-composer-input]')
+    return input instanceof HTMLElement && input.isContentEditable && !input.closest('[inert]')
+  }, undefined, { timeout: 30000 })
+  const composer = page.locator('[data-composer-input]')
+  await composer.fill(PROMPT)
+  await composer.press('Enter')
   log('prompt 已发送，等待模型输出 dsh-ui fence...')
 
   const genuiCount = () => page.evaluate(() => document.querySelectorAll('[data-genui]').length)
