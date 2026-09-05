@@ -22,7 +22,7 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { JsonValue } from '@deepseek-ai/dsh-session'
 import type { GenericCallView, GenericResultView, JsonSchemaNode, ToolDefinition } from '@deepseek-ai/dsh-tools'
 import {
-  GENUI_LIMITS, processGenuiSpec,
+  isRenderableProcess, processGenuiSpec,
 } from '../client/guard.ts'
 import type { GenuiProcessResult } from '../client/guard.ts'
 import { completeFenceJson } from '../shared/fence-repair.ts'
@@ -163,24 +163,15 @@ function formatProcessFailure(processed: GenuiProcessResult): string | undefined
 /** Return the legacy validation text for a process that dropped native nodes. */
 function droppedNodeFailure(processed: GenuiProcessResult): string | undefined {
   if (!processed.errors.some(error => error.startsWith('repair dropped '))) return undefined
-  const dropped = processed.declaredCount - processed.renderedCount
-  return `❌ 验证未通过：检测到声明了 ${processed.declaredCount} 个组件，但仅成功解析出 ${processed.renderedCount} 个（有 ${dropped} 个组件因字段格式异常被丢弃）。常见原因：table 的 columns/rows 不是二维字符串数组、tabs 的 items/content 缺失、嵌套组件字段类型不符。请修正后重新验证。`
-}
-
-/** Return whether a process error is only the intentional node-budget tail cut. */
-function isIntentionalBudgetCut(processed: GenuiProcessResult): boolean {
-  return processed.errors.length > 0
-    && processed.errors.every(error => error.startsWith('spec exceeds ') || error.startsWith('repair dropped '))
-    && processed.renderedCount === GENUI_LIMITS.maxNodes
-    && processed.declaredCount === GENUI_LIMITS.maxNodes + 1
+  const dropped = processed.declaredNativeCount - processed.renderedNativeCount
+  return `❌ 验证未通过：检测到声明了 ${processed.declaredNativeCount} 个组件，但仅成功解析出 ${processed.renderedNativeCount} 个（有 ${dropped} 个组件因字段格式异常被丢弃）。常见原因：table 的 columns/rows 不是二维字符串数组、tabs 的 items/content 缺失、嵌套组件字段类型不符。请修正后重新验证。`
 }
 
 /** Tool-call title shared by the pending and completed presentations. */
 function cardTitle(args: unknown): string | undefined {
   const processed = processRenderableValue(specOf(args))
-  return processed.spec === null || (processed.errors.length > 0 && !isIntentionalBudgetCut(processed))
-    ? undefined
-    : `渲染 UI：${processed.spec.title ?? '未命名'}`
+  if (!isRenderableProcess(processed) || processed.spec === null) return undefined
+  return `渲染 UI：${processed.spec.title ?? '未命名'}`
 }
 
 /**
@@ -205,7 +196,7 @@ export function createRenderUiTool(): ToolDefinition {
         // spec is JSON-safe by construction (only string/number/boolean/array
         // fields after repair), so the widening cast is lossless.
         const processed = processRenderableValue(specOf(args))
-        return processed.spec as unknown as JsonValue
+        return (isRenderableProcess(processed) ? processed.spec : null) as unknown as JsonValue
       },
     },
     async execute(args: unknown): Promise<JsonValue> {
@@ -213,7 +204,7 @@ export function createRenderUiTool(): ToolDefinition {
       if (processed.spec === null) {
         return 'render_ui：spec 无效 —— 根对象需要 "items" 数组（组件树白名单见系统提示词），请修正后重试。'
       }
-      if (processed.errors.length > 0 && !isIntentionalBudgetCut(processed)) {
+      if (!isRenderableProcess(processed)) {
         throw new Error('render_ui spec invalid: ' + processed.errors.join('; '))
       }
       const spec = processed.spec

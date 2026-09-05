@@ -20,8 +20,13 @@
  */
 import type { GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSeries, GenuiScene3D, GenuiSpec, GenuiDiagram, GenuiDiagramTheme, GenuiDiagramKind } from './spec.ts'
 import { wrapSingleComponentRoot } from './spec.ts'
-import { COMPONENT_SCHEMAS, GENUI_NATIVE_TYPES, GENUI_SPEC_SCHEMA, diagnoseUnknownGenuiFields, normalizeGenuiSpec } from './component-schema.ts'
-import type { ComponentFieldKind, ComponentSchema, GenuiDiagnostic } from './component-schema.ts'
+import {
+  BADGE_TONES, BUTTON_TONES, CALLOUT_TONES, CHART_KINDS, COMPONENT_SCHEMAS, DIAGRAM_EDGE_KINDS,
+  DIAGRAM_KINDS, DIAGRAM_NODE_TYPES, DIAGRAM_ROUTES, DIAGRAM_VARIANTS, ECHART_PRESETS, FILE_TYPES,
+  GENUI_NATIVE_TYPES, GENUI_SPEC_SCHEMA, INPUT_TYPES, MEDIA_ASPECT_RATIOS, MESH_SHAPES, PLOT_KINDS,
+  TEXT_SIZES, diagnoseUnknownGenuiFields, normalizeGenuiSpec,
+} from './component-schema.ts'
+import type { ComponentFieldKind, ComponentRecordSchema, ComponentSchema, GenuiDiagnostic } from './component-schema.ts'
 
 export { COMPONENT_SCHEMAS, GENUI_NATIVE_TYPES, diagnoseUnknownGenuiFields, normalizeGenuiSpec } from './component-schema.ts'
 export type { ComponentFieldKind, ComponentSchema, GenuiDiagnostic } from './component-schema.ts'
@@ -170,6 +175,7 @@ function obj(v: unknown): Record<string, unknown> | undefined {
 function fieldKindMatches(value: unknown, kind: ComponentFieldKind): boolean {
   switch (kind) {
     case 'string': return typeof value === 'string'
+    case 'string-or-null': return value === null || typeof value === 'string'
     case 'number': return typeof value === 'number' && Number.isFinite(value)
     case 'boolean': return typeof value === 'boolean'
     case 'nodes': return Array.isArray(value)
@@ -181,6 +187,7 @@ function fieldKindMatches(value: unknown, kind: ComponentFieldKind): boolean {
 
 function fieldKindLabel(kind: ComponentFieldKind): string {
   switch (kind) {
+    case 'string-or-null': return 'a string or null'
     case 'number': return 'a finite number'
     case 'boolean': return 'a boolean'
     case 'nodes': case 'array': return 'an array'
@@ -208,6 +215,71 @@ function validateSchemaFieldKinds(
     if (excludedFields.includes(field) || value[field] === undefined) continue
     if (!fieldKindMatches(value[field], kind) && !hasFieldError(errors, at, field)) {
       errors.push(`${at}.${field} must be ${fieldKindLabel(kind)}`)
+    }
+  }
+  for (const [field, values] of Object.entries(definition.enums)) {
+    if (excludedFields.includes(field) || value[field] === undefined || !fieldKindMatches(value[field], 'string')) continue
+    if (!values.includes(value[field] as string) && !hasFieldError(errors, at, field)) {
+      errors.push(`${at}.${field} must be one of ${values.join(', ')}`)
+    }
+  }
+}
+
+/** Validate one schema-declared nested record and all records below it. */
+function validateRecordSchema(
+  value: unknown,
+  at: string,
+  definition: ComponentRecordSchema,
+  errors: string[],
+): void {
+  const holder = obj(value)
+  if (holder === undefined) {
+    errors.push(`${at} must be an object`)
+    return
+  }
+  for (const field of definition.required) {
+    const kind = definition.fields[field]
+    if (holder[field] === undefined) {
+      if (!hasFieldError(errors, at, field)) errors.push(`${at}: requires ${field}${kind === undefined ? '' : ` (${fieldKindLabel(kind)})`}`)
+    } else if (kind !== undefined && !fieldKindMatches(holder[field], kind)) {
+      if (!hasFieldError(errors, at, field)) errors.push(`${at}.${field} must be ${fieldKindLabel(kind)}`)
+    }
+  }
+  for (const [field, kind] of Object.entries(definition.fields)) {
+    if (holder[field] !== undefined && !fieldKindMatches(holder[field], kind)) {
+      if (!hasFieldError(errors, at, field)) errors.push(`${at}.${field} must be ${fieldKindLabel(kind)}`)
+    }
+  }
+  for (const [field, values] of Object.entries(definition.enums)) {
+    if (holder[field] !== undefined && typeof holder[field] === 'string' && !values.includes(holder[field])) {
+      if (!hasFieldError(errors, at, field)) errors.push(`${at}.${field} must be one of ${values.join(', ')}`)
+    }
+  }
+  for (const [field, nested] of Object.entries(definition.nested)) {
+    const nestedValue = holder[field]
+    if (nestedValue === undefined) continue
+    if (Array.isArray(nestedValue)) {
+      nestedValue.forEach((item, index) => validateRecordSchema(item, `${at}.${field}[${index}]`, nested, errors))
+    } else {
+      validateRecordSchema(nestedValue, `${at}.${field}`, nested, errors)
+    }
+  }
+}
+
+/** Validate registry-declared nested records before repair can discard them. */
+function validateNestedRecordSchemas(
+  value: Record<string, unknown>,
+  at: string,
+  definition: ComponentSchema,
+  errors: string[],
+): void {
+  for (const [field, nested] of Object.entries(definition.nested)) {
+    const nestedValue = value[field]
+    if (nestedValue === undefined) continue
+    if (Array.isArray(nestedValue)) {
+      nestedValue.forEach((item, index) => validateRecordSchema(item, `${at}.${field}[${index}]`, nested, errors))
+    } else {
+      validateRecordSchema(nestedValue, `${at}.${field}`, nested, errors)
     }
   }
 }
@@ -244,6 +316,7 @@ function validateRegistryFields(
       }
     }
   }
+  validateNestedRecordSchemas(value, at, definition, errors)
 }
 
 /**
@@ -255,29 +328,6 @@ function validateRegistryFields(
 function opt<K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> {
   return value === undefined ? {} : { [key]: value } as Partial<Record<K, V>>
 }
-
-const TEXT_SIZES = ['h1', 'h2', 'h3', 'body', 'muted', 'caption'] as const
-const BUTTON_TONES = ['primary', 'danger', 'success', 'ghost'] as const
-const BADGE_TONES = ['success', 'warn', 'danger', 'accent'] as const
-const INPUT_TYPES = ['text', 'email', 'password'] as const
-const CALLOUT_TONES = ['info', 'success', 'warning', 'error'] as const
-const CHART_KINDS = ['bars', 'line', 'donut'] as const
-const PLOT_KINDS = ['line', 'area', 'scatter'] as const
-const MEDIA_ASPECT_RATIOS = ['16:9', '4:3', '1:1', '9:16'] as const
-const MESH_SHAPES = ['box', 'sphere', 'cone', 'cylinder', 'torus'] as const
-const FILE_TYPES = ['file', 'dir'] as const
-const DIAGRAM_KINDS: readonly string[] = [
-  'architecture', 'it-state', 'flowchart', 'sequence', 'state', 'er', 'timeline',
-  'swimlane', 'quadrant', 'radar', 'loop', 'nested', 'tree', 'org-chart', 'layers',
-  'venn', 'pyramid', 'bar', 'line', 'gantt', 'scatter', 'high-level', 'process',
-  'medallion', 'data-flow', 'dp-integration', 'dp-security-matrix',
-]
-const DIAGRAM_NODE_TYPES = ['focal', 'backend', 'store', 'external', 'input', 'optional', 'security'] as const
-const DIAGRAM_VARIANTS = ['light', 'dark', 'editorial'] as const
-const DIAGRAM_EDGE_KINDS = ['solid', 'dashed', 'accent', 'link'] as const
-const DIAGRAM_ROUTES = ['auto', 'orthogonal', 'straight'] as const
-
-const ECHART_PRESETS = ['bar', 'line', 'area', 'pie', 'scatter'] as const
 
 /* ---------------- repair ---------------- */
 
@@ -1500,6 +1550,19 @@ export function processGenuiSpec(value: unknown): GenuiProcessResult {
   }
 }
 
+/** Return whether the only process errors describe an intentional budget tail cut. */
+export function isIntentionalBudgetCut(processed: GenuiProcessResult): boolean {
+  return processed.errors.length > 0
+    && processed.errors.every(error => error.startsWith('spec exceeds ') || error.startsWith('repair dropped '))
+    && processed.renderedNativeCount === GENUI_LIMITS.maxNodes
+    && processed.declaredNativeCount === GENUI_LIMITS.maxNodes + 1
+}
+
+/** Decide whether a repaired spec is safe to expose to any GenUI renderer. */
+export function isRenderableProcess(processed: GenuiProcessResult): boolean {
+  return processed.spec !== null && (processed.errors.length === 0 || isIntentionalBudgetCut(processed))
+}
+
 type Walker = (list: unknown, depth: number, path: string) => void
 
 function validateChartData(value: unknown, at: string, errors: string[]): void {
@@ -1568,6 +1631,25 @@ function validateChartNode(v: Record<string, unknown>, at: string, errors: strin
   }
   validateChartData(v.data, `${at}.data`, errors)
   validateChartSeries(v.series, `${at}.series`, errors)
+}
+
+/** Validate table rows before repair can silently remove malformed cells. */
+function validateTableRows(value: unknown, at: string, errors: string[]): void {
+  if (!Array.isArray(value)) return
+  for (let rowIndex = 0; rowIndex < value.length; rowIndex++) {
+    const row = value[rowIndex]
+    if (obj(row) !== undefined) continue
+    if (!Array.isArray(row)) {
+      errors.push(`${at}[${rowIndex}] must be an array or object`)
+      continue
+    }
+    for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
+      const cell = row[cellIndex]
+      if (typeof cell !== 'string' && (typeof cell !== 'number' || !Number.isFinite(cell))) {
+        errors.push(`${at}[${rowIndex}][${cellIndex}] must be a string or finite number`)
+      }
+    }
+  }
 }
 
 function validateNode(value: unknown, depth: number, at: string, errors: string[], walk: Walker): void {
@@ -1665,6 +1747,7 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
     case 'table':
       if (!Array.isArray(v.columns)) errors.push(`${at}: type 'table' requires columns (array)`)
       if (!Array.isArray(v.rows)) errors.push(`${at}: type 'table' requires rows (array)`)
+      validateTableRows(v.rows, `${at}.rows`, errors)
       break
     case 'chart':
       validateChartNode(v, at, errors)

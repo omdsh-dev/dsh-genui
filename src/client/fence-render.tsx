@@ -18,7 +18,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSPropert
 import { CodeBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ErrorBoundary } from './ErrorBoundary.tsx'
 import { GenuiBlock } from './GenuiBlock.tsx'
-import { processGenuiSpec } from './guard.ts'
+import { isRenderableProcess, processGenuiSpec } from './guard.ts'
 import { fenceStateKey } from './interaction-store.ts'
 import { parsePartialGenuiSpec } from './parse-partial.ts'
 import { applyPanelOperation, diagnosePanelBudget, type PanelOperationStatus } from './panel-store.ts'
@@ -64,7 +64,7 @@ function processSemanticFailure(raw: string): string | null {
   const parsed = parsePartialGenuiSpec(raw)
   if (parsed === null) return null
   const processed = processGenuiSpec(parsed)
-  if (processed.errors.length === 0) return null
+  if (isRenderableProcess(processed)) return null
   const chartErrors = formatChartProcessErrors(processed.errors)
   return chartErrors === null
     ? `GenUI 字段验证失败：${processed.errors.join('；')}`
@@ -142,7 +142,7 @@ function FencePanelPublisher({ sessionId, sourceId, order, spec }: {
 /** Process one parsed value and return its canonical repaired spec only when the shared pipeline is error-free. */
 function repairRenderableSpec(value: unknown): GenuiSpec | null {
   const processed = processGenuiSpec(value)
-  if (processed.errors.length > 0) return null
+  if (!isRenderableProcess(processed)) return null
   return processed.spec
 }
 

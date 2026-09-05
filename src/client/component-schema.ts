@@ -2,6 +2,7 @@
 
 export type ComponentFieldKind =
   | 'string'
+  | 'string-or-null'
   | 'number'
   | 'boolean'
   | 'nodes'
@@ -34,12 +35,14 @@ export interface ComponentValidatorMetadata {
 export interface ComponentRecordSchema {
   readonly required: readonly string[]
   readonly fields: Readonly<Record<string, ComponentFieldKind>>
+  readonly enums: Readonly<Record<string, readonly string[]>>
   readonly nested: Readonly<Record<string, ComponentRecordSchema>>
 }
 
 export interface ComponentSchema {
   readonly required: readonly string[]
   readonly fields: Readonly<Record<string, ComponentFieldKind>>
+  readonly enums: Readonly<Record<string, readonly string[]>>
   /** Explicit optional field kinds; `fields` remains the complete field map. */
   readonly optional: Readonly<Record<string, ComponentFieldKind>>
   readonly aliases: Readonly<Record<string, string>>
@@ -59,6 +62,29 @@ export interface GenuiDiagnostic {
   readonly canonical?: string
 }
 
+/** Canonical enum domains shared by schema validation and repair. */
+export const TEXT_SIZES = ['h1', 'h2', 'h3', 'body', 'muted', 'caption'] as const
+export const BUTTON_TONES = ['primary', 'danger', 'success', 'ghost'] as const
+export const BADGE_TONES = ['success', 'warn', 'danger', 'accent'] as const
+export const INPUT_TYPES = ['text', 'email', 'password'] as const
+export const CALLOUT_TONES = ['info', 'success', 'warning', 'error'] as const
+export const CHART_KINDS = ['bars', 'line', 'donut'] as const
+export const PLOT_KINDS = ['line', 'area', 'scatter'] as const
+export const MEDIA_ASPECT_RATIOS = ['16:9', '4:3', '1:1', '9:16'] as const
+export const MESH_SHAPES = ['box', 'sphere', 'cone', 'cylinder', 'torus'] as const
+export const FILE_TYPES = ['file', 'dir'] as const
+export const DIAGRAM_KINDS = [
+  'architecture', 'it-state', 'flowchart', 'sequence', 'state', 'er', 'timeline',
+  'swimlane', 'quadrant', 'radar', 'loop', 'nested', 'tree', 'org-chart', 'layers',
+  'venn', 'pyramid', 'bar', 'line', 'gantt', 'scatter', 'high-level', 'process',
+  'medallion', 'data-flow', 'dp-integration', 'dp-security-matrix',
+] as const
+export const DIAGRAM_NODE_TYPES = ['focal', 'backend', 'store', 'external', 'input', 'optional', 'security'] as const
+export const DIAGRAM_VARIANTS = ['light', 'dark', 'editorial'] as const
+export const DIAGRAM_EDGE_KINDS = ['solid', 'dashed', 'accent', 'link'] as const
+export const DIAGRAM_ROUTES = ['auto', 'orthogonal', 'straight'] as const
+export const ECHART_PRESETS = ['bar', 'line', 'area', 'pie', 'scatter'] as const
+
 const schema = (
   required: readonly string[],
   fields: Readonly<Record<string, ComponentFieldKind>>,
@@ -67,6 +93,7 @@ const schema = (
     oneOfRequired?: readonly (readonly string[])[]
     conditionalRequired?: readonly ComponentConditionalRule[]
     nested?: Readonly<Record<string, ComponentRecordSchema>>
+    enums?: Readonly<Record<string, readonly string[]>>
     validator?: ComponentValidatorMetadata
   } = {},
 ): ComponentSchema => {
@@ -87,6 +114,7 @@ const schema = (
     oneOfRequired,
     conditionalRequired,
     rules,
+    enums: options.enums ?? {},
     nested: options.nested ?? {},
     ...(options.validator === undefined ? {} : { validator: options.validator }),
   }
@@ -96,7 +124,8 @@ const recordSchema = (
   required: readonly string[],
   fields: Readonly<Record<string, ComponentFieldKind>>,
   nested: Readonly<Record<string, ComponentRecordSchema>> = {},
-): ComponentRecordSchema => ({ required, fields, nested })
+  enums: Readonly<Record<string, readonly string[]>> = {},
+): ComponentRecordSchema => ({ required, fields, enums, nested })
 
 const nodeFields = { type: 'string' } as const
 
@@ -111,6 +140,28 @@ const chartSeriesSchema = recordSchema(['label', 'data'], {
   color: 'string',
   data: 'array',
 }, { data: chartDatumSchema })
+
+const stepsRecordSchema = recordSchema(['title'], { title: 'string', desc: 'string' })
+const keyValueRecordSchema = recordSchema(['key', 'value'], { key: 'string', value: 'string' })
+const timelineRecordSchema = recordSchema(['title'], { title: 'string', desc: 'string', time: 'string' })
+const diffRecordSchema = recordSchema(['path', 'newText'], { path: 'string', oldText: 'string-or-null', newText: 'string' })
+const plotParamSchema = recordSchema(['name', 'value'], {
+  name: 'string', value: 'number', min: 'number', max: 'number', step: 'number', animateTo: 'number', durationMs: 'number', loop: 'boolean',
+})
+const plotSeriesSchema = recordSchema(['expr'], {
+  expr: 'string', label: 'string', color: 'string', kind: 'string', params: 'array',
+}, { params: plotParamSchema }, { kind: PLOT_KINDS })
+const sceneMeshSchema = recordSchema(['shape'], {
+  shape: 'string', color: 'string', position: 'array', rotation: 'array', scale: 'unknown', size: 'unknown',
+}, {}, { shape: MESH_SHAPES })
+
+function fileTreeRecordSchema(depth: number): ComponentRecordSchema {
+  return recordSchema(['name'], {
+    name: 'string', type: 'string', children: 'array',
+  }, depth > 0 ? { children: fileTreeRecordSchema(depth - 1) } : {}, { type: FILE_TYPES })
+}
+
+const fileTreeNodeSchema = fileTreeRecordSchema(6)
 
 const tabHolderSchema = recordSchema(['label', 'items'], {
   label: 'string',
@@ -133,7 +184,7 @@ const diagramNodeSchema = recordSchema(['id', 'label'], {
   w: 'number',
   h: 'number',
   tag: 'string',
-})
+}, {}, { type: DIAGRAM_NODE_TYPES })
 
 const diagramEdgeSchema = recordSchema(['from', 'to'], {
   from: 'string',
@@ -141,7 +192,7 @@ const diagramEdgeSchema = recordSchema(['from', 'to'], {
   label: 'string',
   kind: 'string',
   route: 'string',
-})
+}, {}, { kind: DIAGRAM_EDGE_KINDS, route: DIAGRAM_ROUTES })
 
 const diagramZoneSchema = recordSchema(['label'], {
   label: 'string',
@@ -186,10 +237,10 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   accordion: schema(['items'], { ...nodeFields, items: 'array' }, {}, { nested: { items: accordionHolderSchema } }),
   audio: schema(['src'], { ...nodeFields, src: 'string', alt: 'string', loop: 'boolean' }),
   avatar: schema(['name'], { ...nodeFields, name: 'string', color: 'string' }),
-  badge: schema(['label'], { ...nodeFields, label: 'string', tone: 'string', icon: 'string' }, { text: 'label', value: 'label' }),
+  badge: schema(['label'], { ...nodeFields, label: 'string', tone: 'string', icon: 'string' }, { text: 'label', value: 'label' }, { enums: { tone: BADGE_TONES } }),
   breadcrumb: schema(['items'], { ...nodeFields, items: 'array' }),
-  button: schema(['label'], { ...nodeFields, label: 'string', tone: 'string', full: 'boolean', small: 'boolean', icon: 'string', action: 'string' }),
-  callout: schema(['content'], { ...nodeFields, title: 'string', content: 'string', tone: 'string' }, { kind: 'tone' }),
+  button: schema(['label'], { ...nodeFields, label: 'string', tone: 'string', full: 'boolean', small: 'boolean', icon: 'string', action: 'string' }, {}, { enums: { tone: BUTTON_TONES } }),
+  callout: schema(['content'], { ...nodeFields, title: 'string', content: 'string', tone: 'string' }, { kind: 'tone' }, { enums: { tone: CALLOUT_TONES } }),
   card: schema(['items'], { ...nodeFields, title: 'string', items: 'nodes' }, { label: 'title', content: 'items' }),
   chart: schema([], { ...nodeFields, kind: 'string', data: 'array', series: 'array' }, {}, {
     oneOfRequired: [['data', 'series']],
@@ -198,6 +249,7 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
       { kind: 'required-if', when: { field: 'kind', equals: 'donut' }, required: ['data'] },
     ],
     nested: { data: chartDatumSchema, series: chartSeriesSchema },
+    enums: { kind: CHART_KINDS },
     validator: { name: 'chart-renderability' },
   }),
   checkbox: schema(['label'], { ...nodeFields, label: 'string', checked: 'boolean', action: 'string' }),
@@ -206,40 +258,42 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   copy: schema(['text'], { ...nodeFields, label: 'string', text: 'string' }),
   diagram: schema(['kind', 'nodes'], { ...nodeFields, kind: 'string', variant: 'string', title: 'string', nodes: 'array', edges: 'array', zones: 'array', theme: 'object' }, {}, {
     nested: { nodes: diagramNodeSchema, edges: diagramEdgeSchema, zones: diagramZoneSchema, theme: diagramThemeSchema },
+    enums: { kind: DIAGRAM_KINDS, variant: DIAGRAM_VARIANTS },
   }),
-  diff: schema(['diffs'], { ...nodeFields, diffs: 'array' }),
+  diff: schema(['diffs'], { ...nodeFields, diffs: 'array' }, {}, { nested: { diffs: diffRecordSchema } }),
   divider: schema([], nodeFields),
   echart: schema([], { ...nodeFields, title: 'string', height: 'number', preset: 'string', data: 'array', series: 'array', option: 'object' }, {}, {
     oneOfRequired: [['option', 'data', 'series']],
+    enums: { preset: ECHART_PRESETS },
   }),
-  'file-tree': schema(['items'], { ...nodeFields, items: 'array' }),
+  'file-tree': schema(['items'], { ...nodeFields, items: 'array' }, {}, { nested: { items: fileTreeNodeSchema } }),
   grid: schema(['items'], { ...nodeFields, cols: 'number', items: 'nodes' }),
   image: schema(['src'], { ...nodeFields, src: 'string', alt: 'string' }),
-  input: schema([], { ...nodeFields, label: 'string', placeholder: 'string', value: 'string', inputType: 'string', action: 'string', id: 'string' }),
+  input: schema([], { ...nodeFields, label: 'string', placeholder: 'string', value: 'string', inputType: 'string', action: 'string', id: 'string' }, {}, { enums: { inputType: INPUT_TYPES } }),
   json: schema(['value'], { ...nodeFields, value: 'unknown' }),
-  keyvalue: schema(['pairs'], { ...nodeFields, pairs: 'array' }),
+  keyvalue: schema(['pairs'], { ...nodeFields, pairs: 'array' }, {}, { nested: { pairs: keyValueRecordSchema } }),
   link: schema(['label'], { ...nodeFields, label: 'string', href: 'string' }),
   list: schema(['items'], { ...nodeFields, items: 'array' }),
   mermaid: schema(['code'], { ...nodeFields, code: 'string' }),
-  plot: schema(['series'], { ...nodeFields, series: 'array', xMin: 'number', xMax: 'number', yMin: 'number', yMax: 'number', title: 'string' }),
+  plot: schema(['series'], { ...nodeFields, series: 'array', xMin: 'number', xMax: 'number', yMin: 'number', yMax: 'number', title: 'string' }, {}, { nested: { series: plotSeriesSchema } }),
   progress: schema(['value'], { ...nodeFields, value: 'number', label: 'string', valueLabel: 'string' }),
   quiz: schema(['question', 'options'], { ...nodeFields, question: 'string', options: 'array', explanation: 'string', id: 'string', action: 'string' }),
   radio: schema(['options'], { ...nodeFields, label: 'string', options: 'array', selected: 'number', action: 'string', group: 'string', answer: 'unknown', explanation: 'string' }),
   row: schema(['items'], { ...nodeFields, items: 'nodes', wrap: 'boolean', spacer: 'boolean' }),
-  scene3d: schema(['meshes'], { ...nodeFields, title: 'string', meshes: 'array', ambient: 'number', background: 'string' }),
+  scene3d: schema(['meshes'], { ...nodeFields, title: 'string', meshes: 'array', ambient: 'number', background: 'string' }, {}, { nested: { meshes: sceneMeshSchema } }),
   select: schema(['options'], { ...nodeFields, label: 'string', options: 'array', action: 'string', selected: 'number', id: 'string' }),
   slider: schema([], { ...nodeFields, label: 'string', min: 'number', max: 'number', step: 'number', value: 'number', action: 'string', id: 'string' }),
   spacer: schema([], nodeFields),
   stat: schema(['label', 'value'], { ...nodeFields, label: 'string', value: 'string', delta: 'string' }),
-  steps: schema(['steps'], { ...nodeFields, steps: 'array', current: 'number' }, { items: 'steps' }),
+  steps: schema(['steps'], { ...nodeFields, steps: 'array', current: 'number' }, { items: 'steps' }, { nested: { steps: stepsRecordSchema } }),
   submit: schema(['label'], { ...nodeFields, label: 'string', action: 'string', resetAction: 'string', groups: 'array' }),
   switch: schema(['label'], { ...nodeFields, label: 'string', checked: 'boolean', action: 'string' }),
   table: schema(['columns', 'rows'], { ...nodeFields, columns: 'array', rows: 'array' }, { headers: 'columns', data: 'rows' }),
   tabs: schema(['tabs'], { ...nodeFields, tabs: 'array' }, {}, { nested: { tabs: tabHolderSchema } }),
-  text: schema(['content'], { ...nodeFields, content: 'string', size: 'string', center: 'boolean' }, { text: 'content' }),
+  text: schema(['content'], { ...nodeFields, content: 'string', size: 'string', center: 'boolean' }, { text: 'content' }, { enums: { size: TEXT_SIZES } }),
   textarea: schema([], { ...nodeFields, label: 'string', placeholder: 'string', rows: 'number', value: 'string', action: 'string', id: 'string' }),
-  timeline: schema(['items'], { ...nodeFields, items: 'array' }),
-  video: schema(['src'], { ...nodeFields, src: 'string', alt: 'string', poster: 'string', loop: 'boolean', muted: 'boolean', aspectRatio: 'string' }),
+  timeline: schema(['items'], { ...nodeFields, items: 'array' }, {}, { nested: { items: timelineRecordSchema } }),
+  video: schema(['src'], { ...nodeFields, src: 'string', alt: 'string', poster: 'string', loop: 'boolean', muted: 'boolean', aspectRatio: 'string' }, {}, { enums: { aspectRatio: MEDIA_ASPECT_RATIOS } }),
 } as const
 
 export const GENUI_NATIVE_TYPES: ReadonlySet<string> = new Set(Object.keys(COMPONENT_SCHEMAS))

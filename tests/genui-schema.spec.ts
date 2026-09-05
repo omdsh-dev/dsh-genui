@@ -50,6 +50,24 @@ describe('GenUI runtime schema normalization', () => {
     expect(COMPONENT_SCHEMAS.grid.optional.cols).toBe('number')
   })
 
+  it('validates nested record fields before repair can discard malformed entries', () => {
+    const result = processGenuiSpec({ items: [{
+      type: 'steps',
+      steps: [{ title: 123 }],
+    }] })
+    expect(result.errors).toContain('items[0].steps[0].title must be a string')
+    expect(result.repaired?.items[0]).toEqual({ type: 'steps', steps: [] })
+  })
+
+  it('validates enum domains from the runtime registry', () => {
+    expect(validateGenuiSpec({ items: [{ type: 'callout', content: 'x', tone: 'warn' }] }).errors)
+      .toContain('items[0].tone must be one of info, success, warning, error')
+    expect(validateGenuiSpec({ items: [{
+      type: 'plot',
+      series: [{ expr: 'x', kind: 'bars' }],
+    }] }).errors).toContain('items[0].series[0].kind must be one of line, area, scatter')
+  })
+
   it('normalizes every issue #102 alias with stable warning paths', () => {
     const result = normalizeGenuiSpec({ items: [
       { type: 'card', label: '标题', content: [{ type: 'text', text: '卡片' }] },
@@ -181,7 +199,7 @@ describe('GenUI runtime schema normalization', () => {
     expect(tree.errors.some(error => error.includes('declared 2, rendered 1'))).toBe(true)
   })
 
-  it('distinguishes adopted aliases from aliases ignored by canonical fields', () => {
+  it('keeps alias diagnostics stable for component-specific canonical fields', () => {
     const adopted = normalizeGenuiSpec({ items: [{ type: 'text', text: 'legacy' }] }).warnings[0]
     const ignored = normalizeGenuiSpec({ items: [{ type: 'text', text: 'legacy', content: 'canonical' }] }).warnings[0]
     expect(adopted?.message).toContain('normalized/adopted')
@@ -242,7 +260,7 @@ describe('GenUI runtime schema normalization', () => {
     ])
   })
 
-  it('distinguishes adopted aliases from aliases ignored by canonical fields', () => {
+  it('keeps card alias diagnostics stable when canonical fields are present', () => {
     const adopted = normalizeGenuiSpec({ items: [{ type: 'card', label: 'legacy', items: [] }] }).warnings[0]
     const ignored = normalizeGenuiSpec({ items: [{ type: 'card', title: 'canonical', label: 'legacy', items: [] }] }).warnings[0]
     expect(adopted.message).toContain('normalized/adopted')

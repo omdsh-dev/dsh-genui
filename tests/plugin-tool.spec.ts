@@ -155,10 +155,14 @@ describe('render_ui execute', () => {
 
 describe('render_ui projections', () => {
   it('projects the repaired spec into result meta for the toolview', () => {
-    const meta = tool.output.presentationMeta!({ spec: { items: [text('x'), { type: 'progress', value: 150 }] } })
+    const meta = tool.output.presentationMeta!({ spec: { items: [text('x'), { type: 'progress', value: 80 }] } })
     const spec = meta as { items: Array<{ type: string }> }
     expect(spec.items).toHaveLength(2)
-    expect((spec.items[1] as { value: number }).value).toBe(100) // clamped
+    expect((spec.items[1] as { value: number }).value).toBe(80)
+  })
+
+  it('does not project an invalid repaired spec into result meta', () => {
+    expect(tool.output.presentationMeta!({ spec: { items: [{ type: 'progress', value: 150 }] } })).toBeNull()
   })
 
   it('presents pending and completed cards with the spec title', () => {
@@ -204,6 +208,15 @@ describe('validate_dsh_ui tool', () => {
     expect(value).toContain('❌')
     expect(value).toContain('声明了 2 个组件')
     expect(value).toContain('仅成功解析出 1 个')
+  })
+
+  it('reports native drop counts without counting opaque custom nodes', async () => {
+    const value = String(await vtool.execute({ spec: {
+      items: [{ type: 'image', src: 'javascript:blocked' }, { type: 'custom-widget' }],
+    } }))
+    expect(value).toContain('声明了 1 个组件')
+    expect(value).toContain('仅成功解析出 0 个')
+    expect(value).toContain('有 1 个组件')
   })
 
   it('reports the chart kind contract and field-level data errors', async () => {
