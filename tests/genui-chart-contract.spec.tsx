@@ -53,6 +53,15 @@ describe('native chart renderability contract', () => {
     expect(spec!.items[0]).toMatchObject({ type: 'chart', kind: 'bars' })
   })
 
+  it('rejects a card whose children field is missing instead of rendering an empty shell', () => {
+    const raw = JSON.stringify({ items: [{ type: 'card', title: '空卡片' }] })
+    expect(resolveGenuiSpec(raw)).toBeNull()
+
+    render(<div>{renderGenuiFence(raw, 'card-missing-items')}</div>)
+    expect(screen.getByRole('alert').textContent).toContain('GenUI 字段验证失败')
+    expect(screen.getByRole('alert').textContent).toContain('requires items')
+  })
+
   it('allows extension fields but native repair ignores them', () => {
     const spec = resolveGenuiSpec(JSON.stringify({
       items: [{

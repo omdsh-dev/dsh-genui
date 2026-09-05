@@ -20,8 +20,8 @@
  */
 import type { GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSeries, GenuiScene3D, GenuiSpec, GenuiDiagram, GenuiDiagramTheme, GenuiDiagramKind } from './spec.ts'
 import { wrapSingleComponentRoot } from './spec.ts'
-import { GENUI_NATIVE_TYPES, diagnoseUnknownGenuiFields, normalizeGenuiSpec } from './component-schema.ts'
-import type { GenuiDiagnostic } from './component-schema.ts'
+import { COMPONENT_SCHEMAS, GENUI_NATIVE_TYPES, GENUI_SPEC_SCHEMA, diagnoseUnknownGenuiFields, normalizeGenuiSpec } from './component-schema.ts'
+import type { ComponentFieldKind, ComponentSchema, GenuiDiagnostic } from './component-schema.ts'
 
 export { COMPONENT_SCHEMAS, GENUI_NATIVE_TYPES, diagnoseUnknownGenuiFields, normalizeGenuiSpec } from './component-schema.ts'
 export type { ComponentFieldKind, ComponentSchema, GenuiDiagnostic } from './component-schema.ts'
@@ -165,6 +165,85 @@ function enu<T extends string>(v: unknown, values: readonly T[]): T | undefined 
 /** Plain object (not array, not null). */
 function obj(v: unknown): Record<string, unknown> | undefined {
   return typeof v === 'object' && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : undefined
+}
+
+function fieldKindMatches(value: unknown, kind: ComponentFieldKind): boolean {
+  switch (kind) {
+    case 'string': return typeof value === 'string'
+    case 'number': return typeof value === 'number' && Number.isFinite(value)
+    case 'boolean': return typeof value === 'boolean'
+    case 'nodes': return Array.isArray(value)
+    case 'array': return Array.isArray(value)
+    case 'object': return obj(value) !== undefined
+    case 'unknown': return true
+  }
+}
+
+function fieldKindLabel(kind: ComponentFieldKind): string {
+  switch (kind) {
+    case 'number': return 'a finite number'
+    case 'boolean': return 'a boolean'
+    case 'nodes': case 'array': return 'an array'
+    case 'object': return 'an object'
+    case 'unknown': return 'a value'
+    default: return 'a string'
+  }
+}
+
+/** Detect an existing field diagnostic using both canonical and legacy messages. */
+function hasFieldError(errors: readonly string[], at: string, field: string): boolean {
+  return errors.some(error =>
+    error.startsWith(`${at}.${field} `) || error.includes(`'${field}'`) || error.includes(`requires ${field}`))
+}
+
+/** Validate present fields against the runtime schema without duplicating errors. */
+function validateSchemaFieldKinds(
+  value: Record<string, unknown>,
+  at: string,
+  definition: ComponentSchema,
+  errors: string[],
+  excludedFields: readonly string[] = [],
+): void {
+  for (const [field, kind] of Object.entries(definition.fields)) {
+    if (excludedFields.includes(field) || value[field] === undefined) continue
+    if (!fieldKindMatches(value[field], kind) && !hasFieldError(errors, at, field)) {
+      errors.push(`${at}.${field} must be ${fieldKindLabel(kind)}`)
+    }
+  }
+}
+
+/** Validate the registry-declared presence and primitive shape of a native node. */
+function validateRegistryFields(
+  value: Record<string, unknown>,
+  at: string,
+  definition: ComponentSchema,
+  errors: string[],
+): void {
+  const type = String(value.type)
+  const alreadyReported = (field: string): boolean => hasFieldError(errors, at, field)
+  for (const field of definition.required) {
+    const kind = definition.fields[field]
+    if (kind === undefined || value[field] === undefined) {
+      if (!alreadyReported(field)) errors.push(`${at}: type '${type}' requires ${field}${kind === undefined ? '' : ` (${fieldKindLabel(kind)})`}`)
+      continue
+    }
+    if (!fieldKindMatches(value[field], kind) && !alreadyReported(field)) errors.push(`${at}.${field} must be ${fieldKindLabel(kind)}`)
+  }
+  validateSchemaFieldKinds(value, at, definition, errors, ['type'])
+  for (const group of definition.oneOfRequired) {
+    if (!group.some(field => value[field] !== undefined)
+      && !errors.some(error => error.includes(`requires ${group.join(' or ')}`))) {
+      errors.push(`${at}: type '${type}' requires one of ${group.join(' or ')}`)
+    }
+  }
+  for (const rule of definition.conditionalRequired) {
+    if (value[rule.when.field] !== rule.when.equals) continue
+    for (const field of rule.required) {
+      if (value[field] === undefined && !alreadyReported(field)) {
+        errors.push(`${at}: type '${type}' requires ${field}${rule.message === undefined ? '' : ` (${rule.message})`}`)
+      }
+    }
+  }
 }
 
 /**
@@ -1183,8 +1262,8 @@ export function countGenuiNodes(value: unknown, cap = Number.POSITIVE_INFINITY):
         // Layout containers hold real children; skipping them undercounted
         // the tree and hid silent drops from validate_dsh_ui (issue #42).
         walk(v.items)
-      } else if (v.type === 'file-tree' && Array.isArray(v.items)) {
-        walk(v.items)
+      } else if (v.type === 'file-tree') {
+        // file-tree.items are data records, not GenUI children.
       } else if (v.type === 'list' && Array.isArray(v.items)) {
         // Typed list children are nodes too (repair charges them against the
         // budget); strings and {title,desc} shapes are skipped.
@@ -1276,6 +1355,11 @@ export function countDeclaredGenuiNodes(value: unknown, cap = Number.POSITIVE_IN
   return visitDeclaredGenuiNodes(value, cap, () => {})
 }
 
+/** Count native nodes that survived repair, excluding opaque custom nodes. */
+export function countRenderedNativeGenuiNodes(value: unknown, cap = Number.POSITIVE_INFINITY): number {
+  return countDeclaredGenuiNodes(value, cap)
+}
+
 /**
  * Return field-level chart errors without changing other repairable component families.
  * @param value - raw GenUI spec.
@@ -1308,8 +1392,7 @@ function validateCanonicalGenuiSpec(value: unknown): GenuiValidation {
     if (wrapped !== null) return validateCanonicalGenuiSpec(wrapped)
     return { ok: false, errors: ['spec.items must be an array'] }
   }
-  if (v.title !== undefined && typeof v.title !== 'string') errors.push('spec.title must be a string')
-  if (v.gap !== undefined && (typeof v.gap !== 'number' || !Number.isFinite(v.gap))) errors.push('spec.gap must be a finite number')
+  validateSchemaFieldKinds(v, 'spec', GENUI_SPEC_SCHEMA, errors, ['items'])
   let count = 0
   let capped = false
   const walk = (list: unknown, depth: number, path: string): void => {
@@ -1367,6 +1450,12 @@ export interface GenuiProcessResult {
   declaredCount: number
   /** Nodes present in the repaired tree. */
   renderedCount: number
+  /** Native nodes declared before repair, excluding custom payloads. */
+  declaredNativeCount: number
+  /** Native nodes present after repair, excluding custom and file-tree data. */
+  renderedNativeCount: number
+  /** All rendered component nodes, including opaque custom nodes. */
+  renderedTotalCount: number
 }
 
 /**
@@ -1384,14 +1473,15 @@ export function processGenuiSpec(value: unknown): GenuiProcessResult {
   const normalized = normalizeGenuiSpec(value)
   const repaired = repairCanonicalGenuiSpec(normalized.value)
   const validation = validateCanonicalGenuiSpec(normalized.value)
-  const declaredCount = countDeclaredGenuiNodes(normalized.value, GENUI_LIMITS.maxNodes + 1)
-  const renderedCount = repaired === null ? 0 : countGenuiNodes(repaired)
+  const declaredNativeCount = countDeclaredGenuiNodes(normalized.value, GENUI_LIMITS.maxNodes + 1)
+  const renderedNativeCount = repaired === null ? 0 : countRenderedNativeGenuiNodes(repaired)
+  const renderedTotalCount = repaired === null ? 0 : countGenuiNodes(repaired)
   // The shared public validator preserves its historical diagnostic for an
   // unknown type. The processing pipeline is renderer-aware by contract:
   // custom nodes stay opaque and must not fail native schema validation.
   const errors = validation.errors.filter(error => !error.includes(': unknown type '))
-  if (declaredCount > renderedCount) {
-    errors.push(`repair dropped ${declaredCount - renderedCount} declared native node(s): declared ${declaredCount}, rendered ${renderedCount}`)
+  if (declaredNativeCount > renderedNativeCount) {
+    errors.push(`repair dropped ${declaredNativeCount - renderedNativeCount} declared native node(s): declared ${declaredNativeCount}, rendered ${renderedNativeCount}`)
   }
   return {
     value: normalized.value,
@@ -1400,8 +1490,13 @@ export function processGenuiSpec(value: unknown): GenuiProcessResult {
     spec: repaired,
     errors,
     warnings: [...normalized.warnings, ...diagnoseUnknownGenuiFields(normalized.value)],
-    declaredCount,
-    renderedCount,
+    // Compatibility fields retain their historical meanings: declaredCount
+    // is native declarations, while renderedCount is the total rendered tree.
+    declaredCount: declaredNativeCount,
+    renderedCount: renderedTotalCount,
+    declaredNativeCount,
+    renderedNativeCount,
+    renderedTotalCount,
   }
 }
 
@@ -1455,6 +1550,21 @@ function validateChartNode(v: Record<string, unknown>, at: string, errors: strin
     && (typeof v.kind !== 'string'
       || !CHART_KINDS.includes(v.kind as typeof CHART_KINDS[number]))) {
     errors.push(`${at}.kind must be bars, line, or donut`)
+  }
+  const kind = v.kind === undefined ? 'bars' : v.kind
+  if (Array.isArray(v.data) && v.data.length === 0) errors.push(`${at}.data must not be empty`)
+  if (Array.isArray(v.series)) {
+    if (v.series.length === 0) errors.push(`${at}.series must not be empty`)
+    if (kind === 'line' || kind === 'donut') errors.push(`${at}.series is only supported for bars`)
+    for (let index = 0; index < v.series.length; index++) {
+      const series = obj(v.series[index])
+      if (series !== undefined && Array.isArray(series.data) && series.data.length === 0) {
+        errors.push(`${at}.series[${index}].data must not be empty`)
+      }
+    }
+  }
+  if ((kind === 'line' || kind === 'donut') && v.data === undefined) {
+    errors.push(`${at}.data is required for ${kind}`)
   }
   validateChartData(v.data, `${at}.data`, errors)
   validateChartSeries(v.series, `${at}.series`, errors)
@@ -1641,5 +1751,9 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       // Unknown type: plugin-registered custom nodes are valid when a
       // renderer exists; the guard cannot know, so report as a warning.
       errors.push(`${at}: unknown type '${type}' (custom renderer?)`)
+  }
+  const definition = COMPONENT_SCHEMAS[type]
+  if (definition !== undefined) {
+    validateRegistryFields(v, at, definition, errors)
   }
 }

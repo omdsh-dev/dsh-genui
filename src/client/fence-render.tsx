@@ -24,7 +24,6 @@ import { parsePartialGenuiSpec } from './parse-partial.ts'
 import { applyPanelOperation, diagnosePanelBudget, type PanelOperationStatus } from './panel-store.ts'
 import type { GenuiSpec } from './spec.ts'
 import { completeFenceJson, describeJsonFailure, isCompleteJson, repairFenceJson } from '../shared/fence-repair.ts'
-import { validateRenderableChartSemantics } from '../plugin/chart-contract.ts'
 
 /** Settled fence source identity (data shape, host-independent). */
 export interface GenuiFenceSource {
@@ -54,13 +53,22 @@ const FENCE_ERROR_STYLE: CSSProperties = {
   whiteSpace: 'pre-wrap',
 }
 
-/** Return a chart-semantic diagnostic for parseable raw fence content. */
-function chartSemanticFailure(raw: string): string | null {
+/** Format chart-specific process errors without maintaining a second validator. */
+function formatChartProcessErrors(errors: string[]): string | null {
+  const chartErrors = errors.filter(error => /(?:variant is unsupported|kind must be bars, line, or donut|requires data or series|(?:data|series) is required for|(?:\.data|\.series)(?:\[\d+\])?(?:\.(?:data|label|value|color))? must|series is only supported for bars)/.test(error))
+  return chartErrors.length === 0 ? null : chartErrors.join('；')
+}
+
+/** Return a semantic/schema diagnostic for parseable raw fence content. */
+function processSemanticFailure(raw: string): string | null {
   const parsed = parsePartialGenuiSpec(raw)
   if (parsed === null) return null
   const processed = processGenuiSpec(parsed)
-  const errors = validateRenderableChartSemantics(processed.normalized)
-  return errors.length === 0 ? null : errors.join('；')
+  if (processed.errors.length === 0) return null
+  const chartErrors = formatChartProcessErrors(processed.errors)
+  return chartErrors === null
+    ? `GenUI 字段验证失败：${processed.errors.join('；')}`
+    : `chart 字段验证失败：${chartErrors}`
 }
 
 /**
@@ -87,16 +95,16 @@ function FenceFallback({ raw, fenceKey }: { raw: string; fenceKey: Key }) {
     const node = ref.current
     if (node !== null && node.closest('[data-streaming]') === null) setSettled(true)
   })
-  const chartDiagnostic = settled ? chartSemanticFailure(raw) : null
-  const parseDiagnostic = settled && chartDiagnostic === null && raw.trim() !== '' ? describeJsonFailure(raw) : null
+  const processDiagnostic = settled ? processSemanticFailure(raw) : null
+  const parseDiagnostic = settled && processDiagnostic === null && raw.trim() !== '' ? describeJsonFailure(raw) : null
   return (
     <div ref={ref}>
-      {chartDiagnostic !== null && (
+      {processDiagnostic !== null && (
         <div style={FENCE_ERROR_STYLE} role="alert">
-          ⚠️ dsh-ui chart 字段验证失败：{chartDiagnostic} —— 围栏保持为代码块；请修正 chart 字段后重发。
+          ⚠️ dsh-ui {processDiagnostic} —— 围栏保持为代码块；请修正后重发。
         </div>
       )}
-      {chartDiagnostic === null && parseDiagnostic !== null && (
+      {processDiagnostic === null && parseDiagnostic !== null && (
         <div style={FENCE_ERROR_STYLE} role="alert">
           ⚠️ dsh-ui fence JSON 解析失败{parseDiagnostic} —— 围栏保持为代码块；请让模型检查并修复 JSON 后重发。
         </div>
@@ -131,10 +139,10 @@ function FencePanelPublisher({ sessionId, sourceId, order, spec }: {
   return null
 }
 
-/** Process one parsed value and return its canonical repaired spec only when native charts are renderable. */
+/** Process one parsed value and return its canonical repaired spec only when the shared pipeline is error-free. */
 function repairRenderableSpec(value: unknown): GenuiSpec | null {
   const processed = processGenuiSpec(value)
-  if (validateRenderableChartSemantics(processed.normalized).length > 0) return null
+  if (processed.errors.length > 0) return null
   return processed.spec
 }
 

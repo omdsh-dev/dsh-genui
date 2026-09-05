@@ -26,7 +26,6 @@ import {
 } from '../client/guard.ts'
 import type { GenuiProcessResult } from '../client/guard.ts'
 import { completeFenceJson } from '../shared/fence-repair.ts'
-import { validateRenderableChartSemantics } from './chart-contract.ts'
 
 /**
  * Arguments schema: an open `spec` slot. The schema must NOT reject anything
@@ -137,9 +136,8 @@ function parseSpecJson(raw: string, shape: string): unknown {
 }
 
 /** Process a raw tool value once for all render-time decisions. */
-function processRenderableValue(value: unknown): { processed: GenuiProcessResult; chartErrors: string[] } {
-  const processed = processGenuiSpec(value)
-  return { processed, chartErrors: validateRenderableChartSemantics(processed.normalized) }
+function processRenderableValue(value: unknown): GenuiProcessResult {
+  return processGenuiSpec(value)
 }
 
 /** Render process diagnostics as stable model-facing warning lines. */
@@ -148,10 +146,18 @@ function formatProcessWarnings(processed: GenuiProcessResult): string[] {
     if (warning.kind === 'alias' && warning.canonical !== undefined) {
       const separator = warning.path.lastIndexOf('.')
       const canonicalPath = `${separator < 0 ? '' : warning.path.slice(0, separator + 1)}${warning.canonical}`
-      return `⚠️ 规范化：${warning.path} → ${canonicalPath}`
+      return warning.message.includes('ignored')
+        ? `⚠️ 已忽略别名字段：${warning.path} → ${canonicalPath}（ignored because canonical field '${warning.canonical}' is present）`
+        : `⚠️ 已规范化字段：${warning.path} → ${canonicalPath}（normalized/adopted as '${warning.canonical}'）`
     }
     return `⚠️ ${warning.message}`
   })
+}
+
+/** Format chart-specific process errors while keeping other schema errors generic. */
+function formatProcessFailure(processed: GenuiProcessResult): string | undefined {
+  const chartErrors = processed.errors.filter(error => /(?:variant is unsupported|kind must be bars, line, or donut|requires data or series|(?:data|series) is required for|(?:\.data|\.series)(?:\[\d+\])?(?:\.(?:data|label|value|color))? must|series is only supported for bars)/.test(error))
+  return chartErrors.length === 0 ? undefined : `❌ chart 字段验证失败：\n- ${chartErrors.join('\n- ')}`
 }
 
 /** Return the legacy validation text for a process that dropped native nodes. */
@@ -171,8 +177,10 @@ function isIntentionalBudgetCut(processed: GenuiProcessResult): boolean {
 
 /** Tool-call title shared by the pending and completed presentations. */
 function cardTitle(args: unknown): string | undefined {
-  const { processed } = processRenderableValue(specOf(args))
-  return processed.spec === null ? undefined : `渲染 UI：${processed.spec.title ?? '未命名'}`
+  const processed = processRenderableValue(specOf(args))
+  return processed.spec === null || (processed.errors.length > 0 && !isIntentionalBudgetCut(processed))
+    ? undefined
+    : `渲染 UI：${processed.spec.title ?? '未命名'}`
 }
 
 /**
@@ -196,14 +204,12 @@ export function createRenderUiTool(): ToolDefinition {
         // The browser toolview reads the repaired spec from result meta. The
         // spec is JSON-safe by construction (only string/number/boolean/array
         // fields after repair), so the widening cast is lossless.
-        return processRenderableValue(specOf(args)).processed.spec as unknown as JsonValue
+        const processed = processRenderableValue(specOf(args))
+        return processed.spec as unknown as JsonValue
       },
     },
     async execute(args: unknown): Promise<JsonValue> {
-      const { processed, chartErrors } = processRenderableValue(specOf(args))
-      if (chartErrors.length > 0) {
-        throw new Error('render_ui spec invalid: ' + chartErrors.join('; '))
-      }
+      const processed = processRenderableValue(specOf(args))
       if (processed.spec === null) {
         return 'render_ui：spec 无效 —— 根对象需要 "items" 数组（组件树白名单见系统提示词），请修正后重试。'
       }
@@ -212,7 +218,9 @@ export function createRenderUiTool(): ToolDefinition {
       }
       const spec = processed.spec
       const title = spec.title ?? '未命名'
-      return `已渲染 UI「${title}」（${processed.renderedCount} 个组件）。用户现在可以看到这张卡片；组件带 action 时，用户交互会以 [genui-action] 消息发回给你，届时请重新渲染更新后的界面。`
+      const warnings = formatProcessWarnings(processed)
+      const warningText = warnings.length === 0 ? '' : `\n${warnings.join('\n')}`
+      return `已渲染 UI「${title}」（${processed.renderedCount} 个组件）。用户现在可以看到这张卡片；组件带 action 时，用户交互会以 [genui-action] 消息发回给你，届时请重新渲染更新后的界面。${warningText}`
     },
     presentCall(args: unknown): GenericCallView | undefined {
       const title = cardTitle(args)
@@ -341,17 +349,19 @@ export function createValidateDshUiTool(): ToolDefinition {
         const repaired = completeFenceJson(raw)
         if (repaired !== null) {
           const repairedValue = JSON.parse(repaired.text) as unknown
-          const { processed, chartErrors } = processRenderableValue(repairedValue)
-          const chartFailure = chartErrors.length === 0 ? undefined : `❌ chart 字段验证失败：\n- ${chartErrors.join('\n- ')}`
+          const processed = processRenderableValue(repairedValue)
+          const chartFailure = formatProcessFailure(processed)
           if (chartFailure !== undefined) return chartFailure
           if (processed.spec !== null && processed.errors.length === 0) {
-            return `❌ dsh-ui 围栏 JSON 解析失败：${detail}。\n${bracketDiagnostic(raw)}  已自动修复 ${repaired.repairs} 处，下面是修复后的 JSON，直接作为围栏正文发出即可（无需再验证）：\n\`\`\`\n${repaired.text}\n\`\`\``
+            const warnings = formatProcessWarnings(processed)
+            const warningText = warnings.length === 0 ? '' : `${warnings.join('\n')}\n`
+            return `❌ dsh-ui 围栏 JSON 解析失败：${detail}。\n${bracketDiagnostic(raw)}${warningText}  已自动修复 ${repaired.repairs} 处，下面是修复后的 JSON，直接作为围栏正文发出即可（无需再验证）：\n\`\`\`\n${repaired.text}\n\`\`\``
           }
         }
         return `❌ dsh-ui 围栏 JSON 解析失败：${detail}。\n${bracketDiagnostic(raw)}  自动修复未能恢复（结构损坏），请按错误信息修正后重新调用本工具验证，通过后再发出围栏。\n${COMMON_CAUSES}`
       }
-      const { processed, chartErrors } = processRenderableValue(parsed)
-      const chartFailure = chartErrors.length === 0 ? undefined : `❌ chart 字段验证失败：\n- ${chartErrors.join('\n- ')}`
+      const processed = processRenderableValue(parsed)
+      const chartFailure = formatProcessFailure(processed)
       if (chartFailure !== undefined) return chartFailure
       if (processed.spec === null || processed.errors.length > 0) {
         return droppedNodeFailure(processed)

@@ -9,10 +9,45 @@ export type ComponentFieldKind =
   | 'object'
   | 'unknown'
 
+/** A conditional rule for fields whose presence depends on another field. */
+export interface ComponentConditionalRule {
+  readonly kind: 'required-if'
+  readonly when: { readonly field: string; readonly equals: unknown }
+  readonly required: readonly string[]
+  readonly message?: string
+}
+
+/** A field rule that requires at least one member of a field group. */
+export interface ComponentOneOfRule {
+  readonly kind: 'one-of-required'
+  readonly fields: readonly string[]
+  readonly message?: string
+}
+
+/** Runtime metadata naming a component-specific semantic validator. */
+export interface ComponentValidatorMetadata {
+  readonly name: string
+  readonly [key: string]: unknown
+}
+
+/** Runtime schema for an object nested inside a native component field. */
+export interface ComponentRecordSchema {
+  readonly required: readonly string[]
+  readonly fields: Readonly<Record<string, ComponentFieldKind>>
+  readonly nested: Readonly<Record<string, ComponentRecordSchema>>
+}
+
 export interface ComponentSchema {
   readonly required: readonly string[]
   readonly fields: Readonly<Record<string, ComponentFieldKind>>
+  /** Explicit optional field kinds; `fields` remains the complete field map. */
+  readonly optional: Readonly<Record<string, ComponentFieldKind>>
   readonly aliases: Readonly<Record<string, string>>
+  readonly oneOfRequired: readonly (readonly string[])[]
+  readonly conditionalRequired: readonly ComponentConditionalRule[]
+  readonly rules: readonly (ComponentOneOfRule | ComponentConditionalRule)[]
+  readonly nested: Readonly<Record<string, ComponentRecordSchema>>
+  readonly validator?: ComponentValidatorMetadata
 }
 
 export interface GenuiDiagnostic {
@@ -28,9 +63,117 @@ const schema = (
   required: readonly string[],
   fields: Readonly<Record<string, ComponentFieldKind>>,
   aliases: Readonly<Record<string, string>> = {},
-): ComponentSchema => ({ required, fields, aliases })
+  options: {
+    oneOfRequired?: readonly (readonly string[])[]
+    conditionalRequired?: readonly ComponentConditionalRule[]
+    nested?: Readonly<Record<string, ComponentRecordSchema>>
+    validator?: ComponentValidatorMetadata
+  } = {},
+): ComponentSchema => {
+  const optional = Object.fromEntries(
+    Object.entries(fields).filter(([field]) => field !== 'type' && !required.includes(field)),
+  ) as Record<string, ComponentFieldKind>
+  const oneOfRequired = options.oneOfRequired ?? []
+  const conditionalRequired = options.conditionalRequired ?? []
+  const rules: Array<ComponentOneOfRule | ComponentConditionalRule> = [
+    ...oneOfRequired.map(fieldsInRule => ({ kind: 'one-of-required' as const, fields: fieldsInRule })),
+    ...conditionalRequired,
+  ]
+  return {
+    required,
+    fields,
+    optional,
+    aliases,
+    oneOfRequired,
+    conditionalRequired,
+    rules,
+    nested: options.nested ?? {},
+    ...(options.validator === undefined ? {} : { validator: options.validator }),
+  }
+}
+
+const recordSchema = (
+  required: readonly string[],
+  fields: Readonly<Record<string, ComponentFieldKind>>,
+  nested: Readonly<Record<string, ComponentRecordSchema>> = {},
+): ComponentRecordSchema => ({ required, fields, nested })
 
 const nodeFields = { type: 'string' } as const
+
+const chartDatumSchema = recordSchema(['label', 'value'], {
+  label: 'string',
+  value: 'number',
+  color: 'string',
+})
+
+const chartSeriesSchema = recordSchema(['label', 'data'], {
+  label: 'string',
+  color: 'string',
+  data: 'array',
+}, { data: chartDatumSchema })
+
+const tabHolderSchema = recordSchema(['label', 'items'], {
+  label: 'string',
+  items: 'nodes',
+  content: 'nodes',
+})
+
+const accordionHolderSchema = recordSchema(['title', 'items'], {
+  title: 'string',
+  items: 'nodes',
+})
+
+const diagramNodeSchema = recordSchema(['id', 'label'], {
+  id: 'string',
+  label: 'string',
+  sub: 'string',
+  type: 'string',
+  x: 'number',
+  y: 'number',
+  w: 'number',
+  h: 'number',
+  tag: 'string',
+})
+
+const diagramEdgeSchema = recordSchema(['from', 'to'], {
+  from: 'string',
+  to: 'string',
+  label: 'string',
+  kind: 'string',
+  route: 'string',
+})
+
+const diagramZoneSchema = recordSchema(['label'], {
+  label: 'string',
+  x: 'number',
+  y: 'number',
+  w: 'number',
+  h: 'number',
+})
+
+const diagramThemeSchema = recordSchema([], {
+  paper: 'string',
+  'paper-2': 'string',
+  ink: 'string',
+  muted: 'string',
+  soft: 'string',
+  rule: 'string',
+  accent: 'string',
+  'accent-tint': 'string',
+  link: 'string',
+})
+
+/** Root GenUI specification metadata used by diagnostics. */
+export const GENUI_SPEC_SCHEMA = schema(['items'], {
+  title: 'string',
+  gap: 'number',
+  panel: 'boolean',
+  append: 'boolean',
+  items: 'nodes',
+})
+
+/** Backwards-friendly short alias for the root specification schema. */
+export const SPEC_SCHEMA = GENUI_SPEC_SCHEMA
 
 /**
  * Native component field metadata.
@@ -40,7 +183,7 @@ const nodeFields = { type: 'string' } as const
  * diagnostics, where erased interfaces are unavailable.
  */
 export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
-  accordion: schema(['items'], { ...nodeFields, items: 'array' }),
+  accordion: schema(['items'], { ...nodeFields, items: 'array' }, {}, { nested: { items: accordionHolderSchema } }),
   audio: schema(['src'], { ...nodeFields, src: 'string', alt: 'string', loop: 'boolean' }),
   avatar: schema(['name'], { ...nodeFields, name: 'string', color: 'string' }),
   badge: schema(['label'], { ...nodeFields, label: 'string', tone: 'string', icon: 'string' }, { text: 'label', value: 'label' }),
@@ -48,17 +191,29 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   button: schema(['label'], { ...nodeFields, label: 'string', tone: 'string', full: 'boolean', small: 'boolean', icon: 'string', action: 'string' }),
   callout: schema(['content'], { ...nodeFields, title: 'string', content: 'string', tone: 'string' }, { kind: 'tone' }),
   card: schema(['items'], { ...nodeFields, title: 'string', items: 'nodes' }, { label: 'title', content: 'items' }),
-  chart: schema(['data'], { ...nodeFields, kind: 'string', data: 'array', series: 'array' }),
+  chart: schema([], { ...nodeFields, kind: 'string', data: 'array', series: 'array' }, {}, {
+    oneOfRequired: [['data', 'series']],
+    conditionalRequired: [
+      { kind: 'required-if', when: { field: 'kind', equals: 'line' }, required: ['data'] },
+      { kind: 'required-if', when: { field: 'kind', equals: 'donut' }, required: ['data'] },
+    ],
+    nested: { data: chartDatumSchema, series: chartSeriesSchema },
+    validator: { name: 'chart-renderability' },
+  }),
   checkbox: schema(['label'], { ...nodeFields, label: 'string', checked: 'boolean', action: 'string' }),
   code: schema(['code'], { ...nodeFields, lang: 'string', code: 'string' }),
   col: schema(['items'], { ...nodeFields, items: 'nodes', gap: 'number' }),
   copy: schema(['text'], { ...nodeFields, label: 'string', text: 'string' }),
-  diagram: schema(['kind', 'nodes'], { ...nodeFields, kind: 'string', variant: 'string', title: 'string', nodes: 'array', edges: 'array', zones: 'array', theme: 'object' }),
+  diagram: schema(['kind', 'nodes'], { ...nodeFields, kind: 'string', variant: 'string', title: 'string', nodes: 'array', edges: 'array', zones: 'array', theme: 'object' }, {}, {
+    nested: { nodes: diagramNodeSchema, edges: diagramEdgeSchema, zones: diagramZoneSchema, theme: diagramThemeSchema },
+  }),
   diff: schema(['diffs'], { ...nodeFields, diffs: 'array' }),
   divider: schema([], nodeFields),
-  echart: schema([], { ...nodeFields, title: 'string', height: 'number', preset: 'string', data: 'array', series: 'array', option: 'object' }),
+  echart: schema([], { ...nodeFields, title: 'string', height: 'number', preset: 'string', data: 'array', series: 'array', option: 'object' }, {}, {
+    oneOfRequired: [['option', 'data', 'series']],
+  }),
   'file-tree': schema(['items'], { ...nodeFields, items: 'array' }),
-  grid: schema(['cols', 'items'], { ...nodeFields, cols: 'number', items: 'nodes' }),
+  grid: schema(['items'], { ...nodeFields, cols: 'number', items: 'nodes' }),
   image: schema(['src'], { ...nodeFields, src: 'string', alt: 'string' }),
   input: schema([], { ...nodeFields, label: 'string', placeholder: 'string', value: 'string', inputType: 'string', action: 'string', id: 'string' }),
   json: schema(['value'], { ...nodeFields, value: 'unknown' }),
@@ -80,7 +235,7 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   submit: schema(['label'], { ...nodeFields, label: 'string', action: 'string', resetAction: 'string', groups: 'array' }),
   switch: schema(['label'], { ...nodeFields, label: 'string', checked: 'boolean', action: 'string' }),
   table: schema(['columns', 'rows'], { ...nodeFields, columns: 'array', rows: 'array' }, { headers: 'columns', data: 'rows' }),
-  tabs: schema(['tabs'], { ...nodeFields, tabs: 'array' }),
+  tabs: schema(['tabs'], { ...nodeFields, tabs: 'array' }, {}, { nested: { tabs: tabHolderSchema } }),
   text: schema(['content'], { ...nodeFields, content: 'string', size: 'string', center: 'boolean' }, { text: 'content' }),
   textarea: schema([], { ...nodeFields, label: 'string', placeholder: 'string', rows: 'number', value: 'string', action: 'string', id: 'string' }),
   timeline: schema(['items'], { ...nodeFields, items: 'array' }),
@@ -115,7 +270,7 @@ function normalizeAliasFields(value: Record<string, unknown>, path: string, type
       path: aliasPath,
       message: keptCanonical
         ? `${aliasPath} is ignored because canonical field '${canonical}' is present`
-        : `${aliasPath} normalized to '${canonical}'`,
+        : `${aliasPath} normalized/adopted as '${canonical}'`,
       type,
       field: alias,
       canonical,
@@ -155,7 +310,7 @@ function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[]
           path: tabPath,
           message: hasItems
             ? `${tabPath} is ignored because canonical field 'items' is present`
-            : `${tabPath} normalized to 'items'`,
+            : `${tabPath} normalized/adopted as 'items'`,
           type,
           field: 'content',
           canonical: 'items',
@@ -227,6 +382,60 @@ function visitNativeNodes(value: unknown, path: string, visit: (node: Record<str
   }
 }
 
+function pushUnknownField(
+  warnings: GenuiDiagnostic[],
+  path: string,
+  field: string,
+  type: string,
+): void {
+  warnings.push({
+    kind: 'unknown-field',
+    path: `${path}.${field}`,
+    message: `${path}.${field}: unknown field for '${type}'`,
+    type,
+    field,
+  })
+}
+
+function diagnoseRecordFields(
+  value: unknown,
+  path: string,
+  definition: ComponentRecordSchema,
+  type: string,
+  warnings: GenuiDiagnostic[],
+): void {
+  const holder = record(value)
+  if (holder === undefined) return
+  for (const field of Object.keys(holder)) {
+    if (field in definition.fields) continue
+    pushUnknownField(warnings, path, field, type)
+  }
+  for (const [field, nested] of Object.entries(definition.nested)) {
+    const nestedValue = holder[field]
+    if (Array.isArray(nestedValue)) {
+      nestedValue.forEach((item, index) => diagnoseRecordFields(item, `${path}.${field}[${index}]`, nested, type, warnings))
+    } else if (nestedValue !== undefined) {
+      diagnoseRecordFields(nestedValue, `${path}.${field}`, nested, type, warnings)
+    }
+  }
+}
+
+function diagnoseNestedFields(
+  node: Record<string, unknown>,
+  path: string,
+  definition: ComponentSchema,
+  warnings: GenuiDiagnostic[],
+): void {
+  for (const [field, nested] of Object.entries(definition.nested)) {
+    const nestedValue = node[field]
+    if (Array.isArray(nestedValue)) {
+      nestedValue.forEach((item, index) => diagnoseRecordFields(item, `${path}.${field}[${index}]`, nested, node.type as string, warnings))
+    } else if (nestedValue !== undefined) {
+      diagnoseRecordFields(nestedValue, `${path}.${field}`, nested, node.type as string, warnings)
+    }
+  }
+}
+
 /**
  * Diagnose unknown direct fields on native nodes.
  *
@@ -243,16 +452,25 @@ export function diagnoseUnknownGenuiFields(value: unknown): GenuiDiagnostic[] {
   const visit = (node: Record<string, unknown>, path: string, definition: ComponentSchema): void => {
     for (const field of Object.keys(node)) {
       if (field === 'type' || field in definition.fields) continue
-      warnings.push({
-        kind: 'unknown-field',
-        path: `${path}.${field}`,
-        message: `${path}.${field}: unknown field for '${node.type}'`,
-        type: node.type as string,
-        field,
-      })
+      pushUnknownField(warnings, path, field, node.type as string)
+    }
+    diagnoseNestedFields(node, path, definition, warnings)
+  }
+  if (Array.isArray(root.items)) {
+    for (const field of Object.keys(root)) {
+      if (field in GENUI_SPEC_SCHEMA.fields) continue
+      pushUnknownField(warnings, 'spec', field, 'spec')
+    }
+    root.items.forEach((item, index) => visitNativeNodes(item, `items[${index}]`, visit))
+  } else if (typeof root.type === 'string') {
+    // A bare component root is a documented shorthand, so its `type` belongs
+    // to the native node schema rather than the root specification schema.
+    visitNativeNodes(root, 'spec', visit)
+  } else {
+    for (const field of Object.keys(root)) {
+      if (field in GENUI_SPEC_SCHEMA.fields) continue
+      pushUnknownField(warnings, 'spec', field, 'spec')
     }
   }
-  if (Array.isArray(root.items)) root.items.forEach((item, index) => visitNativeNodes(item, `items[${index}]`, visit))
-  else if (typeof root.type === 'string') visitNativeNodes(root, 'spec', visit)
   return warnings
 }

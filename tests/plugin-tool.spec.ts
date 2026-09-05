@@ -127,6 +127,30 @@ describe('render_ui execute', () => {
       'items[0].series is only supported for bars; items[0].data is required for line',
     )
   })
+
+  it('does not green-light a dropped native image beside an opaque custom node', async () => {
+    const spec = { items: [{ type: 'image' }, { type: 'custom-widget', payload: { owner: 'plugin' } }] }
+    await expect(tool.execute({ spec })).rejects.toThrow('repair dropped')
+
+    const value = String(await createValidateDshUiTool().execute({ spec }))
+    expect(value).toContain('❌')
+    expect(value).not.toContain('✅')
+  })
+
+  it('includes native-field warnings in a successful render summary', async () => {
+    const value = String(await tool.execute({ spec: { items: [{ type: 'text', content: '好', extension: true }] } }))
+    expect(value).toContain('已渲染 UI')
+    expect(value).toContain('items[0].extension')
+    expect(value).toContain('unknown field')
+  })
+
+  it('distinguishes an ignored canonical alias in model-facing warnings', async () => {
+    const value = String(await tool.execute({
+      spec: { items: [{ type: 'text', text: 'legacy', content: 'canonical' }] },
+    }))
+    expect(value).toContain('已忽略别名字段')
+    expect(value).toContain('canonical field')
+  })
 })
 
 describe('render_ui projections', () => {
@@ -338,6 +362,16 @@ describe('validate_dsh_ui tool', () => {
     expect(() => JSON.parse(repaired)).not.toThrow()
     expect(repaired).toContain('"content":"你好"')
     expect(repaired).not.toMatch(/,\]/)
+  })
+
+  it('keeps process warnings when repaired JSON becomes valid', async () => {
+    const value = String(await vtool.execute({
+      spec: '{"items":[{"type":"text","text":"legacy","content":"canonical","extension":true},],}',
+    }))
+    expect(value).toContain('已自动修复')
+    expect(value).toContain('items[0].text')
+    expect(value).toContain('已忽略别名字段')
+    expect(value).toContain('items[0].extension')
   })
 
   it('keeps the diagnostics-only reply when the body cannot be repaired', async () => {
