@@ -21,10 +21,10 @@
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { JsonValue } from '@deepseek-ai/dsh-session'
 import type { GenericCallView, GenericResultView, JsonSchemaNode, ToolDefinition } from '@deepseek-ai/dsh-tools'
-import type { GenuiSpec } from '../client/spec.ts'
 import {
-  GENUI_LIMITS, countDeclaredGenuiNodes, countGenuiNodes, repairGenuiSpec,
+  GENUI_LIMITS, processGenuiSpec,
 } from '../client/guard.ts'
+import type { GenuiProcessResult } from '../client/guard.ts'
 import { completeFenceJson } from '../shared/fence-repair.ts'
 import { validateRenderableChartSemantics } from './chart-contract.ts'
 
@@ -136,18 +136,43 @@ function parseSpecJson(raw: string, shape: string): unknown {
   }
 }
 
-/** Total node count of a repaired spec — the shared guard traversal
- * (`countGenuiNodes`) so the tool reports the SAME number the panel fold and
- * validation use. A local walker used to under-count specs whose content
- * lives inside tabs/accordion/file-tree (their children are not `.items`). */
-function countNodes(spec: GenuiSpec): number {
-  return countGenuiNodes(spec, GENUI_LIMITS.maxNodes)
+/** Process a raw tool value once for all render-time decisions. */
+function processRenderableValue(value: unknown): { processed: GenuiProcessResult; chartErrors: string[] } {
+  const processed = processGenuiSpec(value)
+  return { processed, chartErrors: validateRenderableChartSemantics(processed.normalized) }
+}
+
+/** Render process diagnostics as stable model-facing warning lines. */
+function formatProcessWarnings(processed: GenuiProcessResult): string[] {
+  return processed.warnings.map(warning => {
+    if (warning.kind === 'alias' && warning.canonical !== undefined) {
+      const separator = warning.path.lastIndexOf('.')
+      const canonicalPath = `${separator < 0 ? '' : warning.path.slice(0, separator + 1)}${warning.canonical}`
+      return `⚠️ 规范化：${warning.path} → ${canonicalPath}`
+    }
+    return `⚠️ ${warning.message}`
+  })
+}
+
+/** Return the legacy validation text for a process that dropped native nodes. */
+function droppedNodeFailure(processed: GenuiProcessResult): string | undefined {
+  if (!processed.errors.some(error => error.startsWith('repair dropped '))) return undefined
+  const dropped = processed.declaredCount - processed.renderedCount
+  return `❌ 验证未通过：检测到声明了 ${processed.declaredCount} 个组件，但仅成功解析出 ${processed.renderedCount} 个（有 ${dropped} 个组件因字段格式异常被丢弃）。常见原因：table 的 columns/rows 不是二维字符串数组、tabs 的 items/content 缺失、嵌套组件字段类型不符。请修正后重新验证。`
+}
+
+/** Return whether a process error is only the intentional node-budget tail cut. */
+function isIntentionalBudgetCut(processed: GenuiProcessResult): boolean {
+  return processed.errors.length > 0
+    && processed.errors.every(error => error.startsWith('spec exceeds ') || error.startsWith('repair dropped '))
+    && processed.renderedCount === GENUI_LIMITS.maxNodes
+    && processed.declaredCount === GENUI_LIMITS.maxNodes + 1
 }
 
 /** Tool-call title shared by the pending and completed presentations. */
 function cardTitle(args: unknown): string | undefined {
-  const spec = repairGenuiSpec(specOf(args))
-  return spec === null ? undefined : `渲染 UI：${spec.title ?? '未命名'}`
+  const { processed } = processRenderableValue(specOf(args))
+  return processed.spec === null ? undefined : `渲染 UI：${processed.spec.title ?? '未命名'}`
 }
 
 /**
@@ -171,21 +196,23 @@ export function createRenderUiTool(): ToolDefinition {
         // The browser toolview reads the repaired spec from result meta. The
         // spec is JSON-safe by construction (only string/number/boolean/array
         // fields after repair), so the widening cast is lossless.
-        return repairGenuiSpec(specOf(args)) as unknown as JsonValue
+        return processRenderableValue(specOf(args)).processed.spec as unknown as JsonValue
       },
     },
     async execute(args: unknown): Promise<JsonValue> {
-      const input = specOf(args)
-      const chartErrors = validateRenderableChartSemantics(input)
+      const { processed, chartErrors } = processRenderableValue(specOf(args))
       if (chartErrors.length > 0) {
         throw new Error('render_ui spec invalid: ' + chartErrors.join('; '))
       }
-      const spec = repairGenuiSpec(input)
-      if (spec === null) {
+      if (processed.spec === null) {
         return 'render_ui：spec 无效 —— 根对象需要 "items" 数组（组件树白名单见系统提示词），请修正后重试。'
       }
+      if (processed.errors.length > 0 && !isIntentionalBudgetCut(processed)) {
+        throw new Error('render_ui spec invalid: ' + processed.errors.join('; '))
+      }
+      const spec = processed.spec
       const title = spec.title ?? '未命名'
-      return `已渲染 UI「${title}」（${countNodes(spec)} 个组件）。用户现在可以看到这张卡片；组件带 action 时，用户交互会以 [genui-action] 消息发回给你，届时请重新渲染更新后的界面。`
+      return `已渲染 UI「${title}」（${processed.renderedCount} 个组件）。用户现在可以看到这张卡片；组件带 action 时，用户交互会以 [genui-action] 消息发回给你，届时请重新渲染更新后的界面。`
     },
     presentCall(args: unknown): GenericCallView | undefined {
       const title = cardTitle(args)
@@ -285,12 +312,6 @@ function bracketDiagnostic(raw: string): string {
 const COMMON_CAUSES =
   '常见原因：① 收尾括号错位/缺失（{ 与 }、[ 与 ] 数量不相等）② 字符串值内用了半角引号 "（中文引语请用 “” 或 「」）③ 尾随逗号 ④ 字符串未闭合'
 
-/** Return the model-facing chart field failure for one parsed fence body. */
-function chartValidationFailure(value: unknown): string | undefined {
-  const errors = validateRenderableChartSemantics(value)
-  return errors.length === 0 ? undefined : `❌ chart 字段验证失败：\n- ${errors.join('\n- ')}`
-}
-
 /** Build the validate_dsh_ui tool definition (registered alongside render_ui). */
 export function createValidateDshUiTool(): ToolDefinition {
   return {
@@ -320,26 +341,24 @@ export function createValidateDshUiTool(): ToolDefinition {
         const repaired = completeFenceJson(raw)
         if (repaired !== null) {
           const repairedValue = JSON.parse(repaired.text) as unknown
-          const chartFailure = chartValidationFailure(repairedValue)
+          const { processed, chartErrors } = processRenderableValue(repairedValue)
+          const chartFailure = chartErrors.length === 0 ? undefined : `❌ chart 字段验证失败：\n- ${chartErrors.join('\n- ')}`
           if (chartFailure !== undefined) return chartFailure
-          if (repairGenuiSpec(repairedValue) !== null) {
+          if (processed.spec !== null && processed.errors.length === 0) {
             return `❌ dsh-ui 围栏 JSON 解析失败：${detail}。\n${bracketDiagnostic(raw)}  已自动修复 ${repaired.repairs} 处，下面是修复后的 JSON，直接作为围栏正文发出即可（无需再验证）：\n\`\`\`\n${repaired.text}\n\`\`\``
           }
         }
         return `❌ dsh-ui 围栏 JSON 解析失败：${detail}。\n${bracketDiagnostic(raw)}  自动修复未能恢复（结构损坏），请按错误信息修正后重新调用本工具验证，通过后再发出围栏。\n${COMMON_CAUSES}`
       }
-      const chartFailure = chartValidationFailure(parsed)
+      const { processed, chartErrors } = processRenderableValue(parsed)
+      const chartFailure = chartErrors.length === 0 ? undefined : `❌ chart 字段验证失败：\n- ${chartErrors.join('\n- ')}`
       if (chartFailure !== undefined) return chartFailure
-      const spec = repairGenuiSpec(parsed)
-      if (spec === null) {
-        return '❌ 不是合法 GenUI spec：根对象需要 "items" 数组，且每个节点 type 必须在白名单内（见系统提示词）。请修正后重新验证。'
+      if (processed.spec === null || processed.errors.length > 0) {
+        return droppedNodeFailure(processed)
+          ?? `❌ 不是合法 GenUI spec：${processed.errors.join('；') || '根对象需要 "items" 数组，且每个节点 type 必须在白名单内（见系统提示词）'}。请修正后重新验证。`
       }
-      const validCount = countNodes(spec)
-      const declaredCount = countDeclaredGenuiNodes(parsed, GENUI_LIMITS.maxNodes + 1)
-      if (declaredCount > validCount) {
-        return `❌ 验证未通过：检测到声明了 ${declaredCount} 个组件，但仅成功解析出 ${validCount} 个（有 ${declaredCount - validCount} 个组件因字段格式异常被丢弃）。常见原因：table 的 columns/rows 不是二维字符串数组、tabs 的 items/content 缺失、嵌套组件字段类型不符。请修正后重新验证。`
-      }
-      return `✅ dsh-ui spec 合法（${validCount} 个组件），可以发出围栏。`
+      const warnings = formatProcessWarnings(processed)
+      return [`✅ dsh-ui spec 合法（${processed.renderedCount} 个组件），可以发出围栏。`, ...warnings].join('\n')
     },
     presentCall(): GenericCallView | undefined {
       return { card: 'generic', title: '验证 dsh-ui 围栏', kind: 'other' }

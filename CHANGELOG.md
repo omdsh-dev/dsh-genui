@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### 修复
+- **统一 GenUI 组件协议（issue #102）**：新增 runtime schema registry，统一原生字段 alias 归一化、canonical 校验、repair 和 unknown-field 诊断；`validate_dsh_ui`、`render_ui` 与 dsh-ui fence renderer 共用同一处理流水线。`card` / `table` / `callout` / `steps` 的高频字段别名会给出 warning 后归一化，自定义 renderer 类型保持 opaque，真正被 repair 丢弃的原生节点仍会明确报错。
+
 ## [0.9.8] - 2026-09-05
 ### 兼容性
 - 支持 DSH 0.1.2-rc.1 与 0.1.3-alpha.1：依赖范围显式允许这两个预发布系列，CI 和发布验收固定到对应官方标签。

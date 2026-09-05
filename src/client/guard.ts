@@ -20,6 +20,11 @@
  */
 import type { GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSeries, GenuiScene3D, GenuiSpec, GenuiDiagram, GenuiDiagramTheme, GenuiDiagramKind } from './spec.ts'
 import { wrapSingleComponentRoot } from './spec.ts'
+import { GENUI_NATIVE_TYPES, diagnoseUnknownGenuiFields, normalizeGenuiSpec } from './component-schema.ts'
+import type { GenuiDiagnostic } from './component-schema.ts'
+
+export { COMPONENT_SCHEMAS, GENUI_NATIVE_TYPES, diagnoseUnknownGenuiFields, normalizeGenuiSpec } from './component-schema.ts'
+export type { ComponentFieldKind, ComponentSchema, GenuiDiagnostic } from './component-schema.ts'
 
 /** Hard resource limits enforced by repair (and mirrored at render time). */
 export const GENUI_LIMITS = {
@@ -1110,13 +1115,13 @@ function sanitizeEChartOption(v: unknown, depth: number, budget: EChartSanitizeB
  * dropping/clamping/truncating. Idempotent: repairing a repaired spec is a
  * no-op.
  */
-export function repairGenuiSpec(value: unknown): GenuiSpec | null {
+function repairCanonicalGenuiSpec(value: unknown): GenuiSpec | null {
   const v = obj(value)
   if (v === undefined) return null
   if (!Array.isArray(v.items)) {
     const wrapped = wrapSingleComponentRoot(value)
     if (wrapped === null) return null
-    return repairGenuiSpec(wrapped)
+    return repairCanonicalGenuiSpec(wrapped)
   }
   const ctx: RepairCtx = { remaining: GENUI_LIMITS.maxNodes }
   return {
@@ -1126,6 +1131,20 @@ export function repairGenuiSpec(value: unknown): GenuiSpec | null {
     ...opt('append', v.append === true ? true : undefined),
     items: repairItems(v.items, ctx, 0),
   }
+}
+
+/**
+ * Deterministically repair a raw spec into a renderable GenuiSpec.
+ *
+ * Alias normalization is performed before the existing resource, type, and
+ * security repair rules. The result remains idempotent and keeps the legacy
+ * public API used by the fence renderer and client components.
+ *
+ * @param value - Raw GenUI spec or bare component.
+ * @returns Repaired canonical spec, or null for an invalid root.
+ */
+export function repairGenuiSpec(value: unknown): GenuiSpec | null {
+  return repairCanonicalGenuiSpec(normalizeGenuiSpec(value).value)
 }
 
 /* ---------------- validation ---------------- */
@@ -1185,13 +1204,7 @@ export function countGenuiNodes(value: unknown, cap = Number.POSITIVE_INFINITY):
 /** Every white-listed node `type`. Keep in sync with the repairNode switch —
  * validate_dsh_ui uses it to tell declared GenUI nodes apart from unrelated
  * `"type"` strings (e.g. file-tree's `{type:'file'}` children). */
-export const GENUI_NODE_TYPES: ReadonlySet<string> = new Set([
-  'accordion', 'audio', 'avatar', 'badge', 'breadcrumb', 'button', 'callout', 'card', 'chart',
-  'checkbox', 'code', 'col', 'copy', 'diff', 'divider', 'file-tree', 'grid', 'image', 'input', 'json',
-  'keyvalue', 'link', 'list', 'mermaid', 'plot', 'progress', 'quiz', 'radio', 'row', 'scene3d',
-  'select', 'slider', 'spacer', 'stat', 'steps', 'submit', 'switch', 'table', 'tabs', 'text',
-  'textarea', 'timeline', 'video', 'echart', 'diagram',
-])
+export const GENUI_NODE_TYPES: ReadonlySet<string> = GENUI_NATIVE_TYPES
 
 /**
  * Visit and count declared nodes in a raw spec tree: objects whose `type` is a
@@ -1284,7 +1297,7 @@ export function validateGenuiChartSemantics(value: unknown): string[] {
  * custom type is valid only when a renderer is registered — the guard cannot
  * know, so it flags them as warnings).
  */
-export function validateGenuiSpec(value: unknown): GenuiValidation {
+function validateCanonicalGenuiSpec(value: unknown): GenuiValidation {
   const errors: string[] = []
   const v = obj(value)
   if (v === undefined) return { ok: false, errors: ['spec root must be an object'] }
@@ -1292,7 +1305,7 @@ export function validateGenuiSpec(value: unknown): GenuiValidation {
     // Single-component root: validate through the wrapped form so the tool
     // agrees with the renderer about what is a valid fence body.
     const wrapped = wrapSingleComponentRoot(value)
-    if (wrapped !== null) return validateGenuiSpec(wrapped)
+    if (wrapped !== null) return validateCanonicalGenuiSpec(wrapped)
     return { ok: false, errors: ['spec.items must be an array'] }
   }
   if (v.title !== undefined && typeof v.title !== 'string') errors.push('spec.title must be a string')
@@ -1320,6 +1333,76 @@ export function validateGenuiSpec(value: unknown): GenuiValidation {
   }
   walk(v.items, 0, 'items')
   return { ok: errors.length === 0, errors }
+}
+
+/**
+ * Validate a raw GenUI value after deterministic alias normalization.
+ *
+ * Validation therefore only sees canonical fields; repairable aliases do not
+ * produce false required-field errors. Structural and semantic defects remain
+ * errors, while native unknown fields are exposed by the warning diagnostics
+ * returned from `processGenuiSpec`.
+ *
+ * @param value - Raw GenUI spec or bare component.
+ * @returns Validation result with human-readable errors.
+ */
+export function validateGenuiSpec(value: unknown): GenuiValidation {
+  return validateCanonicalGenuiSpec(normalizeGenuiSpec(value).value)
+}
+
+export interface GenuiProcessResult {
+  /** Canonical alias-normalized input value. */
+  value: unknown
+  /** Alias-normalized value, provided as an explicit descriptive alias. */
+  normalized: unknown
+  /** Canonical repaired value consumed by the renderer. */
+  repaired: GenuiSpec | null
+  /** Renderer-facing alias for `repaired`. */
+  spec: GenuiSpec | null
+  /** Structural and semantic validation errors. */
+  errors: string[]
+  /** Alias and native unknown-field warnings. */
+  warnings: GenuiDiagnostic[]
+  /** Native nodes declared in the canonical input, before repair drops. */
+  declaredCount: number
+  /** Nodes present in the repaired tree. */
+  renderedCount: number
+}
+
+/**
+ * Run the shared canonical GenUI pipeline.
+ *
+ * The pipeline normalizes aliases, applies the existing deterministic repair
+ * and security filters, validates the canonical input, and reports native
+ * declarations that disappeared during repair. Custom nodes stay opaque and
+ * do not participate in native unknown-field diagnostics.
+ *
+ * @param value - Raw GenUI spec or bare component.
+ * @returns Canonical input, repaired output, diagnostics, and node counts.
+ */
+export function processGenuiSpec(value: unknown): GenuiProcessResult {
+  const normalized = normalizeGenuiSpec(value)
+  const repaired = repairCanonicalGenuiSpec(normalized.value)
+  const validation = validateCanonicalGenuiSpec(normalized.value)
+  const declaredCount = countDeclaredGenuiNodes(normalized.value, GENUI_LIMITS.maxNodes + 1)
+  const renderedCount = repaired === null ? 0 : countGenuiNodes(repaired)
+  // The shared public validator preserves its historical diagnostic for an
+  // unknown type. The processing pipeline is renderer-aware by contract:
+  // custom nodes stay opaque and must not fail native schema validation.
+  const errors = validation.errors.filter(error => !error.includes(': unknown type '))
+  if (declaredCount > renderedCount) {
+    errors.push(`repair dropped ${declaredCount - renderedCount} declared native node(s): declared ${declaredCount}, rendered ${renderedCount}`)
+  }
+  return {
+    value: normalized.value,
+    normalized: normalized.value,
+    repaired,
+    spec: repaired,
+    errors,
+    warnings: [...normalized.warnings, ...diagnoseUnknownGenuiFields(normalized.value)],
+    declaredCount,
+    renderedCount,
+  }
 }
 
 type Walker = (list: unknown, depth: number, path: string) => void

@@ -18,7 +18,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSPropert
 import { CodeBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ErrorBoundary } from './ErrorBoundary.tsx'
 import { GenuiBlock } from './GenuiBlock.tsx'
-import { repairGenuiSpec } from './guard.ts'
+import { processGenuiSpec } from './guard.ts'
 import { fenceStateKey } from './interaction-store.ts'
 import { parsePartialGenuiSpec } from './parse-partial.ts'
 import { applyPanelOperation, diagnosePanelBudget, type PanelOperationStatus } from './panel-store.ts'
@@ -58,7 +58,8 @@ const FENCE_ERROR_STYLE: CSSProperties = {
 function chartSemanticFailure(raw: string): string | null {
   const parsed = parsePartialGenuiSpec(raw)
   if (parsed === null) return null
-  const errors = validateRenderableChartSemantics(parsed)
+  const processed = processGenuiSpec(parsed)
+  const errors = validateRenderableChartSemantics(processed.normalized)
   return errors.length === 0 ? null : errors.join('；')
 }
 
@@ -130,10 +131,11 @@ function FencePanelPublisher({ sessionId, sourceId, order, spec }: {
   return null
 }
 
-/** Repair one parsed value only when its native charts are actually renderable. */
+/** Process one parsed value and return its canonical repaired spec only when native charts are renderable. */
 function repairRenderableSpec(value: unknown): GenuiSpec | null {
-  if (validateRenderableChartSemantics(value).length > 0) return null
-  return repairGenuiSpec(value)
+  const processed = processGenuiSpec(value)
+  if (validateRenderableChartSemantics(processed.normalized).length > 0) return null
+  return processed.spec
 }
 
 /**
