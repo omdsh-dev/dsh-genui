@@ -396,11 +396,11 @@ export function InputNode({ node, onAction, answers }: {
   const action = node.action
   const id = node.id
   const secret = node.inputType === 'password'
-  // Initial value: spec default, else durable state (restored after refresh).
-  // Secrets restore as blank: a password that survives a refresh would be a
-  // stored secret, which is exactly what the boundary forbids.
+  const restored = !secret && id !== undefined ? answers?.fields[id] : undefined
+  // Initial value: durable state wins over the spec default. Secrets always
+  // restore as blank so a password can never survive a refresh.
   const [value, setValue] = useState<string>(() =>
-    secret ? '' : (node.value ?? (id !== undefined ? answers?.fields[id] ?? '' : '')))
+    secret ? '' : (restored ?? node.value ?? ''))
   // Last value actually DELIVERED to the model: blur only sends when the
   // value changed since the last delivery (a focus-in/focus-out with no edit
   // used to fire a pointless action round trip). Seeded with the mount value
@@ -413,12 +413,12 @@ export function InputNode({ node, onAction, answers }: {
     }
   }
   const ime = useImeComposing()
-  // Field invariant: a spec-provided non-blank default registers at mount.
+  // Register a non-blank spec default only when no durable value already exists.
   const mounted = useRef(false)
   useEffect(() => {
     if (mounted.current) return
     mounted.current = true
-    if (!secret && id !== undefined && node.value !== undefined && node.value.trim() !== '') {
+    if (!secret && id !== undefined && restored === undefined && node.value !== undefined && node.value.trim() !== '') {
       answers?.setField(id, node.value)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
