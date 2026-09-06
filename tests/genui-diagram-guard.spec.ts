@@ -1,7 +1,8 @@
 // Editorial diagram guard: repair + validation of the `diagram` node.
 // Pure node tests — no DOM. Mirrors genui-guard.spec.ts style.
 import { describe, expect, it } from 'vitest'
-import { GENUI_LIMITS, repairGenuiSpec, validateGenuiSpec } from '../src/client/guard.ts'
+import { repairGenuiSpec, validateGenuiSpec } from '../src/client/guard.ts'
+import { GENUI_LIMITS } from '../src/client/genui-runtime/index.ts'
 
 const diagram = (over: Record<string, unknown>) => ({ type: 'diagram', kind: 'architecture', nodes: [{ id: 'n1', label: 'A' }], ...over })
 

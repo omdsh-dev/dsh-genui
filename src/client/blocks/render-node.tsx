@@ -7,7 +7,7 @@
 import { type ReactNode, type ComponentType } from 'react'
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 import css from '../GenuiBlock.module.css'
-import { GENUI_LIMITS } from '../guard.ts'
+import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import type { GenuiList, GenuiNode } from '../spec.ts'
 import type { AnswersState, GenuiBlockProps } from './state.ts'
 import { AudioNode, avatarColor, ClickFeedbackButton, VideoNode } from './basic.tsx'

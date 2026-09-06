@@ -2,7 +2,8 @@
 // (XSS filter, tooltip renderMode, array/node budget), and node rejection.
 // Pure node tests — no DOM.
 import { describe, expect, it } from 'vitest'
-import { GENUI_LIMITS, repairGenuiSpec } from '../src/client/guard.ts'
+import { repairGenuiSpec } from '../src/client/guard.ts'
+import { GENUI_LIMITS } from '../src/client/genui-runtime/index.ts'
 
 const echart = (props: Record<string, unknown> = {}) => ({ type: 'echart', ...props })
 
