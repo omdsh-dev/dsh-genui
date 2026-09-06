@@ -1,0 +1,8 @@
+[data-genui] input[type='color'] {
+  width: 64px;
+  height: 40px;
+  padding: 4px;
+  box-sizing: border-box;
+  align-self: flex-start;
+  cursor: pointer;
+}
