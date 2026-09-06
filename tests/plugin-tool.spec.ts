@@ -3,7 +3,7 @@
 // spec for the browser toolview).
 import { describe, expect, it, vi } from 'vitest'
 import { createRenderUiTool, createValidateDshUiTool } from '../src/plugin/tool.ts'
-import { GENUI_LIMITS } from '../src/client/guard.ts'
+import { GENUI_LIMITS } from '../src/client/genui-runtime/index.ts'
 
 const tool = createRenderUiTool()
 

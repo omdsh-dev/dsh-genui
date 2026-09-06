@@ -10,7 +10,7 @@
  */
 import { useMemo } from 'react'
 import type { GenuiDiagram } from '../../spec.ts'
-import { GENUI_LIMITS } from '../../guard.ts'
+import { GENUI_LIMITS } from '../../genui-runtime/index.ts'
 import { resolveLayout } from './layout.ts'
 import { routeEdge, labelGeometry, type Box } from './geometry.ts'
 import { resolvePalette, nodeTreatment, edgeStroke, inkAt } from './theme.ts'

@@ -8,7 +8,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { hasFenceRegistry } from './setup'
 import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
 import { gallerySpec } from '../src/client/gallery.ts'
-import { GENUI_LIMITS, repairGenuiSpec } from '../src/client/guard.ts'
+import { repairGenuiSpec } from '../src/client/guard.ts'
+import { GENUI_LIMITS } from '../src/client/genui-runtime/index.ts'
 
 afterEach(cleanup)
 

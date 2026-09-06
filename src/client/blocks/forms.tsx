@@ -5,7 +5,7 @@
  */
 import { useEffect, useId, useRef, useState } from 'react'
 import css from '../GenuiBlock.module.css'
-import { GENUI_LIMITS } from '../guard.ts'
+import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import type { AnswersState, GenuiBlockProps, QuestionMeta } from './state.ts'
 import type { GenuiInput, GenuiRadio, GenuiSelect, GenuiSlider, GenuiSubmit, GenuiSwitch, GenuiTextarea } from '../spec.ts'
 

@@ -7,7 +7,7 @@
 import { memo, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CodeBlock, DiffBlock, JsonTree, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from '../GenuiBlock.module.css'
-import { GENUI_LIMITS } from '../guard.ts'
+import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import { PlotBlock } from '../PlotBlock.tsx'
 import { renderNode } from './render-node.tsx'
 import type { AnswersState, GenuiBlockProps } from './state.ts'

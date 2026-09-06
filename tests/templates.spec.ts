@@ -5,7 +5,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import { GENUI_TEMPLATES } from '../src/client/templates.ts'
-import { GENUI_LIMITS, validateGenuiSpec, countGenuiNodes } from '../src/client/guard.ts'
+import { validateGenuiSpec, countGenuiNodes } from '../src/client/guard.ts'
+import { GENUI_LIMITS } from '../src/client/genui-runtime/index.ts'
 
 describe('模板中心数据契约', () => {
   it('每条 demo 通过渲染器守卫校验', () => {
