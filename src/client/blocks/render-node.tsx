@@ -15,6 +15,7 @@ import { ChartNode, TableNode } from './charts.tsx'
 import {
   InputNode, RadioNode, SelectNode, SliderNode, SubmitNode, SwitchNode, TextareaNode,
 } from './forms.tsx'
+import { CheckboxNode } from './checkbox.tsx'
 import {
   AccordionNode, BreadcrumbNode, CalloutNode, CodeNode, CopyNode, DiffNode, FileTreeNode, JsonNode, KeyValueNode,
   MermaidNode, PlotNode, QuizNode, Scene3DNode, StepsNode, TabsNode, TimelineNode,
@@ -121,21 +122,7 @@ export function renderNode(
     }
     case 'input': return <InputNode key={key} node={node} onAction={onAction} answers={answers} />
     case 'select': return <SelectNode key={key} node={node} onAction={onAction} answers={answers} />
-    case 'checkbox': {
-      const action = node.action
-      return (
-        <label key={key} className={css.checkbox}>
-          <input
-            type="checkbox"
-            defaultChecked={node.checked === true}
-            onChange={action !== undefined && onAction !== undefined
-              ? e => onAction(action, { type: 'checkbox', checked: e.currentTarget.checked })
-              : undefined}
-          />
-          <span>{node.label}</span>
-        </label>
-      )
-    }
+    case 'checkbox': return <CheckboxNode key={key} node={node} onAction={onAction} answers={answers} />
     case 'link': {
       // Honest affordance: with a whitelisted href this is a REAL anchor;
       // without one it is plain styled text (a dead clickable-looking button

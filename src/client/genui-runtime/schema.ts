@@ -244,7 +244,7 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
     enums: { kind: CHART_KINDS },
     validator: { name: 'chart-renderability' },
   }),
-  checkbox: schema(['label'], { ...nodeFields, label: 'string', checked: 'boolean', action: 'string' }),
+  checkbox: schema(['label'], { ...nodeFields, label: 'string', checked: 'boolean', action: 'string', group: 'string' }),
   code: schema(['code'], { ...nodeFields, lang: 'string', code: 'string' }),
   col: schema(['items'], { ...nodeFields, items: 'nodes', gap: 'number' }),
   copy: schema(['text'], { ...nodeFields, label: 'string', text: 'string' }),

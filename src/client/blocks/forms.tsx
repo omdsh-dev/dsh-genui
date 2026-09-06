@@ -82,20 +82,16 @@ export function correctLabelOf(m: QuestionMeta): string | undefined {
   return m.answer
 }
 
-/** Submit: the "交卷" control of a grouped-radio block. LOCAL-FIRST (v2.6):
- * when at least one question carries `answer` data the click grades IN PLACE
- * — score, per-question right/wrong, explanations — with zero model round
- * trip, and locks the questions until 重新作答 resets them. Only when NO
- * question has answers does it fall back to firing ONE action
- * (`{type:'submit', answers, total, answered}`). Disabled until the
- * selection criteria are met (all listed groups answered, or ≥1 answer
- * without a group list); the hint shows the progress. */
+/** Submit: collect grouped radio and checkbox answers. Radio-only scopes keep
+ * LOCAL-FIRST grading; when checkbox selections participate, the click falls
+ * back to the aggregation action so multi-select data is never discarded. */
 export function SubmitNode({ node, onAction, answers }: {
   node: GenuiSubmit
   onAction?: GenuiBlockProps['onAction']
   answers?: AnswersState | undefined
 }) {
   const recorded = answers?.answers ?? {}
+  const multiRecorded = answers?.multiAnswers ?? {}
   const fields = answers?.fields ?? {}
   const meta = answers?.meta ?? {}
   const expected = node.groups
@@ -104,21 +100,35 @@ export function SubmitNode({ node, onAction, answers }: {
   const filledFields = Object.fromEntries(
     Object.entries(fields).filter(([id, v]) => v.trim() !== '' && !answers?.secretFields.has(id)),
   )
-  // Without an explicit group list, the submit counts radio answers AND
-  // filled fields — a fields-only form (inputs with id + submit) enables
-  // once any field has a value.
+  const nonEmptyMultiGroups = Object.entries(multiRecorded)
+    .filter(([, values]) => Array.isArray(values) && values.length > 0)
+    .map(([group]) => group)
+  const recordedGroups = new Set([...Object.keys(recorded), ...nonEmptyMultiGroups])
+  const hasRecordedAnswer = (group: string): boolean =>
+    recorded[group] !== undefined || (Array.isArray(multiRecorded[group]) && multiRecorded[group]!.length > 0)
+
+  // Explicit groups require at least one selected checkbox (or a radio answer)
+  // per group. Empty checkbox arrays remain durable state but are deliberately
+  // not considered "answered".
   const answered = expected === undefined
-    ? Math.max(Object.keys(recorded).length, Object.keys(filledFields).length)
-    : expected.filter(g => recorded[g] !== undefined).length
+    ? Math.max(recordedGroups.size, Object.keys(filledFields).length)
+    : expected.filter(hasRecordedAnswer).length
   const total = expected?.length ?? answered
-  const scope = expected ?? Object.keys(recorded)
-  // Local grading is possible when ANY in-scope question carries answers.
-  const canGradeLocally = scope.some(g => meta[g]?.answer !== undefined)
+  const scope = expected ?? [...recordedGroups]
+  const hasMultiInScope = scope.some(group =>
+    Array.isArray(multiRecorded[group]) && multiRecorded[group]!.length > 0,
+  )
+  // Local grading must be radio-only. Otherwise grading would consume the
+  // click and silently omit checkbox selections that need model delivery.
+  const canGradeLocally = !hasMultiInScope && scope.some(group => meta[group]?.answer !== undefined)
   const submitted = answers?.locked === true
+  const collectedAnswers: Record<string, string | string[]> = {
+    ...recorded,
+    ...multiRecorded,
+  }
   // Ready = enough answers AND the click can do something: either local
   // grading, or a real action name + provider. A submit with neither is a
-  // display-only control — honest disabled affordance (action is optional:
-  // local grading needs no round trip).
+  // display-only control — honest disabled affordance.
   const ready = answered > 0 && answered >= total
     && (canGradeLocally || (node.action !== undefined && onAction !== undefined))
 
@@ -191,7 +201,7 @@ export function SubmitNode({ node, onAction, answers }: {
             // the optional-action type honest.
             onAction(node.action, {
               type: 'submit',
-              answers: recorded,
+              answers: collectedAnswers,
               ...(Object.keys(filledFields).length > 0 ? { fields: filledFields } : {}),
               total,
               answered,

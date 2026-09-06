@@ -270,7 +270,12 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
     case 'checkbox': {
       const label = str(v.label, GENUI_LIMITS.maxString)
       if (label === undefined) return null
-      return { type: 'checkbox', label, ...opt('checked', v.checked === true ? true : undefined), ...opt('action', str(v.action, 200)) }
+      return {
+        type: 'checkbox', label,
+        ...opt('checked', v.checked === true ? true : undefined),
+        ...opt('action', str(v.action, 200)),
+        ...opt('group', str(v.group, 200)),
+      }
     }
     case 'link': {
       const label = str(v.label, GENUI_LIMITS.maxString)

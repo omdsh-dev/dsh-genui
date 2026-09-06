@@ -139,6 +139,12 @@ export interface GenuiCheckbox {
   checked?: boolean
   /** v2: when set, interaction sends this action back to the model. */
   action?: string
+  /**
+   * Aggregation group name. When set, toggles stay local and update the
+   * block-wide multi-answer registry instead of firing the per-click action;
+   * a sibling `submit` collects the selected labels as a string array.
+   */
+  group?: string
 }
 
 export interface GenuiLink {
@@ -396,23 +402,17 @@ export interface GenuiRadio {
   explanation?: string
 }
 
-/** Submit node: collects the answers of sibling `radio` groups in this block.
- * LOCAL-FIRST: when the questions carry `answer` data the click grades IN
- * PLACE — score, per-question right/wrong, explanations — with no model
- * round trip, and locks the questions until "重新作答" resets them. Only when
- * NO question carries answers does it fall back to firing ONE action
- * (`{type:'submit', answers, total, answered}`). */
+/** Submit node: collects sibling `radio` and grouped `checkbox` answers in
+ * this block. LOCAL-FIRST grading still applies to radio-only question scopes;
+ * aggregation scopes can emit strings for radio groups and string arrays for
+ * checkbox groups in the same `answers` object. */
 export interface GenuiSubmit {
   type: 'submit'
   label: string
   /**
-   * Optional action name. Local-first: when ANY question in scope carries
-   * `answer` data the click grades IN PLACE with zero model round trip, so
-   * no action is needed — the spec stays valid without one. Only when NO
-   * question has local answers does the submit need an action to collect
-   * `{type:'submit', answers, total, answered}`; without one the button
-   * renders disabled (honest affordance). Also fired as the reset hook if
-   * `resetAction` is absent.
+   * Optional action name. Local-first: when the in-scope questions can be
+   * graded entirely locally, no action is needed. Aggregation submits require
+   * an action and emit `{type:'submit', answers, total, answered}`.
    */
   action?: string
   /**
@@ -423,9 +423,9 @@ export interface GenuiSubmit {
   resetAction?: string
   /**
    * Optional explicit group list to wait for; when absent the submit enables
-   * once at least one grouped radio has an answer. When present it stays
-   * disabled until EVERY listed group has a recorded answer (the hint shows
-   * the progress).
+   * once at least one grouped answer (or filled field) exists. When present
+   * it stays disabled until EVERY listed radio/checkbox group has a non-empty
+   * recorded answer (the hint shows the progress).
    */
   groups?: string[]
 }
