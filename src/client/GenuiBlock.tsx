@@ -9,6 +9,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useGenuiAction } from './action-context.ts'
 import css from './GenuiBlock.module.css'
+import './GenuiColorInput.css'
 import { loadBlockState, saveBlockState } from './interaction-store.ts'
 import { recordFence, recordInteraction } from './achievement-store.ts'
 import { renderNode } from './blocks/render-node.tsx'
