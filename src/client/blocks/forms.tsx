@@ -434,6 +434,14 @@ export function InputNode({ node, onAction, answers }: {
       <input
         className={css.input}
         type={node.inputType ?? 'text'}
+        style={node.inputType === 'color' ? {
+          width: 64,
+          height: 40,
+          padding: 4,
+          boxSizing: 'border-box',
+          alignSelf: 'flex-start',
+          cursor: 'pointer',
+        } : undefined}
         placeholder={node.placeholder}
         value={value}
         onChange={e => {
