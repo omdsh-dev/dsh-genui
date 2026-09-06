@@ -24,14 +24,14 @@ import {
   BADGE_TONES, BUTTON_TONES, CALLOUT_TONES, CHART_KINDS, COMPONENT_SCHEMAS, DIAGRAM_EDGE_KINDS,
   DIAGRAM_KINDS, DIAGRAM_NODE_TYPES, DIAGRAM_ROUTES, DIAGRAM_VARIANTS, ECHART_PRESETS, FILE_TYPES,
   GENUI_NATIVE_TYPES, GENUI_SPEC_SCHEMA, INPUT_TYPES, MEDIA_ASPECT_RATIOS, MESH_SHAPES, PLOT_KINDS,
-  TEXT_SIZES, diagnoseUnknownGenuiFields, normalizeGenuiSpec,
-} from './component-schema.ts'
-import type { ComponentFieldKind, ComponentRecordSchema, ComponentSchema, GenuiDiagnostic } from './component-schema.ts'
+  TEXT_SIZES,
+} from './genui-runtime/schema.ts'
+import type { ComponentFieldKind, ComponentRecordSchema, ComponentSchema } from './genui-runtime/schema.ts'
+import { normalizeGenuiSpec } from './genui-runtime/normalize.ts'
+import { diagnoseUnknownGenuiFields } from './genui-runtime/diagnostics.ts'
+import type { GenuiDiagnostic } from './genui-runtime/diagnostics.ts'
 import { GENUI_LIMITS } from './genui-runtime/limits.ts'
 import { color, enu, int, num, obj, opt, safeHref, safeMediaSrc, str } from './genui-runtime/value-utils.ts'
-
-export { COMPONENT_SCHEMAS, GENUI_NATIVE_TYPES, diagnoseUnknownGenuiFields, normalizeGenuiSpec } from './component-schema.ts'
-export type { ComponentFieldKind, ComponentSchema, GenuiDiagnostic } from './component-schema.ts'
 
 /** Result of `validateGenuiSpec`. */
 export interface GenuiValidation {

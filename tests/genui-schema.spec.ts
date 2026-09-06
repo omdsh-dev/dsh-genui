@@ -1,12 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import {
-  COMPONENT_SCHEMAS,
-  diagnoseUnknownGenuiFields,
-  normalizeGenuiSpec,
-  processGenuiSpec,
-  repairGenuiSpec,
-  validateGenuiSpec,
-} from '../src/client/guard.ts'
+import { processGenuiSpec, repairGenuiSpec, validateGenuiSpec } from '../src/client/guard.ts'
+import { COMPONENT_SCHEMAS } from '../src/client/genui-runtime/schema.ts'
+import { normalizeGenuiSpec } from '../src/client/genui-runtime/normalize.ts'
+import { diagnoseUnknownGenuiFields } from '../src/client/genui-runtime/diagnostics.ts'
 import { validateRenderableChartSemantics } from '../src/plugin/chart-contract.ts'
 
 describe('GenUI runtime schema normalization', () => {
