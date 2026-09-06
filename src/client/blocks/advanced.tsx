@@ -1,6 +1,6 @@
 /**
  * Advanced family: callout/steps/keyvalue, plot/diff/json/code, tabs and
- * accordion containers (recursing through renderNode), copy, mermaid,
+ * accordion containers with injected child rendering, copy, mermaid,
  * scene3d, timeline, file-tree, quiz, breadcrumb.
  * @module @changfenhuang/dsh-genui/client/blocks/advanced
  */
@@ -9,11 +9,10 @@ import { CodeBlock, DiffBlock, JsonTree, writeClipboard } from '@deepseek-ai/dsh
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import { PlotBlock } from '../PlotBlock.tsx'
-import { renderNode } from './render-node.tsx'
-import type { AnswersState, GenuiBlockProps } from './state.ts'
+import type { GenuiBlockProps } from './state.ts'
 import type {
   GenuiAccordion, GenuiBreadcrumb, GenuiCallout, GenuiCode, GenuiCopy, GenuiDiff, GenuiFileTree, GenuiFileTreeNode,
-  GenuiJson, GenuiKeyValue, GenuiMermaid, GenuiPlot, GenuiQuiz, GenuiScene3D, GenuiSteps, GenuiTabs, GenuiTimeline,
+  GenuiJson, GenuiKeyValue, GenuiMermaid, GenuiNode, GenuiPlot, GenuiQuiz, GenuiScene3D, GenuiSteps, GenuiTabs, GenuiTimeline,
 } from '../spec.ts'
 
 const CALLOUT_TONES: Record<string, string> = {
@@ -112,11 +111,9 @@ export const CodeNode = memo(function CodeNode({ node }: { node: GenuiCode }) {
  * round trip. Numeric cells (numbers or numeric strings) compare numerically;
  * everything else compares as text.
  */
-export function TabsNode({ tabs, onAction, depth = 0, answers }: {
+export function TabsNode({ tabs, renderChild }: {
   tabs: GenuiTabs
-  onAction?: GenuiBlockProps['onAction']
-  depth?: number
-  answers?: AnswersState | undefined
+  renderChild: (node: GenuiNode, key: number) => ReactNode
 }) {
   const [active, setActive] = useState(0)
   const uid = useId()
@@ -163,7 +160,7 @@ export function TabsNode({ tabs, onAction, depth = 0, answers }: {
       </div>
       {current !== undefined && (
         <div className={css.col} role="tabpanel" id={`${uid}-panel-${safeActive}`} aria-labelledby={`${uid}-tab-${safeActive}`}>
-          {current.items.map((c, i) => renderNode(c, i, onAction, depth + 1, answers))}
+          {current.items.map((c, i) => renderChild(c, i))}
         </div>
       )}
     </div>
@@ -179,11 +176,9 @@ export function TabsNode({ tabs, onAction, depth = 0, answers }: {
  * carry `answer` data) or collects all groups in ONE action. Without
  * `group`, the legacy per-click action fires. After a local grading the
  * group locks until 重新作答 resets it. */
-export function AccordionNode({ node, onAction, depth = 0, answers }: {
+export function AccordionNode({ node, renderChild }: {
   node: GenuiAccordion
-  onAction?: GenuiBlockProps['onAction']
-  depth?: number
-  answers?: AnswersState | undefined
+  renderChild: (node: GenuiNode, key: number) => ReactNode
 }) {
   const [open, setOpen] = useState<number | null>(0)
   const uid = useId()
@@ -205,7 +200,7 @@ export function AccordionNode({ node, onAction, depth = 0, answers }: {
           </button>
           {open === i && (
             <div className={css.accBody} id={`${uid}-body-${i}`} aria-labelledby={`${uid}-head-${i}`}>
-              {item.items.map((c, ci) => renderNode(c, ci, onAction, depth + 1, answers))}
+              {item.items.map((c, ci) => renderChild(c, ci))}
             </div>
           )}
         </div>

@@ -7,8 +7,27 @@ import { useEffect, useId, useRef, useState } from 'react'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import type { AnswersState, GenuiBlockProps, QuestionMeta } from './state.ts'
-import type { GenuiInput, GenuiRadio, GenuiSelect, GenuiSlider, GenuiSubmit, GenuiSwitch, GenuiTextarea } from '../spec.ts'
+import type { GenuiCheckbox, GenuiInput, GenuiRadio, GenuiSelect, GenuiSlider, GenuiSubmit, GenuiSwitch, GenuiTextarea } from '../spec.ts'
 
+
+export function CheckboxNode({ node, onAction }: {
+  node: GenuiCheckbox
+  onAction?: GenuiBlockProps['onAction']
+}) {
+  const action = node.action
+  return (
+    <label className={css.checkbox}>
+      <input
+        type="checkbox"
+        defaultChecked={node.checked === true}
+        onChange={action !== undefined && onAction !== undefined
+? e => onAction(action, { type: 'checkbox', checked: e.currentTarget.checked })
+: undefined}
+      />
+      <span>{node.label}</span>
+    </label>
+  )
+}
 export function RadioNode({ node, onAction, answers }: {
   node: GenuiRadio
   onAction?: GenuiBlockProps['onAction']
