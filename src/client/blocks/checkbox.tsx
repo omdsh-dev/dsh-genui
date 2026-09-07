@@ -23,10 +23,10 @@ export function CheckboxNode({ node, onAction, answers }: {
   const hasRecordedGroup = group !== undefined
     && Object.prototype.hasOwnProperty.call(answers?.multiAnswers ?? {}, group)
   const recorded = group === undefined ? undefined : answers?.multiAnswers[group]
-  const initialChecked = hasRecordedGroup
+  const groupChecked = hasRecordedGroup
     ? Array.isArray(recorded) && recorded.includes(node.label)
     : node.checked === true
-  const [checked, setChecked] = useState(initialChecked)
+  const [checked, setChecked] = useState(node.checked === true)
 
   useEffect(() => {
     if (group === undefined || node.checked !== true || hasRecordedGroup) return
@@ -42,7 +42,7 @@ export function CheckboxNode({ node, onAction, answers }: {
     <label className={css.checkbox}>
       <input
         type="checkbox"
-        checked={checked}
+        checked={grouped ? groupChecked : checked}
         onChange={e => {
           const next = e.currentTarget.checked
           setChecked(next)

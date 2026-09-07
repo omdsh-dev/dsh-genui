@@ -176,4 +176,25 @@ describe('checkbox group aggregation', () => {
     }]])
     expect(container.querySelector('[data-genui-grade]')).toBeNull()
   })
+  it('keeps visible selections and submitted answers aligned after a local reset', () => {
+    const actions: Array<[string, Record<string, unknown>]> = []
+    const spec: GenuiSpec = { items: [
+      { type: 'radio', label: '题目', group: 'q1', options: ['A', 'B'], answer: 'A' },
+      { type: 'submit', label: '交卷', groups: ['q1'] },
+      { type: 'checkbox', label: '附加项', group: 'extras' },
+      { type: 'submit', label: '保存附加项', action: 'save', groups: ['extras'] },
+    ] }
+    const ui = renderWithActions(spec, actions)
+    fireEvent.click(ui.getByLabelText('附加项'))
+    fireEvent.click(ui.container.querySelector('input[type="radio"]')!)
+    fireEvent.click(ui.getByRole('button', { name: '交卷' }))
+    fireEvent.click(ui.getAllByRole('button', { name: '重新作答' })[0]!)
+    expect((ui.getByLabelText('附加项') as HTMLInputElement).checked).toBe(false)
+    expect((ui.getByRole('button', { name: '保存附加项' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(ui.getByLabelText('附加项'))
+    fireEvent.click(ui.getByRole('button', { name: '保存附加项' }))
+    vi.advanceTimersByTime(GENUI_ACTION_DEBOUNCE_MS)
+    expect(actions).toEqual([['save', { type: 'submit', answers: { extras: ['附加项'] }, total: 1, answered: 1 }]])
+  })
+
 })
