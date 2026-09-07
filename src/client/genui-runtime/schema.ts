@@ -58,7 +58,7 @@ export interface ComponentSchema {
 export const TEXT_SIZES = ['h1', 'h2', 'h3', 'body', 'muted', 'caption'] as const
 export const BUTTON_TONES = ['primary', 'danger', 'success', 'ghost'] as const
 export const BADGE_TONES = ['success', 'warn', 'danger', 'accent'] as const
-export const INPUT_TYPES = ['text', 'email', 'password'] as const
+export const INPUT_TYPES = ['text', 'email', 'password', 'color'] as const
 export const CALLOUT_TONES = ['info', 'success', 'warning', 'error'] as const
 export const CHART_KINDS = ['bars', 'line', 'donut'] as const
 export const PLOT_KINDS = ['line', 'area', 'scatter'] as const

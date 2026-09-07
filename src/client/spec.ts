@@ -104,7 +104,7 @@ export interface GenuiInput {
   label?: string
   placeholder?: string
   value?: string
-  inputType?: 'text' | 'email' | 'password'
+  inputType?: 'text' | 'email' | 'password' | 'color'
   /** v2: when set, interaction sends this action back to the model. */
   action?: string
   /**

@@ -399,8 +399,13 @@ export function InputNode({ node, onAction, answers }: {
   const restored = !secret && id !== undefined ? answers?.fields[id] : undefined
   // Initial value: durable state wins over the spec default. Secrets always
   // restore as blank so a password can never survive a refresh.
-  const [value, setValue] = useState<string>(() =>
-    secret ? '' : (restored ?? node.value ?? ''))
+  const [value, setValue] = useState<string>(() => {
+    const initial = secret ? '' : (restored ?? node.value ?? '')
+    // Match the native color input's opaque hex value, including its black default.
+    return node.inputType === 'color'
+      ? /^#[0-9a-f]{6}$/i.test(initial) ? initial.toLowerCase() : '#000000'
+      : initial
+  })
   // Last value actually DELIVERED to the model: blur only sends when the
   // value changed since the last delivery (a focus-in/focus-out with no edit
   // used to fire a pointless action round trip). Seeded with the mount value
@@ -413,13 +418,13 @@ export function InputNode({ node, onAction, answers }: {
     }
   }
   const ime = useImeComposing()
-  // Register a non-blank spec default only when no durable value already exists.
+  // Register the displayed initial value, including the native color default.
   const mounted = useRef(false)
   useEffect(() => {
     if (mounted.current) return
     mounted.current = true
-    if (!secret && id !== undefined && restored === undefined && node.value !== undefined && node.value.trim() !== '') {
-      answers?.setField(id, node.value)
+    if (!secret && id !== undefined && value.trim() !== '') {
+      answers?.setField(id, value)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -434,6 +439,14 @@ export function InputNode({ node, onAction, answers }: {
       <input
         className={css.input}
         type={node.inputType ?? 'text'}
+        style={node.inputType === 'color' ? {
+          width: 64,
+          height: 40,
+          padding: 4,
+          boxSizing: 'border-box',
+          alignSelf: 'flex-start',
+          cursor: 'pointer',
+        } : undefined}
         placeholder={node.placeholder}
         value={value}
         onChange={e => {
