@@ -74,15 +74,13 @@ function specEquivalent(a: GenuiSpec, b: GenuiSpec): boolean {
 function GenuiBlockInstance({ spec, stateKey }: GenuiBlockProps) {
   const gap = spec.gap ?? 16
   const onAction = useDebouncedAction(useGenuiAction())
-  // v2.5/v2.6 answers registry: grouped radios record selections + question
-  // metadata here; `submit` nodes grade locally (locked until 重新作答) or
-  // collect into one action. Block-local state survives re-renders (streaming
-  // settle, panel updates) — selections persist while the block is mounted.
-  // v2.7 durability: with a stateKey the state ALSO survives refresh/reopen —
-  // loaded once at mount (seed for re-renders of the same content) and saved
-  // on every change.
+  // Grouped radios and grouped checkboxes record their local selections here;
+  // `submit` either grades radio-only papers locally or aggregates all form
+  // state into one action. Block-local state survives streaming/panel
+  // re-renders, and with a stateKey it also survives refresh/reopen.
   const [persisted] = useState(() => (stateKey === undefined ? null : loadBlockState(stateKey)))
   const [answers, setAnswers] = useState<Record<string, string>>(persisted?.answers ?? {})
+  const [multiAnswers, setMultiAnswers] = useState<Record<string, string[]>>(persisted?.multiAnswers ?? {})
   const [fields, setFields] = useState<Record<string, string>>(persisted?.fields ?? {})
   const [meta, setMeta] = useState<Record<string, QuestionMeta>>({})
   const [locked, setLocked] = useState(persisted?.locked === true)
@@ -93,6 +91,22 @@ function GenuiBlockInstance({ spec, stateKey }: GenuiBlockProps) {
   const [secretFields, setSecretFields] = useState<ReadonlySet<string>>(new Set())
   const setAnswer = useCallback((group: string, choice: string) => {
     setAnswers(prev => (prev[group] === choice ? prev : { ...prev, [group]: choice }))
+  }, [])
+  const setMultiAnswer = useCallback((group: string, choice: string, checked: boolean) => {
+    setMultiAnswers(prev => {
+      const current = prev[group] ?? []
+      const next = checked
+        ? current.includes(choice) ? current : [...current, choice]
+        : current.filter(item => item !== choice)
+      const hadGroup = Object.prototype.hasOwnProperty.call(prev, group)
+      if (hadGroup && next.length === current.length && next.every((item, index) => item === current[index])) {
+        return prev
+      }
+      // Keep an explicit empty array: it distinguishes "user cleared this
+      // group" from "group never had local state", so checked defaults do not
+      // reappear after a refresh.
+      return { ...prev, [group]: next }
+    })
   }, [])
   const setField = useCallback((id: string, value: string) => {
     // Field invariant: a blank (trim-empty) value leaves the shared registry.
@@ -119,15 +133,16 @@ function GenuiBlockInstance({ spec, stateKey }: GenuiBlockProps) {
   }, [])
   const clear = useCallback(() => {
     setAnswers({})
+    setMultiAnswers({})
     setLocked(false)
     setRound(r => r + 1) // radios remount (key carries the round) with clean selections
   }, [])
   const answersState = useMemo<AnswersState>(
     () => ({
-      answers, fields, secretFields, meta, locked, round,
-      setAnswer, setField, registerSecretField, registerMeta, clear, setLocked,
+      answers, multiAnswers, fields, secretFields, meta, locked, round,
+      setAnswer, setMultiAnswer, setField, registerSecretField, registerMeta, clear, setLocked,
     }),
-    [answers, fields, secretFields, meta, locked, round, setAnswer, setField, registerSecretField, registerMeta, clear],
+    [answers, multiAnswers, fields, secretFields, meta, locked, round, setAnswer, setMultiAnswer, setField, registerSecretField, registerMeta, clear],
   )
   // Achievement telemetry: every emitted action counts as one interaction
   // (the debounced emit fires once per real user action).
@@ -148,12 +163,13 @@ function GenuiBlockInstance({ spec, stateKey }: GenuiBlockProps) {
       )
       saveBlockState(stateKey, {
         answers,
+        ...(Object.keys(multiAnswers).length > 0 ? { multiAnswers } : {}),
         locked,
         ...(Object.keys(safeFields).length > 0 ? { fields: safeFields } : {}),
       })
     }, 300)
     return () => clearTimeout(timer)
-  }, [stateKey, answers, locked, fields, secretFields])
+  }, [stateKey, answers, multiAnswers, locked, fields, secretFields])
   // Achievement telemetry (0.9.5): the store dedupes by spec fingerprint, so
   // streaming re-renders and replays count once per distinct content.
   useEffect(() => {

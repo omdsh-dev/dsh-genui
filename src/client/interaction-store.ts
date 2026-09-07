@@ -1,6 +1,7 @@
 /**
  * Interaction-state store: durable per-block GenUI interaction state
- * (radio answers, submit lock, input/textarea values) in localStorage.
+ * (radio answers, checkbox groups, submit lock, input/textarea values) in
+ * localStorage.
  *
  * LOCAL-FIRST persistence: a ```dsh-ui block's interactive state survives
  * page refresh and session reopen because it is keyed by
@@ -10,7 +11,7 @@
  * share state because their content fingerprints differ.
  *
  * Bounded: at most MAX_BLOCKS entries, LRU-evicted on write; each block's
- * payload is small (answers map + a few field values).
+ * payload is small (answer maps + a few field values).
  * @module @changfenhuang/dsh-genui/client/interaction-store
  */
 
@@ -18,6 +19,10 @@
 export interface BlockInteractionState {
   /** group → chosen option label (radio aggregation answers). */
   answers?: Record<string, string>
+  /** group → chosen option labels (checkbox aggregation answers). Empty arrays
+   * are retained so an explicitly cleared group wins over `checked` defaults
+   * after refresh. */
+  multiAnswers?: Record<string, string[]>
   /** True after a local grading: the paper stays graded across refresh. */
   locked?: boolean
   /** field id → current value (input/textarea with an `id`). */
