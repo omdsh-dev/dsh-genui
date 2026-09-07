@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { hasFenceRegistry } from './setup'
 import { GenuiActionContext } from '../src/client/action-context.ts'
 import { GENUI_ACTION_DEBOUNCE_MS } from '../src/client/GenuiBlock.tsx'
 import { GenuiBlock } from '../src/client/GenuiBlock.tsx'
@@ -36,7 +35,7 @@ describe('input color runtime schema', () => {
   })
 })
 
-describe.skipIf(!hasFenceRegistry)('input color rendering and submit collection', () => {
+describe('input color rendering and submit collection', () => {
   it('renders the native color input and collects its value into fields', () => {
     const onAction = vi.fn()
     const spec = {
@@ -66,4 +65,37 @@ describe.skipIf(!hasFenceRegistry)('input color rendering and submit collection'
       fields: { c_primary: '#ff0000' },
     }))
   })
+  it.each([undefined, '', 'red', '#ABCDEF'])('submits the displayed initial color %s', initial => {
+    const onAction = vi.fn()
+    const expected = initial === '#ABCDEF' ? '#abcdef' : '#000000'
+    const spec = { items: [
+      { type: 'input', inputType: 'color', label: '主色', id: 'c_primary', value: initial },
+      { type: 'submit', label: '提交', action: 'send' },
+    ] }
+    render(<GenuiActionContext.Provider value={onAction}><GenuiBlock spec={spec as never} /></GenuiActionContext.Provider>)
+    expect((screen.getByLabelText('主色') as HTMLInputElement).value).toBe(expected)
+    expect((screen.getByRole('button', { name: '提交' }) as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: '提交' }))
+    vi.advanceTimersByTime(GENUI_ACTION_DEBOUNCE_MS)
+    expect(onAction).toHaveBeenCalledWith('send', expect.objectContaining({ fields: { c_primary: expected } }))
+  })
+
+  it('restores the user color ahead of the model default', () => {
+    const onAction = vi.fn()
+    const spec = { items: [
+      { type: 'input', inputType: 'color', label: '主色', id: 'c_primary', value: '#112233' },
+      { type: 'submit', label: '提交', action: 'send' },
+    ] }
+    const panel = <GenuiActionContext.Provider value={onAction}><GenuiBlock spec={spec as never} stateKey="color-restore" /></GenuiActionContext.Provider>
+    const first = render(panel)
+    fireEvent.change(screen.getByLabelText('主色'), { target: { value: '#ff0000' } })
+    vi.advanceTimersByTime(300)
+    first.unmount()
+    render(panel)
+    expect((screen.getByLabelText('主色') as HTMLInputElement).value).toBe('#ff0000')
+    fireEvent.click(screen.getByRole('button', { name: '提交' }))
+    vi.advanceTimersByTime(GENUI_ACTION_DEBOUNCE_MS)
+    expect(onAction).toHaveBeenCalledWith('send', expect.objectContaining({ fields: { c_primary: '#ff0000' } }))
+  })
+
 })
