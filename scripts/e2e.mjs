@@ -267,7 +267,7 @@ try {
     await logTail()
     fail('未找到可点击的「新会话」入口')
   }
-  await page.waitForTimeout(1500)
+  await page.getByText('dsh-genui-e2e', { exact: true }).first().click()
 
   // 使用宿主公开标记定位可编辑输入区，等待会话初始化完成。
   await page.waitForFunction(() => {
