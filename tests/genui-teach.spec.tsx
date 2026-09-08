@@ -27,7 +27,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 import { vi } from 'vitest'
-import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MarkdownText } from './markdown-labels.tsx'
 
 afterEach(cleanup)
 

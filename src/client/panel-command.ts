@@ -15,7 +15,8 @@
  * re-run render_ui) or through another /panel.
  */
 import type { InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
-import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { GenuiSpec } from './spec.ts'
 import { requestPanelExpand, setLocalPanel } from './panel-store.ts'
 

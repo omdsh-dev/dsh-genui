@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -66,6 +66,20 @@ describe('genui:fence section', () => {
     // The section lands among the tool-guidance band, not at the harness identity head.
     const index = names.indexOf('genui:fence')
     expect(index).toBeGreaterThan(0)
+  })
+
+  it('uses the named host order and deterministic tie-break for structured output', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    const order = ctx.systemPrompt.getSectionOrder('STRUCTURED_OUTPUT')
+    const getSectionOrder = vi.spyOn(ctx.systemPrompt, 'getSectionOrder')
+    ctx.systemPrompt.section({ name: 'aaa:structured-output', order, text: 'before' })
+
+    await ctx.plugin(GenUI)
+    const names = (await ctx.systemPrompt.assemble({})).sections.map(section => section.name)
+
+    expect(getSectionOrder).toHaveBeenCalledWith('STRUCTURED_OUTPUT')
+    expect(names.indexOf('aaa:structured-output')).toBeLessThan(names.indexOf('genui:fence'))
   })
 
   it('registers the render_ui tool when the tools service exists', async () => {

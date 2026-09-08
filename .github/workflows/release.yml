@@ -87,8 +87,8 @@ jobs:
             fi
           fi
 
-      # Match the existing CI environment: plugin typecheck/build resolves the
-      # DSH source tree from ../../.dsh/source/current.
+      # Host checkout is used by the real packed e2e mount; package checks use
+      # node_modules declarations pinned to DSH 0.1.2-rc.1.
       - name: Clone DSH host
         shell: bash
         run: |
@@ -99,7 +99,6 @@ jobs:
             echo "::error::DSH host preflight failed: ui-primitives source is missing"
             exit 1
           }
-          echo "DSH_ROOT=$DSH_ROOT" >> "$GITHUB_ENV"
 
       - name: Install and build DSH host
         working-directory: ${{ github.workspace }}/../../.dsh/source/current
@@ -113,14 +112,15 @@ jobs:
       - name: Check
         run: pnpm run check
 
-      - name: Verify package
-        run: node scripts/verify-pack.mjs
+      - name: Verify and pack plugin tarball
+        id: pack
+        run: node scripts/verify-pack.mjs --keep
 
       - name: Smoke selected release channel
-        run: node scripts/e2e.mjs --smoke --install link --port 3190
+        run: node scripts/e2e.mjs --smoke --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
         env:
           DSH_ROOT: ${{ github.workspace }}/../../.dsh/source/current
           DSH_BIN: ${{ github.workspace }}/../../.dsh/source/current/apps/cli/lib/bin.js
 
       - name: Publish to npm
-        run: npm publish --access public --tag "${{ steps.release.outputs.npm_tag }}"
+        run: npm publish "${{ steps.pack.outputs.tarball }}" --access public --tag "${{ steps.release.outputs.npm_tag }}"

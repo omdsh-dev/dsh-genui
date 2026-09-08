@@ -17,7 +17,7 @@
  *   --install npm     从公开 npm 包安装
  *   --install tarball 必须给 --tarball 绝对路径与 --tarball-sha256（防假安装）
  *   --smoke           不要求模型 Key：安装 → 启动 → 首页/client.js 200 →
- *                     无页面异常 → 插件 boot；不跑模型链路
+ *                     无页面异常 → 插件 boot → Diff/Code/JSON 渲染与复制；不跑模型链路
  * 退出码 0 = PASS，1 = FAIL。
  */
 
@@ -146,10 +146,10 @@ try {
   await writeFile(join(DSH_HOME, 'storages/workspace.json'), JSON.stringify(workspaceReg, null, 2))
 
   const hostSettings = join(homedir(), '.dsh/settings.yaml')
-  if (existsSync(hostSettings)) {
+  if (!SMOKE && existsSync(hostSettings)) {
     await copyFile(hostSettings, join(DSH_HOME, 'settings.yaml'))
     log('已复制模型配置 settings.yaml')
-  } else {
+  } else if (!SMOKE) {
     log('警告: 未找到 ~/.dsh/settings.yaml，模型可能不可用')
   }
 
@@ -182,7 +182,7 @@ try {
   // ── 浏览器链路 ──────────────────────────────────────────────────────────
   const { chromium } = await import(pathToFileURL(join(DSH_ROOT, 'apps/web/node_modules/playwright/index.mjs')).href)
   const browser = await chromium.launch({ channel: 'chrome', headless: true })
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } })
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1200 }, locale: 'zh-CN', permissions: ['clipboard-read', 'clipboard-write'] })
   const pageErrors = []
   const pageMessages = []
   page.on('console', message => pageMessages.push(message.text()))
@@ -218,7 +218,40 @@ try {
   }
 
   if (SMOKE) {
-    log('smoke 模式：安装 → 登录 → 启动图资源 200 → 无页面异常 → 插件 boot 均通过')
+    // Fresh keyless profiles follow the host's normal two-step onboarding.
+    await page.getByRole('button', { name: '继续', exact: true }).click()
+    await page.getByRole('button', { name: '稍后配置', exact: true }).click()
+    // Reuse the visual smoke's DOM fence channel with a deterministic primitive fixture.
+    // This exercises the installed tarball against the actual host, without a model call.
+    await page.evaluate(() => {
+      const fixture = document.createElement('div')
+      fixture.setAttribute('data-primitives-smoke', '')
+      const host = document.createElement('div')
+      host.className = 'md-code-block'
+      const label = document.createElement('div')
+      label.textContent = 'dsh-ui'
+      const pre = document.createElement('pre')
+      const code = document.createElement('code')
+      code.textContent = JSON.stringify({ items: [
+        { type: 'diff', diffs: [{ path: 'smoke.txt', oldText: 'before', newText: 'after' }] },
+        { type: 'code', lang: 'text', code: 'primitive smoke' },
+        { type: 'json', value: { answer: 42 } },
+      ] })
+      pre.appendChild(code)
+      host.append(label, pre)
+      fixture.appendChild(host)
+      document.body.appendChild(fixture)
+    })
+    const rendered = page.locator('[data-primitives-smoke] [data-genui]')
+    await rendered.locator('[data-diff]').waitFor({ state: 'visible' })
+    await rendered.locator('[data-json-root-row]').waitFor({ state: 'visible' })
+    if (!(await rendered.locator('[data-diff]').textContent()).includes('复制')) {
+      throw new Error('DiffBlock 缺少复制文案')
+    }
+    await rendered.locator('.md-code-block button').click()
+    await page.waitForFunction(async () => await navigator.clipboard.readText() === 'primitive smoke')
+    if (pageErrors.length > 0) throw new Error(`组件渲染异常: ${pageErrors.join(' | ')}`)
+    log('smoke 模式：安装、激活、Diff/Code/JSON 真实渲染及复制均通过')
     await browser.close()
     await cleanup()
     console.log('PASS smoke e2e（不消耗模型额度）')

@@ -6,7 +6,7 @@
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { hasFenceRegistry } from './setup'
-import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MarkdownText } from './markdown-labels.tsx'
 import { gallerySpec } from '../src/client/gallery.ts'
 import { repairGenuiSpec } from '../src/client/guard.ts'
 import { GENUI_LIMITS } from '../src/client/genui-runtime/index.ts'
