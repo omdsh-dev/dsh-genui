@@ -5,7 +5,7 @@
 // contract of interactive components.
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { hasFenceRegistry } from './setup'
+import { hasFenceRegistry } from './helpers/fence-host'
 import { MarkdownText } from './markdown-labels.tsx'
 import { GENUI_LIMITS } from '../src/client/genui-runtime/index.ts'
 

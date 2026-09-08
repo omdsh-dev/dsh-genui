@@ -2,7 +2,7 @@
 // Plot param slider must re-sample the curve live (the v2 headline feature).
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { hasFenceRegistry } from './setup'
+import { hasFenceRegistry } from './helpers/fence-host'
 import { MarkdownText } from './markdown-labels.tsx'
 
 afterEach(cleanup)
