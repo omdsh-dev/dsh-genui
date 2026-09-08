@@ -146,10 +146,10 @@ try {
   await writeFile(join(DSH_HOME, 'storages/workspace.json'), JSON.stringify(workspaceReg, null, 2))
 
   const hostSettings = join(homedir(), '.dsh/settings.yaml')
-  if (existsSync(hostSettings)) {
+  if (!SMOKE && existsSync(hostSettings)) {
     await copyFile(hostSettings, join(DSH_HOME, 'settings.yaml'))
     log('已复制模型配置 settings.yaml')
-  } else {
+  } else if (!SMOKE) {
     log('警告: 未找到 ~/.dsh/settings.yaml，模型可能不可用')
   }
 
@@ -182,7 +182,7 @@ try {
   // ── 浏览器链路 ──────────────────────────────────────────────────────────
   const { chromium } = await import(pathToFileURL(join(DSH_ROOT, 'apps/web/node_modules/playwright/index.mjs')).href)
   const browser = await chromium.launch({ channel: 'chrome', headless: true })
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1200 }, permissions: ['clipboard-read', 'clipboard-write'] })
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1200 }, locale: 'zh-CN', permissions: ['clipboard-read', 'clipboard-write'] })
   const pageErrors = []
   const pageMessages = []
   page.on('console', message => pageMessages.push(message.text()))
@@ -218,8 +218,9 @@ try {
   }
 
   if (SMOKE) {
-    const configureLater = page.getByRole('button', { name: '稍后配置', exact: true })
-    if (await configureLater.isVisible()) await configureLater.click()
+    // Fresh keyless profiles follow the host's normal two-step onboarding.
+    await page.getByRole('button', { name: '继续', exact: true }).click()
+    await page.getByRole('button', { name: '稍后配置', exact: true }).click()
     // Reuse the visual smoke's DOM fence channel with a deterministic primitive fixture.
     // This exercises the installed tarball against the actual host, without a model call.
     await page.evaluate(() => {
