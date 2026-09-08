@@ -2,7 +2,7 @@
 // Teaching components: quiz judging, plot animation bar, reset, staggered reveal.
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { hasFenceRegistry } from './setup'
+import { hasFenceRegistry } from './helpers/fence-host'
 
 // jsdom 没有真正的 requestAnimationFrame 循环；用可控 mock 手动推进帧。
 let rafCallbacks: Array<(t: number) => void> = []
