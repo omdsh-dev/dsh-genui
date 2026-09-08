@@ -3,20 +3,24 @@ import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GenuiDiff } from '../src/client/spec.ts'
 
-const { diffBlockSpy } = vi.hoisted(() => ({ diffBlockSpy: vi.fn() }))
+const diffBlockSpy = vi.fn()
 
-vi.mock('@deepseek-ai/dsh-client-ui-primitives', async importOriginal => {
-  const actual = await importOriginal<typeof import('@deepseek-ai/dsh-client-ui-primitives')>()
-  return {
-    ...actual,
-    DiffBlock: (props: unknown) => {
-      diffBlockSpy(props)
-      return null
-    },
-  }
-})
-
-import { DiffNode } from '../src/client/blocks/advanced.tsx'
+async function importDiffNodeWithMock() {
+  vi.resetModules()
+  vi.doMock('@deepseek-ai/dsh-client-ui-primitives', async () => {
+    const actual = await vi.importActual<typeof import('@deepseek-ai/dsh-client-ui-primitives')>(
+      '@deepseek-ai/dsh-client-ui-primitives',
+    )
+    return {
+      ...actual,
+      DiffBlock: (props: unknown) => {
+        diffBlockSpy(props)
+        return null
+      },
+    }
+  })
+  return import('../src/client/blocks/advanced.tsx')
+}
 
 afterEach(() => {
   cleanup()
@@ -24,7 +28,8 @@ afterEach(() => {
 })
 
 describe('DiffBlock host compatibility', () => {
-  it('passes the labels required by newer dsh primitives', () => {
+  it('passes the labels required by newer dsh primitives', async () => {
+    const { DiffNode } = await importDiffNodeWithMock()
     const node = {
       type: 'diff',
       diffs: [{ path: 'a.txt', oldText: 'x', newText: 'y' }],
