@@ -87,9 +87,38 @@ export const PlotNode = memo(function PlotNode({ plot }: { plot: GenuiPlot }) {
   )
 })
 
+type DiffBlockLabelsCompat = {
+  copy: string
+  copied: string
+  collapseAria: string
+  expandAria: (hidden: number) => string
+  collapse: string
+  expand: (hidden: number) => string
+  files: (count: number) => string
+}
+
+/**
+ * dsh 0.1.2-rc.1 moved DiffBlock chrome text into a required `labels` prop.
+ * Keep the old dsh-genui wording here so one renderer works with both the
+ * legacy primitive (which simply ignores this extra prop) and newer hosts.
+ */
+const DIFF_BLOCK_LABELS: DiffBlockLabelsCompat = {
+  copy: '复制',
+  copied: '复制成功',
+  collapseAria: '收起差异',
+  expandAria: hidden => `展开其余 ${hidden} 行差异`,
+  collapse: '收起',
+  expand: hidden => `… 其余 ${hidden} 行`,
+  files: count => `${count} file${count === 1 ? '' : 's'}`,
+}
+
 /** Diff: 收编 dsh DiffBlock (same path/oldText/newText shape as DiffHunk). */
 export const DiffNode = memo(function DiffNode({ node }: { node: GenuiDiff }) {
-  return <DiffBlock diffs={node.diffs} />
+  // Spread from a named value on purpose: old peer typings do not declare
+  // `labels`, while new peer typings require it. Structurally this satisfies
+  // both without pinning dsh-genui to one host release.
+  const props = { diffs: node.diffs, labels: DIFF_BLOCK_LABELS }
+  return <DiffBlock {...props} />
 })
 
 /** Json: 收编 dsh JsonTree. */
