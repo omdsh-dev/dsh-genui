@@ -11,8 +11,20 @@ async function importDiffNodeWithMock() {
     const actual = await vi.importActual<typeof import('@deepseek-ai/dsh-client-ui-primitives')>(
       '@deepseek-ai/dsh-client-ui-primitives',
     )
+
+    const getGenuiComponent = (
+      actual as typeof actual & {
+        getGenuiComponent?: unknown
+      }
+    ).getGenuiComponent
+
     return {
       ...actual,
+
+      // Vitest mock 必须显式声明这个可选 host export。
+      // 老版 host 为 undefined，新版 host 则保留真实实现。
+      getGenuiComponent,
+
       DiffBlock: (props: unknown) => {
         diffBlockSpy(props)
         return null
