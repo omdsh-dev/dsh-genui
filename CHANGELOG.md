@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### 兼容性
-- 下一版 dsh-genui 的 DSH 支持范围为 `^0.1.2-rc.1`。使用 DSH `<=0.1.1-rc.x` 的用户请固定使用 dsh-genui `0.9.8`。
+- 下一版 dsh-genui 的 DSH 支持范围为 `^0.1.2-rc.1 || ^0.1.3-alpha.1`。使用 DSH `<=0.1.1-rc.x` 的用户请固定使用 dsh-genui `0.9.8`。
 
 ### 修复
 - **Diff 组件适配 rc.1（issue #113）**：为 dsh `DiffBlock`、`CodeBlock` 与 `JsonTree` 补齐调用方负责的中文 labels，并覆盖复制交互，避免 rc.1 必填文案遗漏导致类型检查失败或界面出现 `undefined`。
