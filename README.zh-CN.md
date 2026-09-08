@@ -74,7 +74,7 @@ https://github.com/user-attachments/assets/f5db33ec-7471-4d4a-a85b-79c9962ab4ef
 本插件自带**两套渲染通道**；宿主激活浏览器模块后，插件会自动选择：
 
 - **Registry 通道**：宿主提供 `fence-registry` 扩展点（新版 dsh 构建）时，围栏经宿主流式渲染管线注册，行为与宿主无缝；
-- **DOM 通道**：宿主没有该扩展点（包括原版 DSH 与旧版构建）时，插件观察会话 DOM 自行挂载渲染树。自 0.7.2 起**支持流式渲染**：模型写到哪渲染到哪，首个完成的组件立即出现，不用等整段回复写完。自 0.8.3 起围栏发现**多表面兼容**：同时匹配标准 `md-code-block` 表面、部分宿主构建使用的 deepsuite 风格 `.code-block` / `.code-block-small` 表面，并以「label+`<pre>`」结构兜底——任何 banner 标注 `dsh-ui` 且含 `<pre>` 正文的元素都能被识别。即使你的 dsh 构建用了别的类名，围栏照常渲染（控制台会有一条一次性提示说明宿主 DOM 发生漂移）。
+- **DOM 通道**：宿主没有该扩展点（包括支持范围内的原版 DSH 构建）时，插件观察会话 DOM 自行挂载渲染树。自 0.7.2 起**支持流式渲染**：模型写到哪渲染到哪，首个完成的组件立即出现，不用等整段回复写完。自 0.8.3 起围栏发现**多表面兼容**：同时匹配标准 `md-code-block` 表面、部分宿主构建使用的 deepsuite 风格 `.code-block` / `.code-block-small` 表面，并以「label+`<pre>`」结构兜底——任何 banner 标注 `dsh-ui` 且含 `<pre>` 正文的元素都能被识别。即使你的 dsh 构建用了别的类名，围栏照常渲染（控制台会有一条一次性提示说明宿主 DOM 发生漂移）。
 
 无论走哪条通道，组件、交互、面板、持久化行为完全一致。
 
@@ -93,7 +93,7 @@ https://github.com/user-attachments/assets/f5db33ec-7471-4d4a-a85b-79c9962ab4ef
 
 前置条件，缺一不可：
 
-1. **dsh 已安装**（开源版任意构建均可——插件启动时自动选择渲染通道，见上文「双通道渲染」）
+1. **dsh `^0.1.2-rc.1`**（下一版 dsh-genui 要求这一 DSH 发布线；使用 DSH `<=0.1.1-rc.x` 的用户请使用 dsh-genui `0.9.8`）
 2. **`pnpm` 在 PATH 上**：`dsh plugin` 命令依赖它。没有就 `corepack enable`（或 `npm i -g pnpm`），然后**新开一个终端**，确认 `pnpm -v` 有输出
 
 安装并在 DSH 中激活（一行命令，自动带上全部依赖）：
@@ -221,7 +221,7 @@ dsh plugin --profile web add link:$PWD
 ## ❓ 常见问题
 
 - **显示成代码块？** 先在浏览器控制台找 `[genui] client active; fence-channel=registry|dom`。没有这行，即使 `client.js` 返回 200，也只是下载了文件、没有激活：请对齐网页配置依赖名、`package.json.name`、`cordis.patch.yml`、ModuleLoader id 和配置中的 bundle 名。出现这行后再查围栏标签/正文；宿主没有 registry 时会自动走 DOM 通道。
-- **渲染 dsh-ui fence 时聊天界面白屏？** dsh 版本太旧——先更新 dsh 再重装插件。
+- **渲染 dsh-ui fence 时聊天界面白屏？** 此版 dsh-genui 要求 DSH `^0.1.2-rc.1`；使用 DSH `<=0.1.1-rc.x` 的用户请使用 dsh-genui `0.9.8`。
 - **`dsh: pnpm not found on PATH`？** 装 pnpm 后**新开终端**再试（`corepack enable` 或 `npm i -g pnpm`）。
 - **npm 安装返回 404？** npm 包是公开的，无需登录。先执行 `npm view @changfenhuang/dsh-genui version` 核对包名与公共 registry；若新版本刚发布仍返回 404，稍后重试。
 - **装了但 scene3d/mermaid/echarts 不渲染？** 引擎（mermaid / three / echarts）不再内联进 client.js——它们在首次用到时按需加载（`/plugins/@changfenhuang/dsh-genui/assets/*.js`，插件自带 HTTP 路由托管）。先重启 dsh web + 硬刷新（Cmd+Shift+R）；仍不渲染就卸掉重装（`dsh plugin --profile web remove @changfenhuang/dsh-genui` 后再 add）。旧版宿主缺少资产路由时会降级显示源码/加载失败提示，更新 dsh 即可。
@@ -235,26 +235,32 @@ pnpm install
 pnpm run check   # 类型检查 + 全量测试 + 构建
 ```
 
+安装锁定依赖后，检查脚本（`pnpm run check` 或 `npm run check`）使用固定的 DSH `0.1.2-rc.1` 发布包。
+
+运行 `node scripts/verify-pack.mjs --keep` 可保留已验收的 tarball，便于检查或运行 e2e；默认的 `node scripts/verify-pack.mjs` 会在验收后清理临时目录。
+
 ### 真机 e2e
 
 真实链路验证：起一个临时 dsh web → 装上插件 → 浏览器里发消息让模型输出 `dsh-ui` fence → 断言渲染 → 点击 action 按钮 → 断言模型响应（事件循环闭环）：
 
 ```sh
+export DSH_ROOT=/path/to/deepseek-harness-0.1.2-rc.1
+export DSH_BIN="$DSH_ROOT/apps/cli/lib/bin.js"
 DEEPSEEK_API_KEY=sk-... node scripts/e2e.mjs          # link 安装当前工作区
 ```
 
-前置：`dsh`/`pnpm` 在 PATH、`DEEPSEEK_API_KEY`、主仓 web 构建产物（playwright 从主仓解析）。PASS 时保存 `e2e-final.png` 截图。
+先构建 DSH `0.1.2-rc.1` checkout。按上面的示例将 `DSH_ROOT` 指向该 checkout，将 `DSH_BIN` 指向其中的 `apps/cli/lib/bin.js`；另需准备 `pnpm`、`DEEPSEEK_API_KEY` 和主仓 web 构建产物。PASS 时保存 `e2e-final.png` 截图。
 
 ### 视觉 e2e（无需模型 key）
 
-样式/组件迭代用：起真实 dsh web + link 安装插件 → 通过 DOM 通道注入组件画廊围栏 → headless Chrome 全页截图 + 本地交互（表格排序 / 判题 / 目录折叠 / 数值对齐）硬断言，不需要任何模型额度：
+样式/组件迭代用：使用 DSH `0.1.2-rc.1` checkout 起真实 dsh web + link 安装插件 → 通过 DOM 通道注入组件画廊围栏 → headless Chrome 全页截图 + 本地交互（表格排序 / 判题 / 目录折叠 / 数值对齐）硬断言，不需要任何模型额度。运行前按上面的示例将 `DSH_ROOT` 和 `DSH_BIN` 指向该 checkout：
 
 ```sh
 npx tsx scripts/e2e-visual.mts          # → .e2e-artifacts/gallery.png + interactions.png
 npx tsx scripts/e2e-visual.mts --keep   # 保留 scratch DSH_HOME 便于排查
 ```
 
-可覆盖：`--port 3098`、`--out <dir>`、`DSH_BIN`（默认 npm 生产模式 `~/node_modules/.bin/dsh`）、`PLAYWRIGHT_PATH`（默认全局 playwright-core）。
+可覆盖：`--port 3098`、`--out <dir>`、`DSH_BIN`（设为 DSH `0.1.2-rc.1` checkout 内的 `apps/cli/lib/bin.js`）、`PLAYWRIGHT_PATH`（默认全局 playwright-core）。
 
 ## 🗺️ Roadmap（已评估项）
 
@@ -264,8 +270,6 @@ npx tsx scripts/e2e-visual.mts --keep   # 保留 scratch DSH_HOME 便于排查
 | action 防抖/去重 | ✅ 已做（300ms 尾沿，按 action 名独立） | 连点刷屏是真实摩擦，收口点一处改动 |
 | 跨会话状态持久化（回放恢复 tabs/开关） | 不做 | 回放重置是更正确的默认行为（模型已用新 fence 更新过界面）；流式期间状态天然保留 |
 | MCP 适配器 / 独立画廊页 / i18n | 不做 | 无跨工具需求信号；画廊素材已被 `gallery.ts` + demo-prompts + README 截图覆盖；内置文案仅 6 处 |
-
-单元测试和构建直接使用锁定的 dsh rc.8 发布包；只有源码级或端到端检查才需要设置 `DSH_ROOT`。
 
 ## 🔗 友情链接
 

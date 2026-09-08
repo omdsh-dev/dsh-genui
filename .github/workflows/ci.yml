@@ -10,13 +10,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # latest 必须继续兼容已发布 rc；preview 才能依赖 alpha 契约。
         # 宿主发布新版本时显式更新这里，禁止跟随可变的 master 冒充验收。
         include:
           - node: 22
             host-ref: "dsh-v0.1.2-rc.1"
           - node: 24
-            host-ref: "dsh-v0.1.3-alpha.1"
+            host-ref: "dsh-v0.1.2-rc.1"
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -30,9 +29,8 @@ jobs:
         with:
           version: 11.7.0
 
-      # 宿主 checkout 统一落在 $GITHUB_WORKSPACE/../../.dsh/source/current
-      # （= $GITHUB_WORKSPACE 的规范化父级 .dsh）——这样 vitest alias 与
-      # tsconfig paths 里 `../../.dsh/...` 的相对解析在 GitHub 上同样成立。
+      # 宿主 checkout 供真实 packed e2e 挂载；类型检查、测试和构建使用
+      # node_modules 中锁定的 DSH 0.1.2-rc.1 发布声明，不从宿主源码解析。
       - name: Clone pinned DSH host at DSH_ROOT
         run: |
           DSH_ROOT="$GITHUB_WORKSPACE/../../.dsh/source/current"
@@ -52,17 +50,16 @@ jobs:
 
       - name: Check (typecheck + full tests + build)
         run: pnpm run check
-        env:
-          DSH_ROOT: ${{ github.workspace }}/../../.dsh/source/current
 
-      - name: Pack verification gate
-        run: node scripts/verify-pack.mjs
+      - name: Verify and pack plugin tarball
+        id: pack
+        run: node scripts/verify-pack.mjs --keep
 
       # no-key smoke：隔离 DSH_HOME + 精确宿主二进制 + 固定端口，绝不触碰
       # 任何活跃实例；宿主二进制必须位于本次 checkout 内。
       - name: Smoke e2e (no model key)
         run: |
-          node scripts/e2e.mjs --smoke --install link --port 3190
+          node scripts/e2e.mjs --smoke --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
         env:
           DSH_ROOT: ${{ github.workspace }}/../../.dsh/source/current
           DSH_BIN: ${{ github.workspace }}/../../.dsh/source/current/apps/cli/lib/bin.js

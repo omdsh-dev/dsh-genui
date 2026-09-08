@@ -16,6 +16,7 @@
  */
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Key, type ReactNode } from 'react'
 import { CodeBlock } from '@deepseek-ai/dsh-client-ui-primitives'
+import { CODE_BLOCK_LABELS } from './primitive-labels.ts'
 import { ErrorBoundary } from './ErrorBoundary.tsx'
 import { GenuiBlock } from './GenuiBlock.tsx'
 import { isRenderableProcess, processGenuiSpec } from './guard.ts'
@@ -109,7 +110,7 @@ function FenceFallback({ raw, fenceKey }: { raw: string; fenceKey: Key }) {
           ⚠️ dsh-ui fence JSON 解析失败{parseDiagnostic} —— 围栏保持为代码块；请让模型检查并修复 JSON 后重发。
         </div>
       )}
-      <CodeBlock key={fenceKey} code={`${raw}\n`} lang="dsh-ui" />
+      <CodeBlock key={fenceKey} {...CODE_BLOCK_LABELS} code={`${raw}\n`} lang="dsh-ui" />
     </div>
   )
 }

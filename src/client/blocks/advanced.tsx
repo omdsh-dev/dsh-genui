@@ -10,6 +10,7 @@ import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import { PlotBlock } from '../PlotBlock.tsx'
 import { renderNode } from './render-node.tsx'
+import { CODE_BLOCK_LABELS, DIFF_BLOCK_LABELS, JSON_TREE_LABELS } from '../primitive-labels.ts'
 import type { AnswersState, GenuiBlockProps } from './state.ts'
 import type {
   GenuiAccordion, GenuiBreadcrumb, GenuiCallout, GenuiCode, GenuiCopy, GenuiDiff, GenuiFileTree, GenuiFileTreeNode,
@@ -89,7 +90,7 @@ export const PlotNode = memo(function PlotNode({ plot }: { plot: GenuiPlot }) {
 
 /** Diff: 收编 dsh DiffBlock (same path/oldText/newText shape as DiffHunk). */
 export const DiffNode = memo(function DiffNode({ node }: { node: GenuiDiff }) {
-  return <DiffBlock diffs={node.diffs} />
+  return <DiffBlock diffs={node.diffs} labels={DIFF_BLOCK_LABELS} />
 })
 
 /** Json: 收编 dsh JsonTree. */
@@ -98,12 +99,12 @@ export const JsonNode = memo(function JsonNode({ node }: { node: GenuiJson }) {
   if (typeof data !== 'object' || data === null) {
     return <div className={css.jsonScalar}>{String(data)}</div>
   }
-  return <JsonTree data={data as object | unknown[]} copyable />
+  return <JsonTree data={data as object | unknown[]} label="JSON" labels={JSON_TREE_LABELS} copyable />
 })
 
 /** Code: 收编 dsh CodeBlock with explicit language. */
 export const CodeNode = memo(function CodeNode({ node }: { node: GenuiCode }) {
-  return <CodeBlock code={node.code.slice(0, GENUI_LIMITS.maxCode)} lang={node.lang} />
+  return <CodeBlock {...CODE_BLOCK_LABELS} code={node.code.slice(0, GENUI_LIMITS.maxCode)} lang={node.lang} />
 })
 
 /**

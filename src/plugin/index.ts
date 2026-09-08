@@ -5,8 +5,7 @@
  * model the language exists, so a session without the plugin simply never
  * emits fences and nothing changes.
  *
- * The section is a convention section (order 100-199), placed after the bash
- * guidance so the model sees it among its output-format rules.
+ * The section uses the host's centrally allocated structured-output placement.
  * @module @changfenhuang/dsh-genui
  */
 
@@ -20,9 +19,6 @@ import { readFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRenderUiTool, createValidateDshUiTool } from './tool.ts'
-
-/** Convention: tool guidance uses 100–199; bash's section is 104. */
-export const GENUI_SECTION_ORDER = 105
 
 /* ---------------- lazy engine asset route ---------------- */
 
@@ -168,7 +164,7 @@ function bundledSkillProvider(): SkillProvider {
 export function apply(ctx: Context): void {
   ctx.systemPrompt.section({
     name: 'genui:fence',
-    order: GENUI_SECTION_ORDER,
+    order: ctx.systemPrompt.getSectionOrder('STRUCTURED_OUTPUT'),
     text: GENUI_SECTION_TEXT,
   })
   // The tools service is optional: hosts without tool access (or minimal

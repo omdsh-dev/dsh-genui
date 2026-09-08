@@ -3,7 +3,7 @@
 // must extract and render; unfinished tails must drop.
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MarkdownText } from './markdown-labels.tsx'
 import { parsePartialGenuiSpec, collectPartialCandidates, setMaxPartialRepairAttempts } from '../src/client/parse-partial.ts'
 
 afterEach(cleanup)
