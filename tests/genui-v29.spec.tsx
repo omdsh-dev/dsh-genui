@@ -34,7 +34,9 @@ describe('v2.9: chart hover tooltips', () => {
     const { container } = renderBlock({
       items: [{ type: 'chart', data: [{ label: '一', value: 42 }] }],
     })
-    expect(container.querySelector('[class*="barCol"]')!.getAttribute('title')).toBe('一: 42')
+    // v3: the title moved from the column to the bar itself (the column now
+    // hosts an absolutely positioned fill and value label).
+    expect(container.querySelector('[class*="barFill"]')!.getAttribute('title')).toBe('一: 42')
   })
 
   it('grouped bars name the series in the tooltip', () => {
@@ -45,15 +47,15 @@ describe('v2.9: chart hover tooltips', () => {
     })
     const bar = [...container.querySelectorAll('[class*="groupedBar"]')].find(el => el.hasAttribute('title'))
     expect(bar).toBeDefined()
-    expect(bar!.getAttribute('title')).toBe('本月: 3')
+    expect(bar!.getAttribute('title')).toBe('本月 · Q1: 3')
   })
 
   it('donut arcs carry title elements', () => {
     const { container } = renderBlock({
       items: [{ type: 'chart', kind: 'donut', data: [{ label: 'A', value: 30 }] }],
     })
-    const titles = [...container.querySelectorAll('svg title')].map(t => t.textContent)
-    expect(titles).toContain('A: 30')
+    const titles = [...container.querySelectorAll('svg title')].map(t => t.textContent ?? '')
+    expect(titles.join(' ')).toContain('A: 30')
   })
 
   it('line dots carry SVG title elements', () => {

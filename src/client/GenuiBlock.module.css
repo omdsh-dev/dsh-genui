@@ -25,16 +25,20 @@
      gap/padding collapsed to zero). */
   --dsl-g-radius-surface: 12px;
   --dsl-g-radius-control: 8px;
+  --dsl-g-radius-sm: 6px;
   --dsl-g-radius-pill: 999px;
 
-  --dsl-g-font-display: 24px;
-  --dsl-g-font-h1: 20px;
-  --dsl-g-font-h2: 16px;
-  --dsl-g-font-h3: 14px;
+  /* Design system v3: the reading floor is 12px (11px data labels were
+     illegible next to 14px body text, especially for CJK), headings get one
+     step more contrast, and numeric columns share one tabular voice. */
+  --dsl-g-font-display: 26px;
+  --dsl-g-font-h1: 22px;
+  --dsl-g-font-h2: 17px;
+  --dsl-g-font-h3: 15px;
   --dsl-g-font-body: 14px;
   --dsl-g-font-title: 13px;
   --dsl-g-font-meta: 12px;
-  --dsl-g-font-data: 11px;
+  --dsl-g-font-data: 12px;
 
   --dsl-g-gap-lg: 16px;
   --dsl-g-gap-md: 12px;
@@ -48,6 +52,9 @@
   /* Row/surface hover: a 4% wash of the theme's own label color works on
    * dark AND light hosts without any off-brand literal. */
   --dsl-g-hover: color-mix(in srgb, var(--dsw-alias-label-primary) 4%, transparent);
+  /* Zebra rows / table header wash: half the hover strength, so a striped
+     table still reads as one surface rather than a stack of bands. */
+  --dsl-g-zebra: color-mix(in srgb, var(--dsw-alias-label-primary) 2.5%, transparent);
   --dsl-g-tint: 8%;
   --dsl-g-tint-strong: 14%;
   --dsl-g-font-mono: var(--ds-font-family-code, ui-monospace, 'SF Mono', monospace);
@@ -60,12 +67,14 @@
      does not need a card wrapper. */
   margin: 8px 0;
   color: var(--dsw-alias-label-primary);
+  /* Numbers line up wherever they appear (stats, tables, progress, legends). */
+  font-variant-numeric: tabular-nums;
 }
 
 .banner {
-  font-size: var(--dsl-g-font-title);
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-size: var(--dsl-g-font-h3);
+  font-weight: 700;
+  letter-spacing: 0.005em;
   color: var(--dsw-alias-label-primary);
   padding-bottom: 10px;
   margin-bottom: var(--dsl-g-gap-lg);
@@ -78,6 +87,13 @@
 .row { display: flex; align-items: center; gap: var(--dsl-g-gap-md); }
 .row.wrap { flex-wrap: wrap; }
 .grid { display: grid; gap: var(--dsl-g-gap-md); }
+/* Narrow conversation column (phone / split pane): a fixed 3-4 column grid
+   would squeeze every cell, so the grid collapses to one column. The inline
+   gridTemplateColumns from the spec needs !important to be overridden. */
+@media (max-width: 560px) {
+  .grid { grid-template-columns: 1fr !important; }
+  .row { flex-wrap: wrap; }
+}
 .spacer { flex: 1; }
 .divider {
   height: 1px;
@@ -129,6 +145,10 @@
   cursor: pointer;
   transition: border-color 0.15s, filter 0.15s, background 0.15s, transform 0.1s;
   text-align: center;
+  /* A button in a `col` must hug its label; only `full: true` stretches.
+     (Default flex `align-items: stretch` used to make every stacked button a
+     full-width slab.) */
+  align-self: flex-start;
 }
 
 .button:hover:not(:disabled) { border-color: var(--dsl-g-accent); filter: brightness(1.06); }
@@ -271,37 +291,58 @@
 .stat {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px var(--dsl-g-gap-lg);
+  gap: 3px;
+  /* Metric card: the stat is the single most-used component (531 of ~3.7k
+     nodes in real sessions), so it gets a real surface instead of floating
+     digits separated by hairlines. */
+  padding: 10px 14px 11px;
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-control);
+  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, transparent));
+  min-width: 0;
 }
 .grid > .stat, .row > .stat { border-left: 1px solid var(--dsl-g-border); }
-.grid > .stat:first-child, .row > .stat:first-child { border-left: none; padding-left: var(--dsl-g-gap-xs); }
-.statLabel { font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-tertiary); letter-spacing: 0.02em; }
+.statLabel {
+  font-size: var(--dsl-g-font-meta);
+  color: var(--dsw-alias-label-secondary);
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+}
 .statValue {
   font-family: var(--dsl-g-font-mono);
   font-size: var(--dsl-g-font-display);
-  font-weight: 600;
+  font-weight: 650;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   color: var(--dsw-alias-label-primary);
-  line-height: 1.2;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
 }
-.statDelta { font-size: var(--dsl-g-font-meta); font-weight: 500; }
-.statDelta.up { color: var(--dsw-alias-state-success-primary, #22c55e); }
-.statDelta.down { color: var(--dsw-alias-state-error-primary, #f25a5a); }
+.statDelta {
+  font-size: var(--dsl-g-font-meta);
+  font-weight: 600;
+  width: fit-content;
+  padding: 0 6px;
+  border-radius: var(--dsl-g-radius-pill);
+  color: var(--dsw-alias-label-secondary);
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 5%, transparent);
+}
+.statDelta.up { color: var(--dsw-alias-state-success-secondary, #1f9d63); background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #22c55e) 12%, transparent); }
+.statDelta.down { color: var(--dsw-alias-state-error-primary, #d94848); background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #f25a5a) 12%, transparent); }
 
 .progress { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
 .progressRow {
   display: flex;
   justify-content: space-between;
+  gap: var(--dsl-g-gap-md);
   font-size: var(--dsl-g-font-meta);
-  color: var(--dsw-alias-label-tertiary);
+  color: var(--dsw-alias-label-secondary);
 }
-.progressRow span:last-child { font-family: var(--dsl-g-font-mono); }
+.progressRow span:last-child { font-family: var(--dsl-g-font-mono); color: var(--dsw-alias-label-primary); font-weight: 600; }
 .track {
-  height: 6px;
+  height: 8px;
   border-radius: var(--dsl-g-radius-pill);
-  background: var(--dsw-alias-bg-layer-1);
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent);
   overflow: hidden;
   box-shadow: inset 0 0 0 1px var(--dsl-g-border);
 }
@@ -316,14 +357,34 @@
 /* ---------- list / table / chart / tabs / avatar ---------- */
 
 .list { display: flex; flex-direction: column; }
-.li { padding: var(--dsl-g-gap-sm) var(--dsl-g-gap-xs); display: flex; flex-direction: column; gap: 2px; }
+.li {
+  position: relative;
+  padding: 9px var(--dsl-g-gap-xs) 9px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+/* Accent dot instead of a bare indented line: 202 of ~3.7k real nodes are
+   list items, and a marker makes a multi-line list scannable at a glance. */
+.li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 15px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--dsl-g-accent);
+  opacity: 0.6;
+}
 .li + .li { border-top: 1px solid var(--dsl-g-border); }
 .li:last-child { border-bottom: none; }
-.liTitle { font-size: var(--dsl-g-font-title); color: var(--dsw-alias-label-primary); font-weight: 600; line-height: 1.5; }
-.liDesc { font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-tertiary); line-height: 1.5; }
+.liTitle { font-size: var(--dsl-g-font-title); color: var(--dsw-alias-label-primary); font-weight: 600; line-height: 1.55; }
+.liDesc { font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-secondary); line-height: 1.55; }
 
 .tableWrap {
   border-radius: var(--dsl-g-radius-control);
+  border: 1px solid var(--dsl-g-border);
   /* A table whose nowrap cells exceed the column width must scroll, not clip
      (mirrors the shell markdown table's .tableScroll pattern). */
   overflow-x: auto;
@@ -334,26 +395,34 @@
 .table { width: 100%; border-collapse: collapse; font-size: var(--dsl-g-font-title); }
 .table th {
   text-align: left;
-  padding: var(--dsl-g-gap-sm) var(--dsl-g-gap-md);
-  color: var(--dsw-alias-label-tertiary);
-  font-weight: 600;
+  padding: 9px var(--dsl-g-gap-md);
+  color: var(--dsw-alias-label-secondary);
+  font-weight: 650;
   font-size: var(--dsl-g-font-meta);
-  border-bottom: 1px solid var(--dsl-g-border);
+  letter-spacing: 0.01em;
+  border-bottom: 1px solid var(--dsl-g-border-strong);
+  background: var(--dsl-g-zebra);
   white-space: nowrap;
 }
 .table td {
-  padding: var(--dsl-g-gap-sm) var(--dsl-g-gap-md);
+  padding: 9px var(--dsl-g-gap-md);
   border-bottom: 1px solid var(--dsl-g-border);
-  color: var(--dsw-alias-label-secondary);
+  color: var(--dsw-alias-label-primary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   line-height: 1.5;
 }
-.table tr:last-child td { border-bottom: none; }
+.table tbody tr:nth-child(even) { background: var(--dsl-g-zebra); }
 .table tbody tr:hover { background: var(--dsl-g-hover); }
+.table tr:last-child td { border-bottom: none; }
 /* Numeric columns (auto-detected) right-align with tabular numerals — the
    table's data voice. */
 .table th.thNum, .table td.tdNum { text-align: right; }
+/* Signed values read as a delta chip (+12.4% / -3%) without any new spec
+   field: the renderer classifies the cell text. */
+.tdDelta { font-weight: 600; }
+.tdDeltaUp { color: var(--dsw-alias-state-success-secondary, #1f9d63); }
+.tdDeltaDown { color: var(--dsw-alias-state-error-primary, #d94848); }
 
 /* sortable header button (v2.9) */
 .thSort {
@@ -378,13 +447,28 @@
 
 /* Chart skeleton: plot area with baseline + 25/50/75% gridlines, category
    labels in their own row below the axis (they must never cross the lines). */
-.chart { display: flex; flex-direction: column; gap: var(--dsl-g-gap-xs); }
+.chart { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
+/* Y-axis gutter + plot share one measured box so tick labels line up with the
+   gridlines instead of being guessed from the container height. */
+.chartBody { display: flex; gap: 6px; align-items: stretch; }
+.chartYAxis { position: relative; width: 42px; flex-shrink: 0; }
+.chartYTick {
+  position: absolute;
+  right: 0;
+  transform: translateY(50%);
+  font-family: var(--dsl-g-font-mono);
+  font-size: var(--dsl-g-font-data);
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
+}
 .chartPlot {
   position: relative;
   display: flex;
   align-items: flex-end;
   gap: var(--dsl-g-gap-sm);
-  height: 132px;
+  height: 160px;
+  flex: 1;
+  min-width: 0;
 }
 .baseline {
   position: absolute;
@@ -402,33 +486,48 @@
 }
 .chartLabels { display: flex; gap: var(--dsl-g-gap-sm); }
 .chartLabels > span { flex: 1; min-width: 0; }
-.barCol {
-  flex: 1;
+.chartLegend {
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: var(--dsl-g-gap-xs);
+  flex-wrap: wrap;
+  gap: var(--dsl-g-gap-md);
+  font-size: var(--dsl-g-font-meta);
+  color: var(--dsw-alias-label-secondary);
+  line-height: 1.5;
+}
+.legendItem { display: inline-flex; align-items: center; gap: 6px; }
+.legendSwatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.lineArea { fill: var(--dsl-g-accent); opacity: 0.1; }
+.barCol {
+  position: relative;
+  flex: 1;
   min-width: 0;
   height: 100%;
 }
 .barValue {
+  position: absolute;
+  left: 0;
+  right: 0;
   font-family: var(--dsl-g-font-mono);
   font-size: var(--dsl-g-font-data);
   font-variant-numeric: tabular-nums;
-  color: var(--dsw-alias-label-secondary);
+  color: var(--dsw-alias-label-primary);
+  font-weight: 600;
   text-align: center;
   line-height: 1.2;
 }
 .barFill {
-  border-radius: 4px 4px 2px 2px;
-  min-height: 4px;
-  background: var(--dsl-g-accent);
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: 5px 5px 0 0;
+  min-height: 2px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--dsl-g-accent) 78%, white), var(--dsl-g-accent));
   transition: height 0.6s ease, filter 0.15s;
 }
 .barFill:hover { filter: brightness(1.18); }
 .barLabel {
   font-size: var(--dsl-g-font-meta);
-  color: var(--dsw-alias-label-tertiary);
+  color: var(--dsw-alias-label-secondary);
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -470,45 +569,35 @@
 }
 
 /* ---------- callout ----------
-   克制的信息条：无左竖条、无彩色块底。极淡的底色 + 细边框 + 小圆点标记，
-   文字层级轻（像 Linear / Vercel 的 notice），而不是"彩色便签"。 */
+   克制的信息条：极淡的底色 + 细边框 + 左侧 3px 语义色条。色条替代原先的
+   小圆点：语义由边沿表达，标题文字回到正常对比度，信息条在长回答里更容易
+   被扫到，又不会变成"彩色便签"。 */
 
 .callout {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 10px 14px;
+  gap: 3px;
+  padding: 11px 14px 11px 13px;
   border-radius: var(--dsl-g-radius-control);
   border: 1px solid var(--dsl-g-border);
+  border-left: 3px solid var(--dsl-g-border-strong);
   font-size: var(--dsl-g-font-title);
-  line-height: 1.6;
+  line-height: 1.65;
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block));
 }
-.calloutInfo { background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent); }
-.calloutSuccess { background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent); }
-.calloutWarning { background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent); }
-.calloutError { background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent); }
+.calloutInfo { background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent); border-left-color: var(--dsl-g-accent); }
+.calloutSuccess { background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent); border-left-color: var(--dsw-alias-state-success-primary, #3ecf8e); }
+.calloutWarning { background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent); border-left-color: var(--dsw-alias-state-warn-primary, #f5b83d); }
+.calloutError { background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent); border-left-color: var(--dsw-alias-state-error-primary, #ff6b6b); }
 .calloutTitle {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-weight: 600;
-  font-size: var(--dsl-g-font-meta);
-  letter-spacing: 0.02em;
-  color: var(--dsw-alias-label-secondary);
+  font-weight: 650;
+  font-size: var(--dsl-g-font-title);
+  letter-spacing: 0.005em;
+  color: var(--dsw-alias-label-primary);
 }
-/* 小圆点：用色点替代左侧竖条表达语义，克制且可读 */
-.calloutTitle::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--dsw-alias-label-caption, var(--dsw-alias-label-tertiary));
-}
-.calloutInfo .calloutTitle::before { background: var(--dsl-g-accent); }
-.calloutSuccess .calloutTitle::before { background: var(--dsw-alias-state-success-primary, #3ecf8e); }
-.calloutWarning .calloutTitle::before { background: var(--dsw-alias-state-warn-primary, #f5b83d); }
-.calloutError .calloutTitle::before { background: var(--dsw-alias-state-error-primary, #ff6b6b); }
 .calloutBody { color: var(--dsw-alias-label-secondary); }
 
 /* ---------- steps ---------- */
@@ -519,9 +608,19 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--dsl-g-gap-sm);
+  gap: var(--dsl-g-gap-md);
 }
-.step { display: flex; gap: var(--dsl-g-gap-md); align-items: flex-start; }
+.step { position: relative; display: flex; gap: var(--dsl-g-gap-md); align-items: flex-start; }
+/* Connector between markers: turns a stack of badges into a visible sequence. */
+.step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 27px;
+  bottom: calc(-1 * var(--dsl-g-gap-md));
+  width: 1px;
+  background: var(--dsl-g-border);
+}
 .stepMarker {
   width: 24px;
   height: 24px;
@@ -533,7 +632,8 @@
   flex-shrink: 0;
   background: var(--dsw-alias-bg-layer-1);
   border: 1px solid var(--dsl-g-border);
-  color: var(--dsw-alias-label-tertiary);
+  color: var(--dsw-alias-label-secondary);
+  z-index: 1;
 }
 .stepDone .stepMarker { background: var(--dsw-alias-state-success-primary, #3ecf8e); border-color: transparent; color: #fff; font-size: 13px; }
 .stepActive .stepMarker {
@@ -541,9 +641,9 @@
   border-color: var(--dsl-g-accent);
   color: var(--dsl-g-accent);
 }
-.stepContent { display: flex; flex-direction: column; gap: 2px; padding-top: 3px; }
-.stepTitle { font-size: var(--dsl-g-font-title); font-weight: 600; color: var(--dsw-alias-label-primary); line-height: 1.5; }
-.stepDesc { font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-tertiary); line-height: 1.5; }
+.stepContent { display: flex; flex-direction: column; gap: 2px; padding-top: 2px; }
+.stepTitle { font-size: var(--dsl-g-font-title); font-weight: 600; color: var(--dsw-alias-label-primary); line-height: 1.55; }
+.stepDesc { font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-secondary); line-height: 1.55; }
 
 /* ---------- keyvalue ---------- */
 
@@ -551,13 +651,14 @@
 .kvRow {
   display: flex;
   gap: var(--dsl-g-gap-md);
-  padding: 6px 0;
+  padding: 7px 0;
   font-size: var(--dsl-g-font-title);
+  align-items: baseline;
 }
 .kvRow + .kvRow { border-top: 1px solid var(--dsl-g-border); }
 .kvRow:last-child { border-bottom: none; }
-.kvKey { width: 96px; flex-shrink: 0; color: var(--dsw-alias-label-tertiary); font-weight: 600; }
-.kvValue { margin: 0; color: var(--dsw-alias-label-primary); word-break: break-word; line-height: 1.5; }
+.kvKey { width: 120px; flex-shrink: 0; color: var(--dsw-alias-label-secondary); font-weight: 600; }
+.kvValue { margin: 0; color: var(--dsw-alias-label-primary); word-break: break-word; line-height: 1.55; font-variant-numeric: tabular-nums; }
 
 /* ---------- json scalar ---------- */
 
@@ -575,6 +676,10 @@
   fill: var(--dsw-alias-label-tertiary);
   font-family: var(--dsl-g-font-mono);
   font-size: var(--dsl-g-font-data);
+}
+.lineLabel {
+  fill: var(--dsw-alias-label-secondary);
+  font-size: var(--dsl-g-font-meta);
 }
 .lineLabels { display: flex; justify-content: space-between; }
 
@@ -608,7 +713,8 @@
 .donutSeg:hover { filter: brightness(1.18); }
 .donutTotal { fill: var(--dsw-alias-label-primary); font-size: var(--dsl-g-font-h2); font-weight: 700; }
 .donutTotalLabel { fill: var(--dsw-alias-label-tertiary); font-size: 10px; }
-.donutLegend { display: flex; flex-direction: column; gap: var(--dsl-g-gap-xs); font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-secondary); line-height: 1.5; }
+.donutLegend { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-secondary); line-height: 1.5; }
+.donutPct { color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
 
 /* ---------- radio / switch / textarea ---------- */
 
