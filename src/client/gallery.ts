@@ -73,6 +73,11 @@ export const gallerySpec: GenuiSpec = {
     { type: 'chart', horizontal: true, data: [
       { label: '自然搜索', value: 82 }, { label: '直接访问', value: 64 }, { label: '社交媒体', value: 41 },
     ] },
+    { type: 'table', columns: ['#', '服务', '近 6 期延迟', '可用率', '负载', '状态'], types: ['index', 'text', 'spark', 'ring', 'bar', 'badge'], rows: [
+      ['1', 'API 网关', '180,164,150,140,133,128', '99.96', '62', '正常'],
+      ['2', '搜索', '220,210,230,205,198,190', '99.82', '78', '关注'],
+      ['3', '推荐', '310,340,300,280,260,250', '99.41', '91', '偏高'],
+    ] },
     { type: 'table', columns: ['渠道', '完成度', '状态'], types: ['text', 'bar', 'badge'], rows: [
       ['自然搜索', '82', '健康'], ['直接访问', '64', '关注'], ['社交媒体', '41', '偏低'],
     ] },

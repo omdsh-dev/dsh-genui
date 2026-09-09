@@ -39,7 +39,7 @@
   --dsl-g-font-h3: 16px;
   --dsl-g-font-body: 14.5px;
   --dsl-g-font-title: 13.5px;
-  --dsl-g-font-meta: 12px;
+  --dsl-g-font-meta: 12.5px;
   --dsl-g-font-data: 12px;
 
   --dsl-g-gap-lg: 16px;
@@ -145,7 +145,7 @@
    visible gaps between Han characters). */
 .text.body { font-size: var(--dsl-g-font-body); line-height: 1.7; color: var(--dsw-alias-label-primary); text-wrap: pretty; }
 .text.muted { font-size: var(--dsl-g-font-title); line-height: 1.65; color: var(--dsw-alias-label-secondary); }
-.text.caption { font-size: var(--dsl-g-font-meta); line-height: 1.6; color: var(--dsw-alias-label-tertiary); }
+.text.caption { font-size: var(--dsl-g-font-meta); line-height: 1.6; color: var(--dsw-alias-label-secondary); }
 .text.center { text-align: center; }
 
 /* ---------- controls ---------- */
@@ -451,13 +451,18 @@
   white-space: nowrap;
 }
 .table td {
-  padding: 9px var(--dsl-g-gap-md);
+  padding: 10px var(--dsl-g-gap-md);
   border-bottom: 1px solid var(--dsl-g-border);
   color: var(--dsw-alias-label-primary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   line-height: 1.5;
+  vertical-align: middle;
 }
+/* The first column is the row's name: give it the weight of a label so a
+   table reads as "these rows, these values" instead of a uniform grid. */
+.table td:first-child { font-weight: 600; }
+.table th:first-child { color: var(--dsw-alias-label-primary); }
 .table tbody tr:nth-child(even) { background: var(--dsl-g-zebra); }
 .table tbody tr:hover { background: var(--dsl-g-hover); }
 .table tr:last-child td { border-bottom: none; }
@@ -840,6 +845,22 @@
   color: var(--dsw-alias-label-primary);
   font-size: var(--dsl-g-font-meta);
   font-weight: 600;
+}
+.cellSpark { display: block; width: 88px; height: 22px; overflow: visible; }
+.cellRing { display: inline-flex; align-items: center; gap: 6px; }
+.cellRingText {
+  font-family: var(--dsl-g-font-mono);
+  font-size: var(--dsl-g-font-data);
+  color: var(--dsw-alias-label-primary);
+  font-variant-numeric: tabular-nums;
+}
+.cellIndex {
+  display: inline-block;
+  min-width: 18px;
+  font-family: var(--dsl-g-font-mono);
+  font-size: var(--dsl-g-font-data);
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 .cellBar {
   position: relative;

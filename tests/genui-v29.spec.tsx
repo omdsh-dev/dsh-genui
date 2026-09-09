@@ -29,6 +29,31 @@ function renderBlock(spec: unknown, actions: Array<[string, Record<string, unkno
   )
 }
 
+describe('v6: rich table columns', () => {
+  it('renders spark, ring and index cells', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'table',
+        columns: ['#', '服务', '趋势', '可用率'],
+        types: ['index', 'text', 'spark', 'ring'],
+        rows: [['1', 'API', '3,5,4,8,6', '99.96']],
+      }],
+    })
+    expect(container.querySelector('[class*="cellIndex"]')?.textContent).toBe('1')
+    const spark = container.querySelector('svg[class*="cellSpark"]')
+    expect(spark?.querySelector('polyline')?.getAttribute('points')?.split(' ')).toHaveLength(5)
+    expect(container.querySelector('[class*="cellRing"]')?.textContent).toContain('99.96')
+  })
+
+  it('falls back to text when a spark cell has no number list', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'table', columns: ['趋势'], types: ['spark'], rows: [['n/a']] }],
+    })
+    expect(container.querySelector('svg[class*="cellSpark"]')).toBeNull()
+    expect(container.textContent).toContain('n/a')
+  })
+})
+
 describe('v5: progress ring, target marker, stat unit split', () => {
   it('renders a ring gauge with the value in the middle', () => {
     const { container } = renderBlock({

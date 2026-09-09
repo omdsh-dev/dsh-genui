@@ -264,8 +264,12 @@ export interface GenuiTable {
   types?: TableCellType[]
 }
 
-/** How a table column's cells render. `bar` reads the cell as 0-100. */
-export type TableCellType = 'text' | 'num' | 'delta' | 'bar' | 'badge'
+/** How a table column's cells render.
+ *  - `bar` / `ring`: the cell is read as 0-100
+ *  - `spark`: the cell is a number list ("3,5,4,8") drawn as a mini trend
+ *  - `index`: the 1-based row number (cell content is ignored)
+ *  - `delta` / `num` / `badge` / `text`: text treatments. */
+export type TableCellType = 'text' | 'num' | 'delta' | 'bar' | 'badge' | 'spark' | 'ring' | 'index'
 
 export interface GenuiChartDatum {
   label: string

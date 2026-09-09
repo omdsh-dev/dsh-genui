@@ -26,7 +26,7 @@ import { wrapSingleComponentRoot } from './spec.ts'
 export const PROGRESS_VARIANTS = ['bar', 'ring'] as const
 
 /** Table column cell types accepted by the guard. */
-export const TABLE_CELL_TYPES = ['text', 'num', 'delta', 'bar', 'badge'] as const
+export const TABLE_CELL_TYPES = ['text', 'num', 'delta', 'bar', 'badge', 'spark', 'ring', 'index'] as const
 
 export const GENUI_LIMITS = {
   /** Maximum nesting depth of the component tree. */

@@ -86,6 +86,51 @@ function deltaTone(value: unknown): 'up' | 'down' | null {
   return s.startsWith('+') ? 'up' : 'down'
 }
 
+/** `types: ["spark"]` cell: comma/space separated numbers drawn as a micro
+ *  trend line (area wash + end dot, same geometry as stat.spark). */
+function CellSpark({ cell }: { cell: string | number }) {
+  const values = String(cell).split(/[\s,;]+/).map(Number).filter(Number.isFinite)
+  if (values.length < 2) return <>{String(cell)}</>
+  const W = 88
+  const H = 22
+  const pad = 2
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  const step = (W - pad * 2) / (values.length - 1)
+  const coords = values.map((v, i) => [pad + i * step, H - pad - ((v - min) / span) * (H - pad * 2)] as const)
+  const points = coords.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(' ')
+  const last = coords[coords.length - 1]!
+  const area = `M ${pad},${H - pad} L ${points.split(' ').join(' L ')} L ${last[0].toFixed(1)},${H - pad} Z`
+  return (
+    <svg className={css.cellSpark} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+      <path d={area} fill="var(--dsl-g-accent)" opacity="0.14" />
+      <polyline points={points} fill="none" stroke="var(--dsl-g-accent)" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      <path d={`M ${last[0].toFixed(1)} ${last[1].toFixed(1)} L ${last[0].toFixed(1)} ${last[1].toFixed(1)}`} stroke="var(--dsl-g-accent)" strokeWidth={4} strokeLinecap="round" vectorEffect="non-scaling-stroke" fill="none" />
+    </svg>
+  )
+}
+
+/** `types: ["ring"]` cell: a 28px ring gauge read as 0-100. */
+function CellRing({ cell }: { cell: string | number }) {
+  const n = parseSortableNumber(cell)
+  const pct = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0
+  const R = 11
+  const C = 2 * Math.PI * R
+  return (
+    <span className={css.cellRing}>
+      <svg width={28} height={28} viewBox="0 0 28 28" aria-hidden="true">
+        <circle cx={14} cy={14} r={R} fill="none" strokeWidth={4} className={css.ringTrack} />
+        <circle
+          cx={14} cy={14} r={R} fill="none" strokeWidth={4} strokeLinecap="round" className={css.ringFill}
+          strokeDasharray={`${(pct / 100) * C} ${C}`} transform="rotate(-90 14 14)"
+        />
+      </svg>
+      <span className={css.cellRingText}>{String(cell)}</span>
+    </span>
+  )
+}
+
 /** `types: ["bar"]` cell: an inline 0-100 track with the value printed on it. */
 function CellBar({ cell }: { cell: string | number }) {
   const n = parseSortableNumber(cell)
@@ -152,9 +197,15 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
                     ? <span className={css.cellBadge}>{String(cell)}</span>
                     : type === 'bar'
                       ? <CellBar cell={cell} />
-                      : tone === null
-                        ? String(cell)
-                        : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{String(cell)}</span>}
+                      : type === 'spark'
+                        ? <CellSpark cell={cell} />
+                        : type === 'ring'
+                          ? <CellRing cell={cell} />
+                          : type === 'index'
+                            ? <span className={css.cellIndex}>{i + 1}</span>
+                            : tone === null
+                              ? String(cell)
+                              : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{String(cell)}</span>}
                 </td>
               )
             })}</tr>
