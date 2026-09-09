@@ -28,21 +28,28 @@ describe('native chart renderability contract', () => {
     }))).toBeNull()
   })
 
-  it('rejects series-only line charts on the direct fence path', () => {
+  it('accepts multi-series line charts (v3) and still rejects donut series', () => {
     const raw = JSON.stringify({
       items: [{
         type: 'chart',
         kind: 'line',
-        series: [{ label: 'A', data: [{ label: '周一', value: 128 }] }],
+        series: [
+          { label: '本月', data: [{ label: '周一', value: 128 }] },
+          { label: '上月', data: [{ label: '周一', value: 96 }] },
+        ],
       }],
     })
-    expect(resolveGenuiSpec(raw)).toBeNull()
+    const spec = resolveGenuiSpec(raw)
+    expect(spec).not.toBeNull()
+    expect(spec?.items).toHaveLength(1)
 
-    render(<div>{renderGenuiFence(raw, 'line-series')}</div>)
-    const alert = screen.getByRole('alert')
-    expect(alert.textContent).toContain('chart 字段验证失败')
-    expect(alert.textContent).toContain('series is only supported for bars')
-    expect(alert.textContent).toContain('data is required for line')
+    // Donut is a share-of-total shape: series stays rejected there.
+    const donut = JSON.stringify({
+      items: [{ type: 'chart', kind: 'donut', series: [{ label: 'A', data: [{ label: 'X', value: 1 }] }] }],
+    })
+    expect(resolveGenuiSpec(donut)).toBeNull()
+    render(<div>{renderGenuiFence(donut, 'donut-series')}</div>)
+    expect(screen.getByRole('alert').textContent).toContain('series is only supported for bars and line')
   })
 
   it('rejects empty chart collections before they can render blank', () => {

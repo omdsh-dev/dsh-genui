@@ -86,6 +86,18 @@ function deltaTone(value: unknown): 'up' | 'down' | null {
   return s.startsWith('+') ? 'up' : 'down'
 }
 
+/** `types: ["bar"]` cell: an inline 0-100 track with the value printed on it. */
+function CellBar({ cell }: { cell: string | number }) {
+  const n = parseSortableNumber(cell)
+  const pct = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0
+  return (
+    <span className={css.cellBar}>
+      <span className={css.cellBarFill} style={{ width: `${pct}%` }} />
+      <span className={css.cellBarText}>{String(cell)}</span>
+    </span>
+  )
+}
+
 export const TableNode = memo(function TableNode({ node }: { node: GenuiTable }) {
   const columns = node.columns.slice(0, GENUI_LIMITS.maxTableCols)
   const rows = node.rows.slice(0, GENUI_LIMITS.maxTableRows)
@@ -107,6 +119,7 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
       : { col: i, dir: 1 })
   }
   const numeric = numericColumns(rows, columns.length)
+  const types = node.types ?? []
   return (
     <div className={css.tableWrap}>
       <table className={css.table}>
@@ -129,12 +142,19 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
         <tbody>
           {sorted.map((row, i) => (
             <tr key={i}>{row.slice(0, columns.length).map((cell, j) => {
-              const tone = deltaTone(cell)
+              const type = types[j]
+              const tone = type === 'delta'
+                ? (String(cell).trim().startsWith('-') ? 'down' : 'up')
+                : deltaTone(cell)
               return (
-                <td key={j} className={numeric[j] ? css.tdNum : undefined}>
-                  {tone === null
-                    ? String(cell)
-                    : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{String(cell)}</span>}
+                <td key={j} className={numeric[j] || type === 'num' ? css.tdNum : undefined}>
+                  {type === 'badge'
+                    ? <span className={css.cellBadge}>{String(cell)}</span>
+                    : type === 'bar'
+                      ? <CellBar cell={cell} />
+                      : tone === null
+                        ? String(cell)
+                        : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{String(cell)}</span>}
                 </td>
               )
             })}</tr>
@@ -222,19 +242,73 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
   const isGrouped = grouped !== undefined && grouped.length > 0
   const data = chart.data.slice(0, GENUI_LIMITS.maxChartPoints)
   const labels = isGrouped ? grouped[0]!.data.map(d => d.label) : data.map(d => d.label)
-  const values = isGrouped
-    ? grouped.flatMap(s => s.data.map(d => Number(d.value) || 0))
-    : data.map(d => Number(d.value) || 0)
-  // Grouped bars clamp negatives (the flex layout stacks upward); keep the
-  // axis honest by starting it at zero in that case.
-  const ticks = niceTicks(isGrouped ? 0 : Math.min(...values, 0), Math.max(...values, 0), 4)
+  const seriesValues = isGrouped
+    ? grouped.map(s => s.data.map(d => Number(d.value) || 0))
+    : [data.map(d => Number(d.value) || 0)]
+  const colors = seriesValues.map((_values, si) =>
+    seriesColor(si, seriesValues.length, isGrouped ? grouped[si]?.color : undefined) ?? 'var(--dsw-alias-state-business-primary, #4f8ef7)')
+  const flat = seriesValues.flat()
+  const showValues = labels.length <= 12
+
+  // Horizontal: label column + one track per series. The axis is always
+  // 0..max (a horizontal track has no zero line to cross).
+  if (chart.horizontal === true) {
+    const scale = Math.max(Math.max(...flat, 0), 1)
+    const legend = isGrouped
+      ? (
+        <div className={css.chartLegend}>
+          {grouped.map((entry, si) => (
+            <span key={si} className={css.legendItem}>
+              <span className={css.legendSwatch} style={{ background: colors[si] }} />
+              {entry.label}
+            </span>
+          ))}
+        </div>
+      )
+      : null
+    return (
+      <div className={css.chart} data-genui-chart="bars" role="img" aria-label={`横向柱状图，${labels.length} 组`}>
+        <div className={css.hbars}>
+          {labels.map((label, i) => (
+            <div key={i} className={css.hbarRow}>
+              <span className={css.hbarLabel} title={label}>{label}</span>
+              <div className={css.hbarTracks}>
+                {seriesValues.map((values, si) => {
+                  const v = values[i] ?? 0
+                  const width = Math.max(0, Math.min(100, (Math.max(0, v) / scale) * 100))
+                  const title = `${isGrouped ? `${grouped[si]!.label} · ` : ''}${label}: ${v}`
+                  return (
+                    <div key={si} className={css.hbarTrack} title={title}>
+                      <div className={css.hbarFill} style={{ width: `${width}%`, background: colors[si] }} />
+                    </div>
+                  )
+                })}
+              </div>
+              {showValues && (
+                <span className={css.hbarValue}>
+                  {isGrouped
+                    ? seriesValues.reduce((sum, values) => sum + (values[i] ?? 0), 0)
+                    : String(data[i]?.value ?? '')}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+        {legend}
+      </div>
+    )
+  }
+
+  // Vertical: grouped bars clamp negatives (the flex layout stacks upward), so
+  // the axis starts at zero for that shape; single-series bars render against
+  // a true zero line and draw negatives downward.
+  const ticks = niceTicks(isGrouped ? 0 : Math.min(...flat, 0), Math.max(...flat, 0), 4)
   const lo = ticks[0]!
   const hi = ticks[ticks.length - 1]!
   const span = hi - lo || 1
   const pct = (v: number): number => ((v - lo) / span) * 100
   const zero = pct(0)
-  const showValues = labels.length <= 12
-  const summary = `柱状图，${labels.length} 组，最大 ${formatTick(Math.max(...values, 0))}`
+  const summary = `柱状图，${labels.length} 组，最大 ${formatTick(Math.max(...flat, 0))}`
   return (
     <div className={css.chart} data-genui-chart="bars" role="img" aria-label={summary}>
       <div className={css.chartBody}>
@@ -248,17 +322,17 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
               {isGrouped
                 ? (
                   <div className={css.groupedBars}>
-                    {grouped.map((s, si) => {
-                      const d = s.data[i]
-                      const v = d === undefined ? 0 : Number(d.value) || 0
+                    {grouped.map((entry, si) => {
+                      const datum = entry.data[i]
+                      const v = datum === undefined ? 0 : Number(datum.value) || 0
                       return (
-                        <div key={si} className={css.groupedBar} title={d === undefined ? s.label : `${s.label} · ${label}: ${String(d.value)}`}>
-                          {showValues && <span className={css.groupValue}>{d === undefined ? '' : String(d.value)}</span>}
+                        <div key={si} className={css.groupedBar} title={datum === undefined ? entry.label : `${entry.label} · ${label}: ${String(datum.value)}`}>
+                          {showValues && <span className={css.groupValue}>{datum === undefined ? '' : String(datum.value)}</span>}
                           <div
                             className={css.groupedFill}
                             style={{
                               height: `${Math.max(0, pct(Math.max(0, v)))}%`,
-                              background: seriesColor(si, grouped.length, s.color) ?? 'var(--dsw-alias-state-business-primary, #4f8ef7)',
+                              background: colors[si],
                             }}
                           />
                         </div>
@@ -267,7 +341,7 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
                   </div>
                 )
                 : (() => {
-                  const v = values[i] ?? 0
+                  const v = seriesValues[0]![i] ?? 0
                   const top = Math.max(pct(v), zero)
                   const bottom = Math.min(pct(v), zero)
                   return (
@@ -297,10 +371,10 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
       </div>
       {isGrouped && (
         <div className={css.chartLegend}>
-          {grouped.map((s, si) => (
+          {grouped.map((entry, si) => (
             <span key={si} className={css.legendItem}>
-              <span className={css.legendSwatch} style={{ background: seriesColor(si, grouped.length, s.color) ?? 'var(--dsw-alias-state-business-primary, #4f8ef7)' }} />
-              {s.label}
+              <span className={css.legendSwatch} style={{ background: colors[si] }} />
+              {entry.label}
             </span>
           ))}
         </div>
@@ -314,29 +388,41 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
 export const LineChartNode = memo(function LineChartNode({ chart }: { chart: GenuiChart }) {
   const [ref, measured] = useMeasuredWidth()
   const gradientId = `genui-line-${useId().replace(/:/g, '')}`
+  const grouped = chart.series !== undefined && chart.series.length > 0
+    ? chart.series.slice(0, GENUI_LIMITS.maxPlotSeries)
+    : undefined
   const data = chart.data.slice(0, GENUI_LIMITS.maxChartPoints)
+  const labels = grouped !== undefined ? grouped[0]!.data.map(d => d.label) : data.map(d => d.label)
+  const seriesValues = grouped !== undefined
+    ? grouped.map(entry => entry.data.map(d => Number(d.value) || 0))
+    : [data.map(d => Number(d.value) || 0)]
+  const colors = seriesValues.map((_values, si) =>
+    seriesColor(si, seriesValues.length, grouped !== undefined ? grouped[si]?.color : undefined) ?? 'var(--dsl-g-accent)')
+  const multi = seriesValues.length > 1
+  const flat = seriesValues.flat()
+  const pointCount = Math.max(...seriesValues.map(values => values.length), 0)
   const W = Math.max(measured, 260)
   const H = 176
   const padL = 44
   const padR = 12
   const padT = 14
   const padB = 26
-  const values = data.map(d => Number(d.value) || 0)
-  const ticks = niceTicks(Math.min(...values, 0), Math.max(...values, 0), 4)
+  const ticks = niceTicks(Math.min(...flat, 0), Math.max(...flat, 0), 4)
   const lo = ticks[0]!
   const hi = ticks[ticks.length - 1]!
   const span = hi - lo || 1
   const innerW = W - padL - padR
   const innerH = H - padT - padB
-  const x = (i: number): number => padL + (data.length <= 1 ? innerW / 2 : (i / (data.length - 1)) * innerW)
+  const x = (i: number): number => padL + (pointCount <= 1 ? innerW / 2 : (i / (pointCount - 1)) * innerW)
   const y = (v: number): number => padT + (1 - (v - lo) / span) * innerH
-  const path = values.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ')
-  const area = data.length > 1
-    ? `${path} L ${x(data.length - 1).toFixed(1)} ${y(lo).toFixed(1)} L ${x(0).toFixed(1)} ${y(lo).toFixed(1)} Z`
+  const paths = seriesValues.map(values =>
+    values.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' '))
+  const area = !multi && pointCount > 1
+    ? `${paths[0]} L ${x(pointCount - 1).toFixed(1)} ${y(lo).toFixed(1)} L ${x(0).toFixed(1)} ${y(lo).toFixed(1)} Z`
     : null
   // Keep x labels readable: at most one per ~64px of plot width.
-  const labelStep = Math.max(1, Math.ceil(data.length / Math.max(1, Math.floor(innerW / 64))))
-  const summary = `折线图，${data.length} 个点，范围 ${formatTick(Math.min(...values, 0))} 到 ${formatTick(Math.max(...values, 0))}`
+  const labelStep = Math.max(1, Math.ceil(pointCount / Math.max(1, Math.floor(innerW / 64))))
+  const summary = `折线图，${multi ? `${seriesValues.length} 条序列` : `${pointCount} 个点`}，范围 ${formatTick(Math.min(...flat, 0))} 到 ${formatTick(Math.max(...flat, 0))}`
   return (
     <div className={css.lineChart} data-genui-chart="line" ref={ref} role="img" aria-label={summary}>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
@@ -356,21 +442,28 @@ export const LineChartNode = memo(function LineChartNode({ chart }: { chart: Gen
           )
         })}
         {area !== null && <path d={area} fill={`url(#${gradientId})`} />}
-        <path d={path} className={css.linePath} />
-        {data.map((datum, i) => {
-          const cy = y(values[i] ?? 0)
-          return (
-            <circle key={i} cx={x(i)} cy={cy} r={3.5} className={css.lineDot} fill={datum.color ?? undefined}>
-              <title>{`${datum.label}: ${String(datum.value)}`}</title>
-            </circle>
-          )
-        })}
-        {data.map((datum, i) => (
+        {paths.map((d, si) => <path key={si} d={d} className={css.linePath} style={{ stroke: colors[si] }} />)}
+        {seriesValues.map((values, si) => values.map((v, i) => (
+          <circle key={`${si}-${i}`} cx={x(i)} cy={y(v)} r={3.5} className={css.lineDot} style={{ fill: colors[si] }}>
+            <title>{`${multi ? `${grouped![si]!.label} · ` : ''}${labels[i] ?? ''}: ${String(v)}`}</title>
+          </circle>
+        )))}
+        {labels.map((label, i) => (
           i % labelStep === 0
-            ? <text key={`l-${i}`} x={x(i)} y={H - 8} textAnchor="middle" className={css.lineLabel}>{datum.label}</text>
+            ? <text key={`l-${i}`} x={x(i)} y={H - 8} textAnchor="middle" className={css.lineLabel}>{label}</text>
             : null
         ))}
       </svg>
+      {multi && (
+        <div className={css.chartLegend}>
+          {grouped!.map((entry, si) => (
+            <span key={si} className={css.legendItem}>
+              <span className={css.legendSwatch} style={{ background: colors[si] }} />
+              {entry.label}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 })

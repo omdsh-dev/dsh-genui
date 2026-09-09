@@ -18,10 +18,13 @@
  * - The whole spec carries a node budget; once exhausted, remaining siblings
  *   are elided.
  */
-import type { GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSeries, GenuiScene3D, GenuiSpec, GenuiDiagram, GenuiDiagramTheme, GenuiDiagramKind } from './spec.ts'
+import type { GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSeries, GenuiScene3D, GenuiSpec, GenuiDiagram, GenuiDiagramTheme, GenuiDiagramKind, TableCellType } from './spec.ts'
 import { wrapSingleComponentRoot } from './spec.ts'
 
 /** Hard resource limits enforced by repair (and mirrored at render time). */
+/** Table column cell types accepted by the guard. */
+export const TABLE_CELL_TYPES = ['text', 'num', 'delta', 'bar', 'badge'] as const
+
 export const GENUI_LIMITS = {
   /** Maximum nesting depth of the component tree. */
   maxDepth: 8,
@@ -376,7 +379,17 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
       const columns = repairStrings(rawCols, GENUI_LIMITS.maxTableCols, 128)
       const rows = repairRows(rawRows, GENUI_LIMITS.maxTableRows, GENUI_LIMITS.maxTableCols)
       if (columns === undefined || rows === undefined) return null
-      return { type: 'table', columns, rows }
+      // Optional per-column cell types; unknown entries degrade to 'text'.
+      const types = Array.isArray(v.types)
+        ? columns.map((_c, i) => {
+          const t = v.types as unknown[]
+          const raw = t[i]
+          return typeof raw === 'string' && TABLE_CELL_TYPES.includes(raw as TableCellType)
+            ? raw as TableCellType
+            : 'text'
+        })
+        : undefined
+      return { type: 'table', columns, rows, ...opt('types', types) }
     }
     case 'chart': {
       const data = repairChartData(v.data, GENUI_LIMITS.maxChartPoints)
@@ -385,7 +398,12 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
       // alone; a series-only chart gets an empty data array (the renderer
       // reads `series` in that case).
       if (data === undefined && series === undefined) return null
-      return { type: 'chart', data: data ?? [], ...opt('kind', enu(v.kind, CHART_KINDS)), ...opt('series', series) }
+      return {
+        type: 'chart', data: data ?? [],
+        ...opt('kind', enu(v.kind, CHART_KINDS)),
+        ...opt('series', series),
+        ...opt('horizontal', v.horizontal === true ? true : undefined),
+      }
     }
     case 'tabs': {
       const tabs = repairTabs(v.tabs, ctx, depth)
@@ -1491,6 +1509,9 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
     case 'table':
       if (!Array.isArray(v.columns)) errors.push(`${at}: type 'table' requires columns (array)`)
       if (!Array.isArray(v.rows)) errors.push(`${at}: type 'table' requires rows (array)`)
+      if (v.types !== undefined && !Array.isArray(v.types)) {
+        errors.push(`${at}.types must be an array of column cell types`)
+      }
       break
     case 'chart':
       validateChartNode(v, at, errors)

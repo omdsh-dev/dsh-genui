@@ -255,7 +255,12 @@ export interface GenuiTable {
   type: 'table'
   columns: string[]
   rows: Array<Array<string | number>>
+  /** Per-column cell type; missing = auto (numeric right-align, signed delta). */
+  types?: TableCellType[]
 }
+
+/** How a table column's cells render. `bar` reads the cell as 0-100. */
+export type TableCellType = 'text' | 'num' | 'delta' | 'bar' | 'badge'
 
 export interface GenuiChartDatum {
   label: string
@@ -268,8 +273,10 @@ export interface GenuiChart {
   /** Chart shape: bars (default), line (trend), donut (share). */
   kind?: 'bars' | 'line' | 'donut'
   data: GenuiChartDatum[]
-  /** Multi-series grouped bars: one series of data per entry. */
+  /** Multi-series: grouped bars, or one line per entry when kind is line. */
   series?: Array<{ label: string; color?: string; data: GenuiChartDatum[] }>
+  /** Bars only: horizontal bars (rankings, long category labels). */
+  horizontal?: boolean
 }
 
 export interface GenuiTab {

@@ -96,10 +96,12 @@ export function validateRenderableChartSemantics(value: unknown): string[] {
     }
 
     if (kind === 'line' || kind === 'donut') {
-      if (node.series !== undefined) {
-        errors.push(`${at}.series is only supported for bars`)
+      // v3: line charts accept `series` (one line per entry). Donut is a
+      // share-of-total shape and stays single-series.
+      if (kind === 'donut' && node.series !== undefined) {
+        errors.push(`${at}.series is only supported for bars and line`)
       }
-      if (node.data === undefined) {
+      if (node.data === undefined && node.series === undefined) {
         errors.push(`${at}.data is required for ${kind}`)
       }
     }

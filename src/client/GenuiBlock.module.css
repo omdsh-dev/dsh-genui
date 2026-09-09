@@ -728,6 +728,81 @@
 .donutLegend { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-secondary); line-height: 1.5; }
 .donutPct { color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
 
+/* ---------- horizontal bars (chart.horizontal) ---------- */
+
+.hbars { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
+.hbarRow { display: flex; align-items: center; gap: var(--dsl-g-gap-md); }
+.hbarLabel {
+  width: 96px;
+  flex-shrink: 0;
+  text-align: right;
+  font-size: var(--dsl-g-font-meta);
+  color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hbarTracks { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.hbarTrack {
+  height: 14px;
+  border-radius: var(--dsl-g-radius-sm);
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent);
+  overflow: hidden;
+}
+.hbarFill {
+  height: 100%;
+  min-width: 2px;
+  border-radius: var(--dsl-g-radius-sm);
+  background: var(--dsl-g-accent);
+  transition: width 0.6s ease;
+}
+.hbarValue {
+  width: 64px;
+  flex-shrink: 0;
+  text-align: right;
+  font-family: var(--dsl-g-font-mono);
+  font-size: var(--dsl-g-font-data);
+  color: var(--dsw-alias-label-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- table cell types (types: ["bar"|"badge"|...]) ---------- */
+
+.cellBadge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--dsl-g-radius-pill);
+  background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent);
+  color: var(--dsw-alias-label-primary);
+  font-size: var(--dsl-g-font-meta);
+  font-weight: 600;
+}
+.cellBar {
+  position: relative;
+  display: block;
+  min-width: 104px;
+  height: 18px;
+  border-radius: var(--dsl-g-radius-sm);
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent);
+  overflow: hidden;
+}
+.cellBarFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: var(--dsl-g-radius-sm);
+  background: color-mix(in srgb, var(--dsl-g-accent) 72%, transparent);
+}
+.cellBarText {
+  position: relative;
+  display: block;
+  text-align: right;
+  padding: 0 6px;
+  font-family: var(--dsl-g-font-mono);
+  font-size: var(--dsl-g-font-data);
+  line-height: 18px;
+  color: var(--dsw-alias-label-primary);
+}
+
 /* ---------- radio / switch / textarea ---------- */
 
 .fieldGroup { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }

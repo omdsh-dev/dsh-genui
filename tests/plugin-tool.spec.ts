@@ -114,18 +114,25 @@ describe('render_ui execute', () => {
     )
   })
 
-  it('rejects series-only line charts instead of rendering an empty plot', async () => {
-    await expect(tool.execute({
+  it('accepts multi-series line charts (v3) and rejects donut series', async () => {
+    const rendered = String(await tool.execute({
       spec: {
         items: [{
           type: 'chart',
           kind: 'line',
-          series: [{ label: 'A', data: [{ label: '周一', value: 128 }] }],
+          series: [
+            { label: '本月', data: [{ label: '周一', value: 128 }] },
+            { label: '上月', data: [{ label: '周一', value: 96 }] },
+          ],
         }],
       },
-    })).rejects.toThrow(
-      'items[0].series is only supported for bars; items[0].data is required for line',
-    )
+    }))
+    expect(rendered).toContain('已渲染 UI')
+    await expect(tool.execute({
+      spec: {
+        items: [{ type: 'chart', kind: 'donut', series: [{ label: 'A', data: [{ label: 'X', value: 1 }] }] }],
+      },
+    })).rejects.toThrow('items[0].series is only supported for bars and line')
   })
 })
 
@@ -201,6 +208,7 @@ describe('validate_dsh_ui tool', () => {
   })
 
   it('rejects line/donut series and empty chart collections before rendering', async () => {
+    // v3: line charts accept series; donut does not.
     const line = String(await vtool.execute({
       spec: {
         items: [{
@@ -210,8 +218,13 @@ describe('validate_dsh_ui tool', () => {
         }],
       },
     }))
-    expect(line).toContain('items[0].series is only supported for bars')
-    expect(line).toContain('items[0].data is required for line')
+    expect(line).toContain('✅')
+    const donut = String(await vtool.execute({
+      spec: {
+        items: [{ type: 'chart', kind: 'donut', series: [{ label: 'A', data: [{ label: 'X', value: 1 }] }] }],
+      },
+    }))
+    expect(donut).toContain('items[0].series is only supported for bars and line')
 
     const empty = String(await vtool.execute({
       spec: {

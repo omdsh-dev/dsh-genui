@@ -100,16 +100,16 @@ The spec is a white-listed component tree rendered inline where the fence sits. 
 
 - 布局: text · row · col · grid · card · divider · spacer
 - 展示: badge · stat · progress · list · table · keyvalue · avatar · audio · video · timeline · file-tree · breadcrumb · callout · steps · diff · json · code · copy
-- 图表: chart {"type":"chart","kind":"bars|line|donut","data":[{"label":"...","value":n,"color":"#hex?"}],"series":[...]?}（series 仅 bars） · echart (preset|option) · plot (函数图)
+- 图表: chart {"kind":"bars|line|donut","data":[{"label":"...","value":n}],"series":[{"label":"...","data":[...]}]?,"horizontal":true?}（series：bars 分组 / line 多序列；horizontal 横向柱） · echart (preset|option) · plot (函数图)
 - 交互: button · input · textarea · select · checkbox · switch · slider · radio · submit · quiz · link · tabs · accordion
 - 高级: mermaid (flowchart/sequence/class/gantt/pie/er/state/journey) · diagram (编辑级架构/流程图，27 种 kind) · scene3d (3D WebGL)
 
 **默认就该出 UI**：出现下列情况至少出一个围栏：
 - ≥3 条并列要点 → \`list\`；数字对比 → \`table\`；指标/进度/状态 → \`stat\`/\`progress\`/\`badge\`
 - 步骤/时间线 → \`steps\`/\`timeline\`/\`mermaid\`；架构/流程 → \`diagram\` 或 \`mermaid\`；风险/结论 → \`callout\`；代码/改动 → \`code\`/\`diff\`/\`json\`
-- 趋势/占比 → \`chart\`（≤8 点）或 \`echart\`（多序列/要交互时）；回答超过约 10 行时收尾自检至少有一个围栏，同一份信息不要既写文字又重复出组件。
+- 趋势/占比 → \`chart\`（≤8 点）或 \`echart\`（多序列/要交互时）；正文以组件承载为主：能结构化的段落一律换成组件，文字只做连接与结论，同一份信息不要既写文字又重复出组件。
 
-**字段速查**（完整见 genui skill）：\`stat\` \`{"label":"…","value":"…","delta":"+1.2%"}\` · \`table\` \`{"columns":["…"],"rows":[["…"]]}\` · \`callout\` \`{"tone":"info|success|warning|error","title":"…","content":"…"}\`
+**字段速查**（完整见 genui skill）：\`stat\` \`{"label":"…","value":"…","delta":"+1.2%"}\` · \`table\` \`{"columns":["…"],"rows":[["…"]],"types":["bar"|"badge"|"delta"|"num"]?}\` · \`callout\` \`{"tone":"info|success|warning|error","title":"…","content":"…"}\`
 
 Rules:
 - JSON 严格: 坏围栏降级为代码块；≥3 节点或含 table 的围栏发出前调用 validate_dsh_ui，❌ 修好再发（若附「已自动修复」JSON 照抄即可）。

@@ -63,6 +63,16 @@ export const gallerySpec: GenuiSpec = {
       { label: '本月', data: [{ label: 'Q1', value: 3 }, { label: 'Q2', value: 5 }] },
       { label: '上月', data: [{ label: 'Q1', value: 2 }, { label: 'Q2', value: 4 }] },
     ] },
+    { type: 'chart', kind: 'line', data: [], series: [
+      { label: '本月', data: [{ label: '一', value: 8 }, { label: '二', value: 12 }, { label: '三', value: 9 }] },
+      { label: '上月', data: [{ label: '一', value: 6 }, { label: '二', value: 9 }, { label: '三', value: 7 }] },
+    ] },
+    { type: 'chart', horizontal: true, data: [
+      { label: '自然搜索', value: 82 }, { label: '直接访问', value: 64 }, { label: '社交媒体', value: 41 },
+    ] },
+    { type: 'table', columns: ['渠道', '完成度', '状态'], types: ['text', 'bar', 'badge'], rows: [
+      ['自然搜索', '82', '健康'], ['直接访问', '64', '关注'], ['社交媒体', '41', '偏低'],
+    ] },
     { type: 'tabs', tabs: [
       { label: '概览', items: [{ type: 'text', content: '标签页一的内容' }] },
       { label: '明细', items: [{ type: 'list', items: ['明细 A', '明细 B'] }] },
