@@ -191,7 +191,7 @@ export function renderNode(
     case 'stat': {
       const down = node.delta !== undefined && node.delta.startsWith('-')
       return (
-        <div key={key} className={css.stat}>
+        <div key={key} className={`${css.stat}${node.size === 'hero' ? ` ${css.statHero}` : ''}`}>
           <span className={css.statLabel}>{node.label}</span>
           <span className={css.statValue}>{node.value}</span>
           {node.delta !== undefined && <span className={`${css.statDelta} ${down ? css.down : css.up}`}>{node.delta}</span>}

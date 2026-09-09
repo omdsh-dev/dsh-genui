@@ -195,6 +195,8 @@ export interface GenuiStat {
   delta?: string
   /** Optional micro trend line (finite numbers, 2..60 points). */
   spark?: number[]
+  /** `hero` renders one oversized number — use it once per fence as the anchor. */
+  size?: 'hero'
 }
 
 export interface GenuiProgress {

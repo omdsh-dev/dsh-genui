@@ -28,15 +28,17 @@
   --dsl-g-radius-sm: 6px;
   --dsl-g-radius-pill: 999px;
 
-  /* Design system v3: the reading floor is 12px (11px data labels were
-     illegible next to 14px body text, especially for CJK), headings get one
-     step more contrast, and numeric columns share one tabular voice. */
-  --dsl-g-font-display: 26px;
-  --dsl-g-font-h1: 22px;
-  --dsl-g-font-h2: 17px;
-  --dsl-g-font-h3: 15px;
-  --dsl-g-font-body: 14px;
-  --dsl-g-font-title: 13px;
+  /* Design system v4: the v3 scale was too compressed — every level sat
+     within 26..12px, so nothing dominated. v4 restores a display contrast
+     (hero 34 / display 28 / h1 24 / h2 19 / h3 16) against a 14.5px body, and
+     the reading floor stays 12px. */
+  --dsl-g-font-hero: 34px;
+  --dsl-g-font-display: 28px;
+  --dsl-g-font-h1: 24px;
+  --dsl-g-font-h2: 19px;
+  --dsl-g-font-h3: 16px;
+  --dsl-g-font-body: 14.5px;
+  --dsl-g-font-title: 13.5px;
   --dsl-g-font-meta: 12px;
   --dsl-g-font-data: 12px;
 
@@ -72,12 +74,15 @@
 }
 
 .banner {
-  font-size: var(--dsl-g-font-h3);
-  font-weight: 700;
-  letter-spacing: 0.005em;
+  /* The fence title is the answer's section marker: 20px + a 3px accent bar
+     gives it a real focal weight instead of reading like bold body text. */
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   color: var(--dsw-alias-label-primary);
-  padding-bottom: 10px;
+  padding: 0 0 11px 12px;
   margin-bottom: var(--dsl-g-gap-lg);
+  border-left: 3px solid var(--dsl-g-accent);
   border-bottom: 1px solid var(--dsl-g-border);
 }
 
@@ -114,17 +119,30 @@
 
 .cardTitle {
   font-size: var(--dsl-g-font-meta);
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--dsw-alias-label-secondary);
 }
 
 /* ---------- text ---------- */
 
 .text { color: var(--dsw-alias-label-primary); }
-.text.h1 { font-size: var(--dsl-g-font-h1); font-weight: 700; line-height: 1.3; letter-spacing: -0.02em; }
-.text.h2 { font-size: var(--dsl-g-font-h2); font-weight: 600; line-height: 1.35; letter-spacing: -0.01em; }
-.text.h3 { font-size: var(--dsl-g-font-h3); font-weight: 600; line-height: 1.5; }
+.text.h1 {
+  font-size: var(--dsl-g-font-h1);
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  padding-left: 12px;
+  border-left: 4px solid var(--dsl-g-accent);
+}
+.text.h2 {
+  font-size: var(--dsl-g-font-h2);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+.text.h3 { font-size: var(--dsl-g-font-h3); font-weight: 650; line-height: 1.45; }
 /* CJK reads looser than Latin at the same size: 1.7 for body copy, 1.65 for
    secondary lines, and no letter-spacing on Chinese runs (0.02em inserts
    visible gaps between Han characters). */
@@ -294,31 +312,37 @@
 .stat {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   /* Metric card: the stat is the single most-used component (531 of ~3.7k
-     nodes in real sessions), so it gets a real surface instead of floating
-     digits separated by hairlines. */
-  padding: 10px 14px 11px;
+     nodes in real sessions). v4 makes the number the focal point: 32px/700
+     with an accent rule on top of the card. */
+  padding: 12px 15px 13px;
   border: 1px solid var(--dsl-g-border);
+  border-top: 2px solid color-mix(in srgb, var(--dsl-g-accent) 55%, transparent);
   border-radius: var(--dsl-g-radius-control);
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, transparent));
   min-width: 0;
 }
+/* Hero stat: one number is the answer's anchor (use it once per fence). */
+.statHero { padding: 16px 18px 18px; border-top-color: var(--dsl-g-accent); }
+.statHero .statValue { font-size: 44px; line-height: 1.02; letter-spacing: -0.035em; }
+.statHero .statLabel { font-size: 13px; }
 .grid > .stat, .row > .stat { border-left: 1px solid var(--dsl-g-border); }
 .statLabel {
   font-size: var(--dsl-g-font-meta);
   color: var(--dsw-alias-label-secondary);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   line-height: 1.4;
 }
 .statValue {
   font-family: var(--dsl-g-font-mono);
-  font-size: var(--dsl-g-font-display);
-  font-weight: 650;
-  letter-spacing: -0.02em;
+  font-size: var(--dsl-g-font-hero);
+  font-weight: 700;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
   color: var(--dsw-alias-label-primary);
-  line-height: 1.15;
+  line-height: 1.05;
   overflow-wrap: anywhere;
 }
 .statDelta {
@@ -391,7 +415,7 @@
 }
 .li + .li { border-top: 1px solid var(--dsl-g-border); }
 .li:last-child { border-bottom: none; }
-.liTitle { font-size: var(--dsl-g-font-title); color: var(--dsw-alias-label-primary); font-weight: 600; line-height: 1.55; }
+.liTitle { font-size: var(--dsl-g-font-body); color: var(--dsw-alias-label-primary); font-weight: 650; line-height: 1.5; }
 .liDesc { font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-secondary); line-height: 1.55; }
 
 .tableWrap {
@@ -409,9 +433,10 @@
   text-align: left;
   padding: 9px var(--dsl-g-gap-md);
   color: var(--dsw-alias-label-secondary);
-  font-weight: 650;
+  font-weight: 700;
   font-size: var(--dsl-g-font-meta);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   border-bottom: 1px solid var(--dsl-g-border-strong);
   background: var(--dsl-g-zebra);
   white-space: nowrap;
@@ -605,9 +630,9 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-weight: 650;
-  font-size: var(--dsl-g-font-title);
-  letter-spacing: 0.005em;
+  font-weight: 700;
+  font-size: var(--dsl-g-font-h3);
+  letter-spacing: -0.005em;
   color: var(--dsw-alias-label-primary);
 }
 .calloutBody { color: var(--dsw-alias-label-secondary); }
@@ -654,7 +679,7 @@
   color: var(--dsl-g-accent);
 }
 .stepContent { display: flex; flex-direction: column; gap: 2px; padding-top: 2px; }
-.stepTitle { font-size: var(--dsl-g-font-title); font-weight: 600; color: var(--dsw-alias-label-primary); line-height: 1.55; }
+.stepTitle { font-size: var(--dsl-g-font-body); font-weight: 650; color: var(--dsw-alias-label-primary); line-height: 1.45; }
 .stepDesc { font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-secondary); line-height: 1.55; }
 
 /* ---------- keyvalue ---------- */
@@ -670,7 +695,7 @@
 .kvRow + .kvRow { border-top: 1px solid var(--dsl-g-border); }
 .kvRow:last-child { border-bottom: none; }
 .kvKey { width: 120px; flex-shrink: 0; color: var(--dsw-alias-label-secondary); font-weight: 600; }
-.kvValue { margin: 0; color: var(--dsw-alias-label-primary); word-break: break-word; line-height: 1.55; font-variant-numeric: tabular-nums; }
+.kvValue { margin: 0; color: var(--dsw-alias-label-primary); font-weight: 600; word-break: break-word; line-height: 1.5; font-variant-numeric: tabular-nums; }
 
 /* ---------- json scalar ---------- */
 

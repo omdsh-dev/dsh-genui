@@ -340,6 +340,7 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
         type: 'stat', label, value,
         ...opt('delta', str(v.delta, 64)),
         ...opt('spark', sparkValues(v.spark)),
+        ...opt('size', v.size === 'hero' ? 'hero' as const : undefined),
       }
     }
     case 'progress': {
@@ -1481,6 +1482,9 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       isStr('delta')
       if (v.spark !== undefined && (!Array.isArray(v.spark) || v.spark.length < 2)) {
         errors.push(`${at}: 'spark' must be an array of at least 2 numbers`)
+      }
+      if (v.size !== undefined && v.size !== 'hero') {
+        errors.push(`${at}: 'size' must be "hero" when present`)
       }
       break
     case 'progress':
