@@ -222,8 +222,15 @@ describe('validate_dsh_ui tool', () => {
         }],
       },
     }))
-    expect(empty).toContain('items[0].data must not be empty')
+    // `data: []` is legal for grouped bars (points live in series), so only
+    // the truly empty series is reported — the chart is still rejected.
     expect(empty).toContain('items[0].series[0].data must not be empty')
+    expect(empty).not.toContain('items[0].data must not be empty')
+
+    const emptyPlain = String(await vtool.execute({
+      spec: { items: [{ type: 'chart', data: [] }] },
+    }))
+    expect(emptyPlain).toContain('items[0].data must not be empty')
 
     const emptySeries = String(await vtool.execute({
       spec: { items: [{ type: 'chart', series: [] }] },

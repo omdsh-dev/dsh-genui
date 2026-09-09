@@ -76,15 +76,20 @@ export function validateRenderableChartSemantics(value: unknown): string[] {
   const errors = validateGenuiChartSemantics(value)
   visitChartNodes(value, (node, at) => {
     const kind = node.kind === undefined ? 'bars' : node.kind
+    const series = Array.isArray(node.series) ? node.series : undefined
 
-    if (Array.isArray(node.data) && node.data.length === 0) {
+    // Grouped bars legitimately carry `data: []` and put every point in
+    // `series` (the renderer reads the series as the columns). Only an empty
+    // data array with NO series is an undrawable chart — rejecting the
+    // grouped form made every such fence fail to render at all.
+    if (Array.isArray(node.data) && node.data.length === 0 && (series === undefined || series.length === 0)) {
       errors.push(`${at}.data must not be empty`)
     }
-    if (Array.isArray(node.series)) {
-      if (node.series.length === 0) errors.push(`${at}.series must not be empty`)
-      for (let index = 0; index < node.series.length; index++) {
-        const series = obj(node.series[index])
-        if (series !== undefined && Array.isArray(series.data) && series.data.length === 0) {
+    if (series !== undefined) {
+      if (series.length === 0) errors.push(`${at}.series must not be empty`)
+      for (let index = 0; index < series.length; index++) {
+        const entry = obj(series[index])
+        if (entry !== undefined && Array.isArray(entry.data) && entry.data.length === 0) {
           errors.push(`${at}.series[${index}].data must not be empty`)
         }
       }

@@ -6,6 +6,28 @@ import { renderGenuiFence, resolveGenuiSpec } from '../src/client/fence-render.t
 afterEach(cleanup)
 
 describe('native chart renderability contract', () => {
+  it('accepts grouped bars that carry their points in series (data: [])', () => {
+    // Regression: the empty-data rule used to reject the grouped-bars form
+    // wholesale, so a fence containing one never rendered.
+    const raw = JSON.stringify({
+      items: [{
+        type: 'chart',
+        data: [],
+        series: [
+          { label: '本月', data: [{ label: 'Q1', value: 3 }, { label: 'Q2', value: 5 }] },
+          { label: '上月', data: [{ label: 'Q1', value: 2 }, { label: 'Q2', value: 4 }] },
+        ],
+      }],
+    })
+    const spec = resolveGenuiSpec(raw)
+    expect(spec).not.toBeNull()
+    expect(spec?.items).toHaveLength(1)
+    // Still undrawable when neither data nor series carries a point.
+    expect(resolveGenuiSpec(JSON.stringify({
+      items: [{ type: 'chart', data: [], series: [{ label: 'A', data: [] }] }],
+    }))).toBeNull()
+  })
+
   it('rejects series-only line charts on the direct fence path', () => {
     const raw = JSON.stringify({
       items: [{

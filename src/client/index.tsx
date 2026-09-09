@@ -123,6 +123,16 @@ function sendInlineGenuiAction(ctx: Context, sessionId: SessionId, action: strin
   })
 }
 
+/** Visual-regression flag: `scripts/e2e-visual.mts` sets
+ * `window.__DSH_GENUI_E2E__ = true` via an init script BEFORE this bundle
+ * boots, which pins the DOM channel even on hosts that ship the registry
+ * extension point. The DOM channel is what lets the harness inject a gallery
+ * fence into an empty scratch profile and screenshot the real React tree
+ * without a model round trip; production pages never set the flag. */
+function forcedDomChannel(): boolean {
+  return (globalThis as { __DSH_GENUI_E2E__?: boolean }).__DSH_GENUI_E2E__ === true
+}
+
 /** Cordis client entry: register the fence renderer on boot, the keyed
  * toolview for the render_ui tool, and the session panel dock; returning the
  * disposers lets cordis tear all registrations down on plugin unload. */
@@ -131,10 +141,11 @@ export function apply(ctx: Context): () => void {
   // ships it (contract line), the DOM observer otherwise (pristine line).
   // One plugin build serves both deployments.
   const registerFn = (primitives as unknown as HostFenceExt).registerFenceRenderer
-  const channel = typeof registerFn === 'function' ? 'registry' : 'dom'
+  const useRegistry = typeof registerFn === 'function' && !forcedDomChannel()
+  const channel = useRegistry ? 'registry' : 'dom'
   console.info(`[genui] client active; fence-channel=${channel}`)
-  const disposers: Array<() => void> = typeof registerFn === 'function'
-    ? [registerFn('dsh-ui', renderGenuiFence)]
+  const disposers: Array<() => void> = useRegistry
+    ? [registerFn!('dsh-ui', renderGenuiFence)]
     : [installDomFenceRenderer(ctx, (sessionId, action, payload) => sendInlineGenuiAction(ctx, sessionId, action, payload))]
   // Idle prefetch of the lazy engine assets: the browser downloads them at
   // LOW priority whenever the page is idle, so the first mermaid/3D node in

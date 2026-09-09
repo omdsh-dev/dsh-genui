@@ -396,11 +396,16 @@ export function InputNode({ node, onAction, answers }: {
   const action = node.action
   const id = node.id
   const secret = node.inputType === 'password'
-  // Initial value: spec default, else durable state (restored after refresh).
-  // Secrets restore as blank: a password that survives a refresh would be a
-  // stored secret, which is exactly what the boundary forbids.
-  const [value, setValue] = useState<string>(() =>
-    secret ? '' : (node.value ?? (id !== undefined ? answers?.fields[id] ?? '' : '')))
+  // Initial value: a durable value wins whenever the field id is present in
+  // the registry — including an explicit '' from a user who cleared the
+  // input, which must NOT resurrect the spec default. Only an untouched field
+  // (absent from the registry) falls back to the model default. Secrets
+  // restore as blank: a password that survives a refresh would be a stored
+  // secret, which is exactly what the boundary forbids.
+  const [value, setValue] = useState<string>(() => {
+    const durable = id !== undefined ? answers?.fields[id] : undefined
+    return secret ? '' : (durable ?? node.value ?? '')
+  })
   // Last value actually DELIVERED to the model: blur only sends when the
   // value changed since the last delivery (a focus-in/focus-out with no edit
   // used to fire a pointless action round trip). Seeded with the mount value
@@ -413,12 +418,15 @@ export function InputNode({ node, onAction, answers }: {
     }
   }
   const ime = useImeComposing()
-  // Field invariant: a spec-provided non-blank default registers at mount.
+  // Field invariant: a spec-provided non-blank default registers at mount —
+  // but never over an existing durable entry, or a user who cleared the
+  // default would have it written back into the registry by this effect.
   const mounted = useRef(false)
   useEffect(() => {
     if (mounted.current) return
     mounted.current = true
-    if (!secret && id !== undefined && node.value !== undefined && node.value.trim() !== '') {
+    if (!secret && id !== undefined && node.value !== undefined && node.value.trim() !== ''
+      && answers?.fields[id] === undefined) {
       answers?.setField(id, node.value)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -468,8 +476,12 @@ export function TextareaNode({ node, onAction, answers }: {
 }) {
   const action = node.action
   const id = node.id
-  const [value, setValue] = useState<string>(() =>
-    node.value ?? (id !== undefined ? answers?.fields[id] ?? '' : ''))
+  // Durable value wins over the spec default for the same reason as InputNode:
+  // an explicit user clear is stored as '' and must stay cleared.
+  const [value, setValue] = useState<string>(() => {
+    const durable = id !== undefined ? answers?.fields[id] : undefined
+    return durable ?? node.value ?? ''
+  })
   // Last value delivered to the model: blur sends only on change. Seeded
   // with the mount value so an unedited blur stays silent.
   const lastSent = useRef<string | null>(value)
@@ -480,12 +492,14 @@ export function TextareaNode({ node, onAction, answers }: {
     }
   }
   const ime = useImeComposing()
-  // Field invariant: a spec-provided non-blank default registers at mount.
+  // Field invariant: a spec-provided non-blank default registers at mount,
+  // unless a durable entry already exists (see InputNode).
   const mounted = useRef(false)
   useEffect(() => {
     if (mounted.current) return
     mounted.current = true
-    if (id !== undefined && node.value !== undefined && node.value.trim() !== '') {
+    if (id !== undefined && node.value !== undefined && node.value.trim() !== ''
+      && answers?.fields[id] === undefined) {
       answers?.setField(id, node.value)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

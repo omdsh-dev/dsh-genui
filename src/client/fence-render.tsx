@@ -15,10 +15,10 @@
  * a data shape, and pristine hosts do not export the host-side type names.
  */
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Key, type ReactNode } from 'react'
-import { CodeBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ErrorBoundary } from './ErrorBoundary.tsx'
 import { GenuiBlock } from './GenuiBlock.tsx'
 import { repairGenuiSpec } from './guard.ts'
+import { CODE_LABELS, HostCodeBlock } from './host-labels.ts'
 import { fenceStateKey } from './interaction-store.ts'
 import { parsePartialGenuiSpec } from './parse-partial.ts'
 import { applyPanelOperation, diagnosePanelBudget, type PanelOperationStatus } from './panel-store.ts'
@@ -100,7 +100,7 @@ function FenceFallback({ raw, fenceKey }: { raw: string; fenceKey: Key }) {
           ⚠️ dsh-ui fence JSON 解析失败{parseDiagnostic} —— 围栏保持为代码块；请让模型检查并修复 JSON 后重发。
         </div>
       )}
-      <CodeBlock key={fenceKey} code={`${raw}\n`} lang="dsh-ui" />
+      <HostCodeBlock key={fenceKey} code={`${raw}\n`} lang="dsh-ui" {...CODE_LABELS} />
     </div>
   )
 }
@@ -172,13 +172,20 @@ export function resolveGenuiSpec(raw: string, context?: GenuiFenceContext): Genu
 /** The inline GenuiBlock tree for a resolved non-panel spec. */
 function renderInlineFence(key: Key, context: GenuiFenceContext | undefined, spec: GenuiSpec): ReactNode {
   const sessionId = context?.sessionId
+  // A stable source exists only for SETTLED messages. While the reply is
+  // still streaming the spec grows chunk by chunk, so a fingerprint-based key
+  // would remount the block on every new node and throw away whatever the
+  // user had typed into it. Streaming therefore uses the volatile instance
+  // (stateKey undefined): local interaction state survives the growth, and
+  // durable persistence starts when the source identity lands.
+  const source = context?.source
   return (
     // React key carries the stable source identity when present (atomic
     // remount at streaming→settled), falling back to the document key.
     // Repaired specs render SILENTLY: once the UI renders, no amber note
     // tells the user something was wrong — only an unrecoverable body keeps
     // the red diagnostic.
-    <ErrorBoundary key={context?.source?.id ?? key} label="该界面">
+    <ErrorBoundary key={source?.id ?? key} label="该界面">
       <GenuiBlock
         spec={spec}
         // v2.7 durable state: session + stable source + content fingerprint —
@@ -186,9 +193,9 @@ function renderInlineFence(key: Key, context: GenuiFenceContext | undefined, spe
         // content (换题, edited spec) gets a fresh key. Without a stable
         // source (streaming / non-conversation surfaces) state is not
         // persisted.
-        stateKey={sessionId === undefined
+        stateKey={sessionId === undefined || source === undefined
           ? undefined
-          : fenceStateKey(sessionId, context?.source?.id ?? String(key), JSON.stringify(spec))}
+          : fenceStateKey(sessionId, source.id, JSON.stringify(spec))}
       />
     </ErrorBoundary>
   )
