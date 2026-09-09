@@ -125,9 +125,12 @@
 .text.h1 { font-size: var(--dsl-g-font-h1); font-weight: 700; line-height: 1.3; letter-spacing: -0.02em; }
 .text.h2 { font-size: var(--dsl-g-font-h2); font-weight: 600; line-height: 1.35; letter-spacing: -0.01em; }
 .text.h3 { font-size: var(--dsl-g-font-h3); font-weight: 600; line-height: 1.5; }
-.text.body { font-size: var(--dsl-g-font-body); line-height: 1.6; color: var(--dsw-alias-label-primary); }
-.text.muted { font-size: var(--dsl-g-font-title); line-height: 1.5; color: var(--dsw-alias-label-secondary); }
-.text.caption { font-size: var(--dsl-g-font-meta); line-height: 1.5; color: var(--dsw-alias-label-tertiary); letter-spacing: 0.02em; }
+/* CJK reads looser than Latin at the same size: 1.7 for body copy, 1.65 for
+   secondary lines, and no letter-spacing on Chinese runs (0.02em inserts
+   visible gaps between Han characters). */
+.text.body { font-size: var(--dsl-g-font-body); line-height: 1.7; color: var(--dsw-alias-label-primary); text-wrap: pretty; }
+.text.muted { font-size: var(--dsl-g-font-title); line-height: 1.65; color: var(--dsw-alias-label-secondary); }
+.text.caption { font-size: var(--dsl-g-font-meta); line-height: 1.6; color: var(--dsw-alias-label-tertiary); }
 .text.center { text-align: center; }
 
 /* ---------- controls ---------- */
@@ -1059,6 +1062,52 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 .bcText:hover { color: var(--dsl-g-accent); }
 .bcCurrent { color: var(--dsw-alias-label-primary); font-weight: 600; cursor: default; }
 .bcSep { color: var(--dsw-alias-label-caption, var(--dsw-alias-label-tertiary)); }
+
+/* ---------- streaming skeleton ----------
+   Shown while a fence body is still arriving and no component has finished.
+   It replaces half-written JSON with a quiet shimmer that mirrors the block
+   layout; the settle sweep restores the raw code block if the body never
+   parses. */
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-md);
+  padding: var(--dsl-g-gap-lg);
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-surface);
+  background: var(--dsw-alias-bg-layer-1, transparent);
+}
+.skeletonTitle {
+  display: block;
+  width: 34%;
+  height: 12px;
+  border-radius: var(--dsl-g-radius-pill);
+}
+.skeletonBars { display: flex; gap: var(--dsl-g-gap-sm); }
+.skeletonBars > span { display: block; height: 44px; border-radius: var(--dsl-g-radius-control); }
+.skeletonBlock { display: block; height: 76px; border-radius: var(--dsl-g-radius-control); }
+.skeletonTitle,
+.skeletonBars > span,
+.skeletonBlock {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent) 0%,
+    color-mix(in srgb, var(--dsw-alias-label-primary) 13%, transparent) 50%,
+    color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  animation: dsl-skeleton 1.4s ease-in-out infinite;
+}
+@keyframes dsl-skeleton {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeletonTitle,
+  .skeletonBars > span,
+  .skeletonBlock { animation: none; }
+}
 
 /* ---------- staggered reveal ---------- */
 

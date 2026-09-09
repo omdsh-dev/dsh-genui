@@ -154,7 +154,7 @@ describe('installDomFenceRenderer', () => {
     }
   })
 
-  it('keeps the stock block visible while no component has finished (streaming half)', async () => {
+  it('shows a skeleton while the spec is still arriving, then swaps in the real tree', async () => {
     const row = assistantRow('s9b', true)
     const block = stockCodeBlock('{"items":[{"type":"text","content":', 'dsh-ui')
     row.appendChild(block)
@@ -163,14 +163,55 @@ describe('installDomFenceRenderer', () => {
     const dispose = installDomFenceRenderer(makeCtx('sess-1', send), send)
     try {
       await tick()
-      expect(block.hasAttribute('data-genui-rendered')).toBe(false)
-      expect(block.style.display).toBe('')
-      expect(row.querySelector('.genui-dom-fence')).toBeNull()
-      // The component closes: takeover happens while still streaming.
+      // v3: half-written JSON is replaced by the skeleton, not left on screen.
+      expect(block.hasAttribute('data-genui-rendered')).toBe(true)
+      expect(block.style.display).toBe('none')
+      const skeleton = row.querySelector('.genui-dom-fence [class*="skeleton"]')
+      expect(skeleton).not.toBeNull()
+      expect(skeleton!.getAttribute('role')).toBe('status')
+      // The component closes: the skeleton is replaced by the real tree.
       block.querySelector('code')!.textContent = '{"items":[{"type":"text","content":"你好，世界"}]}'
       await tick()
-      expect(block.hasAttribute('data-genui-rendered')).toBe(true)
+      expect(row.querySelector('.genui-dom-fence [class*="skeleton"]')).toBeNull()
       expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('你好，世界')
+    } finally {
+      dispose()
+    }
+  })
+
+  it('restores the raw code block when a skeleton body never parses at settle', async () => {
+    const row = assistantRow('s9b2', true)
+    const block = stockCodeBlock('{"items":[{"type":"text","content":', '')
+    row.appendChild(block)
+    document.body.appendChild(row)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('sess-1', send), send)
+    try {
+      await tick()
+      expect(row.querySelector('.genui-dom-fence [class*="skeleton"]')).not.toBeNull()
+      // The reply settles with the body still broken: the skeleton must give
+      // the raw block back rather than hiding it forever.
+      row.removeAttribute('data-streaming')
+      await tick()
+      expect(row.querySelector('.genui-dom-fence')).toBeNull()
+      expect(block.hasAttribute('data-genui-rendered')).toBe(false)
+      expect(block.style.display).toBe('')
+    } finally {
+      dispose()
+    }
+  })
+
+  it('never skeletons a streaming JSON fence that is not a GenUI spec', async () => {
+    const row = assistantRow('s9b3', true)
+    const block = stockCodeBlock('{"name":"配置","value":[1,2,', '')
+    row.appendChild(block)
+    document.body.appendChild(row)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('sess-1', send), send)
+    try {
+      await tick()
+      expect(row.querySelector('.genui-dom-fence')).toBeNull()
+      expect(block.hasAttribute('data-genui-rendered')).toBe(false)
     } finally {
       dispose()
     }

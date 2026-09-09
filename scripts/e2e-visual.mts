@@ -220,6 +220,51 @@ try {
   await page.screenshot({ path: join(OUT_DIR, 'gallery.png'), fullPage: true })
   log(`✓ 截图 gallery.png`)
 
+  // ── 流式骨架验证 ─────────────────────────────────────────────────────────
+  // 半截 JSON 的 dsh-ui 围栏：不显示裸 JSON，而是骨架；settle 后若仍解析不了
+  // 必须把原始代码块还回来（不能永久藏起来）。
+  await page.evaluate(() => {
+    const row = document.createElement('div')
+    row.setAttribute('data-chat-anchor-key', 'e2e-skeleton:0')
+    row.setAttribute('data-chat-flow-kind', 'assistant-step')
+    row.setAttribute('data-streaming', '')
+    const block = document.createElement('div')
+    block.className = 'md-code-block'
+    block.setAttribute('data-visual-skeleton', '1')
+    const label = document.createElement('div')
+    label.textContent = 'dsh-ui'
+    const pre = document.createElement('pre')
+    const code = document.createElement('code')
+    code.textContent = '{"items":[{"type":"stat","label":"CPU","value":"42%'
+    pre.appendChild(code)
+    block.append(label, pre)
+    row.appendChild(block)
+    ;(document.querySelector('[data-chat-flow]') ?? document.body).appendChild(row)
+  })
+  await page.waitForTimeout(2500)
+  const skeleton = await page.evaluate(() => ({
+    skeleton: document.querySelectorAll('.genui-dom-fence [class*="skeleton"]').length,
+    rawVisible: document.querySelector('[data-visual-skeleton]')?.getAttribute('style') ?? '',
+  }))
+  if (skeleton.skeleton === 0) throw new Error(`流式骨架未出现（${JSON.stringify(skeleton)}）`)
+  await page.evaluate(() => { document.querySelector('[data-chat-anchor-key="e2e-skeleton:0"]')?.removeAttribute('data-streaming') })
+  await page.waitForTimeout(1800)
+  // settle 后 tier-2 补全把半截 spec 修好 → 骨架换成真组件（这是更好的结果；
+  // 「补不回来就归还原始代码块」由 tests/dom-fence.spec.tsx 覆盖）。
+  const restored = await page.evaluate(() => {
+    const block = document.querySelector('[data-visual-skeleton]')
+    const container = document.querySelector('.genui-dom-fence')
+    return {
+      skeletons: document.querySelectorAll('.genui-dom-fence [class*="skeleton"]').length,
+      hidden: block?.getAttribute('style')?.includes('display: none') ?? false,
+      text: container?.textContent ?? '',
+    }
+  })
+  if (restored.skeletons !== 0 || !restored.hidden || !restored.text.includes('CPU')) {
+    throw new Error(`骨架未在 settle 后换成真组件（${JSON.stringify(restored)}）`)
+  }
+  log('✓ 流式骨架：出现 → settle 后换成真组件')
+
   // ── 本地交互验证 ─────────────────────────────────────────────────────────
   // 点击在第一个 evaluate 里做；React 18 的状态更新是异步的，断言放到
   // 下一次 evaluate（中间隔一个 timeout），否则必然读到旧 DOM。
