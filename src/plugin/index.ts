@@ -28,9 +28,9 @@ import { createRenderUiTool, createValidateDshUiTool } from './tool.ts'
  * This route serves them from the plugin's own package directory through the
  * host webserver service — the longest-prefix rule lets it win over the
  * generic `/plugins` bundle route, and no host source change is needed. The
- * service is optional at this plugin's start time (same ordering reality as
- * the tools registry), so registration probes immediately AND on the
- * `internal/service` event, exactly like the tools registration below.
+ * service is optional at this plugin's start time, so a dependency fiber owns
+ * the registration and follows the webserver through late binding, replacement,
+ * and plugin reloads.
  */
 
 /** Route prefix under /plugins; anything under it is this plugin's asset. */
@@ -167,49 +167,27 @@ export function apply(ctx: Context): void {
     order: ctx.systemPrompt.getSectionOrder('STRUCTURED_OUTPUT'),
     text: GENUI_SECTION_TEXT,
   })
-  // The tools service is optional: hosts without tool access (or minimal
-  // compositions) keep the fence channel; only when the registry exists does
-  // the render_ui tool join the model's tool set. `reflect.get(name, false)`
-  // is cordis's non-throwing optional service lookup (the proxy's own trap
-  // uses it) — property access without inject would throw instead.
-  //
-  // Start-up ordering: this plugin injects only `systemPrompt`, so cordis
-  // starts it EARLY — before the tools provider (which injects deeper
-  // dependencies) has bound its service. A one-shot probe at apply time
-  // therefore misses the registry on real hosts (the fence section lands,
-  // the tool never registers). Fix: probe immediately AND subscribe to
-  // `internal/service` (emitted by cordis on every service binding), so the
-  // registration lands the moment `tools` appears, whatever the order.
-  let registered = false
-  const tryRegister = (value: { register(tool: unknown): unknown } | undefined): void => {
-    if (registered) return
-    const tools = value ?? ctx.reflect.get('tools', false) as { register(tool: unknown): unknown } | undefined
-    if (tools === undefined) return
-    tools.register(createRenderUiTool())
-    tools.register(createValidateDshUiTool())
-    registered = true
-  }
-  tryRegister(undefined)
-  ctx.on('internal/service', (name: string, value: unknown) => {
-    if (name === 'tools') tryRegister(value as { register(tool: unknown): unknown })
+  // Hosts without tool access keep the fence channel. The dependency fiber
+  // starts whenever tools becomes available and unloads its registrations
+  // before either the service or this plugin is replaced.
+  ctx.inject(['tools'], (toolsCtx) => {
+    toolsCtx.effect(function* () {
+      yield toolsCtx.tools.register(createRenderUiTool())
+      yield toolsCtx.tools.register(createValidateDshUiTool())
+    }, 'dsh-genui: model tools')
   })
 
   ctx.inject(['skills'], (skillCtx) => {
     skillCtx.skills.registerProvider(() => bundledSkillProvider())
   })
 
-  // Lazy-engine asset route: same optional-probe pattern as the tools
-  // registry — the webserver service may bind after this plugin starts.
-  let assetsRegistered = false
-  const tryRegisterAssets = (value: { register(route: unknown): unknown } | undefined): void => {
-    if (assetsRegistered) return
-    const webServer = value ?? ctx.reflect.get('webServer', false) as { register(route: unknown): unknown } | undefined
-    if (webServer === undefined) return
-    webServer.register({ kind: 'prefix', path: ASSET_ROUTE_PATH, handler: serveGenuiAsset })
-    assetsRegistered = true
-  }
-  tryRegisterAssets(undefined)
-  ctx.on('internal/service', (name: string, value: unknown) => {
-    if (name === 'webServer') tryRegisterAssets(value as { register(route: unknown): unknown })
+  // webServer.register returns a raw disposer, so an explicit effect binds the
+  // route to the dependency fiber instead of leaving it in the host route table.
+  ctx.inject(['webServer'], (webCtx) => {
+    const webServer = webCtx.reflect.get('webServer') as { register(route: unknown): () => void }
+    webCtx.effect(
+      () => webServer.register({ kind: 'prefix', path: ASSET_ROUTE_PATH, handler: serveGenuiAsset }),
+      'dsh-genui: asset route',
+    )
   })
 }
