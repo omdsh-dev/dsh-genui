@@ -73,6 +73,17 @@ async function tick(ms = 40): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, ms))
 }
 
+/** Poll instead of a single fixed wait: the rAF sweep can land late under a
+ *  loaded parallel test run, which made the growth assertion flaky. */
+async function waitFor(predicate: () => boolean, ms = 1500): Promise<boolean> {
+  const start = Date.now()
+  while (Date.now() - start < ms) {
+    if (predicate()) return true
+    await tick(30)
+  }
+  return predicate()
+}
+
 afterEach(() => {
   cleanup()
   document.body.innerHTML = ''
@@ -147,7 +158,7 @@ describe('installDomFenceRenderer', () => {
       expect(container!.textContent).toContain('你好，世界')
       // The body grows: the second finished component appears without settle.
       block.querySelector('code')!.textContent = '{"items":[{"type":"text","content":"你好，世界"},{"type":"text","content":"第二块"}]}'
-      await tick()
+      await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('第二块') === true)
       expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('第二块')
     } finally {
       dispose()
@@ -717,7 +728,7 @@ describe('multi-surface discovery across host DOM shapes (issue #6)', () => {
       expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('你好，世界')
       // 正文继续增长 → 实时重渲染。
       block.querySelector('code')!.textContent = '{"items":[{"type":"text","content":"你好，世界"},{"type":"text","content":"第二块"}]}'
-      await tick()
+      await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('第二块') === true)
       expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('第二块')
       // 落定：标签出现且是 dsh-ui → 保持渲染（带稳定身份）。
       block.querySelector('span')!.textContent = 'dsh-ui'

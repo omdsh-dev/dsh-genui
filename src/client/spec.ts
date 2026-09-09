@@ -201,10 +201,13 @@ export interface GenuiStat {
 
 export interface GenuiProgress {
   type: 'progress'
-  label?: string
-  /** 0..100 */
   value: number
+  label?: string
   valueLabel?: string
+  /** `bar` (default) draws a track; `ring` draws a circular gauge. */
+  variant?: 'bar' | 'ring'
+  /** Optional target marker on the bar track (0-100). */
+  target?: number
 }
 
 export interface GenuiDivider {

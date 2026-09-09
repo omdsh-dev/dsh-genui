@@ -74,15 +74,14 @@
 }
 
 .banner {
-  /* The fence title is the answer's section marker: 20px + a 3px accent bar
-     gives it a real focal weight instead of reading like bold body text. */
-  font-size: 20px;
+  /* Hierarchy through type, not decoration: 22px/800 with generous space
+     below. The accent bars v4 added read as PPT chrome and are gone. */
+  font-size: 22px;
   font-weight: 800;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   color: var(--dsw-alias-label-primary);
-  padding: 0 0 11px 12px;
-  margin-bottom: var(--dsl-g-gap-lg);
-  border-left: 3px solid var(--dsl-g-accent);
+  padding-bottom: 14px;
+  margin-bottom: 18px;
   border-bottom: 1px solid var(--dsl-g-border);
 }
 
@@ -133,8 +132,6 @@
   font-weight: 800;
   line-height: 1.25;
   letter-spacing: -0.02em;
-  padding-left: 12px;
-  border-left: 4px solid var(--dsl-g-accent);
 }
 .text.h2 {
   font-size: var(--dsl-g-font-h2);
@@ -313,18 +310,17 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* Metric card: the stat is the single most-used component (531 of ~3.7k
-     nodes in real sessions). v4 makes the number the focal point: 32px/700
-     with an accent rule on top of the card. */
-  padding: 12px 15px 13px;
+  /* Metric card: the number IS the design. No accent stripe, no bar — the
+     40px figure against a 12px uppercase label carries the hierarchy. */
+  padding: 14px 16px 15px;
   border: 1px solid var(--dsl-g-border);
-  border-top: 2px solid color-mix(in srgb, var(--dsl-g-accent) 55%, transparent);
-  border-radius: var(--dsl-g-radius-control);
+  border-radius: var(--dsl-g-radius-surface);
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, transparent));
   min-width: 0;
+  overflow: hidden;
 }
 /* Hero stat: one number is the answer's anchor (use it once per fence). */
-.statHero { padding: 16px 18px 18px; border-top-color: var(--dsl-g-accent); }
+.statHero { padding: 18px 20px 20px; }
 .statHero .statValue { font-size: 44px; line-height: 1.02; letter-spacing: -0.035em; }
 .statHero .statLabel { font-size: 13px; }
 .grid > .stat, .row > .stat { border-left: 1px solid var(--dsl-g-border); }
@@ -336,6 +332,9 @@
   line-height: 1.4;
 }
 .statValue {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
   font-family: var(--dsl-g-font-mono);
   font-size: var(--dsl-g-font-hero);
   font-weight: 700;
@@ -345,6 +344,15 @@
   line-height: 1.05;
   overflow-wrap: anywhere;
 }
+/* Unit suffix (%, GB, k, ms): same baseline, half the size, muted — the
+   number keeps the weight. This is the real typography win in v5. */
+.statUnit {
+  font-size: 0.5em;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--dsw-alias-label-secondary);
+}
+.statHero .statUnit { font-size: 0.46em; }
 .statDelta {
   font-size: var(--dsl-g-font-meta);
   font-weight: 600;
@@ -357,12 +365,13 @@
 .statDelta.up { color: var(--dsw-alias-state-success-secondary, #1f9d63); background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #22c55e) 12%, transparent); }
 .statSpark {
   display: block;
-  width: 100%;
-  max-width: 132px;
-  height: 24px;
-  margin-top: 2px;
+  width: calc(100% + 32px);
+  max-width: none;
+  height: 30px;
+  margin: 6px -16px -15px;
   overflow: visible;
 }
+.statHero .statSpark { width: calc(100% + 40px); margin: 8px -20px -20px; }
 
 .statDelta.down { color: var(--dsw-alias-state-error-primary, #d94848); background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #f25a5a) 12%, transparent); }
 
@@ -606,26 +615,28 @@
 }
 
 /* ---------- callout ----------
-   克制的信息条：极淡的底色 + 细边框 + 左侧 3px 语义色条。色条替代原先的
-   小圆点：语义由边沿表达，标题文字回到正常对比度，信息条在长回答里更容易
-   被扫到，又不会变成"彩色便签"。 */
+   语义由「底色 + 标题色」表达，不用左侧竖条：竖条是 PPT 式装饰，底色与
+   文字色才是信息层级。 */
 
 .callout {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 11px 14px 11px 13px;
-  border-radius: var(--dsl-g-radius-control);
+  padding: 12px 15px;
+  border-radius: var(--dsl-g-radius-surface);
   border: 1px solid var(--dsl-g-border);
-  border-left: 3px solid var(--dsl-g-border-strong);
   font-size: var(--dsl-g-font-title);
   line-height: 1.65;
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block));
 }
-.calloutInfo { background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent); border-left-color: var(--dsl-g-accent); }
-.calloutSuccess { background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent); border-left-color: var(--dsw-alias-state-success-primary, #3ecf8e); }
-.calloutWarning { background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent); border-left-color: var(--dsw-alias-state-warn-primary, #f5b83d); }
-.calloutError { background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent); border-left-color: var(--dsw-alias-state-error-primary, #ff6b6b); }
+.calloutInfo { background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent); }
+.calloutSuccess { background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent); }
+.calloutWarning { background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent); }
+.calloutError { background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent); }
+.calloutInfo .calloutTitle { color: var(--dsw-alias-state-business-primary, #4f8ef7); }
+.calloutSuccess .calloutTitle { color: var(--dsw-alias-state-success-primary, #2f9e6b); }
+.calloutWarning .calloutTitle { color: var(--dsw-alias-state-warn-primary, #b8860b); }
+.calloutError .calloutTitle { color: var(--dsw-alias-state-error-primary, #d94848); }
 .calloutTitle {
   display: flex;
   align-items: center;
@@ -752,6 +763,34 @@
 .donutTotalLabel { fill: var(--dsw-alias-label-tertiary); font-size: 10px; }
 .donutLegend { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-secondary); line-height: 1.5; }
 .donutPct { color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
+
+/* ---------- progress ring + target marker ---------- */
+
+.ring { display: flex; align-items: center; gap: var(--dsl-g-gap-md); }
+.ringTrack { stroke: color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent); }
+.ringFill { stroke: var(--dsl-g-accent); transition: stroke-dasharray 0.6s ease; }
+.ringValue {
+  fill: var(--dsw-alias-label-primary);
+  font-family: var(--dsl-g-font-mono);
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ringMeta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ringLabel { font-size: var(--dsl-g-font-body); font-weight: 650; color: var(--dsw-alias-label-primary); }
+.ringSub { font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-secondary); }
+
+.track { position: relative; overflow: visible; }
+.targetMark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--dsw-alias-label-primary);
+  opacity: 0.6;
+}
 
 /* ---------- horizontal bars (chart.horizontal) ---------- */
 

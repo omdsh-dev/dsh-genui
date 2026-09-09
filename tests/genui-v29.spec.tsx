@@ -29,6 +29,37 @@ function renderBlock(spec: unknown, actions: Array<[string, Record<string, unkno
   )
 }
 
+describe('v5: progress ring, target marker, stat unit split', () => {
+  it('renders a ring gauge with the value in the middle', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'progress', variant: 'ring', value: 72, label: '完成度' }],
+    })
+    const ring = container.querySelector('[role="progressbar"]')
+    expect(ring).not.toBeNull()
+    expect(ring!.querySelector('svg')).not.toBeNull()
+    expect(ring!.textContent).toContain('72%')
+    expect(ring!.textContent).toContain('完成度')
+  })
+
+  it('marks the target on a bar track', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'progress', value: 64, target: 80 }],
+    })
+    const mark = container.querySelector('[class*="targetMark"]') as HTMLElement
+    expect(mark).not.toBeNull()
+    expect(mark.style.left).toBe('80%')
+  })
+
+  it('splits a stat value into number and unit for the baseline typography', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'stat', label: '内存', value: '6.8 GB' }],
+    })
+    const unit = container.querySelector('[class*="statUnit"]')
+    expect(unit?.textContent).toBe('GB')
+    expect(container.querySelector('[class*="statValue"]')?.textContent).toBe('6.8GB')
+  })
+})
+
 describe('v3: stat sparkline', () => {
   it('renders one polyline point per spark value', () => {
     const { container } = renderBlock({

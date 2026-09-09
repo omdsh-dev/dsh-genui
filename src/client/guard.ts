@@ -22,6 +22,9 @@ import type { GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSerie
 import { wrapSingleComponentRoot } from './spec.ts'
 
 /** Hard resource limits enforced by repair (and mirrored at render time). */
+/** Progress shapes accepted by the guard. */
+export const PROGRESS_VARIANTS = ['bar', 'ring'] as const
+
 /** Table column cell types accepted by the guard. */
 export const TABLE_CELL_TYPES = ['text', 'num', 'delta', 'bar', 'badge'] as const
 
@@ -346,7 +349,13 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
     case 'progress': {
       const value = num(v.value, 0, 100)
       if (value === undefined) return null
-      return { type: 'progress', value, ...opt('label', str(v.label, GENUI_LIMITS.maxString)), ...opt('valueLabel', str(v.valueLabel, 64)) }
+      return {
+        type: 'progress', value,
+        ...opt('label', str(v.label, GENUI_LIMITS.maxString)),
+        ...opt('valueLabel', str(v.valueLabel, 64)),
+        ...opt('variant', enu(v.variant, PROGRESS_VARIANTS)),
+        ...opt('target', num(v.target, 0, 100)),
+      }
     }
     case 'divider': return { type: 'divider' }
     case 'spacer': return { type: 'spacer' }
@@ -1492,6 +1501,12 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
         errors.push(`${at}: type 'progress' requires value (number 0..100)`)
       }
       isNum('value')
+      if (v.variant !== undefined && v.variant !== 'bar' && v.variant !== 'ring') {
+        errors.push(`${at}: 'variant' must be bar or ring`)
+      }
+      if (v.target !== undefined && (typeof v.target !== 'number' || v.target < 0 || v.target > 100)) {
+        errors.push(`${at}: 'target' must be a number in 0..100`)
+      }
       break
     case 'avatar':
       if (typeof v.name !== 'string') errors.push(`${at}: type 'avatar' requires name (string)`)

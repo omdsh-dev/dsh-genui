@@ -35,6 +35,8 @@ export const gallerySpec: GenuiSpec = {
       { type: 'stat', label: '请求数', value: '128.4k', spark: [90, 104, 98, 121, 116, 128] },
     ] },
     { type: 'progress', label: '训练进度', value: 72, valueLabel: '72%' },
+    { type: 'progress', label: '覆盖率', value: 64, target: 80, valueLabel: '64% / 目标 80%' },
+    { type: 'progress', variant: 'ring', value: 72, label: '本轮完成度', valueLabel: '第 3 / 4 轮' },
     { type: 'card', title: '性能指标', items: [
       // 表头可点击排序：数值感知（千分位 / k / 万 / % 都能正确比较），
       // 数值列自动右对齐。
