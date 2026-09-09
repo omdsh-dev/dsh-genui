@@ -82,31 +82,64 @@ describe('genui:fence section', () => {
     expect(names.indexOf('aaa:structured-output')).toBeLessThan(names.indexOf('genui:fence'))
   })
 
-  it('registers the render_ui tool when the tools service exists', async () => {
+  it('owns model tools across plugin unload and reload when tools already exists', async () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    const registered: unknown[] = []
-    ctx.provide('tools', { register: (tool: unknown) => { registered.push(tool) } })
-    await ctx.plugin(GenUI)
-    expect(registered).toHaveLength(2)
-    const names = registered.map(t => (t as { name: string }).name).sort()
-    expect(names).toEqual(['render_ui', 'validate_dsh_ui'])
+    const registered = new Map<string, unknown>()
+    ctx.provide('tools', {
+      register: (tool: unknown) => {
+        const name = (tool as { name: string }).name
+        if (registered.has(name)) throw new Error(`duplicate tool: ${name}`)
+        registered.set(name, tool)
+        return () => { registered.delete(name) }
+      },
+    })
+
+    const first = await ctx.plugin(GenUI)
+    expect([...registered.keys()].sort()).toEqual(['render_ui', 'validate_dsh_ui'])
+
+    await first.dispose()
+    expect(registered.size).toBe(0)
+
+    const second = await ctx.plugin(GenUI)
+    expect([...registered.keys()].sort()).toEqual(['render_ui', 'validate_dsh_ui'])
+    await second.dispose()
+    expect(registered.size).toBe(0)
   })
 
-  it('registers render_ui when tools binds AFTER the plugin (start-up ordering)', async () => {
-    // Regression: this plugin injects only systemPrompt, so cordis starts it
-    // before the tools provider (which injects deeper dependencies) on real
-    // hosts. A one-shot probe at apply time silently missed the registry —
-    // the fence section landed, the tool never registered. The plugin must
-    // subscribe to the service-binding event and register when tools appears.
+  it('moves model tools when the optional tools service is replaced', async () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    await ctx.plugin(GenUI) // plugin first — tools not yet provided
-    const registered: unknown[] = []
-    ctx.provide('tools', { register: (tool: unknown) => { registered.push(tool) } })
-    expect(registered).toHaveLength(2)
-    const names = registered.map(t => (t as { name: string }).name).sort()
-    expect(names).toEqual(['render_ui', 'validate_dsh_ui'])
+    const genui = await ctx.plugin(GenUI)
+    const firstRegistry = new Map<string, unknown>()
+    const disposeFirstRegistry = ctx.provide('tools', {
+      register: (tool: unknown) => {
+        const name = (tool as { name: string }).name
+        firstRegistry.set(name, tool)
+        return () => { firstRegistry.delete(name) }
+      },
+    })
+    await vi.waitFor(() => {
+      expect([...firstRegistry.keys()].sort()).toEqual(['render_ui', 'validate_dsh_ui'])
+    })
+
+    await disposeFirstRegistry()
+    expect(firstRegistry.size).toBe(0)
+
+    const replacementRegistry = new Map<string, unknown>()
+    ctx.provide('tools', {
+      register: (tool: unknown) => {
+        const name = (tool as { name: string }).name
+        replacementRegistry.set(name, tool)
+        return () => { replacementRegistry.delete(name) }
+      },
+    })
+    await vi.waitFor(() => {
+      expect([...replacementRegistry.keys()].sort()).toEqual(['render_ui', 'validate_dsh_ui'])
+    })
+
+    await genui.dispose()
+    expect(replacementRegistry.size).toBe(0)
   })
 
   it('registers genui through the real skill registry', async () => {
@@ -164,15 +197,63 @@ describe('genui:fence section', () => {
     expect(assembly.sections.map(s => s.name)).toContain('genui:fence')
   })
 
-  it('registers the asset route when webServer binds after the plugin', async () => {
+  it('removes the asset route before a plugin reload', async () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    await ctx.plugin(GenUI)
-    const routes: unknown[] = []
-    ctx.provide('webServer', { register: (route: unknown) => { routes.push(route) } })
-    expect(routes).toEqual([expect.objectContaining({
-      kind: 'prefix',
-      path: '/plugins/@changfenhuang/dsh-genui/assets',
-    })])
+    const routes = new Map<string, unknown>()
+    ctx.provide('webServer', {
+      register: (route: unknown) => {
+        const path = (route as { path: string }).path
+        if (routes.has(path)) throw new Error(`duplicate route: ${path}`)
+        routes.set(path, route)
+        return () => { routes.delete(path) }
+      },
+    })
+
+    const first = await ctx.plugin(GenUI)
+    expect([...routes.keys()]).toEqual(['/plugins/@changfenhuang/dsh-genui/assets'])
+
+    await first.dispose()
+    expect(routes.size).toBe(0)
+
+    const second = await ctx.plugin(GenUI)
+    expect([...routes.keys()]).toEqual(['/plugins/@changfenhuang/dsh-genui/assets'])
+    await second.dispose()
+    expect(routes.size).toBe(0)
+  })
+
+  it('moves the asset route when the optional webServer is replaced', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    const genui = await ctx.plugin(GenUI)
+    const firstRoutes = new Map<string, unknown>()
+    const disposeFirstServer = ctx.provide('webServer', {
+      register: (route: unknown) => {
+        const path = (route as { path: string }).path
+        firstRoutes.set(path, route)
+        return () => { firstRoutes.delete(path) }
+      },
+    })
+    await vi.waitFor(() => {
+      expect(firstRoutes.get('/plugins/@changfenhuang/dsh-genui/assets')).toEqual(expect.objectContaining({ kind: 'prefix' }))
+    })
+
+    await disposeFirstServer()
+    expect(firstRoutes.size).toBe(0)
+
+    const replacementRoutes = new Map<string, unknown>()
+    ctx.provide('webServer', {
+      register: (route: unknown) => {
+        const path = (route as { path: string }).path
+        replacementRoutes.set(path, route)
+        return () => { replacementRoutes.delete(path) }
+      },
+    })
+    await vi.waitFor(() => {
+      expect(replacementRoutes.get('/plugins/@changfenhuang/dsh-genui/assets')).toEqual(expect.objectContaining({ kind: 'prefix' }))
+    })
+
+    await genui.dispose()
+    expect(replacementRoutes.size).toBe(0)
   })
 })
