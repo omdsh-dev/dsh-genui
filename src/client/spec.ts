@@ -193,6 +193,8 @@ export interface GenuiStat {
   label: string
   value: string
   delta?: string
+  /** Optional micro trend line (finite numbers, 2..60 points). */
+  spark?: number[]
 }
 
 export interface GenuiProgress {

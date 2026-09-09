@@ -29,6 +29,23 @@ function renderBlock(spec: unknown, actions: Array<[string, Record<string, unkno
   )
 }
 
+describe('v3: stat sparkline', () => {
+  it('renders one polyline point per spark value', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'stat', label: 'P95', value: '42ms', spark: [3, 5, 4, 8, 6] }],
+    })
+    const spark = container.querySelector('svg[class*="statSpark"]')
+    expect(spark).not.toBeNull()
+    expect(spark!.querySelector('polyline')!.getAttribute('points')!.split(' ')).toHaveLength(5)
+  })
+
+  it('drops a spark that cannot draw a line', () => {
+    const spec = repairGenuiSpec({ items: [{ type: 'stat', label: 'P95', value: '42ms', spark: [1] }] })!
+    expect(spec.items[0]).toMatchObject({ type: 'stat' })
+    expect((spec.items[0] as { spark?: number[] }).spark).toBeUndefined()
+  })
+})
+
 describe('v2.9: chart hover tooltips', () => {
   it('bars carry title attrs with label and value', () => {
     const { container } = renderBlock({

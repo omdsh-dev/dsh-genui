@@ -26,7 +26,7 @@ description: "Render structured interactive UI inline in your reply via the dsh-
 - divider: `{"type":"divider"}`; spacer: `{"type":"spacer"}`
 
 ### 展示
-- stat: `{"type":"stat","label":"...","value":"...","delta":"+12.4%|-3%"}`（`-` 开头自动红、`+` 绿）
+- stat: `{"type":"stat","label":"...","value":"...","delta":"+12.4%|-3%"}`（`-` 开头自动红、`+` 绿）；可选 `"spark":[3,5,4,8,6]` 画一条微趋势线（2–60 个有限数值）
 - badge: `{"type":"badge","label":"...","tone":"success|warn|danger|accent","icon":"emoji?"}`
 - progress: `{"type":"progress","label":"...","value":0-100,"valueLabel":"70%"}`
 - avatar: `{"type":"avatar","name":"...","color":"#hex?"}`

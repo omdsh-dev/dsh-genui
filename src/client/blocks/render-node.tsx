@@ -47,6 +47,37 @@ function isListItemNode(item: GenuiList['items'][number]): item is GenuiNode {
   return typeof item === 'object' && item !== null && 'type' in item
 }
 
+/**
+ * Micro trend line for `stat.spark`: a 96×24 box stretched to the card width.
+ * `vector-effect: non-scaling-stroke` keeps the line 1.5px however wide the
+ * card is, so a sparkline never looks heavier than the number above it.
+ */
+function Sparkline({ values }: { values: number[] }) {
+  const W = 96
+  const H = 24
+  const pad = 2
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  const step = values.length <= 1 ? 0 : (W - pad * 2) / (values.length - 1)
+  const points = values
+    .map((v, i) => `${(pad + i * step).toFixed(1)},${(H - pad - ((v - min) / span) * (H - pad * 2)).toFixed(1)}`)
+    .join(' ')
+  return (
+    <svg className={css.statSpark} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+      <polyline
+        points={points}
+        fill="none"
+        stroke="var(--dsl-g-accent)"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  )
+}
+
 export function renderNode(
   node: GenuiNode,
   key: number,
@@ -164,6 +195,7 @@ export function renderNode(
           <span className={css.statLabel}>{node.label}</span>
           <span className={css.statValue}>{node.value}</span>
           {node.delta !== undefined && <span className={`${css.statDelta} ${down ? css.down : css.up}`}>{node.delta}</span>}
+          {node.spark !== undefined && <Sparkline values={node.spark} />}
         </div>
       )
     }

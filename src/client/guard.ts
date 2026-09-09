@@ -168,6 +168,18 @@ function obj(v: unknown): Record<string, unknown> | undefined {
  * spreading `opt('gap', g)` keeps every optional field either absent or a
  * plain value.
  */
+/** Optional `stat.spark` series: finite numbers only, 2..60 points. */
+function sparkValues(v: unknown): number[] | undefined {
+  if (!Array.isArray(v)) return undefined
+  const out: number[] = []
+  for (const item of v.slice(0, 60)) {
+    const n = typeof item === 'number' ? item : Number(item)
+    if (!Number.isFinite(n)) return undefined
+    out.push(n)
+  }
+  return out.length >= 2 ? out : undefined
+}
+
 function opt<K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> {
   return value === undefined ? {} : { [key]: value } as Partial<Record<K, V>>
 }
@@ -321,7 +333,11 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
       const label = str(v.label, GENUI_LIMITS.maxString)
       const value = str(v.value, 128)
       if (label === undefined || value === undefined) return null
-      return { type: 'stat', label, value, ...opt('delta', str(v.delta, 64)) }
+      return {
+        type: 'stat', label, value,
+        ...opt('delta', str(v.delta, 64)),
+        ...opt('spark', sparkValues(v.spark)),
+      }
     }
     case 'progress': {
       const value = num(v.value, 0, 100)
@@ -1445,6 +1461,9 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       if (typeof v.label !== 'string') errors.push(`${at}: type 'stat' requires label (string)`)
       if (typeof v.value !== 'string') errors.push(`${at}: type 'stat' requires value (string)`)
       isStr('delta')
+      if (v.spark !== undefined && (!Array.isArray(v.spark) || v.spark.length < 2)) {
+        errors.push(`${at}: 'spark' must be an array of at least 2 numbers`)
+      }
       break
     case 'progress':
       if (typeof v.value !== 'number' || !Number.isFinite(v.value) || (v.value as number) < 0 || (v.value as number) > 100) {

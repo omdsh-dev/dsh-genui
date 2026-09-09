@@ -328,6 +328,15 @@
   background: color-mix(in srgb, var(--dsw-alias-label-primary) 5%, transparent);
 }
 .statDelta.up { color: var(--dsw-alias-state-success-secondary, #1f9d63); background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #22c55e) 12%, transparent); }
+.statSpark {
+  display: block;
+  width: 100%;
+  max-width: 132px;
+  height: 24px;
+  margin-top: 2px;
+  overflow: visible;
+}
+
 .statDelta.down { color: var(--dsw-alias-state-error-primary, #d94848); background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #f25a5a) 12%, transparent); }
 
 .progress { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }

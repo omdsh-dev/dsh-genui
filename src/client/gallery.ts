@@ -29,9 +29,9 @@ export const gallerySpec: GenuiSpec = {
     { type: 'audio', src: '/demo-audio.mp3', alt: '音频播放器演示' },
     { type: 'video', src: '/demo-video.mp4', alt: '视频播放器演示', poster: '/demo-video.jpg', aspectRatio: '16:9' },
     { type: 'grid', cols: 3, items: [
-      { type: 'stat', label: 'CPU', value: '42%', delta: '+3.1%' },
+      { type: 'stat', label: 'CPU', value: '42%', delta: '+3.1%', spark: [31, 38, 35, 44, 40, 42] },
       { type: 'stat', label: '内存', value: '6.8 GB', delta: '-1.2%' },
-      { type: 'stat', label: '请求数', value: '128.4k' },
+      { type: 'stat', label: '请求数', value: '128.4k', spark: [90, 104, 98, 121, 116, 128] },
     ] },
     { type: 'progress', label: '训练进度', value: 72, valueLabel: '72%' },
     { type: 'card', title: '性能指标', items: [
