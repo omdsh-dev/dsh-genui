@@ -100,12 +100,17 @@ The spec is a white-listed component tree rendered inline where the fence sits. 
 
 - 布局: text · row · col · grid · card · divider · spacer
 - 展示: badge · stat · progress · list · table · keyvalue · avatar · audio · video · timeline · file-tree · breadcrumb · callout · steps · diff · json · code · copy
-- 图表: chart {"type":"chart","kind":"bars|line|donut","data":[{"label":"...","value":n,"color":"#hex?"}],"series":[...]?}（series 仅 bars；未知扩展字段可通过校验，但原生 chart repair/render 会忽略） · echart (preset|option) · plot (函数图)
+- 图表: chart {"type":"chart","kind":"bars|line|donut","data":[{"label":"...","value":n,"color":"#hex?"}],"series":[...]?}（series 仅 bars） · echart (preset|option) · plot (函数图)
 - 交互: button · input · textarea · select · checkbox · switch · slider · radio · submit · quiz · link · tabs · accordion
 - 高级: mermaid (flowchart/sequence/class/gantt/pie/er/state/journey) · diagram (编辑级架构/流程图，27 种 kind) · scene3d (3D WebGL)
 
 Rules:
-- 触发: 结构化表达优于纯文本时主动用（要点、强调、对比、流程、步骤、状态、数据、演示），纯问答与一句话不套 UI；一个主题一个主组件，每次 3–8 个组件，同一数据不重复出现。
+**默认就该出 UI**：出现下列情况至少出一个围栏：
+- ≥3 条并列要点 → \`list\`；数字对比 → \`table\`；指标/进度/状态 → \`stat\`/\`progress\`/\`badge\`
+- 步骤/时间线 → \`steps\`/\`timeline\`/\`mermaid\`；架构/流程 → \`diagram\` 或 \`mermaid\`；风险/结论 → \`callout\`；代码/改动 → \`code\`/\`diff\`/\`json\`
+- 趋势/占比 → \`chart\`（≤8 点）或 \`echart\`（多序列/要交互时）；回答超过约 10 行时收尾自检至少有一个围栏，同一份信息不要既写文字又重复出组件。
+
+**字段速查**（完整见 genui skill）：\`stat\` \`{"label":"…","value":"…","delta":"+1.2%"}\` · \`table\` \`{"columns":["…"],"rows":[["…"]]}\` · \`callout\` \`{"tone":"info|success|warning|error","title":"…","content":"…"}\`
 - JSON 严格: 坏围栏降级为代码块；≥3 节点或含 table 的围栏发出前调用 validate_dsh_ui，❌ 修好再发（若附「已自动修复」JSON 照抄即可）。
 - 规模: ≤200 节点、嵌套≤8 层（超出被截断）；3D mesh 1–5；plot 给合理 xMin/xMax。
 - LOCAL-FIRST + actions: UI 能自己做的状态变化（判卷、判题、重置、展开、选中）就地完成，零往返；action 只用于必须模型参与的事。交互组件带 "action":"name"，交互以 [genui-action] name + 组件数据回传，届时重渲染更新 UI；无 action 的按钮禁用。
