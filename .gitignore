@@ -3,3 +3,5 @@ node_modules/
 lib/
 .e2e-artifacts/
 .playwright-cli/
+# macOS Finder metadata (never source)
+.DS_Store
