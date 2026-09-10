@@ -240,9 +240,13 @@ export function renderNode(
       const toneClass = node.tone === undefined ? '' : ` ${css[`card${node.tone[0]!.toUpperCase()}${node.tone.slice(1)}`] ?? ''}`
       // An explicit accent drives border + title + a very light wash; it is a
       // colour hint, not a layout change, so it composes with tone.
+      // An accent card keeps its NEUTRAL surface: tinting the background with
+      // 7% of a warm hue over a dark theme produced a muddy olive block that
+      // read as a warning box. The hue now shows up only where it can stay
+      // clean — a blended border and the title — which also keeps charts and
+      // tables inside the card colour-neutral.
       const accentStyle = node.accent === undefined ? undefined : {
-        borderColor: `color-mix(in srgb, ${node.accent} 45%, transparent)`,
-        background: `color-mix(in srgb, ${node.accent} 7%, var(--dsw-alias-bg-layer-1, transparent))`,
+        borderColor: `color-mix(in srgb, ${node.accent} 34%, var(--dsl-g-border))`,
         '--dsl-card-accent': node.accent,
       } as CSSProperties
       return (
