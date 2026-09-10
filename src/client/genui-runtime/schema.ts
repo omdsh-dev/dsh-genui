@@ -82,6 +82,8 @@ export const STAT_SIZES = ['hero'] as const
 export const PROGRESS_VARIANTS = ['bar', 'ring'] as const
 /** Semantic card surfaces. */
 export const CARD_TONES = ['info', 'success', 'warning', 'danger'] as const
+/** Hero cover tones. */
+export const HERO_TONES = ['accent', 'success', 'warning', 'danger'] as const
 /** Table cell renderers (`table.types`, one entry per column). */
 export const TABLE_CELL_TYPES = ['text', 'num', 'delta', 'bar', 'badge', 'spark', 'ring', 'index', 'group'] as const
 
@@ -127,7 +129,7 @@ const recordSchema = (
   enums: Readonly<Record<string, readonly string[]>> = {},
 ): ComponentRecordSchema => ({ required, fields, enums, nested })
 
-const nodeFields = { type: 'string' } as const
+const nodeFields = { type: 'string', span: 'number' } as const
 
 const chartDatumSchema = recordSchema(['label', 'value'], {
   label: 'string',
@@ -293,6 +295,16 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   select: schema(['options'], { ...nodeFields, label: 'string', options: 'array', action: 'string', selected: 'number', id: 'string' }),
   slider: schema([], { ...nodeFields, label: 'string', min: 'number', max: 'number', step: 'number', value: 'number', action: 'string', id: 'string' }),
   spacer: schema([], nodeFields),
+  hero: schema(['title'], {
+    ...nodeFields,
+    title: 'string',
+    subtitle: 'string',
+    value: 'string',
+    label: 'string',
+    delta: 'string',
+    spark: 'array',
+    tone: 'string',
+  }, {}, { enums: { tone: HERO_TONES } }),
   stat: schema(['label', 'value'], { ...nodeFields, label: 'string', value: 'string', delta: 'string', spark: 'array', size: 'string' }, {}, { enums: { size: STAT_SIZES } }),
   steps: schema(['steps'], { ...nodeFields, steps: 'array', current: 'number' }, { items: 'steps' }, { nested: { steps: stepsRecordSchema } }),
   submit: schema(['label'], { ...nodeFields, label: 'string', action: 'string', resetAction: 'string', groups: 'array' }),

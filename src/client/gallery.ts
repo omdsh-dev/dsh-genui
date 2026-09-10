@@ -9,6 +9,11 @@ export const gallerySpec: GenuiSpec = {
   title: 'GenUI · 组件画廊',
   gap: 14,
   items: [
+    { type: 'hero', label: '可用率 · 近 30 天', value: '99.96%', delta: '+0.02%', tone: 'accent', spark: [99.8, 99.85, 99.9, 99.88, 99.94, 99.96], title: 'hero 封面块', subtitle: '一条回答最多一个：eyebrow + 超大数字 + 标题 + 副标题，带 tone 渐变底色。' },
+    { type: 'grid', cols: 3, items: [
+      { type: 'card', span: 2, title: 'span:2 的卡片', items: [{ type: 'text', size: 'body', content: 'grid 子节点加 span 就能跨列——bento 排版靠它：一张宽卡 + 一张窄卡。' }] },
+      { type: 'card', title: 'span:1', items: [{ type: 'text', size: 'body', content: '默认占一列。' }] },
+    ] },
     { type: 'text', size: 'h1', content: '排版层级' },
     { type: 'text', size: 'h2', content: '二级标题' },
     { type: 'text', size: 'h3', content: '三级标题' },

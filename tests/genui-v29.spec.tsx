@@ -29,6 +29,33 @@ function renderBlock(spec: unknown, actions: Array<[string, Record<string, unkno
   )
 }
 
+describe('v13: hero 封面块与 bento 跨列', () => {
+  it('renders a hero with its metric, title, subtitle and tone', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'hero', label: '可用率', value: '99.96%', delta: '+0.02%', tone: 'success', title: '服务健康', subtitle: '近 30 天' }],
+    })
+    const hero = container.querySelector('[class*="hero"]') as HTMLElement
+    expect(hero).not.toBeNull()
+    expect(hero.className).toContain('heroSuccess')
+    expect(container.textContent).toContain('可用率')
+    expect(container.textContent).toContain('服务健康')
+    expect(container.textContent).toContain('近 30 天')
+  })
+
+  it('spans grid columns for bento layouts', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'grid', cols: 3, items: [
+        { type: 'card', span: 2, title: '宽卡', items: [{ type: 'text', content: 'a' }] },
+        { type: 'card', title: '窄卡', items: [{ type: 'text', content: 'b' }] },
+      ] }],
+    })
+    const spanned = container.querySelector('[class*="gridSpan"]') as HTMLElement
+    expect(spanned).not.toBeNull()
+    expect(spanned.style.gridColumn).toBe('span 2')
+    expect(container.querySelectorAll('[class*="gridSpan"]')).toHaveLength(1)
+  })
+})
+
 describe('v12: 本地数据绑定（就地筛选）', () => {
   it('filters table rows from a bound input, live', () => {
     const { container } = renderBlock({
