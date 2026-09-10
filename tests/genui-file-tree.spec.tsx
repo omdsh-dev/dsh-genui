@@ -98,6 +98,19 @@ describe('surface elevation contract', () => {
     const callout = /\.callout \{([^}]*)\}/.exec(css)
     expect(callout![1]).toMatch(/background: var\(--dsw-alias-bg-layer-2/)
   })
+
+  it('gives surfaces a visible outline and a lift (light theme has no layers)', () => {
+    const css = readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
+    // Light theme maps every bg layer to white and its border-l1 is 4% black —
+    // a card there would be invisible without border-l2 + a shadow.
+    expect(css).toMatch(/--dsl-g-shadow-card:/)
+    for (const rule of ['card', 'stat', 'callout', 'hero', 'accordion']) {
+      const block = new RegExp(`\\.${rule} \\{([^}]*)\\}`).exec(css)
+      expect(block, `.${rule} must exist`).not.toBeNull()
+      expect(block![1], `.${rule} needs a visible outline`).toMatch(/border: 1px solid var\(--dsl-g-border-strong\)/)
+      expect(block![1], `.${rule} needs a lift`).toMatch(/box-shadow: var\(--dsl-g-shadow-card\)/)
+    }
+  })
 })
 
 describe('bento card layout contract', () => {
