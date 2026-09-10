@@ -143,13 +143,19 @@ function CellBar({ cell }: { cell: string | number }) {
   )
 }
 
-export const TableNode = memo(function TableNode({ node }: { node: GenuiTable }) {
+export const TableNode = memo(function TableNode({ node, renderDetail }: {
+  node: GenuiTable
+  /** Renders a row's detail nodes. Supplied by render-node so the table never
+   *  has to import the renderer back (import cycle). */
+  renderDetail?: ((items: NonNullable<GenuiTable['details']>[number] & object[]) => ReactNode) | undefined
+}) {
   const columns = node.columns.slice(0, GENUI_LIMITS.maxTableCols)
   const rows = node.rows.slice(0, GENUI_LIMITS.maxTableRows)
   const types = node.types ?? []
   const groupMode = types[0] === 'group'
   const [sort, setSort] = useState<{ col: number; dir: 1 | -1 } | null>(null)
   const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(() => new Set())
+  const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => new Set())
 
   const compare = (a: GenuiTable['rows'][number], b: GenuiTable['rows'][number], col: number, dir: 1 | -1): number => {
     const an = parseSortableNumber(a[col])
@@ -195,6 +201,14 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
   const numeric = numericColumns(flatSorted, columns.length)
   const toggleSection = (index: number): void => {
     setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(index)) next.delete(index)
+      else next.add(index)
+      return next
+    })
+  }
+  const toggleDetail = (index: number): void => {
+    setExpanded(prev => {
       const next = new Set(prev)
       if (next.has(index)) next.delete(index)
       else next.add(index)
@@ -286,11 +300,42 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
                     </td>
                   </tr>
                 )}
-                {!isCollapsed && section.children.map(child => (
-                  <tr key={child.index} className={section.header === null ? undefined : css.groupChild}>
-                    {child.row.slice(0, columns.length).map((cell, j) => renderCell(cell, j, child.index))}
-                  </tr>
-                ))}
+                {!isCollapsed && section.children.map(child => {
+                  const detail = node.details?.[child.index] ?? null
+                  const open = expanded.has(child.index)
+                  return (
+                    <Fragment key={child.index}>
+                      <tr className={section.header === null ? undefined : css.groupChild}>
+                        {child.row.slice(0, columns.length).map((cell, j) => (
+                          j === 0 && detail !== null
+                            ? (
+                              <td key={j} className={css.detailCell}>
+                                <button
+                                  type="button"
+                                  className={css.detailToggle}
+                                  aria-expanded={open}
+                                  onClick={() => toggleDetail(child.index)}
+                                >
+                                  <span className={css.detailChevron} data-open={open} aria-hidden>▸</span>
+                                  {String(cell)}
+                                </button>
+                              </td>
+                            )
+                            : renderCell(cell, j, child.index)
+                        ))}
+                      </tr>
+                      {open && detail !== null && (
+                        <tr className={css.detailRow}>
+                          <td colSpan={columns.length}>
+                            <div className={css.detailBody}>
+                              {renderDetail === undefined ? null : renderDetail(detail)}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
               </Fragment>
             )
           })}

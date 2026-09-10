@@ -862,6 +862,48 @@
   opacity: 0.6;
 }
 
+/* Master-detail rows (table.details): a chevron in the first cell opens a
+   full-width panel underneath, so a table can drill down without leaving the
+   page or opening a modal. */
+.detailCell { padding-left: var(--dsl-g-gap-sm); }
+.detailToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.detailToggle:hover { color: var(--dsl-g-accent); }
+.detailToggle:focus-visible { outline: 2px solid var(--dsl-g-accent); outline-offset: 2px; border-radius: 4px; }
+.detailChevron {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--dsw-alias-label-tertiary);
+  transition: transform 0.18s ease;
+}
+.detailChevron[data-open="true"] { transform: rotate(90deg); }
+.table tbody tr.detailRow > td {
+  padding: 0 var(--dsl-g-gap-md) 12px;
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 3%, transparent);
+  border-bottom: 1px solid var(--dsl-g-border);
+}
+.table tbody tr.detailRow:hover > td { background: color-mix(in srgb, var(--dsw-alias-label-primary) 3%, transparent); }
+.detailBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-sm);
+  padding: 12px 14px;
+  border-radius: var(--dsl-g-radius-control);
+  background: var(--dsw-alias-bg-layer-1, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--dsl-g-accent) 45%, transparent);
+}
+
 /* Section header rows (types[0] === 'group').
    v7 looked like a data row; v8 was a heavy band; v9 was quiet but still read
    as "same level" — a hairline and air do not say "these rows belong to me".

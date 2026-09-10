@@ -397,7 +397,22 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
             ? raw as typeof TABLE_CELL_TYPES[number]
             : 'text'
         })
-      return { type: 'table', columns, rows, ...opt('types', types), ...opt('total', v.total === true ? true : undefined) }
+      // Master-detail payload: positionally aligned with `rows`. Entries that
+      // repair to nothing stay null so the renderer never shows an empty
+      // expander; extra entries beyond the row count are dropped.
+      const rawDetails = Array.isArray(v.details) ? v.details : undefined
+      const details = rawDetails === undefined
+        ? undefined
+        : rows.map((_row, i) => {
+          const entry = repairItems(rawDetails[i], ctx, depth + 1)
+          return entry.length === 0 ? null : entry
+        })
+      return {
+        type: 'table', columns, rows,
+        ...opt('types', types),
+        ...opt('total', v.total === true ? true : undefined),
+        ...opt('details', details !== undefined && details.some(d => d !== null) ? details : undefined),
+      }
     }
     case 'chart': {
       const data = repairChartData(v.data, GENUI_LIMITS.maxChartPoints)
@@ -1668,6 +1683,9 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       if (!Array.isArray(v.rows)) errors.push(`${at}: type 'table' requires rows (array)`)
       if (v.types !== undefined && !Array.isArray(v.types)) {
         errors.push(`${at}.types must be an array of column cell types`)
+      }
+      if (v.details !== undefined && !Array.isArray(v.details)) {
+        errors.push(`${at}.details must be an array aligned with rows`)
       }
       validateTableRows(v.rows, `${at}.rows`, errors)
       break
