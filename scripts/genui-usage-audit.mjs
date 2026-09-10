@@ -66,6 +66,11 @@ const stats = {
   unparseableAfterCommaFix: 0,
   components: {},
   daily: {},
+  /** Layout signatures: distinct component sets per answer. */
+  signatures: new Map(),
+  signatureTotal: 0,
+  heroAnswers: 0,
+  answersWithMultipleHeroes: 0,
   undecodable: 0,
 }
 
@@ -102,6 +107,11 @@ for (const file of files) {
       if (isLong) { stats.longWithFence += 1; daily.longWithFence += 1 }
       stats.fences += matches.length
       daily.fences += matches.length
+      // Layout signature per ANSWER (all its fences): the anti-templating
+      // metric — if a prompt change made every answer the same shape, the
+      // number of distinct signatures drops and the top share climbs.
+      const answerTypes = new Set()
+      let heroCount = 0
       for (const match of matches) {
         let spec = null
         try { spec = JSON.parse(match[1]) } catch {
@@ -109,7 +119,21 @@ for (const file of files) {
           try { spec = JSON.parse(match[1].replace(/,\s*([}\]])/g, '$1')) } catch { spec = null }
           if (spec === null) stats.unparseableAfterCommaFix += 1
         }
-        if (spec !== null) walkTypes(spec, stats.components)
+        if (spec === null) continue
+        const bag = {}
+        walkTypes(spec, bag)
+        for (const [type, count] of Object.entries(bag)) {
+          answerTypes.add(type)
+          if (type === 'hero') heroCount += count
+        }
+        walkTypes(spec, stats.components)
+      }
+      if (answerTypes.size > 0) {
+        const signature = [...answerTypes].sort().join('+')
+        stats.signatures.set(signature, (stats.signatures.get(signature) ?? 0) + 1)
+        stats.signatureTotal += 1
+        if (heroCount > 1) stats.answersWithMultipleHeroes += 1
+        stats.heroAnswers += heroCount > 0 ? 1 : 0
       }
     }
   }
@@ -120,7 +144,7 @@ const top = Object.entries(stats.components).sort((a, b) => b[1] - a[1])
 const recentDays = Object.entries(stats.daily).sort().slice(-Math.max(DAYS, 1))
 
 if (AS_JSON) {
-  console.log(JSON.stringify({ ...stats, components: top.slice(0, 30), daily: Object.fromEntries(recentDays) }, null, 2))
+  console.log(JSON.stringify({ ...stats, signatures: Object.fromEntries([...stats.signatures.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30)), components: top.slice(0, 30), daily: Object.fromEntries(recentDays) }, null, 2))
 } else {
   console.log(`GenUI 采纳度审计 · ${stats.dir}`)
   console.log(`会话 ${stats.sessions} · 助手文本块 ${stats.assistantBlocks}（${stats.assistantChars.toLocaleString()} 字符）· 围栏 ${stats.fences}`)
@@ -128,6 +152,23 @@ if (AS_JSON) {
   console.log(`长回答（>600 字符）${stats.longBlocks}，其中带围栏 ${stats.longWithFence}`)
   console.log(`原始 JSON 解析失败 ${stats.unparseable}（${pct(stats.unparseable, stats.fences)} 全部围栏）；仅修尾逗号后仍失败 ${stats.unparseableAfterCommaFix}（插件两级修复会再修掉大部分）`)
   if (stats.undecodable > 0) console.log(`⚠ ${stats.undecodable} 个会话文件无法解码（安装 zstd CLI 可完整扫描）`)
+  // Layout diversity: distinct signatures + share of the most common one +
+  // normalised Shannon entropy (1 = every answer a different shape).
+  const sigs = [...stats.signatures.entries()].sort((a, b) => b[1] - a[1])
+  const total = stats.signatureTotal
+  if (total > 0) {
+    const top = sigs[0]
+    let entropy = 0
+    for (const [, count] of sigs) {
+      const p = count / total
+      entropy -= p * Math.log2(p)
+    }
+    const maxEntropy = Math.log2(sigs.length) || 1
+    console.log(`\n版式多样性：${total} 条带围栏的回答 / ${sigs.length} 种版式签名；最常见占 ${pct(top[1], total)}；归一化熵 ${(entropy / maxEntropy).toFixed(2)}`)
+    console.log(`  hero：${stats.heroAnswers} 条回答用到（${pct(stats.heroAnswers, total)}）；违反「一条一个」的 ${stats.answersWithMultipleHeroes} 条`)
+    console.log('  最常见三种：')
+    for (const [signature, count] of sigs.slice(0, 3)) console.log(`    ${String(count).padStart(4)}  ${signature || '(无组件)'}`)
+  }
   console.log('\n组件使用（Top 15）：')
   for (const [name, count] of top.slice(0, 15)) console.log(`  ${String(count).padStart(5)}  ${name}`)
   console.log(`\n最近 ${recentDays.length} 天：`)

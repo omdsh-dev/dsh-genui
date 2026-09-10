@@ -11,6 +11,11 @@ export const gallerySpec: GenuiSpec = {
   items: [
     { type: 'hero', label: '可用率 · 近 30 天', value: '99.96%', delta: '+0.02%', tone: 'accent', spark: [99.8, 99.85, 99.9, 99.88, 99.94, 99.96], title: 'hero 封面块', subtitle: '一条回答最多一个：eyebrow + 超大数字 + 标题 + 副标题，带 tone 渐变底色。' },
     { type: 'grid', cols: 3, items: [
+      { type: 'card', title: '默认', items: [{ type: 'text', size: 'body', content: '不写 accent：中性表面。' }] },
+      { type: 'card', accent: '#f59e0b', title: 'accent #f59e0b', items: [{ type: 'text', size: 'body', content: '只有边框与标题带上色相，表面保持中性。' }] },
+      { type: 'card', accent: '#3ecf8e', title: 'accent #3ecf8e', items: [{ type: 'text', size: 'body', content: '深色主题下不会发脏。' }] },
+    ] },
+    { type: 'grid', cols: 3, items: [
       { type: 'card', span: 2, title: 'span:2 · 宽卡', items: [
         { type: 'text', size: 'body', content: 'grid 子节点加 span 就能跨列：一张宽卡 + 一张窄卡。卡片高度由该行最高的一张决定，内容会自动撑满或居中。' },
         { type: 'chart', kind: 'line', data: [], series: [

@@ -974,9 +974,12 @@
 }
 .tableTool:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsl-g-border-strong); background: var(--dsl-g-hover); }
 .tableTool:focus-visible { outline: 2px solid var(--dsl-g-accent); outline-offset: 1px; }
-/* Card accent (`card.accent`): the border/wash come in inline; the title picks
-   up the same hue through this variable. */
-.card[style*="--dsl-card-accent"] > .cardTitle { color: var(--dsl-card-accent); }
+/* Card accent (`card.accent`): the border comes in inline; the title lifts the
+   hue toward the theme's own text colour so it stays legible on dark AND light
+   surfaces (a raw accent colour on a dark card reads muddy). */
+.card[style*="--dsl-card-accent"] > .cardTitle {
+  color: color-mix(in srgb, var(--dsl-card-accent) 68%, var(--dsw-alias-label-primary));
+}
 
 /* Master-detail rows (table.details): a chevron in the first cell opens a
    full-width panel underneath, so a table can drill down without leaving the
