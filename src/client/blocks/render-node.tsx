@@ -297,7 +297,14 @@ export function renderNode(
         </div>
       )
     }
-    case 'table': return <TableNode key={key} node={node} />
+    case 'table':
+      return (
+        <TableNode
+          key={key}
+          node={node}
+          renderDetail={items => items.map((child, i) => renderNode(child, i, onAction, depth + 1, answers))}
+        />
+      )
     case 'chart': return <ChartNode key={key} chart={node} />
     case 'tabs': return <TabsNode key={key} tabs={node} onAction={onAction} depth={depth + 1} answers={answers} />
     case 'avatar': {

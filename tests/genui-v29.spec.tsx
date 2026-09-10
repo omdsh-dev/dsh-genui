@@ -29,6 +29,46 @@ function renderBlock(spec: unknown, actions: Array<[string, Record<string, unkno
   )
 }
 
+describe('v11: table master-detail rows', () => {
+  it('expands a row into its detail panel and folds it back', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'table',
+        columns: ['服务', 'P95'],
+        rows: [['API 网关', '128'], ['搜索', '190']],
+        details: [[{ type: 'text', content: '详情内容' }], null],
+      }],
+    })
+    // Only the row that carries details gets a toggle.
+    const toggles = container.querySelectorAll('[class*="detailToggle"]')
+    expect(toggles).toHaveLength(1)
+    expect(toggles[0]!.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelector('[class*="detailRow"]')).toBeNull()
+
+    fireEvent.click(toggles[0]!)
+    expect(container.querySelector('[class*="detailToggle"]')!.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelector('[class*="detailRow"]')?.textContent).toContain('详情内容')
+
+    fireEvent.click(container.querySelector('[class*="detailToggle"]')!)
+    expect(container.querySelector('[class*="detailRow"]')).toBeNull()
+  })
+
+  it('drops a details array whose entries all repair away', () => {
+    const spec = repairGenuiSpec({
+      items: [{
+        type: 'table',
+        columns: ['A'],
+        rows: [['1']],
+        // A known type missing its required fields repairs away; unknown types
+        // are opaque by policy and would be kept, so this uses the former.
+        details: [[{ type: 'stat' }]],
+      }],
+    })!
+    const table = spec.items[0] as { details?: unknown }
+    expect(table.details).toBeUndefined()
+  })
+})
+
 describe('v7: table sections/totals, stacked bars, card tones', () => {
   it('renders a group header row spanning every column', () => {
     const { container } = renderBlock({

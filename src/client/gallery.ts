@@ -77,6 +77,16 @@ export const gallerySpec: GenuiSpec = {
     { type: 'chart', horizontal: true, data: [
       { label: '自然搜索', value: 82 }, { label: '直接访问', value: 64 }, { label: '社交媒体', value: 41 },
     ] },
+    { type: 'table', columns: ['服务', 'P95', '状态'], types: ['text', 'num', 'badge'], details: [
+      [{ type: 'keyvalue', pairs: [{ key: '负责人', value: '平台组' }, { key: 'SLO', value: 'P95 < 150ms' }] },
+       { type: 'text', size: 'body', content: '展开行可以放任意组件：指标、图表、列表、表单都可以。' }],
+      null,
+      [{ type: 'progress', value: 91, target: 80, label: '负载水位', valueLabel: '91% / 目标 80%' }],
+    ], rows: [
+      ['API 网关', '128', '正常'],
+      ['搜索', '190', '关注'],
+      ['推荐', '250', '偏高'],
+    ] },
     { type: 'table', columns: ['区域', 'Q1', 'Q2', 'Q3'], types: ['group', 'num', 'num', 'num'], total: true, rows: [
       ['华东', '', '', ''],
       ['上海', '120', '138', '151'],

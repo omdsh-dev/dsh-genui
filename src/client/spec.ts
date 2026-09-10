@@ -272,6 +272,9 @@ export interface GenuiTable {
   types?: TableCellType[]
   /** Append a 合计 footer row (numeric columns are summed). */
   total?: boolean
+  /** Optional master-detail payload, positionally aligned with `rows`:
+   *  `details[i]` is what row i expands into (omit / empty = not expandable). */
+  details?: Array<GenuiNode[] | null>
 }
 
 /** How a table column's cells render.
