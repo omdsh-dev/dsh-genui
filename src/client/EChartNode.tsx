@@ -23,14 +23,35 @@ function neededEngine(node: GenuiEChart): 'core' | 'full' {
   return CORE_PRESETS.has(node.preset ?? 'bar') ? 'core' : 'full'
 }
 
-/** Read a CSS custom property from the document root (host theme token). */
-function readToken(name: string, fallback: string): string {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return v || fallback
+/**
+ * Categorical fallback palette. The host defines its `--dsw-static-*` tokens on
+ * `body`, not on `:root`, and ECharts renders to CANVAS (so a `var(--x)` string
+ * is meaningless to it — every colour must be resolved to a literal first).
+ * Reading only `document.documentElement` therefore returned '' for every
+ * series colour and collapsed multi-series charts to one accent hue; these
+ * fixed hues keep series distinguishable on any host.
+ */
+export const SERIES_FALLBACK = [
+  '#679efe', '#4ed17e', '#f5b83d', '#f2707a', '#8b7ff0', '#3fc7d4', '#b7c8fe', '#9aa3b2',
+] as const
+
+/**
+ * Read a host theme token, resolved from the ELEMENT first (custom properties
+ * inherit, so any node inside `body` sees the host sheet) and falling back to
+ * body/root for detached renders.
+ */
+function readToken(name: string, fallback: string, el?: HTMLElement | null): string {
+  const hosts: Array<Element | null> = [el ?? null, typeof document === 'undefined' ? null : document.body, typeof document === 'undefined' ? null : document.documentElement]
+  for (const host of hosts) {
+    if (host === null) continue
+    const value = getComputedStyle(host).getPropertyValue(name).trim()
+    if (value !== '') return value
+  }
+  return fallback
 }
 
 /** Resolve the host accent and label colors for ECharts theming. */
-function themeColors(): {
+function themeColors(el?: HTMLElement | null): {
   accent: string
   labelPrimary: string
   labelSecondary: string
@@ -39,19 +60,25 @@ function themeColors(): {
   bgLayer1: string
 } {
   return {
-    accent: readToken('--dsw-alias-state-business-primary', '#4f8ef7'),
-    labelPrimary: readToken('--dsw-alias-label-primary', '#e6e6e6'),
-    labelSecondary: readToken('--dsw-alias-label-secondary', '#a0a0a0'),
-    labelTertiary: readToken('--dsw-alias-label-tertiary', '#6b6b6b'),
-    border: readToken('--dsw-alias-border-l1', 'rgba(255,255,255,0.12)'),
-    bgLayer1: readToken('--dsw-alias-bg-layer-1', '#1a1a1e'),
+    accent: readToken('--dsw-alias-state-business-primary', '#4f8ef7', el),
+    labelPrimary: readToken('--dsw-alias-label-primary', '#e6e6e6', el),
+    labelSecondary: readToken('--dsw-alias-label-secondary', '#a0a0a0', el),
+    labelTertiary: readToken('--dsw-alias-label-tertiary', '#6b6b6b', el),
+    border: readToken('--dsw-alias-border-l1', 'rgba(255,255,255,0.12)', el),
+    bgLayer1: readToken('--dsw-alias-bg-layer-1', '#1a1a1e', el),
   }
 }
 
-/** Build a full ECharts option from a preset + the simple data/series shape. */
-function presetOption(node: GenuiEChart): Record<string, unknown> {
-  const t = themeColors()
-  const colors = CHART_COLORS.map(c => readToken(c.replace('var(', '').replace(')', ''), t.accent))
+/** Build a full ECharts option from a preset + the simple data/series shape.
+ *  `el` is the chart's own container: theme tokens are resolved against it so
+ *  host colours are found wherever the host defines them. */
+function presetOption(node: GenuiEChart, el?: HTMLElement | null): Record<string, unknown> {
+  const t = themeColors(el)
+  // Each palette slot carries its own fallback hue: if the host lacks the
+  // static tokens, series must still be distinguishable (the old code fell
+  // back to the accent for every slot, so every chart came out one colour).
+  const colors = CHART_COLORS.map((c, i) =>
+    readToken(c.replace('var(', '').replace(')', ''), SERIES_FALLBACK[i % SERIES_FALLBACK.length]!, el))
   const data = node.data ?? []
   const series = node.series
 
@@ -356,7 +383,7 @@ export function EChartNode({ node }: { node: GenuiEChart }) {
     if (el === null) return
 
     // Full `option` wins over preset shorthand.
-    const option = node.option ?? presetOption(node)
+    const option = node.option ?? presetOption(node, el)
 
     void lazyCreateChart(el, option, { height: node.height ?? 300 }, neededEngine(node)).then((inst) => {
       if (!alive) {
@@ -397,7 +424,7 @@ export function EChartNode({ node }: { node: GenuiEChart }) {
   // returned early when status was 'loading' and never re-run).
   useEffect(() => {
     if (status !== 'ready' || instanceRef.current === null) return
-    const option = node.option ?? presetOption(node)
+    const option = node.option ?? presetOption(node, ref.current)
     instanceRef.current.setOption(option, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node, status])

@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
 import type { GenuiEChart } from '../src/client/spec'
-import { EChartNode } from '../src/client/EChartNode.tsx'
+import { EChartNode, SERIES_FALLBACK } from '../src/client/EChartNode.tsx'
 import { createChart } from '../src/client/echarts-lazy.ts'
 
 vi.mock('../src/client/echarts-lazy.ts', async () => {
@@ -22,6 +22,15 @@ afterEach(() => {
 function fakeInstance() {
   return { setOption: vi.fn(), resize: vi.fn(), dispose: vi.fn() }
 }
+
+describe('EChartNode: series palette', () => {
+  it('keeps eight distinct fallback hues (host tokens may be absent)', () => {
+    // The regression: every slot fell back to the single accent colour, so a
+    // multi-series chart came out entirely blue.
+    expect(SERIES_FALLBACK.length).toBeGreaterThanOrEqual(6)
+    expect(new Set(SERIES_FALLBACK).size).toBe(SERIES_FALLBACK.length)
+  })
+})
 
 describe('EChartNode: preset rendering', () => {
   it('renders data-genui-echart container for each preset', async () => {
