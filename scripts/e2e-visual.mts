@@ -280,6 +280,26 @@ try {
   }
   log('✓ 流式骨架：出现 → settle 后换成真组件')
 
+  // ── 文件树布局验证 ───────────────────────────────────────────────────────
+  // jsdom 没有布局，只有真实浏览器能证明「子节点在父节点下方」——这条断言钉住
+  // 曾经的 bug：子节点被塞进父行的 flex 容器，整棵树横着排成一行。
+  const treeCheck = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('[class*="ftRow"]')] as HTMLElement[]
+    if (rows.length < 2) return { ok: false, reason: `只有 ${rows.length} 行` }
+    const [first, second] = rows as [HTMLElement, HTMLElement]
+    const a = first.getBoundingClientRect()
+    const b = second.getBoundingClientRect()
+    return {
+      ok: b.top >= a.bottom - 1,
+      reason: `parent.top=${Math.round(a.top)} parent.bottom=${Math.round(a.bottom)} child.top=${Math.round(b.top)}`,
+      rows: rows.length,
+      guides: document.querySelectorAll('[class*="ftGuide"]').length,
+      glyphs: document.querySelectorAll('[class*="ftGlyph"] svg').length,
+    }
+  })
+  if (!treeCheck.ok) throw new Error(`文件树没有纵向堆叠（${treeCheck.reason}）`)
+  log(`✓ 文件树：${treeCheck.rows} 行纵向堆叠 · ${treeCheck.guides} 条层级引导线 · ${treeCheck.glyphs} 个图标`)
+
   // ── 图表 tooltip 验证（真实 hover）────────────────────────────────────────
   const stackSeg = page.locator('[class*="stackSeg"]').first()
   if (await stackSeg.count() > 0) {
