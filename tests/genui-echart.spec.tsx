@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 // EChartNode rendering: preset five forms, error fallback, option priority,
 // title/height, role=img/aria-label, scatter with CJK labels.
-// The echarts engine is mocked via vi.doMock + dynamic import (setup.ts
-// loads the real module before the test file, so vi.mock alone can't
-// replace it — vi.resetModules + vi.doMock + dynamic import bypasses the
-// cache).
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
 import type { GenuiEChart } from '../src/client/spec'
+import { EChartNode } from '../src/client/EChartNode.tsx'
+import { createChart } from '../src/client/echarts-lazy.ts'
+
+vi.mock('../src/client/echarts-lazy.ts', () => ({ createChart: vi.fn() }))
+beforeEach(() => { vi.mocked(createChart).mockReset() })
 
 afterEach(() => {
   cleanup()
@@ -17,23 +18,10 @@ function fakeInstance() {
   return { setOption: vi.fn(), resize: vi.fn(), dispose: vi.fn() }
 }
 
-type EChartNodeModule = typeof import('../src/client/EChartNode')
-
-/** Dynamically import EChartNode with echarts-lazy mocked. */
-async function importWithMock(
-  createChartImpl: (el: HTMLElement, option: unknown, opts?: { height?: number }) => Promise<unknown> | unknown,
-): Promise<{ EChartNode: React.ComponentType<{ node: GenuiEChart }> }> {
-  vi.resetModules()
-  vi.doMock('../src/client/echarts-lazy.ts', () => ({
-    createChart: vi.fn(createChartImpl),
-  }))
-  return (await import('../src/client/EChartNode.tsx')) as EChartNodeModule
-}
-
 describe('EChartNode: preset rendering', () => {
   it('renders data-genui-echart container for each preset', async () => {
     for (const preset of ['bar', 'line', 'area', 'pie', 'scatter'] as const) {
-      const { EChartNode } = await importWithMock(() => Promise.resolve(fakeInstance()))
+      vi.mocked(createChart).mockImplementation(() => Promise.resolve(fakeInstance()))
       const node: GenuiEChart = { type: 'echart', preset, data: [{ label: 'a', value: 1 }] }
       const { container, unmount } = render(<EChartNode node={node} />)
       await vi.waitFor(() => {
@@ -46,7 +34,7 @@ describe('EChartNode: preset rendering', () => {
 
 describe('EChartNode: error fallback', () => {
   it('shows error fallback when engine load fails', async () => {
-    const { EChartNode } = await importWithMock(() => Promise.reject(new Error('asset 404')))
+    vi.mocked(createChart).mockImplementation(() => Promise.reject(new Error('asset 404')))
     const node: GenuiEChart = { type: 'echart', preset: 'bar', data: [{ label: 'a', value: 1 }] }
     const { container } = render(<EChartNode node={node} />)
     await vi.waitFor(() => {
@@ -58,7 +46,7 @@ describe('EChartNode: error fallback', () => {
 describe('EChartNode: option vs preset', () => {
   it('option takes priority over preset', async () => {
     let capturedOption: unknown
-    const { EChartNode } = await importWithMock((_el, option) => {
+    vi.mocked(createChart).mockImplementation((_el, option) => {
       capturedOption = option
       return Promise.resolve(fakeInstance())
     })
@@ -80,7 +68,7 @@ describe('EChartNode: option vs preset', () => {
 
 describe('EChartNode: title and height', () => {
   it('renders title when provided', async () => {
-    const { EChartNode } = await importWithMock(() => Promise.resolve(fakeInstance()))
+    vi.mocked(createChart).mockImplementation(() => Promise.resolve(fakeInstance()))
     const node: GenuiEChart = { type: 'echart', preset: 'bar', title: '销售趋势', data: [{ label: 'a', value: 1 }] }
     const { container } = render(<EChartNode node={node} />)
     await vi.waitFor(() => {
@@ -90,7 +78,7 @@ describe('EChartNode: title and height', () => {
   })
 
   it('applies custom height to canvas', async () => {
-    const { EChartNode } = await importWithMock(() => Promise.resolve(fakeInstance()))
+    vi.mocked(createChart).mockImplementation(() => Promise.resolve(fakeInstance()))
     const node: GenuiEChart = { type: 'echart', preset: 'bar', height: 500, data: [{ label: 'a', value: 1 }] }
     const { container } = render(<EChartNode node={node} />)
     await vi.waitFor(() => {
@@ -101,7 +89,7 @@ describe('EChartNode: title and height', () => {
   })
 
   it('defaults height to 300px', async () => {
-    const { EChartNode } = await importWithMock(() => Promise.resolve(fakeInstance()))
+    vi.mocked(createChart).mockImplementation(() => Promise.resolve(fakeInstance()))
     const node: GenuiEChart = { type: 'echart', preset: 'bar', data: [{ label: 'a', value: 1 }] }
     const { container } = render(<EChartNode node={node} />)
     await vi.waitFor(() => {
@@ -114,7 +102,7 @@ describe('EChartNode: title and height', () => {
 
 describe('EChartNode: accessibility', () => {
   it('renders role=img and aria-label with title', async () => {
-    const { EChartNode } = await importWithMock(() => Promise.resolve(fakeInstance()))
+    vi.mocked(createChart).mockImplementation(() => Promise.resolve(fakeInstance()))
     const node: GenuiEChart = { type: 'echart', preset: 'bar', title: '图表', data: [{ label: 'a', value: 1 }] }
     const { container } = render(<EChartNode node={node} />)
     await vi.waitFor(() => {
@@ -125,7 +113,7 @@ describe('EChartNode: accessibility', () => {
   })
 
   it('renders aria-label fallback when no title', async () => {
-    const { EChartNode } = await importWithMock(() => Promise.resolve(fakeInstance()))
+    vi.mocked(createChart).mockImplementation(() => Promise.resolve(fakeInstance()))
     const node: GenuiEChart = { type: 'echart', preset: 'bar', data: [{ label: 'a', value: 1 }] }
     const { container } = render(<EChartNode node={node} />)
     await vi.waitFor(() => {
@@ -138,7 +126,7 @@ describe('EChartNode: accessibility', () => {
 describe('EChartNode: scatter with CJK labels', () => {
   it('passes category xAxis with CJK labels (not value axis)', async () => {
     let capturedOption: unknown
-    const { EChartNode } = await importWithMock((_el, option) => {
+    vi.mocked(createChart).mockImplementation((_el, option) => {
       capturedOption = option
       return Promise.resolve(fakeInstance())
     })

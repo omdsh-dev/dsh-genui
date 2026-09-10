@@ -3,8 +3,8 @@
 // 收编 blocks diff/json/code render from a ```dsh-ui fence.
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { hasFenceRegistry } from './setup'
-import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+import { hasFenceRegistry } from './helpers/fence-host'
+import { MarkdownText } from './markdown-labels.tsx'
 import { compileMathExpr, sampleExpr } from '../src/client/safe-math.ts'
 
 afterEach(cleanup)

@@ -74,7 +74,7 @@ The walkthrough moves from an answer-embedded panel through forms, plotting, Mer
 The plugin ships **two rendering channels** and picks one automatically after the host activates its browser module:
 
 - **Registry channel**: when the host exposes the `fence-registry` extension point (newer dsh builds), fences register through the host's streaming render pipeline and behave seamlessly with the host;
-- **DOM channel**: when the host lacks that extension point (including stock DSH and older builds), the plugin observes the session DOM and mounts its own render tree. Since 0.7.2 it **supports streaming rendering**: components appear as the model writes them — the first finished component shows up immediately, no need to wait for the whole reply. Since 0.8.3 fence discovery is **multi-surface**: it matches the stock `md-code-block` surface, the deepsuite-style `.code-block` / `.code-block-small` surfaces some host builds render instead, and — as a structural backstop — any element whose banner labels it `dsh-ui` and contains a `<pre>` body. If your dsh build renders fences with a different class name, they still render (and a one-time console warning tells you the host DOM drifted).
+- **DOM channel**: when the host lacks that extension point (including supported stock DSH builds), the plugin observes the session DOM and mounts its own render tree. Since 0.7.2 it **supports streaming rendering**: components appear as the model writes them — the first finished component shows up immediately, no need to wait for the whole reply. Since 0.8.3 fence discovery is **multi-surface**: it matches the stock `md-code-block` surface, the deepsuite-style `.code-block` / `.code-block-small` surfaces some host builds render instead, and — as a structural backstop — any element whose banner labels it `dsh-ui` and contains a `<pre>` body. If your dsh build renders fences with a different class name, they still render (and a one-time console warning tells you the host DOM drifted).
 
 Whichever channel is active, components, interactions, panels, and persistence behave identically.
 
@@ -93,7 +93,7 @@ The repository ships both renderer channels, the host plugin, and the built brow
 
 Prerequisites — all required:
 
-1. **dsh installed** (any open-source build works — the plugin picks its rendering channel at startup, see "dual-channel rendering" above)
+1. **dsh `^0.1.2-rc.1 || ^0.1.5-alpha.1`** (dsh-genui 0.9.9 requires this DSH release line; users on DSH `<=0.1.1-rc.x` should use dsh-genui `0.9.8`)
 2. **`pnpm` on your PATH**: the `dsh plugin` command depends on it. If missing: `corepack enable` (or `npm i -g pnpm`), then **open a new terminal** and confirm `pnpm -v` prints a version
 
 Install and activate in DSH (one command, all dependencies included):
@@ -170,6 +170,7 @@ The following is the detailed capability reference. Every behavior is constraine
 - **Tool channel**: the `render_ui` tool renders the same spec as a card in the tool row (deliverable-style UI goes through the tool, answer-style UI through the fence)
 - **Session panel**: a persistent dock above the composer; `render_ui` / `panel: true` fences update the same surface in place; `/panel` opens it from the client (`/panel <instruction>` customizes via the model, `/panel clear` clears); the top border is draggable to resize; `append: true` merges incrementally — same-named tabs append content, new tabs get added; the whole panel caps at 200 nodes / 200 appends, after which the model should send `replace` to rebuild
 - **Self-healing & limits**: every fence passes a spec guard — bad nodes are silently dropped, numbers clamped, strings truncated; the whole tree is capped at 200 nodes / 8 nesting levels; pathological specs never crash the UI
+- **Canonical component protocol**: native field aliases such as `card.label` → `title`, `table.data` → `rows`, `callout.kind` → `tone`, and `steps.items` → `steps` are normalized deterministically before validation and rendering. `validate_dsh_ui` reports these normalizations and warns about unknown native fields without blocking custom renderer nodes.
 - **Chart error self-healing**: mermaid failures auto-retry with repairs (strip backticks, quote Chinese/space labels, remove `<br/>`) before degrading to source; a broken chart never hits the screen
 - **Accessibility**: tabs/accordions/switches/progress bars carry full ARIA and keyboard navigation (arrow keys switch tabs, Home/End jump)
 - **Zero intrusion**: without the plugin, fences are just code blocks — no errors, no session pollution
@@ -214,7 +215,7 @@ The core render package stays light (≈110 KB min / 28 KB gzip); the mermaid, t
 ## ❓ FAQ
 
 - **Rendering as a code block?** First check the browser console for `[genui] client active; fence-channel=registry|dom`. If absent, the client bundle was not activated even if its URL returns 200 — align the profile dependency, `package.json.name`, `cordis.patch.yml`, ModuleLoader id, and configured bundle name. If present, inspect the fence label/body; registry-less hosts automatically use the DOM channel.
-- **Chat UI goes blank when rendering a dsh-ui fence?** Your dsh is too old — update dsh first, then reinstall the plugin.
+- **Chat UI goes blank when rendering a dsh-ui fence?** This dsh-genui release requires DSH `^0.1.2-rc.1 || ^0.1.5-alpha.1`; users on DSH `<=0.1.1-rc.x` should use dsh-genui `0.9.8`.
 - **`dsh: pnpm not found on PATH`?** Install pnpm, then **open a new terminal** and retry (`corepack enable` or `npm i -g pnpm`).
 - **npm install returns 404?** The npm package is public and requires no login. Run `npm view @changfenhuang/dsh-genui version` to verify the package name and public registry; if a newly published version still returns 404, retry shortly.
 - **Installed but scene3d/mermaid/echarts don't render?** The engines (mermaid / three / echarts) are no longer inlined in client.js — they load on demand the first time they're used (`/plugins/@changfenhuang/dsh-genui/assets/*.js`, hosted by the plugin's own HTTP routes). First restart dsh web + hard refresh (Cmd+Shift+R); still broken, remove and reinstall (`dsh plugin --profile web remove @changfenhuang/dsh-genui`, then add again). Hosts without the asset routes degrade to source/load-error hints — update dsh.
@@ -228,26 +229,32 @@ pnpm install
 pnpm run check   # type check + full tests + build
 ```
 
+With the locked dependencies installed, the check script (`pnpm run check` or `npm run check`) uses the pinned DSH `0.1.2-rc.1` release packages.
+
+Run `node scripts/verify-pack.mjs --keep` to retain the verified tarball for inspection or e2e use. The default `node scripts/verify-pack.mjs` removes its temporary directory after verification.
+
 ### Real-device e2e
 
 The real chain end to end: start a temporary dsh web → install the plugin → send a message in a browser so the model outputs a `dsh-ui` fence → assert the rendering → click an action button → assert the model responds (event-loop closure):
 
 ```sh
+export DSH_ROOT=/path/to/deepseek-harness-0.1.2-rc.1
+export DSH_BIN="$DSH_ROOT/apps/cli/lib/bin.js"
 DEEPSEEK_API_KEY=sk-... node scripts/e2e.mjs          # link-installs the current workspace
 ```
 
-Prereqs: `dsh`/`pnpm` on PATH, `DEEPSEEK_API_KEY`, and the main repo's web build output (playwright resolves it from the main repo). On PASS it saves an `e2e-final.png` screenshot.
+Build the DSH `0.1.2-rc.1` checkout first. Set `DSH_ROOT` to that checkout and `DSH_BIN` to its `apps/cli/lib/bin.js`, as shown above; also provide `pnpm`, `DEEPSEEK_API_KEY`, and the main repo's web build output. On PASS it saves an `e2e-final.png` screenshot.
 
 ### Visual e2e (no model key)
 
-For style/component iterations, a visual smoke that needs no API key: boots a real dsh web with the plugin link-installed, injects the component gallery fence through the DOM channel, renders it in headless Chrome, screenshots the full page, and exercises local interactions (table sort, quiz judging, tree collapse, numeric alignment) with hard assertions:
+For style/component iterations, a visual smoke that needs no API key: boots a real DSH `0.1.2-rc.1` checkout with the plugin link-installed, injects the component gallery fence through the DOM channel, renders it in headless Chrome, screenshots the full page, and exercises local interactions (table sort, quiz judging, tree collapse, numeric alignment) with hard assertions. Set `DSH_ROOT` and `DSH_BIN` to that checkout as shown above before running it.
 
 ```sh
 npx tsx scripts/e2e-visual.mts          # → .e2e-artifacts/gallery.png + interactions.png
 npx tsx scripts/e2e-visual.mts --keep   # keep the scratch DSH_HOME for debugging
 ```
 
-Overridable: `--port 3098`, `--out <dir>`, `DSH_BIN` (defaults to the npm-mode `~/node_modules/.bin/dsh`), `PLAYWRIGHT_PATH` (defaults to the global playwright-core).
+Overridable: `--port 3098`, `--out <dir>`, `DSH_BIN` (set it to the `apps/cli/lib/bin.js` inside the DSH `0.1.2-rc.1` checkout), `PLAYWRIGHT_PATH` (defaults to the global playwright-core).
 
 ## 🗺️ Roadmap (evaluated)
 
@@ -257,8 +264,6 @@ Overridable: `--port 3098`, `--out <dir>`, `DSH_BIN` (defaults to the npm-mode `
 | Action debounce/dedup | ✅ Done (300 ms trailing edge, per action name) | Rapid-click spam is real friction; one choke point |
 | Cross-session state persistence (replay restores tabs/switches) | Not doing | Replay-reset is the more correct default (the model has already updated the UI with a new fence); state survives naturally during streaming |
 | MCP adapter / standalone gallery page / i18n | Not doing | No cross-tool demand signal; gallery material is covered by `gallery.ts` + demo-prompts + README screenshots; only 6 built-in strings |
-
-Unit tests and builds use the locked published dsh rc.8 packages. `DSH_ROOT` is only needed by source-level or end-to-end checks.
 
 ## 🔗 Friendly links
 

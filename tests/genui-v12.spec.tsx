@@ -4,9 +4,9 @@
 // (mermaid, scene3d) render from a ```dsh-ui fence without crashing.
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MarkdownText } from './markdown-labels.tsx'
 import { registerGenuiComponent } from './host-registry.ts'
-import { hasFenceRegistry } from './setup'
+import { hasFenceRegistry } from './helpers/fence-host'
 import { GenuiActionContext } from '../src/client/action-context.ts'
 import { GENUI_ACTION_DEBOUNCE_MS } from '../src/client/GenuiBlock.tsx'
 import { sampleExpr } from '../src/client/safe-math.ts'

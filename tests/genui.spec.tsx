@@ -4,8 +4,8 @@
 // back to the code block, and streaming renders plain (settled-only contract).
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { hasFenceRegistry } from './setup'
-import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+import { hasFenceRegistry } from './helpers/fence-host'
+import { MarkdownText } from './markdown-labels.tsx'
 
 afterEach(cleanup)
 

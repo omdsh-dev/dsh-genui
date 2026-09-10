@@ -5,7 +5,7 @@
  */
 import { useEffect, useId, useRef, useState } from 'react'
 import css from '../GenuiBlock.module.css'
-import { GENUI_LIMITS } from '../guard.ts'
+import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import type { AnswersState, GenuiBlockProps, QuestionMeta } from './state.ts'
 import type { GenuiInput, GenuiRadio, GenuiSelect, GenuiSlider, GenuiSubmit, GenuiSwitch, GenuiTextarea } from '../spec.ts'
 
@@ -82,20 +82,16 @@ export function correctLabelOf(m: QuestionMeta): string | undefined {
   return m.answer
 }
 
-/** Submit: the "交卷" control of a grouped-radio block. LOCAL-FIRST (v2.6):
- * when at least one question carries `answer` data the click grades IN PLACE
- * — score, per-question right/wrong, explanations — with zero model round
- * trip, and locks the questions until 重新作答 resets them. Only when NO
- * question has answers does it fall back to firing ONE action
- * (`{type:'submit', answers, total, answered}`). Disabled until the
- * selection criteria are met (all listed groups answered, or ≥1 answer
- * without a group list); the hint shows the progress. */
+/** Submit: collect grouped radio and checkbox answers. Radio-only scopes keep
+ * LOCAL-FIRST grading; when checkbox selections participate, the click falls
+ * back to the aggregation action so multi-select data is never discarded. */
 export function SubmitNode({ node, onAction, answers }: {
   node: GenuiSubmit
   onAction?: GenuiBlockProps['onAction']
   answers?: AnswersState | undefined
 }) {
   const recorded = answers?.answers ?? {}
+  const multiRecorded = answers?.multiAnswers ?? {}
   const fields = answers?.fields ?? {}
   const meta = answers?.meta ?? {}
   const expected = node.groups
@@ -104,21 +100,35 @@ export function SubmitNode({ node, onAction, answers }: {
   const filledFields = Object.fromEntries(
     Object.entries(fields).filter(([id, v]) => v.trim() !== '' && !answers?.secretFields.has(id)),
   )
-  // Without an explicit group list, the submit counts radio answers AND
-  // filled fields — a fields-only form (inputs with id + submit) enables
-  // once any field has a value.
+  const nonEmptyMultiGroups = Object.entries(multiRecorded)
+    .filter(([, values]) => Array.isArray(values) && values.length > 0)
+    .map(([group]) => group)
+  const recordedGroups = new Set([...Object.keys(recorded), ...nonEmptyMultiGroups])
+  const hasRecordedAnswer = (group: string): boolean =>
+    recorded[group] !== undefined || (Array.isArray(multiRecorded[group]) && multiRecorded[group]!.length > 0)
+
+  // Explicit groups require at least one selected checkbox (or a radio answer)
+  // per group. Empty checkbox arrays remain durable state but are deliberately
+  // not considered "answered".
   const answered = expected === undefined
-    ? Math.max(Object.keys(recorded).length, Object.keys(filledFields).length)
-    : expected.filter(g => recorded[g] !== undefined).length
+    ? Math.max(recordedGroups.size, Object.keys(filledFields).length)
+    : expected.filter(hasRecordedAnswer).length
   const total = expected?.length ?? answered
-  const scope = expected ?? Object.keys(recorded)
-  // Local grading is possible when ANY in-scope question carries answers.
-  const canGradeLocally = scope.some(g => meta[g]?.answer !== undefined)
+  const scope = expected ?? [...recordedGroups]
+  const hasMultiInScope = scope.some(group =>
+    Array.isArray(multiRecorded[group]) && multiRecorded[group]!.length > 0,
+  )
+  // Local grading must be radio-only. Otherwise grading would consume the
+  // click and silently omit checkbox selections that need model delivery.
+  const canGradeLocally = !hasMultiInScope && scope.some(group => meta[group]?.answer !== undefined)
   const submitted = answers?.locked === true
+  const collectedAnswers: Record<string, string | string[]> = {
+    ...recorded,
+    ...multiRecorded,
+  }
   // Ready = enough answers AND the click can do something: either local
   // grading, or a real action name + provider. A submit with neither is a
-  // display-only control — honest disabled affordance (action is optional:
-  // local grading needs no round trip).
+  // display-only control — honest disabled affordance.
   const ready = answered > 0 && answered >= total
     && (canGradeLocally || (node.action !== undefined && onAction !== undefined))
 
@@ -191,7 +201,7 @@ export function SubmitNode({ node, onAction, answers }: {
             // the optional-action type honest.
             onAction(node.action, {
               type: 'submit',
-              answers: recorded,
+              answers: collectedAnswers,
               ...(Object.keys(filledFields).length > 0 ? { fields: filledFields } : {}),
               total,
               answered,
@@ -396,15 +406,15 @@ export function InputNode({ node, onAction, answers }: {
   const action = node.action
   const id = node.id
   const secret = node.inputType === 'password'
-  // Initial value: a durable value wins whenever the field id is present in
-  // the registry — including an explicit '' from a user who cleared the
-  // input, which must NOT resurrect the spec default. Only an untouched field
-  // (absent from the registry) falls back to the model default. Secrets
-  // restore as blank: a password that survives a refresh would be a stored
-  // secret, which is exactly what the boundary forbids.
+  const restored = !secret && id !== undefined ? answers?.fields[id] : undefined
+  // Initial value: durable state wins over the spec default. Secrets always
+  // restore as blank so a password can never survive a refresh.
   const [value, setValue] = useState<string>(() => {
-    const durable = id !== undefined ? answers?.fields[id] : undefined
-    return secret ? '' : (durable ?? node.value ?? '')
+    const initial = secret ? '' : (restored ?? node.value ?? '')
+    // Match the native color input's opaque hex value, including its black default.
+    return node.inputType === 'color'
+      ? /^#[0-9a-f]{6}$/i.test(initial) ? initial.toLowerCase() : '#000000'
+      : initial
   })
   // Last value actually DELIVERED to the model: blur only sends when the
   // value changed since the last delivery (a focus-in/focus-out with no edit
@@ -418,16 +428,13 @@ export function InputNode({ node, onAction, answers }: {
     }
   }
   const ime = useImeComposing()
-  // Field invariant: a spec-provided non-blank default registers at mount —
-  // but never over an existing durable entry, or a user who cleared the
-  // default would have it written back into the registry by this effect.
+  // Register the displayed initial value, including the native color default.
   const mounted = useRef(false)
   useEffect(() => {
     if (mounted.current) return
     mounted.current = true
-    if (!secret && id !== undefined && node.value !== undefined && node.value.trim() !== ''
-      && answers?.fields[id] === undefined) {
-      answers?.setField(id, node.value)
+    if (!secret && id !== undefined && value.trim() !== '') {
+      answers?.setField(id, value)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -442,6 +449,14 @@ export function InputNode({ node, onAction, answers }: {
       <input
         className={css.input}
         type={node.inputType ?? 'text'}
+        style={node.inputType === 'color' ? {
+          width: 64,
+          height: 40,
+          padding: 4,
+          boxSizing: 'border-box',
+          alignSelf: 'flex-start',
+          cursor: 'pointer',
+        } : undefined}
         placeholder={node.placeholder}
         value={value}
         onChange={e => {
@@ -476,12 +491,8 @@ export function TextareaNode({ node, onAction, answers }: {
 }) {
   const action = node.action
   const id = node.id
-  // Durable value wins over the spec default for the same reason as InputNode:
-  // an explicit user clear is stored as '' and must stay cleared.
-  const [value, setValue] = useState<string>(() => {
-    const durable = id !== undefined ? answers?.fields[id] : undefined
-    return durable ?? node.value ?? ''
-  })
+  const [value, setValue] = useState<string>(() =>
+    node.value ?? (id !== undefined ? answers?.fields[id] ?? '' : ''))
   // Last value delivered to the model: blur sends only on change. Seeded
   // with the mount value so an unedited blur stays silent.
   const lastSent = useRef<string | null>(value)
@@ -492,14 +503,12 @@ export function TextareaNode({ node, onAction, answers }: {
     }
   }
   const ime = useImeComposing()
-  // Field invariant: a spec-provided non-blank default registers at mount,
-  // unless a durable entry already exists (see InputNode).
+  // Field invariant: a spec-provided non-blank default registers at mount.
   const mounted = useRef(false)
   useEffect(() => {
     if (mounted.current) return
     mounted.current = true
-    if (id !== undefined && node.value !== undefined && node.value.trim() !== ''
-      && answers?.fields[id] === undefined) {
+    if (id !== undefined && node.value !== undefined && node.value.trim() !== '') {
       answers?.setField(id, node.value)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

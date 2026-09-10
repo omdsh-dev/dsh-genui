@@ -11,7 +11,7 @@
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerGenuiComponent } from './host-registry.ts'
-import { hasFenceRegistry } from './setup'
+import { hasFenceRegistry } from './helpers/fence-host'
 import { GenuiActionContext } from '../src/client/action-context.ts'
 import { GenuiBlock, GENUI_ACTION_DEBOUNCE_MS } from '../src/client/GenuiBlock.tsx'
 import { repairGenuiSpec } from '../src/client/guard.ts'

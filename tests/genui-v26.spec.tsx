@@ -7,8 +7,8 @@
 // 3) actionable buttons show a brief local "已响应" feedback on click.
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
-import { hasFenceRegistry } from './setup'
+import { MarkdownText } from './markdown-labels.tsx'
+import { hasFenceRegistry } from './helpers/fence-host'
 import { GenuiActionContext } from '../src/client/action-context.ts'
 import { GENUI_ACTION_DEBOUNCE_MS } from '../src/client/GenuiBlock.tsx'
 import { repairGenuiSpec, validateGenuiSpec } from '../src/client/guard.ts'
