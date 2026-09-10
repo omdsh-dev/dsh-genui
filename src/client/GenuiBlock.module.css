@@ -848,26 +848,26 @@
   opacity: 0.6;
 }
 
-/* Section header rows (types[0] === 'group'). v7 rendered them nearly
-   identical to a data row, which is why they read as "one more row" instead
-   of a section: now they are a full-width BAND — darker tint, eyebrow
-   typography, extra height, an indent so the label does not line up with the
-   data column, and a strong rule above every section after the first. */
+/* Section header rows (types[0] === 'group').
+   v7: nearly identical to a data row. v8: a heavy tinted band. Both fought the
+   data. v9 goes quiet — the Notion/Stripe pattern: a hairline, real air, then a
+   small muted label. Hierarchy by weight and space, not by a grey block. */
 .groupRow td {
-  background: color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent);
-  color: var(--dsw-alias-label-primary);
-  font-size: var(--dsl-g-font-body);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  padding-top: 13px;
-  padding-bottom: 9px;
-  padding-left: calc(var(--dsl-g-gap-md) + 6px);
-  border-top: 1px solid var(--dsl-g-border-strong);
-  border-bottom: 1px solid var(--dsl-g-border-strong);
+  background: none;
+  color: var(--dsw-alias-label-secondary);
+  font-size: var(--dsl-g-font-title);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 24px var(--dsl-g-gap-md) 8px;
+  border-top: none;
+  border-bottom: none;
+  /* The separator sits at the very top of the row, above the air: one
+     hairline, then 24px, then the label. */
+  box-shadow: inset 0 1px 0 var(--dsl-g-border);
 }
-.table tbody tr.groupRow:first-child td { border-top: none; }
-/* Last row of a section: close the block with a stronger rule. */
-.table tbody tr.groupEnd td { border-bottom: 1px solid var(--dsl-g-border-strong); }
+/* The first section needs no rule above it. */
+.table tbody tr.groupRow:first-child td { box-shadow: none; padding-top: 12px; }
 /* Section rows are not data: no hover wash, no zebra. */
 .table tbody tr.groupRow:hover { background: none; }
 .table tbody tr.groupRow:nth-child(even) { background: none; }

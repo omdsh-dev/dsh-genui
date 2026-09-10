@@ -182,14 +182,6 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
     }
     return sum
   })
-  // Last data row before the next section header: gets a stronger bottom rule
-  // so the sections read as blocks instead of one long run of rows.
-  const isGroupEnd = (list: GenuiTable['rows'], i: number): boolean => {
-    if (types[0] !== 'group') return false
-    if (isGroupRow(list[i]!)) return false
-    if (i === list.length - 1) return true
-    return isGroupRow(list[i + 1]!)
-  }
   const hasTotals = node.total === true && totals.some(t => t !== null)
   const formatTotal = (n: number): string =>
     Number.isInteger(n) ? n.toLocaleString('en-US') : String(Math.round(n * 100) / 100)
@@ -216,7 +208,7 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
           {sorted.map((row, i) => (
             isGroupRow(row)
               ? <tr key={i} className={css.groupRow}><td colSpan={columns.length}>{String(row[0])}</td></tr>
-              : <tr key={i} className={isGroupEnd(sorted, i) ? css.groupEnd : undefined}>{row.slice(0, columns.length).map((cell, j) => {
+              : <tr key={i}>{row.slice(0, columns.length).map((cell, j) => {
               const type = types[j]
               const tone = type === 'delta'
                 ? (String(cell).trim().startsWith('-') ? 'down' : 'up')
