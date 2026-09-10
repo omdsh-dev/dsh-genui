@@ -336,6 +336,38 @@ try {
   if (!treeCheck.ok) throw new Error(`文件树没有纵向堆叠（${treeCheck.reason}）`)
   log(`✓ 文件树：${treeCheck.rows} 行纵向堆叠 · ${treeCheck.guides} 条层级引导线 · ${treeCheck.glyphs} 个图标`)
 
+  // ── accent 卡片表面必须中性 ───────────────────────────────────────────────
+  // 回归：accent 曾把 7% 色相混进卡片底色，深色主题下发脏发土。色相只允许出现
+  // 在描边与标题上，表面要与普通卡片完全同色。
+  const accentSurface = await page.evaluate(() => {
+    // The accent card is the only one carrying the inline custom property; its
+    // siblings in the same grid are the neutral controls.
+    const accentEl = document.querySelector('[style*="--dsl-card-accent"]') as HTMLElement | null
+    const row = accentEl?.parentElement ?? null
+    const plainEl = row === null
+      ? null
+      : [...row.children].find(child => child !== accentEl
+        && !(child.getAttribute('style') ?? '').includes('--dsl-card-accent')) as HTMLElement | undefined
+    if (accentEl === null || plainEl === undefined || plainEl === null) return { ok: true, skipped: true }
+    const accent = accentEl
+    const plain = plainEl
+    // No inner named function: esbuild's keepNames helper (__name) is not
+    // defined inside the page context and the evaluate call would throw.
+    return {
+      ok: getComputedStyle(accent).backgroundColor === getComputedStyle(plain).backgroundColor,
+      skipped: false,
+      accent: getComputedStyle(accent).backgroundColor,
+      plain: getComputedStyle(plain).backgroundColor,
+      border: getComputedStyle(accent).borderTopColor,
+    }
+  })
+  if (!accentSurface.ok) {
+    throw new Error(`accent 卡片表面被染色（accent=${accentSurface.accent} / 普通=${accentSurface.plain}）`)
+  }
+  if (!accentSurface.skipped) {
+    log(`✓ accent 卡片：表面 ${accentSurface.accent}（与普通卡片一致）· 描边 ${accentSurface.border}`)
+  }
+
   // ── ECharts 配色验证（读 canvas 像素）────────────────────────────────────
   // 回归：宿主把 --dsw-static-* 定义在 body 上，而引擎只从 :root 读 → 每个
   // 系列都回退成同一个强调色，多序列图全是一片蓝。这里直接数像素色数。
