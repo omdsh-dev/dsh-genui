@@ -862,6 +862,22 @@
   opacity: 0.6;
 }
 
+/* Live-filter feedback: how many rows survived the bound control. */
+.filterRow td {
+  padding: 7px var(--dsl-g-gap-md);
+  border-top: 1px solid var(--dsl-g-border);
+  color: var(--dsw-alias-label-secondary);
+  font-size: var(--dsl-g-font-meta);
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+}
+.filterHint {
+  display: block;
+  padding-top: 6px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: var(--dsl-g-font-meta);
+}
+
 /* Master-detail rows (table.details): a chevron in the first cell opens a
    full-width panel underneath, so a table can drill down without leaving the
    page or opening a modal. */

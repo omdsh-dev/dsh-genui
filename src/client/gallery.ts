@@ -77,6 +77,12 @@ export const gallerySpec: GenuiSpec = {
     { type: 'chart', horizontal: true, data: [
       { label: '自然搜索', value: 82 }, { label: '直接访问', value: 64 }, { label: '社交媒体', value: 41 },
     ] },
+    { type: 'input', label: '筛选服务 / 状态', placeholder: '输入关键字即时过滤下表', id: 'gallery-filter' },
+    { type: 'table', columns: ['服务', 'P95', '状态'], types: ['text', 'num', 'badge'], filter: 'gallery-filter', rows: [
+      ['API 网关', '128', '正常'],
+      ['搜索', '190', '关注'],
+      ['推荐', '250', '偏高'],
+    ] },
     { type: 'table', columns: ['服务', 'P95', '状态'], types: ['text', 'num', 'badge'], details: [
       [{ type: 'keyvalue', pairs: [{ key: '负责人', value: '平台组' }, { key: 'SLO', value: 'P95 < 150ms' }] },
        { type: 'text', size: 'body', content: '展开行可以放任意组件：指标、图表、列表、表单都可以。' }],

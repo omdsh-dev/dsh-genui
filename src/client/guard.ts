@@ -365,7 +365,7 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
     case 'list': {
       const items = repairListItems(v.items, GENUI_LIMITS.maxListItems, ctx, depth + 1)
       if (items === undefined) return null
-      return { type: 'list', items }
+      return { type: 'list', items, ...opt('filter', str(v.filter, 64)) }
     }
     case 'table': {
       let rawCols = v.columns as unknown
@@ -411,6 +411,9 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
         type: 'table', columns, rows,
         ...opt('types', types),
         ...opt('total', v.total === true ? true : undefined),
+        ...opt('filter', str(v.filter, 64)),
+        ...opt('filterColumn', int(v.filterColumn, 0, GENUI_LIMITS.maxTableCols - 1)),
+        ...opt('sortField', str(v.sortField, 64)),
         ...opt('details', details !== undefined && details.some(d => d !== null) ? details : undefined),
       }
     }
@@ -427,6 +430,7 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
         ...opt('series', series),
         ...opt('horizontal', v.horizontal === true ? true : undefined),
         ...opt('stacked', v.stacked === true ? true : undefined),
+        ...opt('filter', str(v.filter, 64)),
       }
     }
     case 'tabs': {

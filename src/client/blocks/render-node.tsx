@@ -105,6 +105,22 @@ function Sparkline({ values }: { values: number[] }) {
   )
 }
 
+/** Live value of a bound control (`node.filter` / `node.sortField`): the field id
+ *  resolves against the block's shared field registry, so typing in an input
+ *  re-renders every component bound to it. */
+/** Plain text of a list item, for the local filter. */
+function listItemText(item: GenuiList['items'][number]): string {
+  if (typeof item === 'string') return item
+  if (isListItemNode(item)) return ''
+  return `${item.title} ${item.desc ?? ''}`
+}
+
+function boundField(answers: AnswersState | undefined, id: string | undefined): string | undefined {
+  if (id === undefined) return undefined
+  const value = answers?.fields[id]
+  return value === undefined || value === '' ? undefined : value
+}
+
 export function renderNode(
   node: GenuiNode,
   key: number,
@@ -284,7 +300,11 @@ export function renderNode(
     }
     case 'divider': return <hr key={key} className={css.divider} />
     case 'list': {
-      const items = node.items.slice(0, GENUI_LIMITS.maxListItems)
+      const bound = boundField(answers, node.filter)?.toLowerCase()
+      const all = node.items.slice(0, GENUI_LIMITS.maxListItems)
+      const items = bound === undefined
+        ? all
+        : all.filter(item => listItemText(item).toLowerCase().includes(bound))
       return (
         <div key={key} className={css.list}>
           {items.map((item, i) => (
@@ -294,6 +314,7 @@ export function renderNode(
                 : <><span className={css.liTitle}>{typeof item === 'string' ? item : item.title}</span>{typeof item !== 'string' && item.desc !== undefined && <span className={css.liDesc}>{item.desc}</span>}</>}
             </div>
           ))}
+          {bound !== undefined && <span className={css.filterHint}>匹配 {items.length} / {all.length} 项</span>}
         </div>
       )
     }
@@ -302,10 +323,15 @@ export function renderNode(
         <TableNode
           key={key}
           node={node}
+          // Bound controls are resolved here: the table (and the chart below)
+          // receive plain strings, so they stay presentational and the live
+          // filtering never needs a model round trip.
+          filterValue={boundField(answers, node.filter)}
+          sortValue={boundField(answers, node.sortField)}
           renderDetail={items => items.map((child, i) => renderNode(child, i, onAction, depth + 1, answers))}
         />
       )
-    case 'chart': return <ChartNode key={key} chart={node} />
+    case 'chart': return <ChartNode key={key} chart={node} filterValue={boundField(answers, node.filter)} />
     case 'tabs': return <TabsNode key={key} tabs={node} onAction={onAction} depth={depth + 1} answers={answers} />
     case 'avatar': {
       return (

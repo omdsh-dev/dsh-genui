@@ -10,7 +10,7 @@
  * true zero line so negative values are drawn, not clamped away.
  * @module @changfenhuang/dsh-genui/client/blocks/charts
  */
-import { Fragment, memo, useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, memo, useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent, ReactNode, RefObject } from 'react'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
@@ -143,8 +143,12 @@ function CellBar({ cell }: { cell: string | number }) {
   )
 }
 
-export const TableNode = memo(function TableNode({ node, renderDetail }: {
+export const TableNode = memo(function TableNode({ node, renderDetail, filterValue, sortValue }: {
   node: GenuiTable
+  /** Live value of `node.filter`: substring-match rows locally. */
+  filterValue?: string | undefined
+  /** Live value of `node.sortField`: a column header to sort by. */
+  sortValue?: string | undefined
   /** Renders a row's detail nodes. Supplied by render-node so the table never
    *  has to import the renderer back (import cycle). */
   renderDetail?: ((items: NonNullable<GenuiTable['details']>[number] & object[]) => ReactNode) | undefined
@@ -175,9 +179,23 @@ export const TableNode = memo(function TableNode({ node, renderDetail }: {
     groupMode && String(row[0] ?? '').trim() !== ''
     && row.slice(1).every(cell => String(cell ?? '').trim() === '')
 
+  // Local filtering (bound control): the model ships the full data set once and
+  // the reader narrows it live — no round trip, no re-generation.
+  const needle = filterValue?.trim().toLowerCase()
+  const filtered = needle === undefined || needle === ''
+    ? rows.map((row, index) => ({ row, index }))
+    : rows.map((row, index) => ({ row, index })).filter(({ row }) => {
+      const cells = node.filterColumn === undefined
+        ? row
+        : [row[node.filterColumn]]
+      return cells.some(cell => String(cell ?? '').toLowerCase().includes(needle))
+    })
+  const visibleRows = filtered.map(entry => entry.row)
+  const hiddenCount = rows.length - visibleRows.length
+
   interface Section { header: { row: GenuiTable['rows'][number]; index: number } | null; children: Array<{ row: GenuiTable['rows'][number]; index: number }> }
   const sections: Section[] = []
-  rows.forEach((row, index) => {
+  visibleRows.forEach((row, index) => {
     if (isGroupRow(row)) { sections.push({ header: { row, index }, children: [] }); return }
     if (sections.length === 0 || sections[sections.length - 1]!.header === null) {
       if (sections.length === 0) sections.push({ header: null, children: [] })
@@ -187,18 +205,19 @@ export const TableNode = memo(function TableNode({ node, renderDetail }: {
 
   // Sorting keeps sections intact: each section's children sort among
   // themselves, so a grouped table can never scramble its own structure.
+  // `sortField` is a select whose value is a column header: apply it as the
+  // active sort (a click on the header still overrides it).
+  const boundSortCol = sortValue === undefined ? -1 : columns.indexOf(sortValue)
+  const effectiveSort = sort !== null ? sort : (boundSortCol >= 0 ? { col: boundSortCol, dir: 1 as const } : null)
+
   const sortedSections = sections.map(section => ({
     header: section.header,
-    children: sort === null
+    children: effectiveSort === null
       ? section.children
-      : [...section.children].sort((a, b) => compare(a.row, b.row, sort.col, sort.dir)),
+      : [...section.children].sort((a, b) => compare(a.row, b.row, effectiveSort.col, effectiveSort.dir)),
   }))
 
-  const flatSorted = sortedSections.flatMap(section => [
-    ...(section.header === null ? [] : [section.header.row]),
-    ...section.children.map(child => child.row),
-  ])
-  const numeric = numericColumns(flatSorted, columns.length)
+  const numeric = numericColumns(visibleRows, columns.length)
   const toggleSection = (index: number): void => {
     setCollapsed(prev => {
       const next = new Set(prev)
@@ -224,7 +243,7 @@ export const TableNode = memo(function TableNode({ node, renderDetail }: {
   const totals = columns.map((_c, j) => {
     if (!numeric[j]) return null
     let sum = 0
-    for (const row of rows) {
+    for (const row of visibleRows) {
       if (isGroupRow(row)) continue
       const n = parseSortableNumber(row[j])
       if (Number.isFinite(n)) sum += n
@@ -340,6 +359,13 @@ export const TableNode = memo(function TableNode({ node, renderDetail }: {
             )
           })}
         </tbody>
+        {hiddenCount > 0 && (
+          <tfoot>
+            <tr className={css.filterRow}>
+              <td colSpan={columns.length}>筛选后 {visibleRows.length} / {rows.length} 行</td>
+            </tr>
+          </tfoot>
+        )}
         {hasTotals && (
           <tfoot>
             <tr>
@@ -464,12 +490,30 @@ function YAxis({ ticks, lo, span }: { ticks: number[]; lo: number; span: number 
 }
 
 /** Chart: bars (default), line (trend), or donut (share); multi-series bars via `series`. */
-export const ChartNode = memo(function ChartNode({ chart }: { chart: GenuiChart }) {
-  const kind = chart.kind ?? 'bars'
-  if (kind === 'donut') return <DonutNode chart={chart} />
-  if (kind === 'line') return <LineChartNode chart={chart} />
-  return <BarsNode chart={chart} />
+export const ChartNode = memo(function ChartNode({ chart, filterValue }: {
+  chart: GenuiChart
+  /** Live value of the control bound via `chart.filter`; keeps matching
+   *  categories only (label substring), so a chart is explorable locally. */
+  filterValue?: string | undefined
+}) {
+  const filtered = useMemo(() => applyChartFilter(chart, filterValue), [chart, filterValue])
+  const kind = filtered.kind ?? 'bars'
+  if (kind === 'donut') return <DonutNode chart={filtered} />
+  if (kind === 'line') return <LineChartNode chart={filtered} />
+  return <BarsNode chart={filtered} />
 })
+
+/** Keep the categories whose label matches the bound filter (case-insensitive).
+ *  Bars/donut filter `data`, line filters each series' points. */
+function applyChartFilter(chart: GenuiChart, filterValue: string | undefined): GenuiChart {
+  const needle = filterValue?.trim().toLowerCase()
+  if (needle === undefined || needle === '') return chart
+  const keep = (datum: { label: string }): boolean => datum.label.toLowerCase().includes(needle)
+  const data = chart.data.filter(keep)
+  if (chart.series === undefined) return data.length === chart.data.length ? chart : { ...chart, data }
+  const series = chart.series.map(entry => ({ ...entry, data: entry.data.filter(keep) }))
+  return { ...chart, data, series }
+}
 
 /** Bars: one column per datum (grouped bars when `series` is present).
  *  Single-series bars render against a true zero line, so negative values
