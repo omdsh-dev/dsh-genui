@@ -85,6 +85,21 @@ function assertFileTreeLayout(container: HTMLElement): void {
   expect(container.textContent).toContain('README.md')
 }
 
+describe('surface elevation contract', () => {
+  it('puts cards on the elevated host layer, not the page layer', () => {
+    const css = readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
+    // Dark theme: page 21,21,23 → layer-1 35,35,36 (only 14 units: "a black
+    // box") → layer-2 44,44,46. Cards, stats and callouts must sit on layer-2.
+    const card = /\.card \{([^}]*)\}/.exec(css)
+    expect(card, '.card rule must exist').not.toBeNull()
+    expect(card![1]).toMatch(/background: var\(--dsw-alias-bg-layer-2/)
+    const stat = /\.stat \{([^}]*)\}/.exec(css)
+    expect(stat![1]).toMatch(/background: var\(--dsw-alias-bg-layer-2/)
+    const callout = /\.callout \{([^}]*)\}/.exec(css)
+    expect(callout![1]).toMatch(/background: var\(--dsw-alias-bg-layer-2/)
+  })
+})
+
 describe('bento card layout contract', () => {
   it('lets a card absorb the row height and centre its graphic', () => {
     const css = readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
