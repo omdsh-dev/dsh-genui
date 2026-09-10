@@ -209,6 +209,18 @@ function repairItems(list: unknown, ctx: RepairCtx, depth: number): GenuiNode[] 
   return out
 }
 
+/** Optional explicit palette: up to 12 validated colour values. */
+function paletteValues(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) return undefined
+  const out: string[] = []
+  for (const item of v.slice(0, 12)) {
+    const value = color(item)
+    if (value === undefined) continue
+    out.push(value)
+  }
+  return out.length > 0 ? out : undefined
+}
+
 /** Optional `stat.spark` series: finite numbers only, 2..60 points. */
 function sparkValues(v: unknown): number[] | undefined {
   if (!Array.isArray(v)) return undefined
@@ -258,6 +270,7 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
         items: repairItems(v.items, ctx, depth + 1),
         ...opt('title', str(v.title, GENUI_LIMITS.maxString)),
         ...opt('tone', enu(v.tone, CARD_TONES)),
+        ...opt('accent', color(v.accent)),
       }
     }
     case 'button': {
@@ -434,6 +447,7 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
         type: 'table', columns, rows,
         ...opt('types', types),
         ...opt('total', v.total === true ? true : undefined),
+        ...opt('export', v.export === true ? true : undefined),
         ...opt('filter', str(v.filter, 64)),
         ...opt('filterColumn', int(v.filterColumn, 0, GENUI_LIMITS.maxTableCols - 1)),
         ...opt('sortField', str(v.sortField, 64)),
@@ -454,6 +468,7 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
         ...opt('horizontal', v.horizontal === true ? true : undefined),
         ...opt('stacked', v.stacked === true ? true : undefined),
         ...opt('filter', str(v.filter, 64)),
+        ...opt('palette', paletteValues(v.palette)),
       }
     }
     case 'tabs': {
@@ -660,6 +675,7 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
         ...opt('data', data),
         ...opt('series', series),
         ...opt('links', links !== undefined && links.length > 0 ? links : undefined),
+        ...opt('palette', paletteValues(v.palette)),
         ...opt('option', option),
       }
     }

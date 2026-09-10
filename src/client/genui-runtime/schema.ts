@@ -246,7 +246,7 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   breadcrumb: schema(['items'], { ...nodeFields, items: 'array' }),
   button: schema(['label'], { ...nodeFields, label: 'string', tone: 'string', full: 'boolean', small: 'boolean', icon: 'string', action: 'string' }, {}, { enums: { tone: BUTTON_TONES } }),
   callout: schema(['content'], { ...nodeFields, title: 'string', content: 'string', tone: 'string' }, { kind: 'tone' }, { enums: { tone: CALLOUT_TONES } }),
-  card: schema(['items'], { ...nodeFields, title: 'string', items: 'nodes', tone: 'string' }, { label: 'title', content: 'items' }, { enums: { tone: CARD_TONES } }),
+  card: schema(['items'], { ...nodeFields, title: 'string', items: 'nodes', tone: 'string', accent: 'string' }, { label: 'title', content: 'items' }, { enums: { tone: CARD_TONES } }),
   chart: schema([], {
     ...nodeFields,
     kind: 'string',
@@ -255,6 +255,7 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
     horizontal: 'boolean',
     stacked: 'boolean',
     filter: 'string',
+    palette: 'array',
   }, {}, {
     oneOfRequired: [['data', 'series']],
     // `line` may carry its points in `series` (multi-series line); only the
@@ -276,7 +277,7 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   }),
   diff: schema(['diffs'], { ...nodeFields, diffs: 'array' }, {}, { nested: { diffs: diffRecordSchema } }),
   divider: schema([], nodeFields),
-  echart: schema([], { ...nodeFields, title: 'string', height: 'number', preset: 'string', data: 'array', series: 'array', links: 'array', option: 'object' }, {}, {
+  echart: schema([], { ...nodeFields, title: 'string', height: 'number', preset: 'string', data: 'array', series: 'array', links: 'array', palette: 'array', option: 'object' }, {}, {
     // `links` alone is valid: the sankey/graph presets are edge-driven.
     oneOfRequired: [['option', 'data', 'series', 'links']],
     enums: { preset: ECHART_PRESETS },
@@ -313,7 +314,7 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   steps: schema(['steps'], { ...nodeFields, steps: 'array', current: 'number' }, { items: 'steps' }, { nested: { steps: stepsRecordSchema } }),
   submit: schema(['label'], { ...nodeFields, label: 'string', action: 'string', resetAction: 'string', groups: 'array' }),
   switch: schema(['label'], { ...nodeFields, label: 'string', checked: 'boolean', action: 'string' }),
-  table: schema(['columns', 'rows'], { ...nodeFields, columns: 'array', rows: 'array', types: 'array', total: 'boolean', details: 'array', filter: 'string', filterColumn: 'number', sortField: 'string' }, { headers: 'columns', data: 'rows' }),
+  table: schema(['columns', 'rows'], { ...nodeFields, columns: 'array', rows: 'array', types: 'array', total: 'boolean', details: 'array', filter: 'string', filterColumn: 'number', sortField: 'string', export: 'boolean' }, { headers: 'columns', data: 'rows' }),
   tabs: schema(['tabs'], { ...nodeFields, tabs: 'array' }, {}, { nested: { tabs: tabHolderSchema } }),
   text: schema(['content'], { ...nodeFields, content: 'string', size: 'string', center: 'boolean' }, { text: 'content' }, { enums: { size: TEXT_SIZES } }),
   textarea: schema([], { ...nodeFields, label: 'string', placeholder: 'string', rows: 'number', value: 'string', action: 'string', id: 'string' }),

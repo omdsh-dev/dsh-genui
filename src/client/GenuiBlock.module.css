@@ -954,6 +954,30 @@
   font-size: var(--dsl-g-font-meta);
 }
 
+/* Export chips (`table.export`): a quiet toolbar above the table. */
+.tableTools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 6px 8px 4px;
+}
+.tableTool {
+  padding: 2px 9px;
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-pill);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-family: inherit;
+  font-size: var(--dsl-g-font-meta);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.tableTool:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsl-g-border-strong); background: var(--dsl-g-hover); }
+.tableTool:focus-visible { outline: 2px solid var(--dsl-g-accent); outline-offset: 1px; }
+/* Card accent (`card.accent`): the border/wash come in inline; the title picks
+   up the same hue through this variable. */
+.card[style*="--dsl-card-accent"] > .cardTitle { color: var(--dsl-card-accent); }
+
 /* Master-detail rows (table.details): a chevron in the first cell opens a
    full-width panel underneath, so a table can drill down without leaving the
    page or opening a modal. */

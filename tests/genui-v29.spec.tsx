@@ -12,6 +12,7 @@ import { GenuiActionContext } from '../src/client/action-context.ts'
 import { GenuiBlock, GENUI_ACTION_DEBOUNCE_MS } from '../src/client/GenuiBlock.tsx'
 import { repairGenuiSpec } from '../src/client/guard.ts'
 import { CORE_PRESETS } from '../src/client/echarts-lazy.ts'
+import { tableToCsv, tableToMarkdown } from '../src/client/blocks/charts.tsx'
 
 afterEach(() => {
   cleanup()
@@ -29,6 +30,46 @@ function renderBlock(spec: unknown, actions: Array<[string, Record<string, unkno
     </GenuiActionContext.Provider>,
   )
 }
+
+describe('v15: 导出、调色板与卡片强调色', () => {
+  it('serialises a table to Markdown and CSV (escaping included)', () => {
+    const columns = ['渠道', '备注']
+    const rows = [['自然搜索', '含,逗号'], ['付费|搜索', '含"引号"']]
+    const md = tableToMarkdown(columns, rows)
+    expect(md.split('\n')[0]).toBe('| 渠道 | 备注 |')
+    expect(md.split('\n')[1]).toBe('| --- | --- |')
+    expect(md).toContain('付费\\|搜索')
+    const csv = tableToCsv(rows)
+    expect(csv.split('\n')[0]).toBe('自然搜索,"含,逗号"')
+    expect(csv).toContain('""引号""')
+  })
+
+  it('shows the export chips only when table.export is set', () => {
+    const off = renderBlock({ items: [{ type: 'table', columns: ['A'], rows: [['1']] }] })
+    expect(off.container.querySelector('[class*="tableTools"]')).toBeNull()
+    off.unmount()
+    const on = renderBlock({ items: [{ type: 'table', export: true, columns: ['A'], rows: [['1']] }] })
+    // `[class*="tableTool"]` would also match the `.tableTools` wrapper.
+    const chips = on.container.querySelectorAll('[class*="tableTools"] button')
+    expect(chips).toHaveLength(2)
+    expect(chips[0]!.textContent).toBe('复制 Markdown')
+  })
+
+  it('accepts a hex palette and drops invalid colours', () => {
+    const spec = repairGenuiSpec({
+      items: [{ type: 'chart', palette: ['#ff8800', 'not-a-colour', '#3ecf8e'], data: [{ label: 'A', value: 1 }, { label: 'B', value: 2 }] }],
+    })!
+    expect((spec.items[0] as { palette?: string[] }).palette).toEqual(['#ff8800', '#3ecf8e'])
+  })
+
+  it('applies a card accent without changing the layout classes', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'card', accent: '#f59e0b', title: '成本', items: [{ type: 'text', content: 'x' }] }],
+    })
+    const card = container.querySelector('[class*="card"]') as HTMLElement
+    expect(card.getAttribute('style')).toContain('#f59e0b')
+  })
+})
 
 describe('v14: echart preset 与 links', () => {
   it('keeps sankey/graph links through repair and drops malformed edges', () => {

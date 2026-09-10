@@ -12,6 +12,7 @@
  */
 import { Fragment, memo, useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent, ReactNode, RefObject } from 'react'
+import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import type { GenuiChart, GenuiTable } from '../spec.ts'
@@ -27,9 +28,12 @@ export const CHART_COLORS = [
   'var(--dsw-static-deepseek-300)',
 ]
 
-/** Series color: explicit color wins; multi-series auto-assign from the palette. */
-const seriesColor = (i: number, n: number, c?: string): string | undefined =>
-  c ?? (n > 1 ? CHART_COLORS[i % CHART_COLORS.length] : undefined)
+/** Series color: explicit color wins; then an explicit `palette` from the
+ *  spec; then the host categorical tokens. */
+const seriesColor = (i: number, n: number, c?: string, palette?: readonly string[]): string | undefined =>
+  c ?? (palette !== undefined && palette.length > 0
+    ? palette[i % palette.length]
+    : n > 1 ? CHART_COLORS[i % CHART_COLORS.length] : undefined)
 
 /**
  * Sortable numeric value of a cell. Human-written table cells are rarely
@@ -128,6 +132,48 @@ function CellRing({ cell }: { cell: string | number }) {
       </svg>
       <span className={css.cellRingText}>{String(cell)}</span>
     </span>
+  )
+}
+
+/** Markdown table text for the 复制 Markdown chip (pipes escaped). */
+export function tableToMarkdown(columns: string[], rows: Array<Array<string | number>>): string {
+  const escape = (v: unknown): string => String(v ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')
+  const head = `| ${columns.map(escape).join(' | ')} |`
+  const rule = `| ${columns.map(() => '---').join(' | ')} |`
+  const body = rows.map(row => `| ${columns.map((_c, i) => escape(row[i])).join(' | ')} |`)
+  return [head, rule, ...body].join('\n')
+}
+
+/** RFC 4180 CSV text for the 复制 CSV chip. */
+export function tableToCsv(rows: Array<Array<string | number>>): string {
+  const cell = (v: unknown): string => {
+    const s = String(v ?? '')
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  return rows.map(row => row.map(cell).join(',')).join('\n')
+}
+
+/** Copy chips above a table (`table.export`). Local clipboard only — no action,
+ *  no round trip; the label confirms for a moment and then resets. */
+function TableExportChips({ columns, rows }: { columns: string[]; rows: Array<Array<string | number>> }) {
+  const [copied, setCopied] = useState<'md' | 'csv' | null>(null)
+  const copy = (kind: 'md' | 'csv'): void => {
+    const text = kind === 'md' ? tableToMarkdown(columns, rows) : tableToCsv(rows)
+    void writeClipboard(text).then(ok => {
+      if (!ok) return
+      setCopied(kind)
+      window.setTimeout(() => setCopied(null), 1200)
+    })
+  }
+  return (
+    <div className={css.tableTools}>
+      <button type="button" className={css.tableTool} onClick={() => copy('md')}>
+        {copied === 'md' ? '已复制' : '复制 Markdown'}
+      </button>
+      <button type="button" className={css.tableTool} onClick={() => copy('csv')}>
+        {copied === 'csv' ? '已复制' : '复制 CSV'}
+      </button>
+    </div>
   )
 }
 
@@ -280,6 +326,7 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
 
   return (
     <div className={css.tableWrap}>
+      {node.export === true && <TableExportChips columns={columns} rows={rows} />}
       <table className={css.table}>
         <thead>
           <tr>
@@ -528,7 +575,7 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
     ? grouped.map(s => s.data.map(d => Number(d.value) || 0))
     : [data.map(d => Number(d.value) || 0)]
   const colors = seriesValues.map((_values, si) =>
-    seriesColor(si, seriesValues.length, isGrouped ? grouped[si]?.color : undefined) ?? 'var(--dsw-alias-state-business-primary, #4f8ef7)')
+    seriesColor(si, seriesValues.length, isGrouped ? grouped[si]?.color : undefined, chart.palette) ?? 'var(--dsw-alias-state-business-primary, #4f8ef7)')
   const flat = seriesValues.flat()
   const showValues = labels.length <= 12
   const stacked = chart.stacked === true && isGrouped
@@ -739,7 +786,7 @@ export const LineChartNode = memo(function LineChartNode({ chart }: { chart: Gen
     ? grouped.map(entry => entry.data.map(d => Number(d.value) || 0))
     : [data.map(d => Number(d.value) || 0)]
   const colors = seriesValues.map((_values, si) =>
-    seriesColor(si, seriesValues.length, grouped !== undefined ? grouped[si]?.color : undefined) ?? 'var(--dsl-g-accent)')
+    seriesColor(si, seriesValues.length, grouped !== undefined ? grouped[si]?.color : undefined, chart.palette) ?? 'var(--dsl-g-accent)')
   const multi = seriesValues.length > 1
   const flat = seriesValues.flat()
   const pointCount = Math.max(...seriesValues.map(values => values.length), 0)
@@ -858,7 +905,7 @@ export const DonutNode = memo(function DonutNode({ chart }: { chart: GenuiChart 
               fill="none"
               strokeWidth={STROKE}
               className={css.donutSeg}
-              style={{ stroke: seriesColor(i, data.length, d.color) ?? 'var(--dsw-alias-state-business-primary, #4f8ef7)' }}
+              style={{ stroke: seriesColor(i, data.length, d.color, chart.palette) ?? 'var(--dsw-alias-state-business-primary, #4f8ef7)' }}
               strokeDasharray={`${len} ${C - len}`}
               strokeDashoffset={-offset}
               transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
@@ -875,7 +922,7 @@ export const DonutNode = memo(function DonutNode({ chart }: { chart: GenuiChart 
       <div className={css.donutLegend}>
         {clamped.map((d, i) => (
           <span key={i} className={css.legendItem}>
-            <span className={css.legendSwatch} style={{ background: seriesColor(i, data.length, d.color) ?? 'var(--dsw-alias-state-business-primary, #4f8ef7)' }} />
+            <span className={css.legendSwatch} style={{ background: seriesColor(i, data.length, d.color, chart.palette) ?? 'var(--dsw-alias-state-business-primary, #4f8ef7)' }} />
             <span>{d.label}</span>
             <span className={css.donutPct}>{String(d.value)} · {(d.v / total * 100).toFixed(1)}%</span>
           </span>

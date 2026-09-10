@@ -77,8 +77,10 @@ function presetOption(node: GenuiEChart, el?: HTMLElement | null): Record<string
   // Each palette slot carries its own fallback hue: if the host lacks the
   // static tokens, series must still be distinguishable (the old code fell
   // back to the accent for every slot, so every chart came out one colour).
-  const colors = CHART_COLORS.map((c, i) =>
-    readToken(c.replace('var(', '').replace(')', ''), SERIES_FALLBACK[i % SERIES_FALLBACK.length]!, el))
+  const colors = node.palette !== undefined && node.palette.length > 0
+    ? [...node.palette]
+    : CHART_COLORS.map((c, i) =>
+      readToken(c.replace('var(', '').replace(')', ''), SERIES_FALLBACK[i % SERIES_FALLBACK.length]!, el))
   const data = node.data ?? []
   const series = node.series
 
