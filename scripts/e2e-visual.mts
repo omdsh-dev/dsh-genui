@@ -336,6 +336,36 @@ try {
   if (!treeCheck.ok) throw new Error(`文件树没有纵向堆叠（${treeCheck.reason}）`)
   log(`✓ 文件树：${treeCheck.rows} 行纵向堆叠 · ${treeCheck.guides} 条层级引导线 · ${treeCheck.glyphs} 个图标`)
 
+  // ── ECharts 配色验证（读 canvas 像素）────────────────────────────────────
+  // 回归：宿主把 --dsw-static-* 定义在 body 上，而引擎只从 :root 读 → 每个
+  // 系列都回退成同一个强调色，多序列图全是一片蓝。这里直接数像素色数。
+  const hueCheck = await page.evaluate(() => {
+    const canvases = [...document.querySelectorAll('[data-genui-echart] canvas')] as HTMLCanvasElement[]
+    const target = canvases[1] ?? canvases[0]
+    if (target === undefined) return { ok: false, reason: '没有 canvas' }
+    const ctx = target.getContext('2d')
+    if (ctx === null) return { ok: false, reason: '没有 2d 上下文' }
+    const { data } = ctx.getImageData(0, 0, target.width, target.height)
+    const hues = new Set<string>()
+    let saturated = 0
+    for (let i = 0; i < data.length; i += 4 * 37) {
+      const r = data[i] ?? 0
+      const g = data[i + 1] ?? 0
+      const b = data[i + 2] ?? 0
+      if ((data[i + 3] ?? 0) < 200) continue
+      // Only count SATURATED pixels: greys are axes/labels/background and would
+      // let a single-colour chart pass this check.
+      if (Math.max(r, g, b) - Math.min(r, g, b) < 40) continue
+      saturated += 1
+      hues.add(`${r >> 5}-${g >> 5}-${b >> 5}`)
+    }
+    // The radar preset draws two series: two distinct saturated hues are the
+    // minimum proof that the palette did not collapse to one accent colour.
+    return { ok: hues.size >= 2 && saturated >= 20, hues: hues.size, saturated, canvases: canvases.length }
+  })
+  if (!hueCheck.ok) throw new Error(`ECharts 配色异常（${JSON.stringify(hueCheck)}）`)
+  log(`✓ ECharts 配色：${hueCheck.canvases} 张画布，雷达图 ${hueCheck.hues} 种饱和色（${hueCheck.saturated} 像素）`)
+
   // ── 图表 tooltip 验证（真实 hover）────────────────────────────────────────
   const stackSeg = page.locator('[class*="stackSeg"]').first()
   if (await stackSeg.count() > 0) {
