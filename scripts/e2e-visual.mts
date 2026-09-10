@@ -30,8 +30,15 @@ const SCRIPT_PATH = resolve(process.argv[1] ?? '')
 const REPO_ROOT = dirname(SCRIPT_PATH).endsWith('scripts')
   ? resolve(dirname(SCRIPT_PATH), '..')
   : resolve(process.cwd())
-// 宿主二进制默认用本机 npm 生产模式 dsh；可用 DSH_BIN 覆盖。
-const DSH_BIN = process.env.DSH_BIN ?? resolve(homedir(), 'node_modules/.bin/dsh')
+// 宿主二进制：优先 $DSH_BIN，否则从 PATH 解析 `dsh`。旧默认
+// ~/node_modules/.bin/dsh 在 rc7 切到 npm/pnpm 生产槽后已不存在，脚本会以
+// 127（command not found）静默失败——这是 2026-09 视觉回归跑不起来的根因之一。
+function resolveDshBin(): string {
+  if (process.env.DSH_BIN !== undefined && process.env.DSH_BIN !== '') return process.env.DSH_BIN
+  const found = spawnSync('which', ['dsh'], { encoding: 'utf8' }).stdout?.trim()
+  return found !== undefined && found !== '' ? found : 'dsh'
+}
+const DSH_BIN = resolveDshBin()
 const arg = (name: string): string | undefined => {
   const i = process.argv.indexOf(name)
   return i === -1 ? undefined : process.argv[i + 1]
@@ -42,6 +49,11 @@ const OUT_DIR = resolve(arg('--out') ?? join(REPO_ROOT, '.e2e-artifacts'))
 
 const fail = (msg: string): never => { console.error(`✗ ${msg}`); process.exit(1) }
 const log = (msg: string): void => console.log(`· ${msg}`)
+
+/** 启动行里打印的带 token 根 URL（alpha 构建）；老构建则是不带 token 的裸 URL。 */
+function findDshWebUrl(output: string): string | undefined {
+  return output.match(/dsh web: (http:\/\/127\.0\.0\.1:\d+(?:\/\?token=[A-Za-z0-9_-]+)?)/u)?.[1]
+}
 
 if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) fail(`非法端口: ${PORT}`)
 await new Promise(res => {
@@ -98,30 +110,57 @@ try {
   if (add.status !== 0) throw new Error('link 安装失败（见上方输出）')
 
   // ── 启动 dsh web ─────────────────────────────────────────────────────────
+  // `--profile web` 明确加载刚安装插件的 profile；`--no-open` 防止每次回归
+  // 都弹一个系统浏览器窗口。
   log(`启动 dsh web (port ${PORT})...`)
   const logStream = createWriteStream(webLog, { flags: 'a' })
-  webChild = spawn(DSH_BIN, ['web', '--port', String(PORT)], {
+  webChild = spawn(DSH_BIN, ['--profile', 'web', '--port', String(PORT), '--no-open'], {
     env, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
   })
+  const BASE = `http://127.0.0.1:${PORT}`
+  // 收集 stdout 以解析启动行里的 token；同时照常落盘日志。
+  let webOutput = ''
+  webChild.stdout!.on('data', (chunk: Buffer) => { webOutput += String(chunk) })
   webChild.stdout!.pipe(logStream)
   webChild.stderr!.pipe(logStream)
-  const BASE = `http://127.0.0.1:${PORT}`
+  // alpha 构建的根请求必须带进程 token（GET /?token=… → 303 + 会话 cookie），
+  // 裸 fetch `/` 永远 401。老构建打印裸 URL，直接 200。
   let ready = false
+  let launchUrl = BASE
+  let sessionCookie: string | undefined
   for (let i = 0; i < 120; i++) {
     if (webChild.exitCode !== null) break
-    try { const res = await fetch(BASE); if (res.ok) { ready = true; break } } catch { /* booting */ }
+    const found = findDshWebUrl(webOutput)
+    if (found !== undefined) {
+      launchUrl = found
+      try {
+        const res = await fetch(found, { redirect: 'manual' })
+        if (res.status === 303 || res.ok) {
+          sessionCookie = res.headers.get('set-cookie')?.split(';')[0]
+          ready = true
+          break
+        }
+      } catch { /* booting */ }
+    }
     await new Promise(r => setTimeout(r, 1000))
   }
   if (!ready) {
-    const tail = (await import('node:fs/promises')).readFile(webLog, 'utf8').catch(() => '')
+    const tail = await (await import('node:fs/promises')).readFile(webLog, 'utf8').catch(() => '')
     console.error(tail.split('\n').slice(-30).join('\n'))
     throw new Error(`dsh web 120s 内未就绪（日志: ${webLog}）`)
   }
   log('dsh web 就绪')
 
-  const clientRes = await fetch(`${BASE}/plugins/@changfenhuang/dsh-genui/client.js`)
-  if (!clientRes.ok) throw new Error(`client.js 返回 ${clientRes.status}`)
-  log(`✓ client.js ${clientRes.status}`)
+  // 客户端半边不以 `/plugins/<pkg>/client.js` 单独提供：宿主把同一批插件
+  // 合成一个 `??…,<pkg>/client.js,…&rev=` 资源。因此这里断言的是「它出现在
+  // index 的 boot graph 里」，而不是某个固定 URL 返回 200。
+  const indexRes = await fetch(`${BASE}/`, { headers: sessionCookie === undefined ? {} : { cookie: sessionCookie } })
+  if (!indexRes.ok) throw new Error(`index 返回 ${indexRes.status}`)
+  const indexHtml = await indexRes.text()
+  if (!indexHtml.includes('@changfenhuang/dsh-genui/client.js')) {
+    throw new Error('genui 客户端 bundle 未出现在 boot graph 中（插件未注册 client 半边？）')
+  }
+  log('✓ 客户端 bundle 已在 boot graph 中')
 
   // ── 浏览器渲染 ───────────────────────────────────────────────────────────
   const { chromium } = await loadPlaywright()
@@ -129,8 +168,30 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 3000 } })
   const pageErrors: string[] = []
   page.on('pageerror', e => pageErrors.push(String(e)))
-  await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  const consoleLines: string[] = []
+  page.on('console', msg => consoleLines.push(`${msg.type()}: ${msg.text()}`))
+  // 强制 DOM 通道：0.1.3+ 宿主带 registry 扩展点时插件默认走 registry 通道，
+  // 而 registry 只在真实 markdown 围栏里渲染；空 profile 的回归页需要一个
+  // 可注入的渲染表面，所以用这个 flag 把插件钉在 DOM 通道上。
+  await page.addInitScript(() => { (globalThis as { __DSH_GENUI_E2E__?: boolean }).__DSH_GENUI_E2E__ = true })
+  // 走带 token 的根 URL：浏览器完成 303 → cookie 交换，之后的资源请求已认证。
+  await page.goto(launchUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.waitForTimeout(5000)
+  // 空 profile 首次启动会弹内测声明：它的遮罩会拦截一切指针事件，先关掉，
+  // 否则后面的 hover 断言会被 mask 抢走（曾导致 tooltip 回归超时）。
+  const onboarding = page.getByRole('button', { name: /继续|我知道了|开始使用|进入/ })
+  if (await onboarding.count() > 0) {
+    await onboarding.first().click().catch(() => {})
+    await page.waitForTimeout(500)
+  }
+  // 兜底：遮罩若仍在（按钮文案变化、二次弹出），直接摘掉它——这是 scratch
+  // 实例的一次性页面，不是产品行为断言。
+  const masks = await page.evaluate(() => {
+    const found = document.querySelectorAll('[class*="_mask_"], [role="presentation"]')
+    for (const el of found) el.remove()
+    return found.length
+  })
+  if (masks > 0) log(`已移除 ${masks} 个遮罩节点`)
 
   // 注入画廊围栏：真实 dsh-ui fence 表面（叶子语言标签 + 单一 <pre> 代码体），
   // DOM 通道应当发现它并以插件自己的 React root 挂载真实组件。
@@ -157,7 +218,15 @@ try {
   }
   if (blocks === 0) {
     await page.screenshot({ path: join(OUT_DIR, 'visual-fail.png'), fullPage: true })
-    throw new Error(`30s 内画廊未渲染（截图 visual-fail.png；pageerrors: ${pageErrors.slice(0, 3).join(' | ') || '无'}）`)
+    const genuiLog = consoleLines.filter(l => l.includes('genui')).slice(0, 5).join(' | ')
+    const diag = await page.evaluate(() => ({
+      injected: document.querySelectorAll('[data-visual-inject]').length,
+      containers: document.querySelectorAll('.genui-dom-fence').length,
+      genuiRoots: document.querySelectorAll('[data-genui]').length,
+      hidden: document.querySelectorAll('.md-code-block[style*="display: none"]').length,
+      containerHtml: document.querySelector('.genui-dom-fence')?.innerHTML.slice(0, 300) ?? 'none',
+    }))
+    throw new Error(`30s 内画廊未渲染（截图 visual-fail.png；pageerrors: ${pageErrors.slice(0, 3).join(' | ') || '无'}；genui console: ${genuiLog || '无'}；diag: ${JSON.stringify(diag)}）`)
   }
   log(`✓ 画廊渲染成功（${blocks} 个 data-genui 块）`)
 
@@ -165,6 +234,63 @@ try {
   await page.waitForTimeout(6000)
   await page.screenshot({ path: join(OUT_DIR, 'gallery.png'), fullPage: true })
   log(`✓ 截图 gallery.png`)
+
+  // ── 流式骨架验证 ─────────────────────────────────────────────────────────
+  // 半截 JSON 的 dsh-ui 围栏：不显示裸 JSON，而是骨架；settle 后若仍解析不了
+  // 必须把原始代码块还回来（不能永久藏起来）。
+  await page.evaluate(() => {
+    const row = document.createElement('div')
+    row.setAttribute('data-chat-anchor-key', 'e2e-skeleton:0')
+    row.setAttribute('data-chat-flow-kind', 'assistant-step')
+    row.setAttribute('data-streaming', '')
+    const block = document.createElement('div')
+    block.className = 'md-code-block'
+    block.setAttribute('data-visual-skeleton', '1')
+    const label = document.createElement('div')
+    label.textContent = 'dsh-ui'
+    const pre = document.createElement('pre')
+    const code = document.createElement('code')
+    code.textContent = '{"items":[{"type":"stat","label":"CPU","value":"42%'
+    pre.appendChild(code)
+    block.append(label, pre)
+    row.appendChild(block)
+    ;(document.querySelector('[data-chat-flow]') ?? document.body).appendChild(row)
+  })
+  await page.waitForTimeout(2500)
+  const skeleton = await page.evaluate(() => ({
+    skeleton: document.querySelectorAll('.genui-dom-fence [class*="skeleton"]').length,
+    rawVisible: document.querySelector('[data-visual-skeleton]')?.getAttribute('style') ?? '',
+  }))
+  if (skeleton.skeleton === 0) throw new Error(`流式骨架未出现（${JSON.stringify(skeleton)}）`)
+  await page.evaluate(() => { document.querySelector('[data-chat-anchor-key="e2e-skeleton:0"]')?.removeAttribute('data-streaming') })
+  await page.waitForTimeout(1800)
+  // settle 后 tier-2 补全把半截 spec 修好 → 骨架换成真组件（这是更好的结果；
+  // 「补不回来就归还原始代码块」由 tests/dom-fence.spec.tsx 覆盖）。
+  const restored = await page.evaluate(() => {
+    const block = document.querySelector('[data-visual-skeleton]')
+    const container = document.querySelector('.genui-dom-fence')
+    return {
+      skeletons: document.querySelectorAll('.genui-dom-fence [class*="skeleton"]').length,
+      hidden: block?.getAttribute('style')?.includes('display: none') ?? false,
+      text: container?.textContent ?? '',
+    }
+  })
+  if (restored.skeletons !== 0 || !restored.hidden || !restored.text.includes('CPU')) {
+    throw new Error(`骨架未在 settle 后换成真组件（${JSON.stringify(restored)}）`)
+  }
+  log('✓ 流式骨架：出现 → settle 后换成真组件')
+
+  // ── 图表 tooltip 验证（真实 hover）────────────────────────────────────────
+  const stackSeg = page.locator('[class*="stackSeg"]').first()
+  if (await stackSeg.count() > 0) {
+    await stackSeg.hover()
+    await page.waitForTimeout(300)
+    const tipText = await page.locator('[class*="chartTip"]').first().textContent().catch(() => null)
+    if (tipText === null || !tipText.includes('合计')) {
+      throw new Error(`堆叠段 hover 未弹出明细 tooltip（${String(tipText)}）`)
+    }
+    log(`✓ 图表 tooltip：${tipText.replace(/\s+/g, ' ').trim()}`)
+  }
 
   // ── 本地交互验证 ─────────────────────────────────────────────────────────
   // 点击在第一个 evaluate 里做；React 18 的状态更新是异步的，断言放到

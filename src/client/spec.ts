@@ -199,14 +199,21 @@ export interface GenuiStat {
   label: string
   value: string
   delta?: string
+  /** Optional micro trend line (finite numbers, 2..60 points). */
+  spark?: number[]
+  /** `hero` renders one oversized number — use it once per fence as the anchor. */
+  size?: 'hero'
 }
 
 export interface GenuiProgress {
   type: 'progress'
-  label?: string
-  /** 0..100 */
   value: number
+  label?: string
   valueLabel?: string
+  /** `bar` (default) draws a track; `ring` draws a circular gauge. */
+  variant?: 'bar' | 'ring'
+  /** Optional target marker on the bar track (0-100). */
+  target?: number
 }
 
 export interface GenuiDivider {
@@ -247,6 +254,8 @@ export interface GenuiGrid {
 export interface GenuiCard {
   type: 'card'
   title?: string
+  /** Semantic tint for the card surface (default: neutral). */
+  tone?: 'info' | 'success' | 'warning' | 'danger'
   items: GenuiNode[]
 }
 
@@ -259,7 +268,18 @@ export interface GenuiTable {
   type: 'table'
   columns: string[]
   rows: Array<Array<string | number>>
+  /** Per-column cell type; missing = auto (numeric right-align, signed delta). */
+  types?: TableCellType[]
+  /** Append a 合计 footer row (numeric columns are summed). */
+  total?: boolean
 }
+
+/** How a table column's cells render.
+ *  - `bar` / `ring`: the cell is read as 0-100
+ *  - `spark`: the cell is a number list ("3,5,4,8") drawn as a mini trend
+ *  - `index`: the 1-based row number (cell content is ignored)
+ *  - `delta` / `num` / `badge` / `text`: text treatments. */
+export type TableCellType = 'text' | 'num' | 'delta' | 'bar' | 'badge' | 'spark' | 'ring' | 'index' | 'group'
 
 export interface GenuiChartDatum {
   label: string
@@ -272,8 +292,12 @@ export interface GenuiChart {
   /** Chart shape: bars (default), line (trend), donut (share). */
   kind?: 'bars' | 'line' | 'donut'
   data: GenuiChartDatum[]
-  /** Multi-series grouped bars: one series of data per entry. */
+  /** Multi-series: grouped bars, or one line per entry when kind is line. */
   series?: Array<{ label: string; color?: string; data: GenuiChartDatum[] }>
+  /** Bars only: horizontal bars (rankings, long category labels). */
+  horizontal?: boolean
+  /** Bars + series: stack the series instead of grouping them. */
+  stacked?: boolean
 }
 
 export interface GenuiTab {

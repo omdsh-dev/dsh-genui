@@ -29,42 +29,225 @@ function renderBlock(spec: unknown, actions: Array<[string, Record<string, unkno
   )
 }
 
-describe('v2.9: chart hover tooltips', () => {
-  it('bars carry title attrs with label and value', () => {
+describe('v7: table sections/totals, stacked bars, card tones', () => {
+  it('renders a group header row spanning every column', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'table',
+        columns: ['区域', 'Q1', 'Q2'],
+        types: ['group', 'num', 'num'],
+        rows: [['华东', '', ''], ['上海', '120', '138']],
+      }],
+    })
+    const groupCell = container.querySelector('[class*="groupRow"] td')
+    // v10: the header is a toggle with a chevron and the child count.
+    expect(groupCell?.textContent).toBe('▾华东1')
+    expect(groupCell?.getAttribute('colspan')).toBe('3')
+    expect(container.querySelector('[class*="groupToggle"]')?.getAttribute('aria-expanded')).toBe('true')
+    // Children are indented under the section.
+    expect(container.querySelectorAll('tr[class*="groupChild"]')).toHaveLength(1)
+  })
+
+  it('folds a section away and back', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'table',
+        columns: ['区域', 'Q1'],
+        types: ['group', 'num'],
+        rows: [['华东', ''], ['上海', '120'], ['杭州', '96']],
+      }],
+    })
+    expect(container.querySelectorAll('tr[class*="groupChild"]')).toHaveLength(2)
+    fireEvent.click(container.querySelector('[class*="groupToggle"]')!)
+    expect(container.querySelectorAll('tr[class*="groupChild"]')).toHaveLength(0)
+    expect(container.querySelector('[class*="groupToggle"]')?.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(container.querySelector('[class*="groupToggle"]')!)
+    expect(container.querySelectorAll('tr[class*="groupChild"]')).toHaveLength(2)
+  })
+
+  it('sums numeric columns into a footer row', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'table',
+        columns: ['区域', 'Q1', 'Q2'],
+        types: ['group', 'num', 'num'],
+        total: true,
+        rows: [['华东', '', ''], ['上海', '120', '138'], ['杭州', '96', '104']],
+      }],
+    })
+    const footer = [...container.querySelectorAll('tfoot td')].map(td => td.textContent)
+    expect(footer[0]).toBe('合计')
+    expect(footer[1]).toBe('216')
+    expect(footer[2]).toBe('242')
+  })
+
+  it('stacks series segments instead of grouping them', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'chart',
+        data: [],
+        stacked: true,
+        series: [
+          { label: '已完成', data: [{ label: 'Q1', value: 30 }] },
+          { label: '进行中', data: [{ label: 'Q1', value: 10 }] },
+        ],
+      }],
+    })
+    const segments = container.querySelectorAll('[class*="stackSeg"]')
+    expect(segments).toHaveLength(2)
+    // 30/40 of the total height -> 75%.
+    expect((segments[0] as HTMLElement).style.height).toBe('75%')
+  })
+
+  it('shows an instant tooltip with the segment breakdown on hover', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'chart',
+        data: [],
+        stacked: true,
+        series: [
+          { label: '已完成', data: [{ label: 'Q1', value: 30 }] },
+          { label: '进行中', data: [{ label: 'Q1', value: 10 }] },
+        ],
+      }],
+    })
+    const segments = container.querySelectorAll('[class*="stackSeg"]')
+    fireEvent.mouseEnter(segments[0]!)
+    const tip = container.querySelector('[class*="chartTip"]')
+    expect(tip?.textContent).toContain('已完成')
+    expect(tip?.textContent).toContain('30')
+    expect(tip?.textContent).toContain('合计')
+    fireEvent.mouseLeave(container.querySelector('[data-genui-chart]')!)
+    expect(container.querySelector('[class*="chartTip"]')).toBeNull()
+  })
+
+  it('tints a card by tone', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'card', tone: 'success', title: '已通过', items: [{ type: 'text', content: 'ok' }] }],
+    })
+    expect(container.querySelector('[class*="cardSuccess"]')).not.toBeNull()
+  })
+})
+
+describe('v6: rich table columns', () => {
+  it('renders spark, ring and index cells', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'table',
+        columns: ['#', '服务', '趋势', '可用率'],
+        types: ['index', 'text', 'spark', 'ring'],
+        rows: [['1', 'API', '3,5,4,8,6', '99.96']],
+      }],
+    })
+    expect(container.querySelector('[class*="cellIndex"]')?.textContent).toBe('1')
+    const spark = container.querySelector('svg[class*="cellSpark"]')
+    expect(spark?.querySelector('polyline')?.getAttribute('points')?.split(' ')).toHaveLength(5)
+    expect(container.querySelector('[class*="cellRing"]')?.textContent).toContain('99.96')
+  })
+
+  it('falls back to text when a spark cell has no number list', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'table', columns: ['趋势'], types: ['spark'], rows: [['n/a']] }],
+    })
+    expect(container.querySelector('svg[class*="cellSpark"]')).toBeNull()
+    expect(container.textContent).toContain('n/a')
+  })
+})
+
+describe('v5: progress ring, target marker, stat unit split', () => {
+  it('renders a ring gauge with the value in the middle', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'progress', variant: 'ring', value: 72, label: '完成度' }],
+    })
+    const ring = container.querySelector('[role="progressbar"]')
+    expect(ring).not.toBeNull()
+    expect(ring!.querySelector('svg')).not.toBeNull()
+    expect(ring!.textContent).toContain('72%')
+    expect(ring!.textContent).toContain('完成度')
+  })
+
+  it('marks the target on a bar track', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'progress', value: 64, target: 80 }],
+    })
+    const mark = container.querySelector('[class*="targetMark"]') as HTMLElement
+    expect(mark).not.toBeNull()
+    expect(mark.style.left).toBe('80%')
+  })
+
+  it('splits a stat value into number and unit for the baseline typography', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'stat', label: '内存', value: '6.8 GB' }],
+    })
+    const unit = container.querySelector('[class*="statUnit"]')
+    expect(unit?.textContent).toBe('GB')
+    expect(container.querySelector('[class*="statValue"]')?.textContent).toBe('6.8GB')
+  })
+})
+
+describe('v3: stat sparkline', () => {
+  it('renders one polyline point per spark value', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'stat', label: 'P95', value: '42ms', spark: [3, 5, 4, 8, 6] }],
+    })
+    const spark = container.querySelector('svg[class*="statSpark"]')
+    expect(spark).not.toBeNull()
+    expect(spark!.querySelector('polyline')!.getAttribute('points')!.split(' ')).toHaveLength(5)
+  })
+
+  it('drops a spark that cannot draw a line', () => {
+    const spec = repairGenuiSpec({ items: [{ type: 'stat', label: 'P95', value: '42ms', spark: [1] }] })!
+    expect(spec.items[0]).toMatchObject({ type: 'stat' })
+    expect((spec.items[0] as { spark?: number[] }).spark).toBeUndefined()
+  })
+})
+
+describe('v2.9/v8: chart hover tooltips', () => {
+  it('bars show the label and value in the instant tooltip', () => {
     const { container } = renderBlock({
       items: [{ type: 'chart', data: [{ label: '一', value: 42 }] }],
     })
-    expect(container.querySelector('[class*="barCol"]')!.getAttribute('title')).toBe('一: 42')
+    fireEvent.mouseEnter(container.querySelector('[class*="barFill"]')!)
+    const tip = container.querySelector('[class*="chartTip"]')
+    expect(tip?.textContent).toContain('一')
+    expect(tip?.textContent).toContain('42')
   })
 
-  it('grouped bars name the series in the tooltip', () => {
+  it('grouped bars name the series and the category total', () => {
     const { container } = renderBlock({
       items: [{ type: 'chart', series: [
         { label: '本月', data: [{ label: 'Q1', value: 3 }] },
+        { label: '上月', data: [{ label: 'Q1', value: 5 }] },
       ] }],
     })
-    const bar = [...container.querySelectorAll('[class*="groupedBar"]')].find(el => el.hasAttribute('title'))
-    expect(bar).toBeDefined()
-    expect(bar!.getAttribute('title')).toBe('本月: 3')
+    fireEvent.mouseEnter(container.querySelector('[class*="groupedFill"]')!)
+    const tip = container.querySelector('[class*="chartTip"]')
+    expect(tip?.textContent).toContain('本月')
+    expect(tip?.textContent).toContain('3')
+    expect(tip?.textContent).toContain('合计')
   })
 
-  it('donut arcs carry title elements', () => {
+  it('donut arcs show label, value and share', () => {
     const { container } = renderBlock({
       items: [{ type: 'chart', kind: 'donut', data: [{ label: 'A', value: 30 }] }],
     })
-    const titles = [...container.querySelectorAll('svg title')].map(t => t.textContent)
-    expect(titles).toContain('A: 30')
+    fireEvent.mouseEnter(container.querySelector('[class*="donutSeg"]')!)
+    const tip = container.querySelector('[class*="chartTip"]')
+    expect(tip?.textContent).toContain('A')
+    expect(tip?.textContent).toContain('30')
+    expect(tip?.textContent).toContain('100.0%')
   })
 
-  it('line dots carry SVG title elements', () => {
+  it('line dots show the point value', () => {
     const { container } = renderBlock({
       items: [{ type: 'chart', kind: 'line', data: [
         { label: '周一', value: 8 }, { label: '周二', value: 12 },
       ] }],
     })
-    const titles = [...container.querySelectorAll('svg title')].map(t => t.textContent)
-    expect(titles).toContain('周一: 8')
-    expect(titles).toContain('周二: 12')
+    fireEvent.mouseEnter(container.querySelectorAll('[class*="lineDot"]')[0]!)
+    expect(container.querySelector('[class*="chartTip"]')?.textContent).toContain('周一')
+    fireEvent.mouseEnter(container.querySelectorAll('[class*="lineDot"]')[1]!)
+    expect(container.querySelector('[class*="chartTip"]')?.textContent).toContain('12')
   })
 })
 

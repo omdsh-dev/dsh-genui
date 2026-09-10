@@ -50,6 +50,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { GenuiActionContext, type GenuiActionHandler } from './action-context.ts'
+import css from './GenuiBlock.module.css'
 import { renderResolvedFenceNode, type GenuiFenceContext } from './fence-render.tsx'
 
 /** Fence surfaces the channel can take over, newest host first: the shared
@@ -102,6 +103,34 @@ function isPanelRoot(node: ReactNode): boolean {
   return isValidElement(node) && node.type === Fragment
 }
 
+/** Streaming placeholder gate: the body is a GenUI spec still arriving.
+ *  Requires the shape of a spec (an object carrying items/type/title/panel) so
+ *  a streaming ```json code block never gets a skeleton. */
+function looksLikeGenuiInProgress(raw: string): boolean {
+  const text = raw.trimStart()
+  if (text.length < 8 || !text.startsWith('{')) return false
+  return /"(items|type|title|panel)"\s*:/.test(text)
+}
+
+/** Skeleton mounted while a fence body is still streaming and no component has
+ *  finished yet. It is a REAL mounted tree, so the channel's rule "never hide
+ *  the stock block without a mounted replacement" (issue #19) still holds: if
+ *  the body never parses, the settle sweep unmounts the skeleton and the raw
+ *  code block returns. */
+function GenuiSkeleton() {
+  return (
+    <div className={css.skeleton} role="status" aria-label="正在生成界面">
+      <span className={css.skeletonTitle} />
+      <span className={css.skeletonBars}>
+        <span style={{ width: '32%' }} />
+        <span style={{ width: '52%' }} />
+        <span style={{ width: '24%' }} />
+      </span>
+      <span className={css.skeletonBlock} />
+    </div>
+  )
+}
+
 interface Mount {
   root: Root
   container: HTMLElement
@@ -109,6 +138,8 @@ interface Mount {
   lastRaw: string
   lastSettled: boolean
   lastNode: ReactNode
+  /** True while this mount is the streaming skeleton (no component yet). */
+  skeleton: boolean
 }
 
 function isTextNode(node: Node): node is Text {
@@ -429,9 +460,15 @@ export function installDomFenceRenderer(
     // the stock code block stays visible until something renders. A settled
     // unrepairable body warns once (the DOM channel has no visible
     // diagnostic of its own — the stock block keeps the raw content).
-    if (node === null) {
-      if (settled) warnOnce(block, 'settled dsh-ui fence body does not parse; keeping the code block')
-      return
+    let payload = node
+    if (payload === null) {
+      if (settled || !looksLikeGenuiInProgress(raw)) {
+        if (settled) warnOnce(block, 'settled dsh-ui fence body does not parse; keeping the code block')
+        return
+      }
+      // Streaming, spec-shaped, nothing renderable yet: show the skeleton
+      // rather than a wall of half-written JSON.
+      payload = <GenuiSkeleton />
     }
     // Mount FIRST, hide AFTER (issue #19): the stock block is only ever
     // hidden once a successfully mounted replacement stands next to it. A
@@ -454,7 +491,7 @@ export function installDomFenceRenderer(
         if (sid === undefined) return
         sendAction(sid, action, payload)
       }
-      root.render(<GenuiActionContext.Provider value={handler}>{node}</GenuiActionContext.Provider>)
+      root.render(<GenuiActionContext.Provider value={handler}>{payload}</GenuiActionContext.Provider>)
     } catch (error) {
       try {
         root.unmount()
@@ -467,7 +504,7 @@ export function installDomFenceRenderer(
     }
     block.style.display = 'none'
     block.setAttribute(PROCESSED, '')
-    mounts.set(block, { root, container, block, lastRaw: raw, lastSettled: settled, lastNode: node })
+    mounts.set(block, { root, container, block, lastRaw: raw, lastSettled: settled, lastNode: payload, skeleton: node === null })
   }
 
   /** Pre-paint repair: the host's React re-renders during streaming can wipe
@@ -547,6 +584,14 @@ export function installDomFenceRenderer(
         const { key, context } = contextOf(anchor, block, settled)
         const node = renderResolvedFenceNode(raw, key, context)
         if (node === null) {
+          if (mount.skeleton && !settled) {
+            // Still streaming and still incomplete: keep the skeleton mounted
+            // (no React re-render needed) and wait for the next chunk.
+            mount.lastRaw = raw
+            mount.lastSettled = settled
+            continue
+          }
+          // Settled, or no longer spec-shaped: restore the raw code block.
           unmountBlock(block)
           continue
         }
@@ -601,6 +646,7 @@ export function installDomFenceRenderer(
         mount.lastRaw = raw
         mount.lastSettled = settled
         mount.lastNode = node
+        mount.skeleton = false
       }
     }
     repairSurgery()

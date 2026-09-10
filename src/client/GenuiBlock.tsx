@@ -109,16 +109,13 @@ function GenuiBlockInstance({ spec, stateKey }: GenuiBlockProps) {
     })
   }, [])
   const setField = useCallback((id: string, value: string) => {
-    // Field invariant: a blank (trim-empty) value leaves the shared registry.
-    setFields(prev => {
-      if (value.trim() === '') {
-        if (!(id in prev)) return prev
-        const next = { ...prev }
-        delete next[id]
-        return next
-      }
-      return prev[id] === value ? prev : { ...prev, [id]: value }
-    })
+    // Registry presence means "the user has touched this field" — a blank
+    // value is stored as '' instead of deleting the entry, so a user who
+    // CLEARS a model-provided default does not get the default back on the
+    // next mount. Blank values are still excluded from submit collection by
+    // SubmitNode's filledFields filter (and from persistence for secrets), so
+    // this does not change what the model receives.
+    setFields(prev => (prev[id] === value ? prev : { ...prev, [id]: value }))
   }, [])
   const registerSecretField = useCallback((id: string) => {
     setSecretFields(prev => (prev.has(id) ? prev : new Set(prev).add(id)))

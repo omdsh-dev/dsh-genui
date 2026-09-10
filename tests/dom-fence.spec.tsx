@@ -73,6 +73,17 @@ async function tick(ms = 40): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, ms))
 }
 
+/** Poll instead of a single fixed wait: the rAF sweep can land late under a
+ *  loaded parallel test run, which made the growth assertion flaky. */
+async function waitFor(predicate: () => boolean, ms = 1500): Promise<boolean> {
+  const start = Date.now()
+  while (Date.now() - start < ms) {
+    if (predicate()) return true
+    await tick(30)
+  }
+  return predicate()
+}
+
 afterEach(() => {
   cleanup()
   document.body.innerHTML = ''
@@ -147,14 +158,14 @@ describe('installDomFenceRenderer', () => {
       expect(container!.textContent).toContain('你好，世界')
       // The body grows: the second finished component appears without settle.
       block.querySelector('code')!.textContent = '{"items":[{"type":"text","content":"你好，世界"},{"type":"text","content":"第二块"}]}'
-      await tick()
+      await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('第二块') === true)
       expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('第二块')
     } finally {
       dispose()
     }
   })
 
-  it('keeps the stock block visible while no component has finished (streaming half)', async () => {
+  it('shows a skeleton while the spec is still arriving, then swaps in the real tree', async () => {
     const row = assistantRow('s9b', true)
     const block = stockCodeBlock('{"items":[{"type":"text","content":', 'dsh-ui')
     row.appendChild(block)
@@ -163,14 +174,55 @@ describe('installDomFenceRenderer', () => {
     const dispose = installDomFenceRenderer(makeCtx('sess-1', send), send)
     try {
       await tick()
-      expect(block.hasAttribute('data-genui-rendered')).toBe(false)
-      expect(block.style.display).toBe('')
-      expect(row.querySelector('.genui-dom-fence')).toBeNull()
-      // The component closes: takeover happens while still streaming.
+      // v3: half-written JSON is replaced by the skeleton, not left on screen.
+      expect(block.hasAttribute('data-genui-rendered')).toBe(true)
+      expect(block.style.display).toBe('none')
+      const skeleton = row.querySelector('.genui-dom-fence [class*="skeleton"]')
+      expect(skeleton).not.toBeNull()
+      expect(skeleton!.getAttribute('role')).toBe('status')
+      // The component closes: the skeleton is replaced by the real tree.
       block.querySelector('code')!.textContent = '{"items":[{"type":"text","content":"你好，世界"}]}'
       await tick()
-      expect(block.hasAttribute('data-genui-rendered')).toBe(true)
+      expect(row.querySelector('.genui-dom-fence [class*="skeleton"]')).toBeNull()
       expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('你好，世界')
+    } finally {
+      dispose()
+    }
+  })
+
+  it('restores the raw code block when a skeleton body never parses at settle', async () => {
+    const row = assistantRow('s9b2', true)
+    const block = stockCodeBlock('{"items":[{"type":"text","content":', '')
+    row.appendChild(block)
+    document.body.appendChild(row)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('sess-1', send), send)
+    try {
+      await tick()
+      expect(row.querySelector('.genui-dom-fence [class*="skeleton"]')).not.toBeNull()
+      // The reply settles with the body still broken: the skeleton must give
+      // the raw block back rather than hiding it forever.
+      row.removeAttribute('data-streaming')
+      await tick()
+      expect(row.querySelector('.genui-dom-fence')).toBeNull()
+      expect(block.hasAttribute('data-genui-rendered')).toBe(false)
+      expect(block.style.display).toBe('')
+    } finally {
+      dispose()
+    }
+  })
+
+  it('never skeletons a streaming JSON fence that is not a GenUI spec', async () => {
+    const row = assistantRow('s9b3', true)
+    const block = stockCodeBlock('{"name":"配置","value":[1,2,', '')
+    row.appendChild(block)
+    document.body.appendChild(row)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('sess-1', send), send)
+    try {
+      await tick()
+      expect(row.querySelector('.genui-dom-fence')).toBeNull()
+      expect(block.hasAttribute('data-genui-rendered')).toBe(false)
     } finally {
       dispose()
     }
@@ -676,7 +728,7 @@ describe('multi-surface discovery across host DOM shapes (issue #6)', () => {
       expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('你好，世界')
       // 正文继续增长 → 实时重渲染。
       block.querySelector('code')!.textContent = '{"items":[{"type":"text","content":"你好，世界"},{"type":"text","content":"第二块"}]}'
-      await tick()
+      await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('第二块') === true)
       expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('第二块')
       // 落定：标签出现且是 dsh-ui → 保持渲染（带稳定身份）。
       block.querySelector('span')!.textContent = 'dsh-ui'

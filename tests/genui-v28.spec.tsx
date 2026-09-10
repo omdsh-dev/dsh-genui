@@ -174,8 +174,8 @@ describe('v2.8: collapsible file-tree', () => {
   })
 })
 
-describe('v2.8: negative chart values clamp instead of breaking', () => {
-  it('bars render a zero-height fill with the real value label', () => {
+describe('v2.8/v3: negative chart values draw below the zero line', () => {
+  it('bars draw the negative value downward instead of clamping it away', () => {
     const { container } = renderBlock({
       items: [{ type: 'chart', data: [
         { label: 'A', value: 10 }, { label: 'B', value: -5 },
@@ -183,7 +183,12 @@ describe('v2.8: negative chart values clamp instead of breaking', () => {
     })
     const fills = container.querySelectorAll('[class*="barFill"]')
     expect(fills).toHaveLength(2)
-    expect((fills[1] as HTMLElement).style.height).toBe('0%')
+    // v3: the axis spans -5..10, so the zero line sits at 33.3% and the
+    // negative bar occupies the band below it — a real height, not 0%.
+    const negative = fills[1] as HTMLElement
+    expect(Number.parseFloat(negative.style.height)).toBeGreaterThan(0)
+    expect(Number.parseFloat(negative.style.bottom)).toBe(0)
+    expect(negative.style.borderRadius).toContain('0 0')
     expect(container.textContent).toContain('-5')
   })
 
@@ -196,7 +201,8 @@ describe('v2.8: negative chart values clamp instead of breaking', () => {
     // No crash; total clamps to the positive sum; the negative label still shows.
     expect(container.querySelector('svg')).not.toBeNull()
     expect(container.textContent).toContain('30')
-    expect(container.textContent).toContain('B · -7')
+    expect(container.textContent).toContain('B')
+    expect(container.textContent).toContain('-7')
   })
 })
 

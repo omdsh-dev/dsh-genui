@@ -48,6 +48,63 @@ function isListItemNode(item: GenuiList['items'][number]): item is GenuiNode {
   return typeof item === 'object' && item !== null && 'type' in item
 }
 
+/**
+ * Split a stat value into its numeric core and unit suffix so the unit can
+ * render at half size on the same baseline (`99.96%` → `99.96` + `%`,
+ * `6.8 GB` → `6.8` + `GB`). Values that do not start with a number are left
+ * whole.
+ */
+function splitStatValue(value: string): { num: string; unit: string } {
+  const match = /^([+\-−]?[\d.,]+(?:[eE][+\-]?\d+)?)\s*(.*)$/.exec(value.trim())
+  if (match === null || match[1] === undefined) return { num: value, unit: '' }
+  return { num: match[1], unit: match[2] ?? '' }
+}
+
+/**
+ * Micro trend line for `stat.spark`: a 96×24 box stretched to the card width,
+ * with an area wash under the line and a constant-size end dot (a zero-length
+ * round-capped path with non-scaling stroke, so the stretched viewBox cannot
+ * turn the dot into an ellipse).
+ */
+function Sparkline({ values }: { values: number[] }) {
+  const W = 96
+  const H = 24
+  const pad = 2
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  const step = values.length <= 1 ? 0 : (W - pad * 2) / (values.length - 1)
+  const coords = values.map((v, i) => [
+    pad + i * step,
+    H - pad - ((v - min) / span) * (H - pad * 2),
+  ] as const)
+  const points = coords.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(' ')
+  const last = coords[coords.length - 1]!
+  const area = `M ${pad},${H - pad} L ${points.split(' ').join(' L ')} L ${last[0].toFixed(1)},${H - pad} Z`
+  return (
+    <svg className={css.statSpark} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+      <path d={area} fill="var(--dsl-g-accent)" opacity="0.14" />
+      <polyline
+        points={points}
+        fill="none"
+        stroke="var(--dsl-g-accent)"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+      <path
+        d={`M ${last[0].toFixed(1)} ${last[1].toFixed(1)} L ${last[0].toFixed(1)} ${last[1].toFixed(1)}`}
+        stroke="var(--dsl-g-accent)"
+        strokeWidth={5}
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+        fill="none"
+      />
+    </svg>
+  )
+}
+
 export function renderNode(
   node: GenuiNode,
   key: number,
@@ -93,8 +150,9 @@ export function renderNode(
       )
     }
     case 'card': {
+      const toneClass = node.tone === undefined ? '' : ` ${css[`card${node.tone[0]!.toUpperCase()}${node.tone.slice(1)}`] ?? ''}`
       return (
-        <div key={key} className={css.card}>
+        <div key={key} className={`${css.card}${toneClass}`}>
           {node.title !== undefined && <div className={css.cardTitle}>{node.title}</div>}
           {node.items.map((c, i) => renderNode(c, i, onAction, depth + 1, answers))}
         </div>
@@ -146,16 +204,59 @@ export function renderNode(
     }
     case 'stat': {
       const down = node.delta !== undefined && node.delta.startsWith('-')
+      const parts = splitStatValue(node.value)
       return (
-        <div key={key} className={css.stat}>
+        <div key={key} className={`${css.stat}${node.size === 'hero' ? ` ${css.statHero}` : ''}`}>
           <span className={css.statLabel}>{node.label}</span>
-          <span className={css.statValue}>{node.value}</span>
+          <span className={css.statValue}>
+            {parts.num}
+            {parts.unit !== '' && <span className={css.statUnit}>{parts.unit}</span>}
+          </span>
           {node.delta !== undefined && <span className={`${css.statDelta} ${down ? css.down : css.up}`}>{node.delta}</span>}
+          {node.spark !== undefined && <Sparkline values={node.spark} />}
         </div>
       )
     }
     case 'progress': {
       const v = Math.max(0, Math.min(100, Number(node.value) || 0))
+      if (node.variant === 'ring') {
+        const R = 34
+        const C = 2 * Math.PI * R
+        const size = 92
+        return (
+          <div
+            key={key}
+            className={css.ring}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={v}
+            aria-label={node.label ?? node.valueLabel ?? undefined}
+          >
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+              <circle cx={size / 2} cy={size / 2} r={R} fill="none" strokeWidth={9} className={css.ringTrack} />
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={R}
+                fill="none"
+                strokeWidth={9}
+                strokeLinecap="round"
+                className={css.ringFill}
+                strokeDasharray={`${(v / 100) * C} ${C}`}
+                transform={`rotate(-90 ${size / 2} ${size / 2})`}
+              />
+              <text x={size / 2} y={size / 2 + 5} textAnchor="middle" className={css.ringValue}>{v}%</text>
+            </svg>
+            {(node.label !== undefined || node.valueLabel !== undefined) && (
+              <div className={css.ringMeta}>
+                {node.label !== undefined && <span className={css.ringLabel}>{node.label}</span>}
+                {node.valueLabel !== undefined && <span className={css.ringSub}>{node.valueLabel}</span>}
+              </div>
+            )}
+          </div>
+        )
+      }
       return (
         <div
           key={key}
@@ -172,7 +273,12 @@ export function renderNode(
               {node.valueLabel !== undefined && <span>{node.valueLabel}</span>}
             </div>
           )}
-          <div className={css.track}><div className={css.fill} style={{ width: `${v}%` }} /></div>
+          <div className={css.track}>
+            <div className={css.fill} style={{ width: `${v}%` }} />
+            {node.target !== undefined && (
+              <span className={css.targetMark} style={{ left: `${node.target}%` }} title={`目标 ${node.target}%`} />
+            )}
+          </div>
         </div>
       )
     }

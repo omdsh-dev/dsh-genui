@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### 新增
+- **表格列类型**：`table.types` 支持 `index` / `spark` / `ring` / `bar` / `badge` / `delta` / `num` / `group`；`table.total` 追加合计行（数值列求和）；`group` 首列渲染为**可折叠的分组标题**（chevron + 组内行数），组内行缩进并带引导线，分组内排序不会打乱结构。
+- **图表形态**：`chart` 新增 `horizontal`（横向柱）与 `stacked`（series 堆叠）；`line` 支持 `series` 多序列；横向/堆叠/折线/环形图全部支持**即时自绘 tooltip**（堆叠段显示该段数值 + 合计）。
+- **指标增强**：`stat.spark` 微趋势线（面积 + 末点，贴卡片下沿）；`stat.size:"hero"` 超大数字；数值与单位自动拆分（单位半字号弱化）。
+- **进度组件**：`progress.variant:"ring"` 环形进度；`progress.target` 目标刻度。
+- **卡片语气**：`card.tone`（info / success / warning / danger）。
+- **流式骨架**：围栏正文仍在流式且尚无完整组件时显示骨架，首个组件解析后换成真组件，settle 仍不可解析则归还原始代码块。
+- **采纳度审计**：`scripts/genui-usage-audit.mjs`，扫本地会话日志量化 `dsh-ui` 围栏采纳率与组件分布。
+
+### 变更
+- 设计系统 v3–v10：字号下限 12.5px、标题层级拉开、CJK 行高与字距、表格数据化（斑马纹 / 大写表头 / 首列加粗 / 带符号自动着色）；指标卡以数字为主体，单位半字号。
+- 常驻系统提示加入硬触发规则与关键组件字段速查，SKILL.md 同步；`echart` 引导改为场景化（≤8 点用 `chart`，多序列/交互/大数据用 `echart`）。
+- 移除早期版本引入的强调色竖条/色块，层级改由字号、留白与结构表达。
+
+### 修复
+- **分组柱状图无法渲染**：`data: []` + `series` 的合法写法被图表契约整份拒绝，导致含此类图的围栏完全不渲染。
+- **图表契约**：`line` + `series` 由「拒绝」改为「支持」；`donut` 仍为单序列。
+- **可视化回归脚本**：`scripts/e2e-visual.mts` 在 rc7 之后失效（宿主机路径、缺 `--profile`/`--no-open`、401 token、漏 `await`、空 profile 遮罩拦截指针事件），并新增流式骨架与 tooltip 的真实浏览器断言。
+
+
 ### 修复
 - **插件热重载生命周期（issue #121）**：assets 路由与模型工具改由可选服务的依赖 fiber 管理；插件或服务卸载时自动注销，服务重新提供时自动注册，避免热重载残留路由导致新 fiber 启动失败。
 

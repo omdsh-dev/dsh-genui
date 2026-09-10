@@ -21,10 +21,10 @@
 import type { GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSeries, GenuiScene3D, GenuiSpec, GenuiDiagram, GenuiDiagramTheme, GenuiDiagramKind } from './spec.ts'
 import { wrapSingleComponentRoot } from './spec.ts'
 import {
-  BADGE_TONES, BUTTON_TONES, CALLOUT_TONES, CHART_KINDS, COMPONENT_SCHEMAS, DIAGRAM_EDGE_KINDS,
-  DIAGRAM_KINDS, DIAGRAM_NODE_TYPES, DIAGRAM_ROUTES, DIAGRAM_VARIANTS, ECHART_PRESETS, FILE_TYPES,
-  GENUI_NATIVE_TYPES, GENUI_SPEC_SCHEMA, INPUT_TYPES, MEDIA_ASPECT_RATIOS, MESH_SHAPES, PLOT_KINDS,
-  TEXT_SIZES,
+  BADGE_TONES, BUTTON_TONES, CALLOUT_TONES, CARD_TONES, CHART_KINDS, COMPONENT_SCHEMAS,
+  DIAGRAM_EDGE_KINDS, DIAGRAM_KINDS, DIAGRAM_NODE_TYPES, DIAGRAM_ROUTES, DIAGRAM_VARIANTS,
+  ECHART_PRESETS, FILE_TYPES, GENUI_NATIVE_TYPES, GENUI_SPEC_SCHEMA, INPUT_TYPES,
+  MEDIA_ASPECT_RATIOS, MESH_SHAPES, PLOT_KINDS, PROGRESS_VARIANTS, TABLE_CELL_TYPES, TEXT_SIZES,
 } from './genui-runtime/schema.ts'
 import type { ComponentFieldKind, ComponentRecordSchema, ComponentSchema } from './genui-runtime/schema.ts'
 import { normalizeGenuiSpec } from './genui-runtime/normalize.ts'
@@ -209,6 +209,18 @@ function repairItems(list: unknown, ctx: RepairCtx, depth: number): GenuiNode[] 
   return out
 }
 
+/** Optional `stat.spark` series: finite numbers only, 2..60 points. */
+function sparkValues(v: unknown): number[] | undefined {
+  if (!Array.isArray(v)) return undefined
+  const out: number[] = []
+  for (const item of v.slice(0, 60)) {
+    const n = typeof item === 'number' ? item : Number(item)
+    if (!Number.isFinite(n)) return undefined
+    out.push(n)
+  }
+  return out.length >= 2 ? out : undefined
+}
+
 function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | null {
   if (depth > GENUI_LIMITS.maxDepth) return null
   const v = obj(value)
@@ -231,7 +243,12 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
       return { type: 'grid', cols: int(v.cols, 1, GENUI_LIMITS.maxGridCols) ?? 1, items: repairItems(v.items, ctx, depth + 1) }
     }
     case 'card': {
-      return { type: 'card', items: repairItems(v.items, ctx, depth + 1), ...opt('title', str(v.title, GENUI_LIMITS.maxString)) }
+      return {
+        type: 'card',
+        items: repairItems(v.items, ctx, depth + 1),
+        ...opt('title', str(v.title, GENUI_LIMITS.maxString)),
+        ...opt('tone', enu(v.tone, CARD_TONES)),
+      }
     }
     case 'button': {
       const label = str(v.label, GENUI_LIMITS.maxString)
@@ -320,12 +337,23 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
       const label = str(v.label, GENUI_LIMITS.maxString)
       const value = str(v.value, 128)
       if (label === undefined || value === undefined) return null
-      return { type: 'stat', label, value, ...opt('delta', str(v.delta, 64)) }
+      return {
+        type: 'stat', label, value,
+        ...opt('delta', str(v.delta, 64)),
+        ...opt('spark', sparkValues(v.spark)),
+        ...opt('size', v.size === 'hero' ? 'hero' as const : undefined),
+      }
     }
     case 'progress': {
       const value = num(v.value, 0, 100)
       if (value === undefined) return null
-      return { type: 'progress', value, ...opt('label', str(v.label, GENUI_LIMITS.maxString)), ...opt('valueLabel', str(v.valueLabel, 64)) }
+      return {
+        type: 'progress', value,
+        ...opt('label', str(v.label, GENUI_LIMITS.maxString)),
+        ...opt('valueLabel', str(v.valueLabel, 64)),
+        ...opt('variant', enu(v.variant, PROGRESS_VARIANTS)),
+        ...opt('target', num(v.target, 0, 100)),
+      }
     }
     case 'divider': return { type: 'divider' }
     case 'spacer': return { type: 'spacer' }
@@ -359,7 +387,17 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
       const columns = repairStrings(rawCols, GENUI_LIMITS.maxTableCols, 128)
       const rows = repairRows(rawRows, GENUI_LIMITS.maxTableRows, GENUI_LIMITS.maxTableCols)
       if (columns === undefined || rows === undefined) return null
-      return { type: 'table', columns, rows }
+      // Optional per-column cell types; unknown entries degrade to 'text'.
+      const rawTypes = Array.isArray(v.types) ? v.types : undefined
+      const types = rawTypes === undefined
+        ? undefined
+        : columns.map((_c, i) => {
+          const raw = rawTypes[i]
+          return typeof raw === 'string' && (TABLE_CELL_TYPES as readonly string[]).includes(raw)
+            ? raw as typeof TABLE_CELL_TYPES[number]
+            : 'text'
+        })
+      return { type: 'table', columns, rows, ...opt('types', types), ...opt('total', v.total === true ? true : undefined) }
     }
     case 'chart': {
       const data = repairChartData(v.data, GENUI_LIMITS.maxChartPoints)
@@ -368,7 +406,13 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
       // alone; a series-only chart gets an empty data array (the renderer
       // reads `series` in that case).
       if (data === undefined && series === undefined) return null
-      return { type: 'chart', data: data ?? [], ...opt('kind', enu(v.kind, CHART_KINDS)), ...opt('series', series) }
+      return {
+        type: 'chart', data: data ?? [],
+        ...opt('kind', enu(v.kind, CHART_KINDS)),
+        ...opt('series', series),
+        ...opt('horizontal', v.horizontal === true ? true : undefined),
+        ...opt('stacked', v.stacked === true ? true : undefined),
+      }
     }
     case 'tabs': {
       const tabs = repairTabs(v.tabs, ctx, depth)
@@ -1480,19 +1524,29 @@ function validateChartNode(v: Record<string, unknown>, at: string, errors: strin
     errors.push(`${at}.kind must be bars, line, or donut`)
   }
   const kind = v.kind === undefined ? 'bars' : v.kind
-  if (Array.isArray(v.data) && v.data.length === 0) errors.push(`${at}.data must not be empty`)
-  if (Array.isArray(v.series)) {
-    if (v.series.length === 0) errors.push(`${at}.series must not be empty`)
-    if (kind === 'line' || kind === 'donut') errors.push(`${at}.series is only supported for bars`)
-    for (let index = 0; index < v.series.length; index++) {
-      const series = obj(v.series[index])
-      if (series !== undefined && Array.isArray(series.data) && series.data.length === 0) {
+  const series = Array.isArray(v.series) ? v.series : undefined
+  // Grouped bars legitimately carry `data: []` and keep every point in
+  // `series`; only an empty data array with NO series is undrawable.
+  if (Array.isArray(v.data) && v.data.length === 0 && (series === undefined || series.length === 0)) {
+    errors.push(`${at}.data must not be empty`)
+  }
+  if (series !== undefined) {
+    if (series.length === 0) errors.push(`${at}.series must not be empty`)
+    // A line chart accepts `series` (one line per entry); the donut is a
+    // share-of-total shape and stays single-series.
+    if (kind === 'donut') errors.push(`${at}.series is only supported for bars and line`)
+    for (let index = 0; index < series.length; index++) {
+      const entry = obj(series[index])
+      if (entry !== undefined && Array.isArray(entry.data) && entry.data.length === 0) {
         errors.push(`${at}.series[${index}].data must not be empty`)
       }
     }
   }
-  if ((kind === 'line' || kind === 'donut') && v.data === undefined) {
-    errors.push(`${at}.data is required for ${kind}`)
+  if (kind === 'donut' && v.data === undefined) {
+    errors.push(`${at}.data is required for donut`)
+  }
+  if (kind === 'line' && v.data === undefined && (series === undefined || series.length === 0)) {
+    errors.push(`${at}.data is required for line (or provide series)`)
   }
   validateChartData(v.data, `${at}.data`, errors)
   validateChartSeries(v.series, `${at}.series`, errors)
@@ -1612,6 +1666,9 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
     case 'table':
       if (!Array.isArray(v.columns)) errors.push(`${at}: type 'table' requires columns (array)`)
       if (!Array.isArray(v.rows)) errors.push(`${at}: type 'table' requires rows (array)`)
+      if (v.types !== undefined && !Array.isArray(v.types)) {
+        errors.push(`${at}.types must be an array of column cell types`)
+      }
       validateTableRows(v.rows, `${at}.rows`, errors)
       break
     case 'chart':

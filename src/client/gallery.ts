@@ -29,11 +29,14 @@ export const gallerySpec: GenuiSpec = {
     { type: 'audio', src: '/demo-audio.mp3', alt: '音频播放器演示' },
     { type: 'video', src: '/demo-video.mp4', alt: '视频播放器演示', poster: '/demo-video.jpg', aspectRatio: '16:9' },
     { type: 'grid', cols: 3, items: [
-      { type: 'stat', label: 'CPU', value: '42%', delta: '+3.1%' },
+      { type: 'stat', label: '在线率', value: '99.96%', size: 'hero', delta: '+0.02%' },
+      { type: 'stat', label: 'CPU', value: '42%', delta: '+3.1%', spark: [31, 38, 35, 44, 40, 42] },
       { type: 'stat', label: '内存', value: '6.8 GB', delta: '-1.2%' },
-      { type: 'stat', label: '请求数', value: '128.4k' },
+      { type: 'stat', label: '请求数', value: '128.4k', spark: [90, 104, 98, 121, 116, 128] },
     ] },
     { type: 'progress', label: '训练进度', value: 72, valueLabel: '72%' },
+    { type: 'progress', label: '覆盖率', value: 64, target: 80, valueLabel: '64% / 目标 80%' },
+    { type: 'progress', variant: 'ring', value: 72, label: '本轮完成度', valueLabel: '第 3 / 4 轮' },
     { type: 'card', title: '性能指标', items: [
       // 表头可点击排序：数值感知（千分位 / k / 万 / % 都能正确比较），
       // 数值列自动右对齐。
@@ -62,6 +65,35 @@ export const gallerySpec: GenuiSpec = {
     { type: 'chart', data: [], series: [
       { label: '本月', data: [{ label: 'Q1', value: 3 }, { label: 'Q2', value: 5 }] },
       { label: '上月', data: [{ label: 'Q1', value: 2 }, { label: 'Q2', value: 4 }] },
+    ] },
+    { type: 'chart', kind: 'line', data: [], series: [
+      { label: '本月', data: [{ label: '一', value: 8 }, { label: '二', value: 12 }, { label: '三', value: 9 }] },
+      { label: '上月', data: [{ label: '一', value: 6 }, { label: '二', value: 9 }, { label: '三', value: 7 }] },
+    ] },
+    { type: 'chart', kind: 'bars', data: [], stacked: true, series: [
+      { label: '已完成', data: [{ label: 'Q1', value: 42 }, { label: 'Q2', value: 58 }, { label: 'Q3', value: 61 }] },
+      { label: '进行中', data: [{ label: 'Q1', value: 18 }, { label: 'Q2', value: 14 }, { label: 'Q3', value: 9 }] },
+    ] },
+    { type: 'chart', horizontal: true, data: [
+      { label: '自然搜索', value: 82 }, { label: '直接访问', value: 64 }, { label: '社交媒体', value: 41 },
+    ] },
+    { type: 'table', columns: ['区域', 'Q1', 'Q2', 'Q3'], types: ['group', 'num', 'num', 'num'], total: true, rows: [
+      ['华东', '', '', ''],
+      ['上海', '120', '138', '151'],
+      ['杭州', '96', '104', '118'],
+      ['华北', '', '', ''],
+      ['北京', '88', '95', '103'],
+    ] },
+    { type: 'card', tone: 'success', title: '已通过', items: [
+      { type: 'text', size: 'body', content: '分组表：首列为 group 时，只有第一格有内容的行会渲染成跨列小标题；total 追加一行合计。' },
+    ] },
+    { type: 'table', columns: ['#', '服务', '近 6 期延迟', '可用率', '负载', '状态'], types: ['index', 'text', 'spark', 'ring', 'bar', 'badge'], rows: [
+      ['1', 'API 网关', '180,164,150,140,133,128', '99.96', '62', '正常'],
+      ['2', '搜索', '220,210,230,205,198,190', '99.82', '78', '关注'],
+      ['3', '推荐', '310,340,300,280,260,250', '99.41', '91', '偏高'],
+    ] },
+    { type: 'table', columns: ['渠道', '完成度', '状态'], types: ['text', 'bar', 'badge'], rows: [
+      ['自然搜索', '82', '健康'], ['直接访问', '64', '关注'], ['社交媒体', '41', '偏低'],
     ] },
     { type: 'tabs', tabs: [
       { label: '概览', items: [{ type: 'text', content: '标签页一的内容' }] },

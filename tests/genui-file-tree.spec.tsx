@@ -60,22 +60,25 @@ function assertFileTreeLayout(container: HTMLElement): void {
   // 1 root + 1 + 2 + 1 + 3 + 2 + 1 = 11 rows in the issue example.
   expect(rows).toHaveLength(11)
 
-  // Indentation is an inline padding-left (depth * 16px) on each row, so it
-  // survives even a stylesheet failure and grows with nesting depth.
+  // Indentation is an inline padding-left (4px + depth * 14px) on each row, so
+  // it survives even a stylesheet failure and grows with nesting depth.
   const paddingLefts = rows.map(row => row.style.paddingLeft)
-  expect(paddingLefts).toContain('0px')
-  expect(paddingLefts).toContain('16px')
+  expect(paddingLefts).toContain('4px')
+  expect(paddingLefts).toContain('18px')
   expect(paddingLefts).toContain('32px')
-  expect(paddingLefts).toContain('48px')
-  expect(paddingLefts).toContain('64px')
+  expect(paddingLefts).toContain('46px')
+  expect(paddingLefts).toContain('60px')
 
-  // Glyphs are inline text content (▾/▸ for dirs, · for files), so they too
-  // survive a stylesheet failure.
-  const icons = Array.from(container.querySelectorAll<HTMLElement>('[class*="ftIcon"]'))
+  // Every row carries an inline glyph: an inline SVG folder/file (no CSS
+  // dependency) plus a text chevron for directories.
+  const icons = Array.from(container.querySelectorAll<HTMLElement>('[class*="ftGlyph"]'))
   expect(icons).toHaveLength(rows.length)
-  const glyphs = icons.map(icon => icon.textContent ?? '')
-  expect(glyphs).toContain('▾')
-  expect(glyphs).toContain('·')
+  expect(container.querySelectorAll('[class*="ftGlyph"] svg')).toHaveLength(rows.length)
+  const chevrons = Array.from(container.querySelectorAll<HTMLElement>('[class*="ftChevron"]'))
+    .map(node => node.textContent ?? '')
+  expect(chevrons).toContain('▸')
+  // Depth rails: one absolutely-positioned guide per nesting level.
+  expect(container.querySelectorAll('[class*="ftGuide"]').length).toBeGreaterThan(0)
 
   // The issue's deepest path is present and collapsible, not clipped away.
   expect(container.textContent).toContain('client.js')

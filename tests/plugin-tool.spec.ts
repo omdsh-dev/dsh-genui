@@ -114,18 +114,25 @@ describe('render_ui execute', () => {
     )
   })
 
-  it('rejects series-only line charts instead of rendering an empty plot', async () => {
-    await expect(tool.execute({
+  it('accepts multi-series line charts (v3) and rejects donut series', async () => {
+    const rendered = String(await tool.execute({
       spec: {
         items: [{
           type: 'chart',
           kind: 'line',
-          series: [{ label: 'A', data: [{ label: '周一', value: 128 }] }],
+          series: [
+            { label: '本月', data: [{ label: '周一', value: 128 }] },
+            { label: '上月', data: [{ label: '周一', value: 96 }] },
+          ],
         }],
       },
-    })).rejects.toThrow(
-      'items[0].series is only supported for bars; items[0].data is required for line',
-    )
+    }))
+    expect(rendered).toContain('已渲染 UI')
+    await expect(tool.execute({
+      spec: {
+        items: [{ type: 'chart', kind: 'donut', series: [{ label: 'A', data: [{ label: 'X', value: 1 }] }] }],
+      },
+    })).rejects.toThrow('items[0].series is only supported for bars and line')
   })
 
   it('does not green-light a dropped native image beside an opaque custom node', async () => {
@@ -238,6 +245,7 @@ describe('validate_dsh_ui tool', () => {
   })
 
   it('rejects line/donut series and empty chart collections before rendering', async () => {
+    // v3: line charts accept series; donut does not.
     const line = String(await vtool.execute({
       spec: {
         items: [{
@@ -247,8 +255,13 @@ describe('validate_dsh_ui tool', () => {
         }],
       },
     }))
-    expect(line).toContain('items[0].series is only supported for bars')
-    expect(line).toContain('items[0].data is required for line')
+    expect(line).toContain('✅')
+    const donut = String(await vtool.execute({
+      spec: {
+        items: [{ type: 'chart', kind: 'donut', series: [{ label: 'A', data: [{ label: 'X', value: 1 }] }] }],
+      },
+    }))
+    expect(donut).toContain('items[0].series is only supported for bars and line')
 
     const empty = String(await vtool.execute({
       spec: {
@@ -259,8 +272,15 @@ describe('validate_dsh_ui tool', () => {
         }],
       },
     }))
-    expect(empty).toContain('items[0].data must not be empty')
+    // `data: []` is legal for grouped bars (points live in series), so only
+    // the truly empty series is reported — the chart is still rejected.
     expect(empty).toContain('items[0].series[0].data must not be empty')
+    expect(empty).not.toContain('items[0].data must not be empty')
+
+    const emptyPlain = String(await vtool.execute({
+      spec: { items: [{ type: 'chart', data: [] }] },
+    }))
+    expect(emptyPlain).toContain('items[0].data must not be empty')
 
     const emptySeries = String(await vtool.execute({
       spec: { items: [{ type: 'chart', series: [] }] },
