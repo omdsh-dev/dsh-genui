@@ -40,8 +40,29 @@ describe('v7: table sections/totals, stacked bars, card tones', () => {
       }],
     })
     const groupCell = container.querySelector('[class*="groupRow"] td')
-    expect(groupCell?.textContent).toBe('华东')
+    // v10: the header is a toggle with a chevron and the child count.
+    expect(groupCell?.textContent).toBe('▾华东1')
     expect(groupCell?.getAttribute('colspan')).toBe('3')
+    expect(container.querySelector('[class*="groupToggle"]')?.getAttribute('aria-expanded')).toBe('true')
+    // Children are indented under the section.
+    expect(container.querySelectorAll('tr[class*="groupChild"]')).toHaveLength(1)
+  })
+
+  it('folds a section away and back', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'table',
+        columns: ['区域', 'Q1'],
+        types: ['group', 'num'],
+        rows: [['华东', ''], ['上海', '120'], ['杭州', '96']],
+      }],
+    })
+    expect(container.querySelectorAll('tr[class*="groupChild"]')).toHaveLength(2)
+    fireEvent.click(container.querySelector('[class*="groupToggle"]')!)
+    expect(container.querySelectorAll('tr[class*="groupChild"]')).toHaveLength(0)
+    expect(container.querySelector('[class*="groupToggle"]')?.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(container.querySelector('[class*="groupToggle"]')!)
+    expect(container.querySelectorAll('tr[class*="groupChild"]')).toHaveLength(2)
   })
 
   it('sums numeric columns into a footer row', () => {

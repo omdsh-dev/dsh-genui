@@ -849,28 +849,62 @@
 }
 
 /* Section header rows (types[0] === 'group').
-   v7: nearly identical to a data row. v8: a heavy tinted band. Both fought the
-   data. v9 goes quiet — the Notion/Stripe pattern: a hairline, real air, then a
-   small muted label. Hierarchy by weight and space, not by a grey block. */
+   v7 looked like a data row; v8 was a heavy band; v9 was quiet but still read
+   as "same level" — a hairline and air do not say "these rows belong to me".
+   v10 makes the relationship structural: the header is a TOGGLE (chevron +
+   label + child count) and its rows are indented children under a guide rail,
+   so the tree is unmistakable and each section can be folded away. */
 .groupRow td {
   background: none;
-  color: var(--dsw-alias-label-secondary);
-  font-size: var(--dsl-g-font-title);
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 24px var(--dsl-g-gap-md) 8px;
+  padding: 22px var(--dsl-g-gap-md) 6px;
   border-top: none;
   border-bottom: none;
-  /* The separator sits at the very top of the row, above the air: one
-     hairline, then 24px, then the label. */
   box-shadow: inset 0 1px 0 var(--dsl-g-border);
 }
-/* The first section needs no rule above it. */
-.table tbody tr.groupRow:first-child td { box-shadow: none; padding-top: 12px; }
-/* Section rows are not data: no hover wash, no zebra. */
+.table tbody tr.groupRow:first-child td { box-shadow: none; padding-top: 10px; }
 .table tbody tr.groupRow:hover { background: none; }
 .table tbody tr.groupRow:nth-child(even) { background: none; }
+.groupToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--dsl-g-font-title);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+.groupToggle:hover { color: var(--dsl-g-accent); }
+.groupToggle:focus-visible { outline: 2px solid var(--dsl-g-accent); outline-offset: 2px; border-radius: 4px; }
+.groupChevron { color: var(--dsw-alias-label-tertiary); font-size: 11px; width: 10px; }
+.groupCount {
+  padding: 0 7px;
+  border-radius: var(--dsl-g-radius-pill);
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent);
+  color: var(--dsw-alias-label-secondary);
+  font-size: var(--dsl-g-font-meta);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* Children: indented one level and tied to the section by a guide rail. */
+.table tbody tr.groupChild td:first-child {
+  padding-left: calc(var(--dsl-g-gap-md) + 22px);
+  position: relative;
+}
+.table tbody tr.groupChild td:first-child::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--dsl-g-gap-md) + 8px);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--dsl-g-border);
+}
+.table tbody tr.groupChild:last-child td:first-child::before { bottom: 50%; }
 .table tfoot td {
   border-top: 1px solid var(--dsl-g-border-strong);
   border-bottom: none;

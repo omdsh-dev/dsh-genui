@@ -10,8 +10,8 @@
  * true zero line so negative values are drawn, not clamped away.
  * @module @changfenhuang/dsh-genui/client/blocks/charts
  */
-import { memo, useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
-import type { MouseEvent as ReactMouseEvent, RefObject } from 'react'
+import { Fragment, memo, useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
+import type { MouseEvent as ReactMouseEvent, ReactNode, RefObject } from 'react'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../guard.ts'
 import type { GenuiChart, GenuiTable } from '../spec.ts'
@@ -146,32 +146,67 @@ function CellBar({ cell }: { cell: string | number }) {
 export const TableNode = memo(function TableNode({ node }: { node: GenuiTable }) {
   const columns = node.columns.slice(0, GENUI_LIMITS.maxTableCols)
   const rows = node.rows.slice(0, GENUI_LIMITS.maxTableRows)
+  const types = node.types ?? []
+  const groupMode = types[0] === 'group'
   const [sort, setSort] = useState<{ col: number; dir: 1 | -1 } | null>(null)
-  const sorted = sort === null
-    ? rows
-    : [...rows].sort((a, b) => {
-      const an = parseSortableNumber(a[sort.col])
-      const bn = parseSortableNumber(b[sort.col])
-      if (Number.isFinite(an) && Number.isFinite(bn) && an !== bn) return (an - bn) * sort.dir
-      if (Number.isFinite(an) !== Number.isFinite(bn)) return Number.isFinite(an) ? -sort.dir : sort.dir
-      const as = String(a[sort.col] ?? '')
-      const bs = String(b[sort.col] ?? '')
-      return (as < bs ? -1 : as > bs ? 1 : 0) * sort.dir
+  const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(() => new Set())
+
+  const compare = (a: GenuiTable['rows'][number], b: GenuiTable['rows'][number], col: number, dir: 1 | -1): number => {
+    const an = parseSortableNumber(a[col])
+    const bn = parseSortableNumber(b[col])
+    if (Number.isFinite(an) && Number.isFinite(bn) && an !== bn) return (an - bn) * dir
+    if (Number.isFinite(an) !== Number.isFinite(bn)) return Number.isFinite(an) ? -dir : dir
+    const as = String(a[col] ?? '')
+    const bs = String(b[col] ?? '')
+    return (as < bs ? -1 : as > bs ? 1 : 0) * dir
+  }
+
+  // Group header rows: with `types[0] === 'group'`, a row whose first cell is
+  // filled and every other cell empty opens a section. Data rows after it are
+  // its CHILDREN — indented, counted, and collapsible — so the relationship is
+  // unmistakable instead of "one more row at the same level".
+  const isGroupRow = (row: GenuiTable['rows'][number]): boolean =>
+    groupMode && String(row[0] ?? '').trim() !== ''
+    && row.slice(1).every(cell => String(cell ?? '').trim() === '')
+
+  interface Section { header: { row: GenuiTable['rows'][number]; index: number } | null; children: Array<{ row: GenuiTable['rows'][number]; index: number }> }
+  const sections: Section[] = []
+  rows.forEach((row, index) => {
+    if (isGroupRow(row)) { sections.push({ header: { row, index }, children: [] }); return }
+    if (sections.length === 0 || sections[sections.length - 1]!.header === null) {
+      if (sections.length === 0) sections.push({ header: null, children: [] })
+    }
+    sections[sections.length - 1]!.children.push({ row, index })
+  })
+
+  // Sorting keeps sections intact: each section's children sort among
+  // themselves, so a grouped table can never scramble its own structure.
+  const sortedSections = sections.map(section => ({
+    header: section.header,
+    children: sort === null
+      ? section.children
+      : [...section.children].sort((a, b) => compare(a.row, b.row, sort.col, sort.dir)),
+  }))
+
+  const flatSorted = sortedSections.flatMap(section => [
+    ...(section.header === null ? [] : [section.header.row]),
+    ...section.children.map(child => child.row),
+  ])
+  const numeric = numericColumns(flatSorted, columns.length)
+  const toggleSection = (index: number): void => {
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(index)) next.delete(index)
+      else next.add(index)
+      return next
     })
+  }
   const clickHeader = (i: number): void => {
     setSort(prev => prev !== null && prev.col === i
       ? prev.dir === 1 ? { col: i, dir: -1 } : null
       : { col: i, dir: 1 })
   }
-  const numeric = numericColumns(rows, columns.length)
-  const types = node.types ?? []
-  // Group header rows: with `types[0] === 'group'`, a row whose first cell is
-  // filled and every other cell empty becomes a section header spanning the
-  // table — a plain table that reads as sections.
-  const isGroupRow = (row: GenuiTable['rows'][number]): boolean =>
-    types[0] === 'group' && String(row[0] ?? '').trim() !== ''
-    && row.slice(1).every(cell => String(cell ?? '').trim() === '')
-  // Optional 合计 footer: sums every numeric column (group rows excluded).
+  // Optional 合计 footer: sums every numeric column (section headers excluded).
   const totals = columns.map((_c, j) => {
     if (!numeric[j]) return null
     let sum = 0
@@ -185,6 +220,31 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
   const hasTotals = node.total === true && totals.some(t => t !== null)
   const formatTotal = (n: number): string =>
     Number.isInteger(n) ? n.toLocaleString('en-US') : String(Math.round(n * 100) / 100)
+
+  const renderCell = (cell: string | number, j: number, rowIndex: number): ReactNode => {
+    const type = types[j]
+    const tone = type === 'delta'
+      ? (String(cell).trim().startsWith('-') ? 'down' : 'up')
+      : deltaTone(cell)
+    return (
+      <td key={j} className={numeric[j] || type === 'num' ? css.tdNum : undefined}>
+        {type === 'badge'
+          ? <span className={css.cellBadge}>{String(cell)}</span>
+          : type === 'bar'
+            ? <CellBar cell={cell} />
+            : type === 'spark'
+              ? <CellSpark cell={cell} />
+              : type === 'ring'
+                ? <CellRing cell={cell} />
+                : type === 'index'
+                  ? <span className={css.cellIndex}>{rowIndex + 1}</span>
+                  : tone === null
+                    ? String(cell)
+                    : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{String(cell)}</span>}
+      </td>
+    )
+  }
+
   return (
     <div className={css.tableWrap}>
       <table className={css.table}>
@@ -205,33 +265,35 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
           </tr>
         </thead>
         <tbody>
-          {sorted.map((row, i) => (
-            isGroupRow(row)
-              ? <tr key={i} className={css.groupRow}><td colSpan={columns.length}>{String(row[0])}</td></tr>
-              : <tr key={i}>{row.slice(0, columns.length).map((cell, j) => {
-              const type = types[j]
-              const tone = type === 'delta'
-                ? (String(cell).trim().startsWith('-') ? 'down' : 'up')
-                : deltaTone(cell)
-              return (
-                <td key={j} className={numeric[j] || type === 'num' ? css.tdNum : undefined}>
-                  {type === 'badge'
-                    ? <span className={css.cellBadge}>{String(cell)}</span>
-                    : type === 'bar'
-                      ? <CellBar cell={cell} />
-                      : type === 'spark'
-                        ? <CellSpark cell={cell} />
-                        : type === 'ring'
-                          ? <CellRing cell={cell} />
-                          : type === 'index'
-                            ? <span className={css.cellIndex}>{i + 1}</span>
-                            : tone === null
-                              ? String(cell)
-                              : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{String(cell)}</span>}
-                </td>
-              )
-            })}</tr>
-          ))}
+          {sortedSections.map((section, si) => {
+            const headerIndex = section.header?.index ?? si
+            const isCollapsed = collapsed.has(headerIndex)
+            return (
+              <Fragment key={section.header === null ? `s-${si}` : `g-${section.header.index}`}>
+                {section.header !== null && (
+                  <tr className={css.groupRow}>
+                    <td colSpan={columns.length}>
+                      <button
+                        type="button"
+                        className={css.groupToggle}
+                        aria-expanded={!isCollapsed}
+                        onClick={() => toggleSection(headerIndex)}
+                      >
+                        <span className={css.groupChevron} aria-hidden>{isCollapsed ? '▸' : '▾'}</span>
+                        {String(section.header.row[0])}
+                        <span className={css.groupCount}>{section.children.length}</span>
+                      </button>
+                    </td>
+                  </tr>
+                )}
+                {!isCollapsed && section.children.map(child => (
+                  <tr key={child.index} className={section.header === null ? undefined : css.groupChild}>
+                    {child.row.slice(0, columns.length).map((cell, j) => renderCell(cell, j, child.index))}
+                  </tr>
+                ))}
+              </Fragment>
+            )
+          })}
         </tbody>
         {hasTotals && (
           <tfoot>
