@@ -41,7 +41,7 @@ describe('genui:fence section', () => {
     }
     expect(text).toContain('"kind":"bars|line|donut"')
     expect(text).toContain('"label":"...","value":n')
-    expect(text).toContain('series：bars 分组 / line 多序列')
+    expect(text).toContain('series：bars 分组/堆叠 / line 多序列')
   })
 
   it('keeps the full type whitelist in the slim section within the token budget', async () => {

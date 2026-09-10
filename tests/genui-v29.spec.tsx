@@ -29,6 +29,63 @@ function renderBlock(spec: unknown, actions: Array<[string, Record<string, unkno
   )
 }
 
+describe('v7: table sections/totals, stacked bars, card tones', () => {
+  it('renders a group header row spanning every column', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'table',
+        columns: ['区域', 'Q1', 'Q2'],
+        types: ['group', 'num', 'num'],
+        rows: [['华东', '', ''], ['上海', '120', '138']],
+      }],
+    })
+    const groupCell = container.querySelector('[class*="groupRow"] td')
+    expect(groupCell?.textContent).toBe('华东')
+    expect(groupCell?.getAttribute('colspan')).toBe('3')
+  })
+
+  it('sums numeric columns into a footer row', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'table',
+        columns: ['区域', 'Q1', 'Q2'],
+        types: ['group', 'num', 'num'],
+        total: true,
+        rows: [['华东', '', ''], ['上海', '120', '138'], ['杭州', '96', '104']],
+      }],
+    })
+    const footer = [...container.querySelectorAll('tfoot td')].map(td => td.textContent)
+    expect(footer[0]).toBe('合计')
+    expect(footer[1]).toBe('216')
+    expect(footer[2]).toBe('242')
+  })
+
+  it('stacks series segments instead of grouping them', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'chart',
+        data: [],
+        stacked: true,
+        series: [
+          { label: '已完成', data: [{ label: 'Q1', value: 30 }] },
+          { label: '进行中', data: [{ label: 'Q1', value: 10 }] },
+        ],
+      }],
+    })
+    const segments = container.querySelectorAll('[class*="stackSeg"]')
+    expect(segments).toHaveLength(2)
+    // 30/40 of the total height -> 75%.
+    expect((segments[0] as HTMLElement).style.height).toBe('75%')
+  })
+
+  it('tints a card by tone', () => {
+    const { container } = renderBlock({
+      items: [{ type: 'card', tone: 'success', title: '已通过', items: [{ type: 'text', content: 'ok' }] }],
+    })
+    expect(container.querySelector('[class*="cardSuccess"]')).not.toBeNull()
+  })
+})
+
 describe('v6: rich table columns', () => {
   it('renders spark, ring and index cells', () => {
     const { container } = renderBlock({

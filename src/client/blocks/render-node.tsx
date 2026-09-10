@@ -149,8 +149,9 @@ export function renderNode(
       )
     }
     case 'card': {
+      const toneClass = node.tone === undefined ? '' : ` ${css[`card${node.tone[0]!.toUpperCase()}${node.tone.slice(1)}`] ?? ''}`
       return (
-        <div key={key} className={css.card}>
+        <div key={key} className={`${css.card}${toneClass}`}>
           {node.title !== undefined && <div className={css.cardTitle}>{node.title}</div>}
           {node.items.map((c, i) => renderNode(c, i, onAction, depth + 1, answers))}
         </div>

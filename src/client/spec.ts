@@ -248,6 +248,8 @@ export interface GenuiGrid {
 export interface GenuiCard {
   type: 'card'
   title?: string
+  /** Semantic tint for the card surface (default: neutral). */
+  tone?: 'info' | 'success' | 'warning' | 'danger'
   items: GenuiNode[]
 }
 
@@ -262,6 +264,8 @@ export interface GenuiTable {
   rows: Array<Array<string | number>>
   /** Per-column cell type; missing = auto (numeric right-align, signed delta). */
   types?: TableCellType[]
+  /** Append a 合计 footer row (numeric columns are summed). */
+  total?: boolean
 }
 
 /** How a table column's cells render.
@@ -269,7 +273,7 @@ export interface GenuiTable {
  *  - `spark`: the cell is a number list ("3,5,4,8") drawn as a mini trend
  *  - `index`: the 1-based row number (cell content is ignored)
  *  - `delta` / `num` / `badge` / `text`: text treatments. */
-export type TableCellType = 'text' | 'num' | 'delta' | 'bar' | 'badge' | 'spark' | 'ring' | 'index'
+export type TableCellType = 'text' | 'num' | 'delta' | 'bar' | 'badge' | 'spark' | 'ring' | 'index' | 'group'
 
 export interface GenuiChartDatum {
   label: string
@@ -286,6 +290,8 @@ export interface GenuiChart {
   series?: Array<{ label: string; color?: string; data: GenuiChartDatum[] }>
   /** Bars only: horizontal bars (rankings, long category labels). */
   horizontal?: boolean
+  /** Bars + series: stack the series instead of grouping them. */
+  stacked?: boolean
 }
 
 export interface GenuiTab {

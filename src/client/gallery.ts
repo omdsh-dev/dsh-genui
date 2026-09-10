@@ -70,8 +70,22 @@ export const gallerySpec: GenuiSpec = {
       { label: '本月', data: [{ label: '一', value: 8 }, { label: '二', value: 12 }, { label: '三', value: 9 }] },
       { label: '上月', data: [{ label: '一', value: 6 }, { label: '二', value: 9 }, { label: '三', value: 7 }] },
     ] },
+    { type: 'chart', kind: 'bars', data: [], stacked: true, series: [
+      { label: '已完成', data: [{ label: 'Q1', value: 42 }, { label: 'Q2', value: 58 }, { label: 'Q3', value: 61 }] },
+      { label: '进行中', data: [{ label: 'Q1', value: 18 }, { label: 'Q2', value: 14 }, { label: 'Q3', value: 9 }] },
+    ] },
     { type: 'chart', horizontal: true, data: [
       { label: '自然搜索', value: 82 }, { label: '直接访问', value: 64 }, { label: '社交媒体', value: 41 },
+    ] },
+    { type: 'table', columns: ['区域', 'Q1', 'Q2', 'Q3'], types: ['group', 'num', 'num', 'num'], total: true, rows: [
+      ['华东', '', '', ''],
+      ['上海', '120', '138', '151'],
+      ['杭州', '96', '104', '118'],
+      ['华北', '', '', ''],
+      ['北京', '88', '95', '103'],
+    ] },
+    { type: 'card', tone: 'success', title: '已通过', items: [
+      { type: 'text', size: 'body', content: '分组表：首列为 group 时，只有第一格有内容的行会渲染成跨列小标题；total 追加一行合计。' },
     ] },
     { type: 'table', columns: ['#', '服务', '近 6 期延迟', '可用率', '负载', '状态'], types: ['index', 'text', 'spark', 'ring', 'bar', 'badge'], rows: [
       ['1', 'API 网关', '180,164,150,140,133,128', '99.96', '62', '正常'],

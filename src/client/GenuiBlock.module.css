@@ -566,6 +566,19 @@
   text-align: center;
   line-height: 1.2;
 }
+.stack {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  border-radius: 5px 5px 0 0;
+  overflow: hidden;
+  transition: height 0.6s ease;
+}
+.stackSeg { width: 100%; transition: height 0.6s ease, filter 0.15s; }
+.stackSeg:hover { filter: brightness(1.15); }
 .barFill {
   position: absolute;
   left: 0;
@@ -797,6 +810,33 @@
   opacity: 0.6;
 }
 
+/* Group header rows inside a table (types[0] === 'group'): a section title
+   spanning every column, so one table can read as several blocks. */
+.groupRow td {
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 5%, transparent);
+  font-weight: 700;
+  color: var(--dsw-alias-label-secondary);
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid var(--dsl-g-border);
+}
+.table tfoot td {
+  border-top: 1px solid var(--dsl-g-border-strong);
+  border-bottom: none;
+  font-weight: 700;
+  color: var(--dsw-alias-label-primary);
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 4%, transparent);
+}
+
+/* Card surface tones: tint + colored title, no bars. */
+.cardInfo { background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent); }
+.cardSuccess { background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent); }
+.cardWarning { background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent); }
+.cardDanger { background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent); }
+.cardInfo > .cardTitle { color: var(--dsw-alias-state-business-primary, #4f8ef7); }
+.cardSuccess > .cardTitle { color: var(--dsw-alias-state-success-primary, #2f9e6b); }
+.cardWarning > .cardTitle { color: var(--dsw-alias-state-warn-primary, #b8860b); }
+.cardDanger > .cardTitle { color: var(--dsw-alias-state-error-primary, #d94848); }
+
 /* ---------- horizontal bars (chart.horizontal) ---------- */
 
 .hbars { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
@@ -812,7 +852,9 @@
   text-overflow: ellipsis;
 }
 .hbarTracks { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.hbarSeg { height: 100%; }
 .hbarTrack {
+  display: flex;
   height: 14px;
   border-radius: var(--dsl-g-radius-sm);
   background: color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent);

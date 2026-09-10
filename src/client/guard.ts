@@ -22,11 +22,14 @@ import type { GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSerie
 import { wrapSingleComponentRoot } from './spec.ts'
 
 /** Hard resource limits enforced by repair (and mirrored at render time). */
+/** Card surface tones accepted by the guard. */
+export const CARD_TONES = ['info', 'success', 'warning', 'danger'] as const
+
 /** Progress shapes accepted by the guard. */
 export const PROGRESS_VARIANTS = ['bar', 'ring'] as const
 
 /** Table column cell types accepted by the guard. */
-export const TABLE_CELL_TYPES = ['text', 'num', 'delta', 'bar', 'badge', 'spark', 'ring', 'index'] as const
+export const TABLE_CELL_TYPES = ['text', 'num', 'delta', 'bar', 'badge', 'spark', 'ring', 'index', 'group'] as const
 
 export const GENUI_LIMITS = {
   /** Maximum nesting depth of the component tree. */
@@ -255,7 +258,12 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
       return { type: 'grid', cols: int(v.cols, 1, GENUI_LIMITS.maxGridCols) ?? 1, items: repairItems(v.items, ctx, depth + 1) }
     }
     case 'card': {
-      return { type: 'card', items: repairItems(v.items, ctx, depth + 1), ...opt('title', str(v.title, GENUI_LIMITS.maxString)) }
+      return {
+        type: 'card',
+        items: repairItems(v.items, ctx, depth + 1),
+        ...opt('title', str(v.title, GENUI_LIMITS.maxString)),
+        ...opt('tone', enu(v.tone, CARD_TONES)),
+      }
     }
     case 'button': {
       const label = str(v.label, GENUI_LIMITS.maxString)
@@ -399,7 +407,7 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
             : 'text'
         })
         : undefined
-      return { type: 'table', columns, rows, ...opt('types', types) }
+      return { type: 'table', columns, rows, ...opt('types', types), ...opt('total', v.total === true ? true : undefined) }
     }
     case 'chart': {
       const data = repairChartData(v.data, GENUI_LIMITS.maxChartPoints)
@@ -413,6 +421,7 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
         ...opt('kind', enu(v.kind, CHART_KINDS)),
         ...opt('series', series),
         ...opt('horizontal', v.horizontal === true ? true : undefined),
+        ...opt('stacked', v.stacked === true ? true : undefined),
       }
     }
     case 'tabs': {

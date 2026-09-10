@@ -165,6 +165,26 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
   }
   const numeric = numericColumns(rows, columns.length)
   const types = node.types ?? []
+  // Group header rows: with `types[0] === 'group'`, a row whose first cell is
+  // filled and every other cell empty becomes a section header spanning the
+  // table — a plain table that reads as sections.
+  const isGroupRow = (row: GenuiTable['rows'][number]): boolean =>
+    types[0] === 'group' && String(row[0] ?? '').trim() !== ''
+    && row.slice(1).every(cell => String(cell ?? '').trim() === '')
+  // Optional 合计 footer: sums every numeric column (group rows excluded).
+  const totals = columns.map((_c, j) => {
+    if (!numeric[j]) return null
+    let sum = 0
+    for (const row of rows) {
+      if (isGroupRow(row)) continue
+      const n = parseSortableNumber(row[j])
+      if (Number.isFinite(n)) sum += n
+    }
+    return sum
+  })
+  const hasTotals = node.total === true && totals.some(t => t !== null)
+  const formatTotal = (n: number): string =>
+    Number.isInteger(n) ? n.toLocaleString('en-US') : String(Math.round(n * 100) / 100)
   return (
     <div className={css.tableWrap}>
       <table className={css.table}>
@@ -186,7 +206,9 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
         </thead>
         <tbody>
           {sorted.map((row, i) => (
-            <tr key={i}>{row.slice(0, columns.length).map((cell, j) => {
+            isGroupRow(row)
+              ? <tr key={i} className={css.groupRow}><td colSpan={columns.length}>{String(row[0])}</td></tr>
+              : <tr key={i}>{row.slice(0, columns.length).map((cell, j) => {
               const type = types[j]
               const tone = type === 'delta'
                 ? (String(cell).trim().startsWith('-') ? 'down' : 'up')
@@ -211,6 +233,17 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
             })}</tr>
           ))}
         </tbody>
+        {hasTotals && (
+          <tfoot>
+            <tr>
+              {columns.map((_c, j) => (
+                <td key={j} className={numeric[j] ? css.tdNum : undefined}>
+                  {j === 0 ? '合计' : totals[j] === null ? '' : formatTotal(totals[j]!)}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   )
@@ -300,6 +333,8 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
     seriesColor(si, seriesValues.length, isGrouped ? grouped[si]?.color : undefined) ?? 'var(--dsw-alias-state-business-primary, #4f8ef7)')
   const flat = seriesValues.flat()
   const showValues = labels.length <= 12
+  const stacked = chart.stacked === true && isGrouped
+  const categoryTotals = labels.map((_l, i) => seriesValues.reduce((sum, values) => sum + Math.max(0, values[i] ?? 0), 0))
 
   // Horizontal: label column + one track per series. The axis is always
   // 0..max (a horizontal track has no zero line to cross).
@@ -324,22 +359,31 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
             <div key={i} className={css.hbarRow}>
               <span className={css.hbarLabel} title={label}>{label}</span>
               <div className={css.hbarTracks}>
-                {seriesValues.map((values, si) => {
-                  const v = values[i] ?? 0
-                  const width = Math.max(0, Math.min(100, (Math.max(0, v) / scale) * 100))
-                  const title = `${isGrouped ? `${grouped[si]!.label} · ` : ''}${label}: ${v}`
-                  return (
-                    <div key={si} className={css.hbarTrack} title={title}>
-                      <div className={css.hbarFill} style={{ width: `${width}%`, background: colors[si] }} />
+                {stacked
+                  ? (
+                    <div className={css.hbarTrack} title={`${label}: ${categoryTotals[i] ?? 0}`}>
+                      {seriesValues.map((values, si) => {
+                        const v = Math.max(0, values[i] ?? 0)
+                        const total = categoryTotals[i] ?? 0
+                        const width = total === 0 ? 0 : (v / total) * Math.max(0, Math.min(100, (total / scale) * 100))
+                        return <div key={si} className={css.hbarSeg} style={{ width: `${width}%`, background: colors[si] }} />
+                      })}
                     </div>
                   )
-                })}
+                  : seriesValues.map((values, si) => {
+                    const v = values[i] ?? 0
+                    const width = Math.max(0, Math.min(100, (Math.max(0, v) / scale) * 100))
+                    const title = `${isGrouped ? `${grouped[si]!.label} · ` : ''}${label}: ${v}`
+                    return (
+                      <div key={si} className={css.hbarTrack} title={title}>
+                        <div className={css.hbarFill} style={{ width: `${width}%`, background: colors[si] }} />
+                      </div>
+                    )
+                  })}
               </div>
               {showValues && (
                 <span className={css.hbarValue}>
-                  {isGrouped
-                    ? seriesValues.reduce((sum, values) => sum + (values[i] ?? 0), 0)
-                    : String(data[i]?.value ?? '')}
+                  {isGrouped ? categoryTotals[i] ?? 0 : String(data[i]?.value ?? '')}
                 </span>
               )}
             </div>
@@ -370,7 +414,32 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
           ))}
           {labels.map((label, i) => (
             <div key={i} className={css.barCol}>
-              {isGrouped
+              {stacked
+                ? (
+                  <>
+                    {showValues && (
+                      <span className={css.barValue} style={{ bottom: `calc(${pct(categoryTotals[i] ?? 0)}% + 4px)` }}>
+                        {String(categoryTotals[i] ?? 0)}
+                      </span>
+                    )}
+                    <div className={css.stack} style={{ height: `${Math.max(0, pct(categoryTotals[i] ?? 0))}%` }}>
+                      {grouped.map((entry, si) => {
+                        const datum = entry.data[i]
+                        const v = Math.max(0, datum === undefined ? 0 : Number(datum.value) || 0)
+                        const total = categoryTotals[i] ?? 0
+                        return (
+                          <div
+                            key={si}
+                            className={css.stackSeg}
+                            style={{ height: total === 0 ? '0%' : `${(v / total) * 100}%`, background: colors[si] }}
+                            title={`${entry.label} · ${label}: ${datum === undefined ? 0 : String(datum.value)}`}
+                          />
+                        )
+                      })}
+                    </div>
+                  </>
+                )
+                : isGrouped
                 ? (
                   <div className={css.groupedBars}>
                     {grouped.map((entry, si) => {
