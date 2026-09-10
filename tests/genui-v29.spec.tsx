@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GenuiActionContext } from '../src/client/action-context.ts'
 import { GenuiBlock, GENUI_ACTION_DEBOUNCE_MS } from '../src/client/GenuiBlock.tsx'
 import { repairGenuiSpec } from '../src/client/guard.ts'
+import { CORE_PRESETS } from '../src/client/echarts-lazy.ts'
 
 afterEach(() => {
   cleanup()
@@ -28,6 +29,41 @@ function renderBlock(spec: unknown, actions: Array<[string, Record<string, unkno
     </GenuiActionContext.Provider>,
   )
 }
+
+describe('v14: echart preset 与 links', () => {
+  it('keeps sankey/graph links through repair and drops malformed edges', () => {
+    const spec = repairGenuiSpec({
+      items: [{
+        type: 'echart',
+        preset: 'sankey',
+        links: [
+          { from: '入口', to: 'API', value: 40 },
+          { from: 'API' },
+          { to: '孤立' },
+          { from: 'API', to: '渲染', value: 32 },
+        ],
+      }],
+    })!
+    const node = spec.items[0] as { links?: Array<{ from: string; to: string }> }
+    expect(node.links).toHaveLength(2)
+    expect(node.links?.[0]).toMatchObject({ from: '入口', to: 'API' })
+  })
+
+  it('accepts the new presets and rejects an unknown one', () => {
+    for (const preset of ['radar', 'gauge', 'funnel', 'treemap', 'sankey', 'graph', 'heatmap', 'bigline']) {
+      const spec = repairGenuiSpec({ items: [{ type: 'echart', preset, data: [{ label: 'A', value: 1 }] }] })!
+      expect((spec.items[0] as { preset?: string }).preset).toBe(preset)
+    }
+    const bad = repairGenuiSpec({ items: [{ type: 'echart', preset: 'not-a-chart', data: [{ label: 'A', value: 1 }] }] })
+    // Unknown preset is dropped (undefined), the node still renders with data.
+    const node = bad?.items[0] as { preset?: string } | undefined
+    expect(node?.preset).toBeUndefined()
+  })
+
+  it('only the core presets map to the small engine bundle', () => {
+    expect([...CORE_PRESETS].sort()).toEqual(['area', 'bar', 'bigline', 'line', 'pie', 'scatter'])
+  })
+})
 
 describe('v13: hero 封面块与 bento 跨列', () => {
   it('renders a hero with its metric, title, subtitle and tone', () => {

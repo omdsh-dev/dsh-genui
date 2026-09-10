@@ -146,6 +146,20 @@ export const gallerySpec: GenuiSpec = {
       { title: '第二项', items: [{ type: 'code', lang: 'ts', code: 'export const x = 1' }] },
     ] },
     { type: 'copy', label: '复制令牌', text: 'sk-1234567890' },
+    { type: 'echart', preset: 'bar', title: 'echart · preset:bar（只下载 core 引擎）', height: 240, data: [
+      { label: '自然搜索', value: 82 }, { label: '直接访问', value: 64 }, { label: '社交媒体', value: 41 },
+    ] },
+    { type: 'echart', preset: 'radar', title: 'echart · preset:radar（按需拉完整引擎）', height: 280, series: [
+      { label: '本轮', data: [{ label: '视觉', value: 86 }, { label: '可用', value: 92 }, { label: '性能', value: 74 }, { label: '采纳', value: 88 }, { label: '稳定', value: 90 }] },
+      { label: '上轮', data: [{ label: '视觉', value: 62 }, { label: '可用', value: 70 }, { label: '性能', value: 58 }, { label: '采纳', value: 61 }, { label: '稳定', value: 72 }] },
+    ] },
+    { type: 'echart', preset: 'sankey', title: 'echart · preset:sankey（links 驱动）', height: 260, links: [
+      { from: '入口', to: 'API', value: 40 },
+      { from: '入口', to: '缓存', value: 25 },
+      { from: 'API', to: '渲染', value: 32 },
+      { from: '渲染', to: '完成', value: 30 },
+      { from: '缓存', to: '完成', value: 28 },
+    ] },
     { type: 'plot', title: '波动叠加', xMin: -6.28, xMax: 6.28, series: [
       { expr: 'sin(x)', label: 'sin(x)', color: '#4f8ef7' },
       { expr: '0.8*cos(x)', label: 'cos', color: '#3ecf8e' },

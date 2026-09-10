@@ -38,7 +38,9 @@ for (const entry of Object.values(pkgJson.exports)) {
 // engine assets the node-half route serves to the browser on demand.
 const required = [
   'package.json', 'LICENSE', 'SKILL.md', 'README.md', 'CHANGELOG.md', 'demo-prompts.md', 'cordis.patch.yml',
-  'lib/assets/mermaid.js', 'lib/assets/three.js', 'lib/assets/echarts.js',
+  'lib/assets/mermaid.js', 'lib/assets/three.js',
+  // ECharts ships as two bundles: core (common presets) + full (the rest).
+  'lib/assets/echarts-core.js', 'lib/assets/echarts-full.js',
   // plugin_check 发布规范（issue #15）：tarball 必须携带可复现构建所需的
   // 源码入口与构建配置，prepack 已在打包前重建 lib。
   'src/index.ts', 'tsconfig.json', 'tsdown.config.ts',

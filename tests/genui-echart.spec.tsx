@@ -7,7 +7,12 @@ import type { GenuiEChart } from '../src/client/spec'
 import { EChartNode } from '../src/client/EChartNode.tsx'
 import { createChart } from '../src/client/echarts-lazy.ts'
 
-vi.mock('../src/client/echarts-lazy.ts', () => ({ createChart: vi.fn() }))
+vi.mock('../src/client/echarts-lazy.ts', async () => {
+  // Keep the real preset→engine mapping so the mock stays honest about which
+  // bundle a preset needs (progressive disclosure).
+  const actual = await vi.importActual<typeof import('../src/client/echarts-lazy.ts')>('../src/client/echarts-lazy.ts')
+  return { createChart: vi.fn(), CORE_PRESETS: actual.CORE_PRESETS }
+})
 beforeEach(() => { vi.mocked(createChart).mockReset() })
 
 afterEach(() => {
@@ -20,7 +25,10 @@ function fakeInstance() {
 
 describe('EChartNode: preset rendering', () => {
   it('renders data-genui-echart container for each preset', async () => {
-    for (const preset of ['bar', 'line', 'area', 'pie', 'scatter'] as const) {
+    for (const preset of [
+      'bar', 'line', 'area', 'pie', 'scatter',
+      'radar', 'gauge', 'funnel', 'treemap', 'sankey', 'graph', 'heatmap', 'bigline',
+    ] as const) {
       vi.mocked(createChart).mockImplementation(() => Promise.resolve(fakeInstance()))
       const node: GenuiEChart = { type: 'echart', preset, data: [{ label: 'a', value: 1 }] }
       const { container, unmount } = render(<EChartNode node={node} />)

@@ -26,7 +26,6 @@
     "lib/client.js",
     "lib/assets/mermaid.js",
     "lib/assets/three.js",
-    "lib/assets/echarts.js",
     "lib/types/plugin/index.d.ts",
     "lib/types/plugin/invariant.d.ts",
     "lib/types/client/index.d.ts",
@@ -39,7 +38,9 @@
     "lib",
     "src",
     "tsconfig.json",
-    "tsdown.config.ts"
+    "tsdown.config.ts",
+    "lib/assets/echarts-core.js",
+    "lib/assets/echarts-full.js"
   ],
   "publishConfig": {
     "access": "public"

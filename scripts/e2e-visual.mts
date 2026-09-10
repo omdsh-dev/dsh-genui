@@ -168,6 +168,13 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 3000 } })
   const pageErrors: string[] = []
   page.on('pageerror', e => pageErrors.push(String(e)))
+  // Engine-split evidence: which lazy assets the page actually pulls.
+  const assetRequests: string[] = []
+  page.on('request', req => {
+    const url = req.url()
+    const match = /\/assets\/([a-z-]+\.js)/.exec(url)
+    if (match !== null) assetRequests.push(match[1]!)
+  })
   const consoleLines: string[] = []
   page.on('console', msg => consoleLines.push(`${msg.type()}: ${msg.text()}`))
   // 强制 DOM 通道：0.1.3+ 宿主带 registry 扩展点时插件默认走 registry 通道，
@@ -218,15 +225,18 @@ try {
   }
   if (blocks === 0) {
     await page.screenshot({ path: join(OUT_DIR, 'visual-fail.png'), fullPage: true })
-    const genuiLog = consoleLines.filter(l => l.includes('genui')).slice(0, 5).join(' | ')
+    const genuiLog = consoleLines.filter(l => l.includes('genui')).slice(0, 6).join(' | ')
+    const otherLog = consoleLines.slice(-14).join('\n    ')
     const diag = await page.evaluate(() => ({
       injected: document.querySelectorAll('[data-visual-inject]').length,
       containers: document.querySelectorAll('.genui-dom-fence').length,
       genuiRoots: document.querySelectorAll('[data-genui]').length,
       hidden: document.querySelectorAll('.md-code-block[style*="display: none"]').length,
       containerHtml: document.querySelector('.genui-dom-fence')?.innerHTML.slice(0, 300) ?? 'none',
+      processed: document.querySelector('[data-visual-inject]')?.hasAttribute('data-genui-rendered') ?? null,
+      codeBlocks: document.querySelectorAll('.md-code-block').length,
     }))
-    throw new Error(`30s 内画廊未渲染（截图 visual-fail.png；pageerrors: ${pageErrors.slice(0, 3).join(' | ') || '无'}；genui console: ${genuiLog || '无'}；diag: ${JSON.stringify(diag)}）`)
+    throw new Error(`30s 内画廊未渲染（pageerrors: ${pageErrors.slice(0, 3).join(' | ') || '无'}；genui: ${genuiLog || '无'}；其他 console: ${otherLog || '无'}；diag: ${JSON.stringify(diag)}）`)
   }
   log(`✓ 画廊渲染成功（${blocks} 个 data-genui 块）`)
 
@@ -279,6 +289,15 @@ try {
     throw new Error(`骨架未在 settle 后换成真组件（${JSON.stringify(restored)}）`)
   }
   log('✓ 流式骨架：出现 → settle 后换成真组件')
+
+  // ── 引擎渐进披露验证 ─────────────────────────────────────────────────────
+  // 基础图型只需 core 引擎；进阶图型（radar/sankey/…）或裸 option 才拉完整包。
+  if (assetRequests.includes('echarts-core.js')) {
+    if (!assetRequests.includes('echarts-full.js')) {
+      throw new Error(`radar/sankey 采样在场却没拉完整引擎（请求：${assetRequests.join(', ')}）`)
+    }
+    log(`✓ 引擎按需：${[...new Set(assetRequests)].join(' + ')}`)
+  }
 
   // ── 本地筛选（数据绑定）验证 ─────────────────────────────────────────────
   // 绑定筛选是纯客户端行为：输入框的值直接过滤表格，不发任何请求。断言它在真实
