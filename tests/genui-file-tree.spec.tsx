@@ -92,11 +92,11 @@ describe('surface elevation contract', () => {
     // box") → layer-2 44,44,46. Cards, stats and callouts must sit on layer-2.
     const card = /\.card \{([^}]*)\}/.exec(css)
     expect(card, '.card rule must exist').not.toBeNull()
-    expect(card![1]).toMatch(/background: var\(--dsw-alias-bg-layer-2/)
+    expect(card![1]).toMatch(/background: var\(--dsl-g-surface\)/)
     const stat = /\.stat \{([^}]*)\}/.exec(css)
-    expect(stat![1]).toMatch(/background: var\(--dsw-alias-bg-layer-2/)
+    expect(stat![1]).toMatch(/background: var\(--dsl-g-surface\)/)
     const callout = /\.callout \{([^}]*)\}/.exec(css)
-    expect(callout![1]).toMatch(/background: var\(--dsw-alias-bg-layer-2/)
+    expect(callout![1]).toMatch(/background: var\(--dsl-g-surface\)/)
   })
 
   it('gives surfaces a visible outline and a lift (light theme has no layers)', () => {
@@ -104,10 +104,15 @@ describe('surface elevation contract', () => {
     // Light theme maps every bg layer to white and its border-l1 is 4% black —
     // a card there would be invisible without border-l2 + a shadow.
     expect(css).toMatch(/--dsl-g-shadow-card:/)
+    expect(css).toMatch(/--dsl-g-surface: color-mix\(in srgb, var\(--dsw-alias-label-primary\) 4%/)
+    expect(css).toMatch(/--dsl-g-border-surface: color-mix\(in srgb, var\(--dsw-alias-label-primary\) 14%/)
     for (const rule of ['card', 'stat', 'callout', 'hero', 'accordion']) {
       const block = new RegExp(`\\.${rule} \\{([^}]*)\\}`).exec(css)
       expect(block, `.${rule} must exist`).not.toBeNull()
-      expect(block![1], `.${rule} needs a visible outline`).toMatch(/border: 1px solid var\(--dsl-g-border-strong\)/)
+      // Outline + surface tint are DERIVED from the theme's label colour: the
+      // light theme maps every layer to white, so host layer/border tokens
+      // alone cannot separate a card from the page.
+      expect(block![1], `.${rule} needs a visible outline`).toMatch(/border: 1px solid var\(--dsl-g-border-surface\)/)
       expect(block![1], `.${rule} needs a lift`).toMatch(/box-shadow: var\(--dsl-g-shadow-card\)/)
     }
   })
