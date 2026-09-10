@@ -725,6 +725,11 @@
   width: 1px;
   background: var(--dsl-g-border);
 }
+/* The rail behind a finished step picks up the success tint, so the sequence
+   reads as progress instead of a row of badges. */
+.stepDone:not(:last-child)::before { background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) 45%, transparent); }
+.stepTitle { transition: color 0.15s; }
+.stepActive .stepTitle { color: var(--dsl-g-accent); }
 .stepMarker {
   width: 24px;
   height: 24px;
@@ -739,7 +744,12 @@
   color: var(--dsw-alias-label-secondary);
   z-index: 1;
 }
-.stepDone .stepMarker { background: var(--dsw-alias-state-success-primary, #3ecf8e); border-color: transparent; color: #fff; font-size: 13px; }
+.stepDone .stepMarker {
+  background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) 18%, transparent);
+  border-color: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) 55%, transparent);
+  color: var(--dsw-alias-state-success-primary, #2f9e6b);
+  font-size: 13px;
+}
 .stepActive .stepMarker {
   background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint-strong), transparent);
   border-color: var(--dsl-g-accent);
@@ -1302,28 +1312,51 @@
   max-width: 100%;
   min-width: 0;
 }
-.ftRow { display: flex; align-items: center; gap: var(--dsl-g-gap-sm); padding: 3px var(--dsl-g-gap-xs); border-radius: var(--dsl-g-radius-control); }
-.ftRow:hover { background: var(--dsw-alias-bg-layer-1); }
-.ftIcon {
-  font-size: 10px;
-  flex-shrink: 0;
-  width: 13px;
-  text-align: center;
-  font-family: var(--dsl-g-font-mono);
-  color: var(--dsw-alias-label-caption, var(--dsw-alias-label-tertiary));
-  line-height: 1;
+.ftChildren { display: block; }
+.ftRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 2px var(--dsl-g-gap-xs);
+  border-radius: var(--dsl-g-radius-sm);
+  transition: background 0.12s;
 }
-.ftIconDir { color: var(--dsl-g-accent); font-size: 11px; }
+.ftRow:hover { background: color-mix(in srgb, var(--dsw-alias-label-primary) 5%, transparent); }
+/* One hairline per depth level: the rail that makes a tree read as a tree. */
+/* Depth rails are absolutely positioned so the indentation itself stays the
+   inline padding-left on the row (it must survive a stylesheet failure). */
+.ftGuide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--dsl-g-border);
+}
+.ftChevron {
+  width: 10px;
+  flex-shrink: 0;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--dsw-alias-label-tertiary);
+  transition: transform 0.15s ease;
+  transform-origin: 50% 50%;
+}
+.ftChevron[data-open="true"] { transform: rotate(90deg); }
+.ftGlyph { display: inline-flex; flex-shrink: 0; color: var(--dsw-alias-label-tertiary); }
+.ftGlyphDir { color: var(--dsl-g-accent); }
 /* Long paths must stay on ONE line (issue #28: per-character vertical
    wrapping when the host message column gets narrow). */
 .ftName {
   color: var(--dsw-alias-label-secondary);
+  font-size: var(--dsl-g-font-title);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
 }
-.ftDir { color: var(--dsw-alias-label-primary); font-weight: 600; }
+.ftDir { color: var(--dsw-alias-label-primary); font-weight: 650; }
 .ftNameBtn {
   display: inline-flex;
   align-items: center;
@@ -1333,7 +1366,7 @@
   background: none;
   border: none;
   font-family: inherit;
-  font-size: var(--dsl-g-font-body);
+  font-size: var(--dsl-g-font-title);
   padding: 0;
   cursor: default;
   text-align: left;

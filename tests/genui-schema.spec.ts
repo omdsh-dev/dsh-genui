@@ -40,7 +40,15 @@ describe('GenUI runtime schema normalization', () => {
     expect(COMPONENT_SCHEMAS.card.optional.title).toBe('string')
     expect(COMPONENT_SCHEMAS.chart.required).toEqual([])
     expect(COMPONENT_SCHEMAS.chart.oneOfRequired).toEqual([['data', 'series']])
-    expect(COMPONENT_SCHEMAS.chart.conditionalRequired).toHaveLength(2)
+    // v3: `line` may carry its points in `series`, so only the donut keeps a
+    // conditional `data` requirement.
+    expect(COMPONENT_SCHEMAS.chart.conditionalRequired).toHaveLength(1)
+    expect(COMPONENT_SCHEMAS.chart.conditionalRequired[0]!.when).toEqual({ field: 'kind', equals: 'donut' })
+    expect(COMPONENT_SCHEMAS.chart.fields.horizontal).toBe('boolean')
+    expect(COMPONENT_SCHEMAS.chart.fields.stacked).toBe('boolean')
+    expect(COMPONENT_SCHEMAS.stat.fields.spark).toBe('array')
+    expect(COMPONENT_SCHEMAS.table.fields.types).toBe('array')
+    expect(COMPONENT_SCHEMAS.progress.enums.variant).toEqual(['bar', 'ring'])
     expect(COMPONENT_SCHEMAS.chart.validator).toMatchObject({ name: 'chart-renderability' })
     expect(COMPONENT_SCHEMAS.grid.required).toEqual(['items'])
     expect(COMPONENT_SCHEMAS.grid.optional.cols).toBe('number')
@@ -203,6 +211,8 @@ describe('GenUI runtime schema normalization', () => {
   })
 
   it('shares complete chart renderability errors between process and chart-contract', () => {
+    // A line chart may carry its points in `series` (v3), so the remaining
+    // renderability error is the empty series itself.
     const raw = { items: [{
       type: 'chart',
       kind: 'line',
@@ -211,11 +221,30 @@ describe('GenUI runtime schema normalization', () => {
     const processed = processGenuiSpec(raw)
     const shared = validateRenderableChartSemantics(processed.normalized)
     expect(shared).toEqual(expect.arrayContaining([
-      'items[0].series is only supported for bars',
-      'items[0].data is required for line',
       'items[0].series[0].data must not be empty',
     ]))
     expect(processed.errors).toEqual(expect.arrayContaining(shared))
+
+    // The donut stays single-series and still needs `data`.
+    const donut = { items: [{ type: 'chart', kind: 'donut', series: [{ label: 'A', data: [{ label: 'X', value: 1 }] }] }] }
+    const donutShared = validateRenderableChartSemantics(processGenuiSpec(donut).normalized)
+    expect(donutShared).toEqual(expect.arrayContaining([
+      'items[0].series is only supported for bars and line',
+      'items[0].data is required for donut',
+    ]))
+  })
+
+  it('accepts grouped bars that keep their points in series (data: [])', () => {
+    const processed = processGenuiSpec({ items: [{
+      type: 'chart',
+      data: [],
+      series: [
+        { label: '本月', data: [{ label: 'Q1', value: 3 }] },
+        { label: '上月', data: [{ label: 'Q1', value: 2 }] },
+      ],
+    }] })
+    expect(processed.errors).toEqual([])
+    expect(validateRenderableChartSemantics(processed.normalized)).toEqual([])
   })
 
   it('diagnoses root and native nested record typos without entering custom payloads', () => {

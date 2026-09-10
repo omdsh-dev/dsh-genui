@@ -356,6 +356,24 @@ export const TimelineNode = memo(function TimelineNode({ node }: { node: GenuiTi
 /** FileTree: indented tree of files and folders. Directory rows are LOCAL
  * collapsible (spec.ts promised "collapsible children"; this makes it true)
  * — click a dir to fold/unfold, default fully open. Zero model round trip. */
+/** 14px folder / file glyphs: an emoji-free way to tell rows apart at a glance. */
+function FolderGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M1.6 3.4h4.1l1.3 1.7h7.4v7.2a1 1 0 0 1-1 1H2.6a1 1 0 0 1-1-1z" fill="currentColor" opacity="0.85" />
+    </svg>
+  )
+}
+
+function FileGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M3.8 1.6h4.9L13 5.9v8.5a1 1 0 0 1-1 1H4.8a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M8.7 1.7v4.3h4.2" fill="none" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  )
+}
+
 export const FileTreeNode = memo(function FileTreeNode({ node }: { node: GenuiFileTree }) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const toggle = (k: string): void => {
@@ -366,22 +384,43 @@ export const FileTreeNode = memo(function FileTreeNode({ node }: { node: GenuiFi
       return next
     })
   }
+  // Children live in their OWN container under the row. They used to be
+  // appended inside `.ftRow` (display: flex), so a nested tree rendered
+  // side-by-side on one line instead of stacking.
   const renderNode = (n: GenuiFileTreeNode, depth: number, path: string): ReactNode => {
     if (depth > GENUI_LIMITS.maxTreeDepth) return null
     const isDir = n.type === 'dir' || (n.children !== undefined && n.children.length > 0)
     const folded = isDir && collapsed.has(path)
     return (
-      <div key={path} className={css.ftRow} style={{ paddingLeft: `${depth * 16}px` }}>
-        <button
-          type="button"
-          className={css.ftNameBtn}
-          aria-expanded={isDir ? !folded : undefined}
-          onClick={isDir ? () => toggle(path) : undefined}
-        >
-          <span className={`${css.ftIcon} ${isDir ? css.ftIconDir : ''}`} aria-hidden>{isDir ? (folded ? '▸' : '▾') : '·'}</span>
-          <span className={`${css.ftName} ${isDir ? css.ftDir : ''}`}>{n.name}</span>
-        </button>
-        {isDir && !folded && (n.children ?? []).map((c, ci) => renderNode(c, depth + 1, `${path}/${ci}`))}
+      <div key={path}>
+        <div className={css.ftRow} style={{ paddingLeft: `${depth * 14 + 4}px` }}>
+          {Array.from({ length: depth }, (_v, i) => (
+            <span key={i} className={css.ftGuide} style={{ left: `${4 + i * 14 + 6}px` }} aria-hidden />
+          ))}
+          <button
+            type="button"
+            className={css.ftNameBtn}
+            aria-expanded={isDir ? !folded : undefined}
+            onClick={isDir ? () => toggle(path) : undefined}
+          >
+            <span
+              className={css.ftChevron}
+              data-open={isDir ? String(!folded) : undefined}
+              aria-hidden
+            >
+              {isDir ? '▸' : ''}
+            </span>
+            <span className={`${css.ftGlyph} ${isDir ? css.ftGlyphDir : ''}`} aria-hidden>
+              {isDir ? <FolderGlyph /> : <FileGlyph />}
+            </span>
+            <span className={`${css.ftName} ${isDir ? css.ftDir : ''}`}>{n.name}</span>
+          </button>
+        </div>
+        {isDir && !folded && (
+          <div className={css.ftChildren}>
+            {(n.children ?? []).map((c, ci) => renderNode(c, depth + 1, `${path}/${ci}`))}
+          </div>
+        )}
       </div>
     )
   }
