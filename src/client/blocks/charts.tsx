@@ -10,8 +10,8 @@
  * true zero line so negative values are drawn, not clamped away.
  * @module @changfenhuang/dsh-genui/client/blocks/charts
  */
-import { memo, useId, useLayoutEffect, useRef, useState } from 'react'
-import type { RefObject } from 'react'
+import { memo, useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
+import type { MouseEvent as ReactMouseEvent, RefObject } from 'react'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../guard.ts'
 import type { GenuiChart, GenuiTable } from '../spec.ts'
@@ -182,6 +182,14 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
     }
     return sum
   })
+  // Last data row before the next section header: gets a stronger bottom rule
+  // so the sections read as blocks instead of one long run of rows.
+  const isGroupEnd = (list: GenuiTable['rows'], i: number): boolean => {
+    if (types[0] !== 'group') return false
+    if (isGroupRow(list[i]!)) return false
+    if (i === list.length - 1) return true
+    return isGroupRow(list[i + 1]!)
+  }
   const hasTotals = node.total === true && totals.some(t => t !== null)
   const formatTotal = (n: number): string =>
     Number.isInteger(n) ? n.toLocaleString('en-US') : String(Math.round(n * 100) / 100)
@@ -208,7 +216,7 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
           {sorted.map((row, i) => (
             isGroupRow(row)
               ? <tr key={i} className={css.groupRow}><td colSpan={columns.length}>{String(row[0])}</td></tr>
-              : <tr key={i}>{row.slice(0, columns.length).map((cell, j) => {
+              : <tr key={i} className={isGroupEnd(sorted, i) ? css.groupEnd : undefined}>{row.slice(0, columns.length).map((cell, j) => {
               const type = types[j]
               const tone = type === 'delta'
                 ? (String(cell).trim().startsWith('-') ? 'down' : 'up')
@@ -248,6 +256,52 @@ export const TableNode = memo(function TableNode({ node }: { node: GenuiTable })
     </div>
   )
 })
+
+/** One tooltip line: label on the left, value on the right. */
+type TipRow = [string, string]
+
+interface TipState { x: number; y: number; rows: TipRow[] }
+
+/**
+ * Instant, self-drawn hover readout. The browser's native `title` takes about
+ * a second to appear and cannot show a stacked breakdown, which is exactly
+ * what a stacked bar needs ("hover 上去要会显示各自部分的具体数值").
+ */
+function useChartTip(): {
+  tip: TipState | null
+  show: (event: ReactMouseEvent<Element>, rows: TipRow[]) => void
+  hide: () => void
+} {
+  const [tip, setTip] = useState<TipState | null>(null)
+  const show = useCallback((event: ReactMouseEvent<Element>, rows: TipRow[]) => {
+    const target = event.currentTarget as Element
+    const host = target.closest('[data-genui-chart], [data-genui-line], [data-genui-donut]')
+    if (host === null) return
+    const hostRect = host.getBoundingClientRect()
+    const rect = target.getBoundingClientRect()
+    setTip({
+      x: rect.left - hostRect.left + rect.width / 2,
+      y: rect.top - hostRect.top,
+      rows,
+    })
+  }, [])
+  const hide = useCallback(() => setTip(null), [])
+  return { tip, show, hide }
+}
+
+function ChartTip({ tip }: { tip: TipState | null }) {
+  if (tip === null) return null
+  return (
+    <div className={css.chartTip} style={{ left: `${tip.x}px`, top: `${tip.y}px` }} role="tooltip">
+      {tip.rows.map(([label, value], i) => (
+        <span key={`${label}-${i}`} className={css.chartTipRow}>
+          <span>{label}</span>
+          <span className={css.chartTipValue}>{value}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
 
 /** Measured plot width. Charts draw in CSS pixels: 1 SVG unit = 1px, so axis
  *  text keeps its designed size at every container width. */
@@ -322,6 +376,7 @@ export const ChartNode = memo(function ChartNode({ chart }: { chart: GenuiChart 
  *  Single-series bars render against a true zero line, so negative values
  *  draw downward instead of clamping to zero height. */
 export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart }) {
+  const { tip, show, hide } = useChartTip()
   const grouped = chart.series !== undefined ? chart.series.slice(0, GENUI_LIMITS.maxPlotSeries) : undefined
   const isGrouped = grouped !== undefined && grouped.length > 0
   const data = chart.data.slice(0, GENUI_LIMITS.maxChartPoints)
@@ -353,7 +408,7 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
       )
       : null
     return (
-      <div className={css.chart} data-genui-chart="bars" role="img" aria-label={`横向柱状图，${labels.length} 组`}>
+      <div className={css.chart} data-genui-chart="bars" role="img" aria-label={`横向柱状图，${labels.length} 组`} onMouseLeave={hide}>
         <div className={css.hbars}>
           {labels.map((label, i) => (
             <div key={i} className={css.hbarRow}>
@@ -366,17 +421,29 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
                         const v = Math.max(0, values[i] ?? 0)
                         const total = categoryTotals[i] ?? 0
                         const width = total === 0 ? 0 : (v / total) * Math.max(0, Math.min(100, (total / scale) * 100))
-                        return <div key={si} className={css.hbarSeg} style={{ width: `${width}%`, background: colors[si] }} />
+                        return (
+                          <div
+                            key={si}
+                            className={css.hbarSeg}
+                            style={{ width: `${width}%`, background: colors[si] }}
+                            onMouseEnter={event => show(event, [[grouped[si]!.label, String(v)], ['合计', String(total)]])}
+                            onMouseMove={event => show(event, [[grouped[si]!.label, String(v)], ['合计', String(total)]])}
+                          />
+                        )
                       })}
                     </div>
                   )
                   : seriesValues.map((values, si) => {
                     const v = values[i] ?? 0
                     const width = Math.max(0, Math.min(100, (Math.max(0, v) / scale) * 100))
-                    const title = `${isGrouped ? `${grouped[si]!.label} · ` : ''}${label}: ${v}`
                     return (
-                      <div key={si} className={css.hbarTrack} title={title}>
-                        <div className={css.hbarFill} style={{ width: `${width}%`, background: colors[si] }} />
+                      <div key={si} className={css.hbarTrack}>
+                        <div
+                          className={css.hbarFill}
+                          style={{ width: `${width}%`, background: colors[si] }}
+                          onMouseEnter={event => show(event, isGrouped ? [[grouped[si]!.label, String(v)], ['合计', String(categoryTotals[i] ?? 0)]] : [[label, String(v)]])}
+                          onMouseMove={event => show(event, isGrouped ? [[grouped[si]!.label, String(v)], ['合计', String(categoryTotals[i] ?? 0)]] : [[label, String(v)]])}
+                        />
                       </div>
                     )
                   })}
@@ -390,6 +457,7 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
           ))}
         </div>
         {legend}
+        <ChartTip tip={tip} />
       </div>
     )
   }
@@ -405,7 +473,8 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
   const zero = pct(0)
   const summary = `柱状图，${labels.length} 组，最大 ${formatTick(Math.max(...flat, 0))}`
   return (
-    <div className={css.chart} data-genui-chart="bars" role="img" aria-label={summary}>
+    <div className={css.chart} data-genui-chart="bars" role="img" aria-label={summary} onMouseLeave={hide}>
+      <ChartTip tip={tip} />
       <div className={css.chartBody}>
         <YAxis ticks={ticks} lo={lo} span={span} />
         <div className={css.chartPlot}>
@@ -425,15 +494,21 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
                     <div className={css.stack} style={{ height: `${Math.max(0, pct(categoryTotals[i] ?? 0))}%` }}>
                       {grouped.map((entry, si) => {
                         const datum = entry.data[i]
-                        const v = Math.max(0, datum === undefined ? 0 : Number(datum.value) || 0)
+                        const raw = datum === undefined ? 0 : Number(datum.value) || 0
+                        const v = Math.max(0, raw)
                         const total = categoryTotals[i] ?? 0
+                        const segHeight = total === 0 ? 0 : (v / total) * pct(total)
+                        const rows: TipRow[] = [[entry.label, String(raw)], ['合计', String(total)]]
                         return (
                           <div
                             key={si}
                             className={css.stackSeg}
                             style={{ height: total === 0 ? '0%' : `${(v / total) * 100}%`, background: colors[si] }}
-                            title={`${entry.label} · ${label}: ${datum === undefined ? 0 : String(datum.value)}`}
-                          />
+                            onMouseEnter={event => show(event, rows)}
+                            onMouseMove={event => show(event, rows)}
+                          >
+                            {segHeight >= 11 && <span className={css.stackValue}>{raw}</span>}
+                          </div>
                         )
                       })}
                     </div>
@@ -446,7 +521,7 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
                       const datum = entry.data[i]
                       const v = datum === undefined ? 0 : Number(datum.value) || 0
                       return (
-                        <div key={si} className={css.groupedBar} title={datum === undefined ? entry.label : `${entry.label} · ${label}: ${String(datum.value)}`}>
+                        <div key={si} className={css.groupedBar}>
                           {showValues && <span className={css.groupValue}>{datum === undefined ? '' : String(datum.value)}</span>}
                           <div
                             className={css.groupedFill}
@@ -454,6 +529,8 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
                               height: `${Math.max(0, pct(Math.max(0, v)))}%`,
                               background: colors[si],
                             }}
+                            onMouseEnter={event => show(event, [[entry.label, String(datum?.value ?? '')], ['合计', String(categoryTotals[i] ?? 0)]])}
+                            onMouseMove={event => show(event, [[entry.label, String(datum?.value ?? '')], ['合计', String(categoryTotals[i] ?? 0)]])}
                           />
                         </div>
                       )
@@ -477,7 +554,8 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
                           ...(v < 0 ? { borderRadius: '0 0 5px 5px' } : {}),
                           ...(data[i]?.color !== undefined ? { background: data[i]!.color } : {}),
                         }}
-                        title={`${label}: ${String(data[i]?.value ?? '')}`}
+                        onMouseEnter={event => show(event, [[label, String(data[i]?.value ?? '')]])}
+                        onMouseMove={event => show(event, [[label, String(data[i]?.value ?? '')]])}
                       />
                     </>
                   )
@@ -507,6 +585,7 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
  *  labels drawn in SVG at their real size. */
 export const LineChartNode = memo(function LineChartNode({ chart }: { chart: GenuiChart }) {
   const [ref, measured] = useMeasuredWidth()
+  const { tip, show, hide } = useChartTip()
   const gradientId = `genui-line-${useId().replace(/:/g, '')}`
   const grouped = chart.series !== undefined && chart.series.length > 0
     ? chart.series.slice(0, GENUI_LIMITS.maxPlotSeries)
@@ -544,7 +623,8 @@ export const LineChartNode = memo(function LineChartNode({ chart }: { chart: Gen
   const labelStep = Math.max(1, Math.ceil(pointCount / Math.max(1, Math.floor(innerW / 64))))
   const summary = `折线图，${multi ? `${seriesValues.length} 条序列` : `${pointCount} 个点`}，范围 ${formatTick(Math.min(...flat, 0))} 到 ${formatTick(Math.max(...flat, 0))}`
   return (
-    <div className={css.lineChart} data-genui-chart="line" ref={ref} role="img" aria-label={summary}>
+    <div className={css.lineChart} data-genui-chart="line" data-genui-line ref={ref} role="img" aria-label={summary} onMouseLeave={hide}>
+      <ChartTip tip={tip} />
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -563,11 +643,23 @@ export const LineChartNode = memo(function LineChartNode({ chart }: { chart: Gen
         })}
         {area !== null && <path d={area} fill={`url(#${gradientId})`} />}
         {paths.map((d, si) => <path key={si} d={d} className={css.linePath} style={{ stroke: colors[si] }} />)}
-        {seriesValues.map((values, si) => values.map((v, i) => (
-          <circle key={`${si}-${i}`} cx={x(i)} cy={y(v)} r={3.5} className={css.lineDot} style={{ fill: colors[si] }}>
-            <title>{`${multi ? `${grouped![si]!.label} · ` : ''}${labels[i] ?? ''}: ${String(v)}`}</title>
-          </circle>
-        )))}
+        {seriesValues.map((values, si) => values.map((v, i) => {
+          const rows: TipRow[] = multi
+            ? [[grouped![si]!.label, String(v)], ['节点', labels[i] ?? '']]
+            : [[labels[i] ?? '', String(v)]]
+          return (
+            <circle
+              key={`${si}-${i}`}
+              cx={x(i)}
+              cy={y(v)}
+              r={multi ? 3 : 3.5}
+              className={css.lineDot}
+              style={{ fill: colors[si] }}
+              onMouseEnter={event => show(event, rows)}
+              onMouseMove={event => show(event, rows)}
+            />
+          )
+        }))}
         {labels.map((label, i) => (
           i % labelStep === 0
             ? <text key={`l-${i}`} x={x(i)} y={H - 8} textAnchor="middle" className={css.lineLabel}>{label}</text>
@@ -591,6 +683,7 @@ export const LineChartNode = memo(function LineChartNode({ chart }: { chart: Gen
 /** Donut: share of total with a center total and a legend that shows each
  *  slice's value AND percentage (the old legend was unstyled text). */
 export const DonutNode = memo(function DonutNode({ chart }: { chart: GenuiChart }) {
+  const { tip, show, hide } = useChartTip()
   const data = chart.data.slice(0, GENUI_LIMITS.maxChartPoints)
   const clamped = data.map(d => ({ ...d, v: Math.max(0, Number(d.value) || 0) }))
   const total = clamped.reduce((s, d) => s + d.v, 0) || 1
@@ -606,7 +699,8 @@ export const DonutNode = memo(function DonutNode({ chart }: { chart: GenuiChart 
   let offset = 0
   const summary = `环形图，${clamped.length} 项，合计 ${totalText}`
   return (
-    <div className={css.donut} data-genui-chart="donut" role="img" aria-label={summary}>
+    <div className={css.donut} data-genui-chart="donut" data-genui-donut role="img" aria-label={summary} onMouseLeave={hide}>
+      <ChartTip tip={tip} />
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
         <circle cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none" strokeWidth={STROKE} className={css.donutTrack} />
         {clamped.map((d, i) => {
@@ -625,9 +719,9 @@ export const DonutNode = memo(function DonutNode({ chart }: { chart: GenuiChart 
               strokeDasharray={`${len} ${C - len}`}
               strokeDashoffset={-offset}
               transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
-            >
-              <title>{`${d.label}: ${String(d.value)}（${(frac * 100).toFixed(1)}%）`}</title>
-            </circle>
+              onMouseEnter={event => show(event, [[d.label, `${String(d.value)} · ${(frac * 100).toFixed(1)}%`]])}
+              onMouseMove={event => show(event, [[d.label, `${String(d.value)} · ${(frac * 100).toFixed(1)}%`]])}
+            />
           )
           offset += len
           return el

@@ -177,6 +177,21 @@ try {
   // 走带 token 的根 URL：浏览器完成 303 → cookie 交换，之后的资源请求已认证。
   await page.goto(launchUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.waitForTimeout(5000)
+  // 空 profile 首次启动会弹内测声明：它的遮罩会拦截一切指针事件，先关掉，
+  // 否则后面的 hover 断言会被 mask 抢走（曾导致 tooltip 回归超时）。
+  const onboarding = page.getByRole('button', { name: /继续|我知道了|开始使用|进入/ })
+  if (await onboarding.count() > 0) {
+    await onboarding.first().click().catch(() => {})
+    await page.waitForTimeout(500)
+  }
+  // 兜底：遮罩若仍在（按钮文案变化、二次弹出），直接摘掉它——这是 scratch
+  // 实例的一次性页面，不是产品行为断言。
+  const masks = await page.evaluate(() => {
+    const found = document.querySelectorAll('[class*="_mask_"], [role="presentation"]')
+    for (const el of found) el.remove()
+    return found.length
+  })
+  if (masks > 0) log(`已移除 ${masks} 个遮罩节点`)
 
   // 注入画廊围栏：真实 dsh-ui fence 表面（叶子语言标签 + 单一 <pre> 代码体），
   // DOM 通道应当发现它并以插件自己的 React root 挂载真实组件。
@@ -264,6 +279,18 @@ try {
     throw new Error(`骨架未在 settle 后换成真组件（${JSON.stringify(restored)}）`)
   }
   log('✓ 流式骨架：出现 → settle 后换成真组件')
+
+  // ── 图表 tooltip 验证（真实 hover）────────────────────────────────────────
+  const stackSeg = page.locator('[class*="stackSeg"]').first()
+  if (await stackSeg.count() > 0) {
+    await stackSeg.hover()
+    await page.waitForTimeout(300)
+    const tipText = await page.locator('[class*="chartTip"]').first().textContent().catch(() => null)
+    if (tipText === null || !tipText.includes('合计')) {
+      throw new Error(`堆叠段 hover 未弹出明细 tooltip（${String(tipText)}）`)
+    }
+    log(`✓ 图表 tooltip：${tipText.replace(/\s+/g, ' ').trim()}`)
+  }
 
   // ── 本地交互验证 ─────────────────────────────────────────────────────────
   // 点击在第一个 evaluate 里做；React 18 的状态更新是异步的，断言放到

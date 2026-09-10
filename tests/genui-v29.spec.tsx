@@ -78,6 +78,28 @@ describe('v7: table sections/totals, stacked bars, card tones', () => {
     expect((segments[0] as HTMLElement).style.height).toBe('75%')
   })
 
+  it('shows an instant tooltip with the segment breakdown on hover', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'chart',
+        data: [],
+        stacked: true,
+        series: [
+          { label: '已完成', data: [{ label: 'Q1', value: 30 }] },
+          { label: '进行中', data: [{ label: 'Q1', value: 10 }] },
+        ],
+      }],
+    })
+    const segments = container.querySelectorAll('[class*="stackSeg"]')
+    fireEvent.mouseEnter(segments[0]!)
+    const tip = container.querySelector('[class*="chartTip"]')
+    expect(tip?.textContent).toContain('已完成')
+    expect(tip?.textContent).toContain('30')
+    expect(tip?.textContent).toContain('合计')
+    fireEvent.mouseLeave(container.querySelector('[data-genui-chart]')!)
+    expect(container.querySelector('[class*="chartTip"]')).toBeNull()
+  })
+
   it('tints a card by tone', () => {
     const { container } = renderBlock({
       items: [{ type: 'card', tone: 'success', title: '已通过', items: [{ type: 'text', content: 'ok' }] }],
@@ -159,44 +181,52 @@ describe('v3: stat sparkline', () => {
   })
 })
 
-describe('v2.9: chart hover tooltips', () => {
-  it('bars carry title attrs with label and value', () => {
+describe('v2.9/v8: chart hover tooltips', () => {
+  it('bars show the label and value in the instant tooltip', () => {
     const { container } = renderBlock({
       items: [{ type: 'chart', data: [{ label: '一', value: 42 }] }],
     })
-    // v3: the title moved from the column to the bar itself (the column now
-    // hosts an absolutely positioned fill and value label).
-    expect(container.querySelector('[class*="barFill"]')!.getAttribute('title')).toBe('一: 42')
+    fireEvent.mouseEnter(container.querySelector('[class*="barFill"]')!)
+    const tip = container.querySelector('[class*="chartTip"]')
+    expect(tip?.textContent).toContain('一')
+    expect(tip?.textContent).toContain('42')
   })
 
-  it('grouped bars name the series in the tooltip', () => {
+  it('grouped bars name the series and the category total', () => {
     const { container } = renderBlock({
       items: [{ type: 'chart', series: [
         { label: '本月', data: [{ label: 'Q1', value: 3 }] },
+        { label: '上月', data: [{ label: 'Q1', value: 5 }] },
       ] }],
     })
-    const bar = [...container.querySelectorAll('[class*="groupedBar"]')].find(el => el.hasAttribute('title'))
-    expect(bar).toBeDefined()
-    expect(bar!.getAttribute('title')).toBe('本月 · Q1: 3')
+    fireEvent.mouseEnter(container.querySelector('[class*="groupedFill"]')!)
+    const tip = container.querySelector('[class*="chartTip"]')
+    expect(tip?.textContent).toContain('本月')
+    expect(tip?.textContent).toContain('3')
+    expect(tip?.textContent).toContain('合计')
   })
 
-  it('donut arcs carry title elements', () => {
+  it('donut arcs show label, value and share', () => {
     const { container } = renderBlock({
       items: [{ type: 'chart', kind: 'donut', data: [{ label: 'A', value: 30 }] }],
     })
-    const titles = [...container.querySelectorAll('svg title')].map(t => t.textContent ?? '')
-    expect(titles.join(' ')).toContain('A: 30')
+    fireEvent.mouseEnter(container.querySelector('[class*="donutSeg"]')!)
+    const tip = container.querySelector('[class*="chartTip"]')
+    expect(tip?.textContent).toContain('A')
+    expect(tip?.textContent).toContain('30')
+    expect(tip?.textContent).toContain('100.0%')
   })
 
-  it('line dots carry SVG title elements', () => {
+  it('line dots show the point value', () => {
     const { container } = renderBlock({
       items: [{ type: 'chart', kind: 'line', data: [
         { label: '周一', value: 8 }, { label: '周二', value: 12 },
       ] }],
     })
-    const titles = [...container.querySelectorAll('svg title')].map(t => t.textContent)
-    expect(titles).toContain('周一: 8')
-    expect(titles).toContain('周二: 12')
+    fireEvent.mouseEnter(container.querySelectorAll('[class*="lineDot"]')[0]!)
+    expect(container.querySelector('[class*="chartTip"]')?.textContent).toContain('周一')
+    fireEvent.mouseEnter(container.querySelectorAll('[class*="lineDot"]')[1]!)
+    expect(container.querySelector('[class*="chartTip"]')?.textContent).toContain('12')
   })
 })
 

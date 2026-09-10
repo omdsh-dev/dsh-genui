@@ -498,7 +498,7 @@
 
 /* Chart skeleton: plot area with baseline + 25/50/75% gridlines, category
    labels in their own row below the axis (they must never cross the lines). */
-.chart { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
+.chart { position: relative; display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
 /* Y-axis gutter + plot share one measured box so tick labels line up with the
    gridlines instead of being guessed from the container height. */
 .chartBody { display: flex; gap: 6px; align-items: stretch; }
@@ -548,6 +548,41 @@
 .legendItem { display: inline-flex; align-items: center; gap: 6px; }
 .legendSwatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
 .lineArea { fill: var(--dsl-g-accent); opacity: 0.1; }
+
+/* Instant hover readout (charts). Native `title` is slow and cannot show a
+   stacked breakdown; this is drawn by the chart itself. */
+.chartTip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 10px));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: var(--dsl-g-radius-control);
+  border: 1px solid var(--dsl-g-border-strong);
+  background: var(--dsw-alias-bg-layer-3, var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, #1c1c1e)));
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
+  color: var(--dsw-alias-label-primary);
+  font-size: var(--dsl-g-font-meta);
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 6;
+}
+.chartTipRow { display: flex; justify-content: space-between; gap: 14px; }
+.chartTipValue { font-family: var(--dsl-g-font-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Value printed inside a stacked segment when the segment is tall enough. */
+.stackValue {
+  display: block;
+  text-align: center;
+  font-family: var(--dsl-g-font-mono);
+  font-size: var(--dsl-g-font-data);
+  font-weight: 700;
+  line-height: 1.5;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  font-variant-numeric: tabular-nums;
+}
 .barCol {
   position: relative;
   flex: 1;
@@ -573,6 +608,9 @@
   bottom: 0;
   display: flex;
   flex-direction: column-reverse;
+  /* A hairline gap between segments: without it a two-colour stack reads as
+     one block and the boundary is impossible to find. */
+  gap: 2px;
   border-radius: 5px 5px 0 0;
   overflow: hidden;
   transition: height 0.6s ease;
@@ -732,7 +770,7 @@
 
 /* ---------- chart variants ---------- */
 
-.lineChart { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
+.lineChart { position: relative; display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
 .linePath { fill: none; stroke: var(--dsl-g-accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .lineDot { fill: var(--dsl-g-accent); transition: filter 0.15s; }
 .lineDot:hover { filter: brightness(1.3); }
@@ -773,7 +811,7 @@
 .groupedFill { flex: 0 0 auto; width: 100%; border-radius: 4px 4px 2px 2px; min-height: 3px; background: var(--dsl-g-accent); transition: filter 0.15s; }
 .groupedFill:hover { filter: brightness(1.18); }
 
-.donut { display: flex; align-items: center; gap: var(--dsl-g-gap-lg); }
+.donut { position: relative; display: flex; align-items: center; gap: var(--dsl-g-gap-lg); }
 .donutTrack { stroke: var(--dsw-alias-border-l1, rgba(255, 255, 255, 0.08)); }
 .donutSeg { transition: filter 0.15s; }
 .donutSeg:hover { filter: brightness(1.18); }
@@ -810,15 +848,29 @@
   opacity: 0.6;
 }
 
-/* Group header rows inside a table (types[0] === 'group'): a section title
-   spanning every column, so one table can read as several blocks. */
+/* Section header rows (types[0] === 'group'). v7 rendered them nearly
+   identical to a data row, which is why they read as "one more row" instead
+   of a section: now they are a full-width BAND — darker tint, eyebrow
+   typography, extra height, an indent so the label does not line up with the
+   data column, and a strong rule above every section after the first. */
 .groupRow td {
-  background: color-mix(in srgb, var(--dsw-alias-label-primary) 5%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent);
+  color: var(--dsw-alias-label-primary);
+  font-size: var(--dsl-g-font-body);
   font-weight: 700;
-  color: var(--dsw-alias-label-secondary);
   letter-spacing: 0.02em;
-  border-bottom: 1px solid var(--dsl-g-border);
+  padding-top: 13px;
+  padding-bottom: 9px;
+  padding-left: calc(var(--dsl-g-gap-md) + 6px);
+  border-top: 1px solid var(--dsl-g-border-strong);
+  border-bottom: 1px solid var(--dsl-g-border-strong);
 }
+.table tbody tr.groupRow:first-child td { border-top: none; }
+/* Last row of a section: close the block with a stronger rule. */
+.table tbody tr.groupEnd td { border-bottom: 1px solid var(--dsl-g-border-strong); }
+/* Section rows are not data: no hover wash, no zebra. */
+.table tbody tr.groupRow:hover { background: none; }
+.table tbody tr.groupRow:nth-child(even) { background: none; }
 .table tfoot td {
   border-top: 1px solid var(--dsl-g-border-strong);
   border-bottom: none;
