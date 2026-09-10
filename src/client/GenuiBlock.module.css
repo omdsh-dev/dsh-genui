@@ -111,7 +111,11 @@
 }
 
 .card {
-  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block));
+  /* Elevated surface: on the dark theme layer-1 (35,35,36) sits only ~14 units
+     above the page (21,21,23) and read as "a black box". layer-2 (44,44,46) is
+     the host's own elevated surface; light theme maps all layers to one colour,
+     so this changes nothing there. */
+  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block)));
   border: 1px solid var(--dsl-g-border);
   border-radius: var(--dsl-g-radius-surface);
   padding: var(--dsl-g-gap-lg);
@@ -298,26 +302,26 @@
   background:
     radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--dsl-g-accent) 22%, transparent) 0%, transparent 58%),
     linear-gradient(180deg, color-mix(in srgb, var(--dsl-g-accent) 7%, transparent), transparent 70%),
-    var(--dsw-alias-bg-layer-1, transparent);
+    var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, transparent));
   overflow: hidden;
 }
 .heroSuccess {
   background:
     radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) 20%, transparent) 0%, transparent 58%),
     linear-gradient(180deg, color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) 6%, transparent), transparent 70%),
-    var(--dsw-alias-bg-layer-1, transparent);
+    var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, transparent));
 }
 .heroWarning {
   background:
     radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) 20%, transparent) 0%, transparent 58%),
     linear-gradient(180deg, color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) 6%, transparent), transparent 70%),
-    var(--dsw-alias-bg-layer-1, transparent);
+    var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, transparent));
 }
 .heroDanger {
   background:
     radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) 18%, transparent) 0%, transparent 58%),
     linear-gradient(180deg, color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) 6%, transparent), transparent 70%),
-    var(--dsw-alias-bg-layer-1, transparent);
+    var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, transparent));
 }
 .heroLabel {
   font-size: var(--dsl-g-font-meta);
@@ -391,7 +395,7 @@
   padding: 14px 16px 15px;
   border: 1px solid var(--dsl-g-border);
   border-radius: var(--dsl-g-radius-surface);
-  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, transparent));
+  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, transparent)));
   min-width: 0;
   overflow: hidden;
 }
@@ -763,7 +767,7 @@
   border: 1px solid var(--dsl-g-border);
   font-size: var(--dsl-g-font-title);
   line-height: 1.65;
-  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block));
+  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block)));
 }
 .calloutInfo { background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent); }
 .calloutSuccess { background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent); }
@@ -1321,7 +1325,7 @@
   border: 1px solid var(--dsl-g-border);
   border-radius: var(--dsl-g-radius-surface);
   overflow: hidden;
-  background: var(--dsw-alias-bg-layer-1, transparent);
+  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, transparent));
 }
 .accItem { border-bottom: 1px solid var(--dsl-g-border); }
 .accItem:last-child { border-bottom: none; }
@@ -1584,7 +1588,7 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   padding: var(--dsl-g-gap-lg);
   border: 1px solid var(--dsl-g-border);
   border-radius: var(--dsl-g-radius-surface);
-  background: var(--dsw-alias-bg-layer-1, transparent);
+  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, transparent));
 }
 .skeletonTitle {
   display: block;
