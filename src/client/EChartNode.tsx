@@ -13,9 +13,15 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import css from './GenuiBlock.module.css'
-import { createChart as lazyCreateChart, type EChartsInstance } from './echarts-lazy.ts'
+import { CORE_PRESETS, createChart as lazyCreateChart, type EChartsInstance } from './echarts-lazy.ts'
 import { CHART_COLORS } from './blocks/charts.tsx'
 import type { GenuiEChart } from './spec.ts'
+
+/** Which engine bundle this node needs (progressive disclosure). */
+function neededEngine(node: GenuiEChart): 'core' | 'full' {
+  if (node.option !== undefined) return 'full'
+  return CORE_PRESETS.has(node.preset ?? 'bar') ? 'core' : 'full'
+}
 
 /** Read a CSS custom property from the document root (host theme token). */
 function readToken(name: string, fallback: string): string {
@@ -134,6 +140,185 @@ function presetOption(node: GenuiEChart): Record<string, unknown> {
         legend: series !== undefined ? { bottom: 0, textStyle: { color: t.labelTertiary } } : undefined,
       }
     }
+    case 'radar': {
+      // Indicators come from the first series' labels; each series is one
+      // polygon. `data` alone is treated as a single unnamed series.
+      const entries = series ?? [{ label: '', data }]
+      const indicators = (entries[0]?.data ?? []).map(d => ({ name: d.label, max: undefined as number | undefined }))
+      const max = Math.max(...entries.flatMap(e => e.data.map(d => Number(d.value) || 0)), 1)
+      return {
+        ...base,
+        tooltip: tt({ trigger: 'item' }),
+        legend: { bottom: 0, textStyle: { color: t.labelTertiary } },
+        radar: {
+          indicator: indicators.map(i => ({ name: i.name, max: Math.ceil(max * 1.1) })),
+          splitLine: { lineStyle: { color: t.border } },
+          splitArea: { show: false },
+          axisLine: { lineStyle: { color: t.border } },
+          axisName: { color: t.labelTertiary },
+        },
+        series: [{
+          type: 'radar',
+          symbolSize: 5,
+          areaStyle: { opacity: 0.12 },
+          data: entries.map((e, i) => ({
+            name: e.label,
+            value: e.data.map(d => Number(d.value) || 0),
+            ...optItemStyleColor(e.color, i, series),
+          })),
+        }],
+      }
+    }
+    case 'gauge': {
+      // One gauge per datum (usually a single KPI).
+      return {
+        ...base,
+        tooltip: tt({ trigger: 'item' }),
+        series: data.slice(0, 4).map((d, i) => ({
+          type: 'gauge',
+          startAngle: 210,
+          endAngle: -30,
+          min: 0,
+          max: Math.max(Number(d.value) || 0, 100),
+          center: data.length > 1 ? [`${(i + 0.5) * (100 / Math.min(data.length, 4))}%`, '58%'] : ['50%', '58%'],
+          radius: data.length > 1 ? '62%' : '82%',
+          progress: { show: true, width: 12 },
+          axisLine: { lineStyle: { width: 12, color: [[1, t.border]] } },
+          axisTick: { show: false },
+          splitLine: { show: false },
+          axisLabel: { show: false },
+          pointer: { show: false },
+          title: { offsetCenter: [0, '32%'], color: t.labelTertiary, fontSize: 12 },
+          detail: { valueAnimation: true, fontSize: 26, offsetCenter: [0, '2%'], formatter: '{value}', color: t.labelPrimary },
+          data: [{ value: Number(d.value) || 0, name: d.label }],
+        })),
+      }
+    }
+    case 'funnel': {
+      return {
+        ...base,
+        tooltip: tt({ trigger: 'item', formatter: '{b}: {c}' }),
+        legend: { bottom: 0, textStyle: { color: t.labelTertiary } },
+        series: [{
+          type: 'funnel',
+          left: '8%',
+          width: '84%',
+          top: 16,
+          bottom: 40,
+          gap: 2,
+          label: { position: 'inside', color: '#fff', formatter: '{b} {c}' },
+          itemStyle: { borderWidth: 0 },
+          data: data.map(d => ({ name: d.label, value: Number(d.value) || 0 })),
+        }],
+      }
+    }
+    case 'treemap': {
+      return {
+        ...base,
+        tooltip: tt({ trigger: 'item', formatter: '{b}: {c}' }),
+        series: [{
+          type: 'treemap',
+          roam: false,
+          nodeClick: false,
+          breadcrumb: { show: false },
+          upperLabel: { show: false },
+          label: { color: t.labelPrimary },
+          itemStyle: { borderColor: t.bgLayer1, borderWidth: 2, gapWidth: 2 },
+          data: data.map(d => ({ name: d.label, value: Number(d.value) || 0 })),
+        }],
+      }
+    }
+    case 'sankey': {
+      const links = node.links ?? []
+      const names = data.length > 0
+        ? data.map(d => d.label)
+        : [...new Set(links.flatMap(l => [l.from, l.to]))]
+      return {
+        ...base,
+        tooltip: tt({ trigger: 'item' }),
+        series: [{
+          type: 'sankey',
+          left: 8,
+          right: 8,
+          top: 12,
+          bottom: 12,
+          nodeGap: 12,
+          lineStyle: { color: 'gradient', curveness: 0.5, opacity: 0.32 },
+          label: { color: t.labelSecondary },
+          emphasis: { focus: 'adjacency' },
+          data: names.map(name => ({ name })),
+          links: links.map(l => ({ source: l.from, target: l.to, value: l.value ?? 1 })),
+        }],
+      }
+    }
+    case 'graph': {
+      const links = node.links ?? []
+      const names = data.length > 0
+        ? data.map(d => d.label)
+        : [...new Set(links.flatMap(l => [l.from, l.to]))]
+      // Node size follows its degree, so hubs read as hubs without extra data.
+      const degree = new Map<string, number>()
+      for (const l of links) {
+        degree.set(l.from, (degree.get(l.from) ?? 0) + 1)
+        degree.set(l.to, (degree.get(l.to) ?? 0) + 1)
+      }
+      return {
+        ...base,
+        tooltip: tt({ trigger: 'item' }),
+        series: [{
+          type: 'graph',
+          layout: 'force',
+          roam: true,
+          label: { show: true, color: t.labelSecondary, fontSize: 11 },
+          force: { repulsion: 200, edgeLength: 80 },
+          lineStyle: { color: t.border, curveness: 0.1 },
+          emphasis: { focus: 'adjacency' },
+          data: names.map(name => ({ name, symbolSize: 16 + (degree.get(name) ?? 0) * 5 })),
+          links: links.map(l => ({ source: l.from, target: l.to })),
+        }],
+      }
+    }
+    case 'heatmap': {
+      // Rows come from `series` (one row per entry), columns from the first
+      // row's labels — the same shape the other presets use.
+      const rows = series ?? [{ label: '', data }]
+      const cols = (rows[0]?.data ?? []).map(d => d.label)
+      const values = rows.flatMap((row, y) => row.data.map((d, x) => [x, y, Number(d.value) || 0]))
+      const max = Math.max(...values.map(v => v[2] as number), 1)
+      return {
+        ...base,
+        tooltip: tt({ trigger: 'item', position: 'top' }),
+        grid: { left: 64, right: 16, top: 16, bottom: 48 },
+        xAxis: { type: 'category', data: cols, splitArea: { show: false }, axisLabel: { color: t.labelTertiary }, axisLine: { lineStyle: { color: t.border } } },
+        yAxis: { type: 'category', data: rows.map(r => r.label), splitArea: { show: false }, axisLabel: { color: t.labelTertiary }, axisLine: { lineStyle: { color: t.border } } },
+        visualMap: { min: 0, max, calculable: true, orient: 'horizontal', left: 'center', bottom: 0, textStyle: { color: t.labelTertiary } },
+        series: [{ type: 'heatmap', data: values, label: { show: values.length <= 60, color: t.labelPrimary }, itemStyle: { borderColor: t.bgLayer1, borderWidth: 2 } }],
+      }
+    }
+    case 'bigline': {
+      // Long series: symbols off, area wash, inside + slider zoom.
+      return {
+        ...base,
+        tooltip: tt({ trigger: 'axis' }),
+        grid: { left: 48, right: 20, top: 24, bottom: 56 },
+        dataZoom: [
+          { type: 'inside', start: 0, end: 45 },
+          { type: 'slider', height: 16, bottom: 8, borderColor: t.border, textStyle: { color: t.labelTertiary } },
+        ],
+        xAxis: { type: 'category', boundaryGap: false, data: data.map(d => d.label), axisLabel: { color: t.labelTertiary }, axisLine: { lineStyle: { color: t.border } } },
+        yAxis: { type: 'value', axisLabel: { color: t.labelTertiary }, splitLine: { lineStyle: { color: t.border, opacity: 0.5 } } },
+        series: (series ?? [{ label: '', data }]).map((s2, i) => ({
+          name: s2.label,
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          areaStyle: { opacity: 0.12 },
+          data: s2.data.map(d => d.value),
+          ...optItemStyleColor(s2.color, i, series),
+        })),
+        legend: series !== undefined ? { bottom: 26, textStyle: { color: t.labelTertiary } } : undefined,
+      }
+    }
     default: {
       // 'bar' or unspecified
       return {
@@ -173,7 +358,7 @@ export function EChartNode({ node }: { node: GenuiEChart }) {
     // Full `option` wins over preset shorthand.
     const option = node.option ?? presetOption(node)
 
-    void lazyCreateChart(el, option, { height: node.height ?? 300 }).then((inst) => {
+    void lazyCreateChart(el, option, { height: node.height ?? 300 }, neededEngine(node)).then((inst) => {
       if (!alive) {
         inst.dispose()
         return

@@ -752,7 +752,9 @@ export interface GenuiDiagram {
 
 /** Preset chart kinds the `echart` node can build from `data`/`series` without
  * a full ECharts option. Each maps to a themed option template. */
-export type EChartPreset = 'bar' | 'line' | 'area' | 'pie' | 'scatter'
+export type EChartPreset =
+  | 'bar' | 'line' | 'area' | 'pie' | 'scatter'
+  | 'radar' | 'gauge' | 'funnel' | 'treemap' | 'sankey' | 'graph' | 'heatmap' | 'bigline'
 
 /** ECharts node: renders a full ECharts chart. Two modes:
  *
@@ -781,6 +783,8 @@ export interface GenuiEChart {
   data?: GenuiChartDatum[]
   /** Multi-series for preset mode (same shape as `chart.series`). */
   series?: Array<{ label: string; color?: string; data: GenuiChartDatum[] }>
+  /** Node/edge data for the `sankey` and `graph` presets. */
+  links?: Array<{ from: string; to: string; value?: number }>
   /** Full ECharts option object. When present, `preset`/`data`/`series` are
    * ignored. This is a pass-through to `echarts.setOption`. */
   option?: Record<string, unknown>

@@ -75,7 +75,10 @@ export const DIAGRAM_NODE_TYPES = ['focal', 'backend', 'store', 'external', 'inp
 export const DIAGRAM_VARIANTS = ['light', 'dark', 'editorial'] as const
 export const DIAGRAM_EDGE_KINDS = ['solid', 'dashed', 'accent', 'link'] as const
 export const DIAGRAM_ROUTES = ['auto', 'orthogonal', 'straight'] as const
-export const ECHART_PRESETS = ['bar', 'line', 'area', 'pie', 'scatter'] as const
+export const ECHART_PRESETS = [
+  'bar', 'line', 'area', 'pie', 'scatter',
+  'radar', 'gauge', 'funnel', 'treemap', 'sankey', 'graph', 'heatmap', 'bigline',
+] as const
 /** Oversized single-number stat (one per fence as the visual anchor). */
 export const STAT_SIZES = ['hero'] as const
 /** Progress shapes: a track (default) or a circular gauge. */
@@ -273,8 +276,9 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   }),
   diff: schema(['diffs'], { ...nodeFields, diffs: 'array' }, {}, { nested: { diffs: diffRecordSchema } }),
   divider: schema([], nodeFields),
-  echart: schema([], { ...nodeFields, title: 'string', height: 'number', preset: 'string', data: 'array', series: 'array', option: 'object' }, {}, {
-    oneOfRequired: [['option', 'data', 'series']],
+  echart: schema([], { ...nodeFields, title: 'string', height: 'number', preset: 'string', data: 'array', series: 'array', links: 'array', option: 'object' }, {}, {
+    // `links` alone is valid: the sankey/graph presets are edge-driven.
+    oneOfRequired: [['option', 'data', 'series', 'links']],
     enums: { preset: ECHART_PRESETS },
   }),
   'file-tree': schema(['items'], { ...nodeFields, items: 'array' }, {}, { nested: { items: fileTreeNodeSchema } }),

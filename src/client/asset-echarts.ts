@@ -1,6 +1,7 @@
 /**
- * ECharts asset-bundle entry: registers the echarts engine on
- * `window.__GenuiAssets__.echarts`. Built as a standalone IIFE into
+ * ECharts FULL asset-bundle entry: the complete engine, fetched only when a
+ * spec needs a chart type outside the core set or ships a raw `option`.
+ * Registers on `window.__GenuiAssets__.echartsFull`. Built as a standalone IIFE into
  * `lib/assets/echarts.js` and served by the plugin's node-half route; loaded
  * on demand by echarts-lazy when a spec contains an `echart` node.
  * @module @changfenhuang/dsh-genui/client/asset-echarts
@@ -22,4 +23,4 @@ function createChart(el: HTMLElement, option: EChartsCoreOption, opts?: { height
 
 const win = globalThis as unknown as { __GenuiAssets__?: Record<string, unknown> }
 const assets = win.__GenuiAssets__ ?? (win.__GenuiAssets__ = {})
-assets.echarts = { createChart }
+assets.echartsFull = { createChart }

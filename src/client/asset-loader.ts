@@ -49,10 +49,10 @@ const pending = new Map<string, Promise<Record<string, unknown>>>()
  * file: repeated requests (several mermaid nodes, re-renders) share one
  * script load; a failed load stays failed for the page (the component shows
  * its fallback).
- * @param name - 'mermaid', 'three', or 'echarts'.
+ * @param name - 'mermaid', 'three', 'echarts-core', or 'echarts-full'.
  * @returns the registered engine surface.
  */
-export function loadGenuiAsset<T>(name: 'mermaid' | 'three' | 'echarts'): Promise<T> {
+export function loadGenuiAsset<T>(name: 'mermaid' | 'three' | 'echarts-core' | 'echarts-full'): Promise<T> {
   const file = `${name}.js`
   const existing = pending.get(file)
   if (existing !== undefined) return existing as Promise<T>
@@ -62,7 +62,9 @@ export function loadGenuiAsset<T>(name: 'mermaid' | 'three' | 'echarts'): Promis
     script.async = true
     script.onload = () => {
       const global = (window as unknown as AssetGlobal).__GenuiAssets__ ?? {}
-      const api = global[name]
+      // Asset files are kebab-case; the keys they register are camelCase.
+      const key = name.replace(/-(\w)/g, (_m, ch: string) => ch.toUpperCase())
+      const api = global[key]
       if (api === undefined) {
         reject(new Error(`genui asset '${file}' loaded but registered no '${name}' engine`))
         return

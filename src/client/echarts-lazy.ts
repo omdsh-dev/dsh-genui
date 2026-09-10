@@ -29,7 +29,16 @@ interface EChartsAssetApi {
  * @param opts - optional height override.
  * @returns the ECharts instance (setOption/resize/dispose).
  */
-export async function createChart(el: HTMLElement, option: unknown, opts?: { height?: number }): Promise<EChartsInstance> {
-  const api = await loadGenuiAsset<EChartsAssetApi>('echarts')
+export async function createChart(
+  el: HTMLElement,
+  option: unknown,
+  opts?: { height?: number },
+  engine: 'core' | 'full' = 'core',
+): Promise<EChartsInstance> {
+  const api = await loadGenuiAsset<EChartsAssetApi>(engine === 'full' ? 'echarts-full' : 'echarts-core')
   return api.createChart(el, option, opts)
 }
+
+/** Presets the core bundle can draw; anything else (or a raw `option`) needs
+ *  the full engine. Kept next to the loader so the split stays in one place. */
+export const CORE_PRESETS: ReadonlySet<string> = new Set(['bar', 'line', 'area', 'pie', 'scatter', 'bigline'])
