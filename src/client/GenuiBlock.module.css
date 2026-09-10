@@ -60,6 +60,10 @@
   --dsl-g-tint: 8%;
   --dsl-g-tint-strong: 14%;
   --dsl-g-font-mono: var(--ds-font-family-code, ui-monospace, 'SF Mono', monospace);
+  /* Elevation: the light theme maps every bg layer to white, so a card there
+     separates only by border + shadow (its border-l1 is 4% black — invisible).
+     Dark theme relies on the layer difference; the shadow stays subtle. */
+  --dsl-g-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 .block {
@@ -116,13 +120,14 @@
      the host's own elevated surface; light theme maps all layers to one colour,
      so this changes nothing there. */
   background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block)));
-  border: 1px solid var(--dsl-g-border);
+  border: 1px solid var(--dsl-g-border-strong);
   border-radius: var(--dsl-g-radius-surface);
   padding: var(--dsl-g-gap-lg);
   display: flex;
   flex-direction: column;
   gap: var(--dsl-g-gap-md);
   min-width: 0;
+  box-shadow: var(--dsl-g-shadow-card);
 }
 /* Bento rows size every card to the tallest one. Without this, a short card
    (a single donut next to a tall table) kept its content pinned to the top and
@@ -298,12 +303,13 @@
   gap: 6px;
   padding: 22px 24px 24px;
   border-radius: 14px;
-  border: 1px solid var(--dsl-g-border);
+  border: 1px solid var(--dsl-g-border-strong);
   background:
     radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--dsl-g-accent) 22%, transparent) 0%, transparent 58%),
     linear-gradient(180deg, color-mix(in srgb, var(--dsl-g-accent) 7%, transparent), transparent 70%),
     var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, transparent));
   overflow: hidden;
+  box-shadow: var(--dsl-g-shadow-card);
 }
 .heroSuccess {
   background:
@@ -393,11 +399,12 @@
   /* Metric card: the number IS the design. No accent stripe, no bar — the
      40px figure against a 12px uppercase label carries the hierarchy. */
   padding: 14px 16px 15px;
-  border: 1px solid var(--dsl-g-border);
+  border: 1px solid var(--dsl-g-border-strong);
   border-radius: var(--dsl-g-radius-surface);
   background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, transparent)));
   min-width: 0;
   overflow: hidden;
+  box-shadow: var(--dsl-g-shadow-card);
 }
 /* Hero stat: one number is the answer's anchor (use it once per fence). */
 .statHero { padding: 18px 20px 20px; }
@@ -509,7 +516,7 @@
 
 .tableWrap {
   border-radius: var(--dsl-g-radius-control);
-  border: 1px solid var(--dsl-g-border);
+  border: 1px solid var(--dsl-g-border-strong);
   /* A table whose nowrap cells exceed the column width must scroll, not clip
      (mirrors the shell markdown table's .tableScroll pattern). */
   overflow-x: auto;
@@ -764,10 +771,11 @@
   gap: 3px;
   padding: 12px 15px;
   border-radius: var(--dsl-g-radius-surface);
-  border: 1px solid var(--dsl-g-border);
+  border: 1px solid var(--dsl-g-border-strong);
   font-size: var(--dsl-g-font-title);
   line-height: 1.65;
   background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block)));
+  box-shadow: var(--dsl-g-shadow-card);
 }
 .calloutInfo { background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent); }
 .calloutSuccess { background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent); }
@@ -1322,10 +1330,11 @@
 .accordion {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--dsl-g-border);
+  border: 1px solid var(--dsl-g-border-strong);
   border-radius: var(--dsl-g-radius-surface);
   overflow: hidden;
   background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, transparent));
+  box-shadow: var(--dsl-g-shadow-card);
 }
 .accItem { border-bottom: 1px solid var(--dsl-g-border); }
 .accItem:last-child { border-bottom: none; }
