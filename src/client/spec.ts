@@ -10,7 +10,13 @@
  */
 
 /** One node in the component tree. */
-export type GenuiNode =
+/** Layout hints accepted by every node: `span` is how many columns the node
+ *  occupies as a direct child of a `grid` (bento layouts). */
+export interface GenuiLayoutHints {
+  span?: number
+}
+
+export type GenuiNode = (
   | GenuiText
   | GenuiRow
   | GenuiCol
@@ -26,6 +32,7 @@ export type GenuiNode =
   | GenuiVideo
   | GenuiBadge
   | GenuiStat
+  | GenuiHero
   | GenuiProgress
   | GenuiDivider
   | GenuiList
@@ -55,6 +62,7 @@ export type GenuiNode =
   | GenuiBreadcrumb
   | GenuiQuiz
   | GenuiDiagram
+) & GenuiLayoutHints
 
   | GenuiEChart
 
@@ -192,6 +200,21 @@ export interface GenuiBadge {
   label: string
   tone?: 'success' | 'warn' | 'danger' | 'accent'
   icon?: string
+}
+
+/** Cover band: the answer's focal point. One per fence — an eyebrow label, an
+ *  oversized metric, a title and a subtitle on a soft tinted surface. */
+export interface GenuiHero {
+  type: 'hero'
+  title: string
+  subtitle?: string
+  /** Oversized metric, e.g. "99.96%" / "3.2x". */
+  value?: string
+  /** Eyebrow label above the metric. */
+  label?: string
+  delta?: string
+  spark?: number[]
+  tone?: 'accent' | 'success' | 'warning' | 'danger'
 }
 
 export interface GenuiStat {

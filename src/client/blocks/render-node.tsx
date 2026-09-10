@@ -4,7 +4,7 @@
  * the sibling block modules. Depth-guarded against pathological specs.
  * @module @changfenhuang/dsh-genui/client/blocks/render-node
  */
-import { type ReactNode, type ComponentType } from 'react'
+import { type ComponentType, type ReactNode, useEffect, useState } from 'react'
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
@@ -54,10 +54,24 @@ function isListItemNode(item: GenuiList['items'][number]): item is GenuiNode {
  * `6.8 GB` → `6.8` + `GB`). Values that do not start with a number are left
  * whole.
  */
-function splitStatValue(value: string): { num: string; unit: string } {
+function splitStatValue(value: string): {
+  num: string
+  unit: string
+  /** Parsed number when the numeric core is a plain decimal (for count-up). */
+  numeric: number | undefined
+  /** Decimal places to keep while animating. */
+  decimals: number
+} {
   const match = /^([+\-−]?[\d.,]+(?:[eE][+\-]?\d+)?)\s*(.*)$/.exec(value.trim())
-  if (match === null || match[1] === undefined) return { num: value, unit: '' }
-  return { num: match[1], unit: match[2] ?? '' }
+  if (match === null || match[1] === undefined) return { num: value, unit: '', numeric: undefined, decimals: 0 }
+  const raw = match[1]
+  const plain = raw.replace(/[,，]/g, '')
+  const parsed = Number(plain)
+  // Commas are thousands separators in a number, but a grouped metric like
+  // "1,2" is not worth animating — keep it static.
+  const numeric = Number.isFinite(parsed) && !/[eE]/.test(plain) ? parsed : undefined
+  const decimals = plain.includes('.') ? (plain.split('.')[1] ?? '').length : 0
+  return { num: raw, unit: match[2] ?? '', numeric, decimals: Math.min(decimals, 4) }
 }
 
 /**
@@ -108,6 +122,55 @@ function Sparkline({ values }: { values: number[] }) {
 /** Live value of a bound control (`node.filter` / `node.sortField`): the field id
  *  resolves against the block's shared field registry, so typing in an input
  *  re-renders every component bound to it. */
+/**
+ * Animate a metric from 0 to its target once on mount. Only used for values
+ * that are pure numbers with an optional unit — counting up "v0.9.9" would be
+ * nonsense, and prefers-reduced-motion turns it off entirely.
+ */
+function useCountUp(target: number, decimals: number, enabled: boolean): string {
+  const [value, setValue] = useState(enabled ? 0 : target)
+  useEffect(() => {
+    if (!enabled) { setValue(target); return }
+    const reduce = typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduce) { setValue(target); return }
+    let raf = 0
+    const start = performance.now()
+    const duration = 720
+    const tick = (now: number): void => {
+      const t = Math.min(1, (now - start) / duration)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setValue(target * eased)
+      if (t < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, enabled])
+  return value.toFixed(decimals)
+}
+
+/** Animated metric text: splits the value into number + unit and counts the
+ *  number up once. A component (not a helper) so the hook has a stable owner —
+ *  renderNode's switch must never call hooks conditionally. */
+function AnimatedValue({ value, unitClass, animate = false }: {
+  value: string
+  unitClass?: string | undefined
+  /** Only hero-scale numbers count up: a grid of eight stats all ticking at
+   *  once reads as a gimmick, not as polish. */
+  animate?: boolean | undefined
+}) {
+  const parts = splitStatValue(value)
+  const target = parts.numeric
+  const animated = useCountUp(target ?? 0, parts.decimals, animate && target !== undefined)
+  return (
+    <>
+      {target === undefined ? parts.num : animated}
+      {parts.unit !== '' && <span className={unitClass ?? css.statUnit}>{parts.unit}</span>}
+    </>
+  )
+}
+
 /** Plain text of a list item, for the local filter. */
 function listItemText(item: GenuiList['items'][number]): string {
   if (typeof item === 'string') return item
@@ -161,7 +224,15 @@ export function renderNode(
     case 'grid': {
       return (
         <div key={key} className={css.grid} style={{ gridTemplateColumns: `repeat(${Math.max(1, node.cols)}, minmax(0, 1fr))` }}>
-          {node.items.map((c, i) => renderNode(c, i, onAction, depth + 1, answers))}
+          {/* `span` is the bento primitive: a child can occupy several columns,
+              so one wide hero card can sit next to two narrow ones. */}
+          {node.items.map((c, i) => {
+            const child = renderNode(c, i, onAction, depth + 1, answers)
+            const span = typeof c === 'object' && c !== null && typeof (c as { span?: unknown }).span === 'number'
+              ? Math.max(1, Math.min(12, (c as { span: number }).span))
+              : 1
+            return span > 1 ? <div key={i} className={css.gridSpan} style={{ gridColumn: `span ${span}` }}>{child}</div> : child
+          })}
         </div>
       )
     }
@@ -218,15 +289,34 @@ export function renderNode(
         </span>
       )
     }
+    case 'hero': {
+      const tone = node.tone ?? 'accent'
+      const heroTone = css[`hero${tone[0]!.toUpperCase()}${tone.slice(1)}`] ?? ''
+      const heroDown = node.delta !== undefined && node.delta.startsWith('-')
+      return (
+        <div key={key} className={`${css.hero} ${heroTone}`}>
+          {node.label !== undefined && <span className={css.heroLabel}>{node.label}</span>}
+          <div className={css.heroTop}>
+            {node.value !== undefined && (
+              <span className={css.heroValue}><AnimatedValue value={node.value} unitClass={css.heroUnit} animate /></span>
+            )}
+            {node.delta !== undefined && (
+              <span className={`${css.statDelta} ${heroDown ? css.down : css.up}`}>{node.delta}</span>
+            )}
+            {node.spark !== undefined && <span className={css.heroSpark}><Sparkline values={node.spark} /></span>}
+          </div>
+          <span className={css.heroTitle}>{node.title}</span>
+          {node.subtitle !== undefined && <span className={css.heroSubtitle}>{node.subtitle}</span>}
+        </div>
+      )
+    }
     case 'stat': {
       const down = node.delta !== undefined && node.delta.startsWith('-')
-      const parts = splitStatValue(node.value)
       return (
         <div key={key} className={`${css.stat}${node.size === 'hero' ? ` ${css.statHero}` : ''}`}>
           <span className={css.statLabel}>{node.label}</span>
           <span className={css.statValue}>
-            {parts.num}
-            {parts.unit !== '' && <span className={css.statUnit}>{parts.unit}</span>}
+            <AnimatedValue value={node.value} animate={node.size === 'hero'} />
           </span>
           {node.delta !== undefined && <span className={`${css.statDelta} ${down ? css.down : css.up}`}>{node.delta}</span>}
           {node.spark !== undefined && <Sparkline values={node.spark} />}

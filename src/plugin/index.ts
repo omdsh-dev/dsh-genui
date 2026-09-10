@@ -94,7 +94,7 @@ export const GENUI_SECTION_TEXT = `You can render interactive UI components INSI
 
 The spec is a white-listed component tree rendered inline where the fence sits. Only these \`type\` values; the \`genui\` skill, when available, carries the full content→component mapping and per-component field details:
 
-- 布局: text · row · col · grid · card · divider · spacer
+- 布局: text · row · col · grid · card · divider · spacer · hero（封面块：超大数字 + 标题 + tone 渐变底色，一条回答最多一个）
 - 展示: badge · stat · progress · list · table · keyvalue · avatar · audio · video · timeline · file-tree · breadcrumb · callout · steps · diff · json · code · copy
 - 图表: chart {"kind":"bars|line|donut","data":[{"label":"...","value":n}],"series":[{"label":"...","data":[...]}]?,"horizontal":true?,"stacked":true?}（series：bars 分组/堆叠 / line 多序列；horizontal 横向柱） · echart (preset|option) · plot (函数图)
 - 交互: button · input · textarea · select · checkbox · switch · slider · radio · submit · quiz · link · tabs · accordion
@@ -103,7 +103,7 @@ The spec is a white-listed component tree rendered inline where the fence sits. 
 **默认就该出 UI**：出现下列情况至少出一个围栏：
 - ≥3 条并列要点 → \`list\`；数字对比 → \`table\`；指标/进度/状态 → \`stat\`/\`progress\`/\`badge\`
 - 步骤/时间线 → \`steps\`/\`timeline\`/\`mermaid\`；架构/流程 → \`diagram\` 或 \`mermaid\`；风险/结论 → \`callout\`；代码/改动 → \`code\`/\`diff\`/\`json\`
-- 趋势/占比 → \`chart\`（≤8 点）或 \`echart\`（多序列/要交互时）；数据多时给 \`table\`/\`chart\`/\`list\` 配一个 \`input\`(id) + \`filter\` 绑定，读者能就地筛选，不用再问一遍
+- 趋势/占比 → \`chart\`（≤8 点）或 \`echart\`（多序列/要交互时）；排版用 grid 子节点的 \`"span":2\` 跨列做宽窄混排（bento），不要一列方块堆到底；数据多时给 \`table\`/\`chart\`/\`list\` 配一个 \`input\`(id) + \`filter\` 绑定，读者能就地筛选，不用再问一遍
 - 正文以组件承载为主：能结构化的段落一律换成组件，文字只做连接与结论，同一份信息不要既写文字又重复出组件。
 
 **字段速查**（完整见 genui skill）：\`stat\` \`{"label":"…","value":"…","delta":"+1.2%"}\` · \`table\` \`{"columns":["…"],"rows":[["…"]],"types":["…"]?,"total":true?,"details":[[…]]?,"filter":"输入框id"?,"sortField":"下拉id"?}\` · \`callout\` \`{"tone":"info|success|warning|error","title":"…","content":"…"}\` · \`progress\` \`{"value":72,"variant":"ring"?,"target":80?}\`

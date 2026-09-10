@@ -22,6 +22,8 @@ description: "Render structured interactive UI inline in your reply via the dsh-
 - text: `{"type":"text","size":"h1|h2|h3|body|muted|caption","content":"...","center":true?}`
 - row / col: `{"type":"row"|"col","items":[...],"wrap":true?,"spacer":true?,"gap":n?}`
 - grid: `{"type":"grid","cols":n,"items":[...]}`
+- hero: `{"type":"hero","title":"...","subtitle":"...","value":"99.96%","label":"可用率","delta":"+0.02%","spark":[...],"tone":"accent|success|warning|danger"}` — **封面块**：eyebrow + 超大数字（52px，带入场计数）+ 标题 + 副标题 + tone 渐变底色。**一条回答最多用一个**，放在最前面当视觉锚点
+- span: 任意节点都可加 `"span":2`（grid 子节点占几列）——bento 排版的唯一原语：一张 `span:2` 宽卡配一张窄卡，比一列方块堆下去好看得多
 - card: `{"type":"card","title":"...","items":[...]}`；`"tone":"info|success|warning|danger"` 给卡片底色（用于结论卡/风险卡）
 - divider: `{"type":"divider"}`; spacer: `{"type":"spacer"}`
 
@@ -93,6 +95,8 @@ description: "Render structured interactive UI inline in your reply via the dsh-
 | 重点强调 / 警告 / 注意事项 | `callout`（info/success/warning/error）、`badge`、`stat` |
 | 数据对比 / 趋势 / 占比 | `chart`（bars/line/donut）、`echart`（ECharts 全功能）、`table` |
 | 关键指标数字 / 进度状态 | `stat`、`progress`、`badge` |
+| 回答的视觉锚点（第一个组件） | `hero`（封面块，一条回答最多一个） |
+| 想排版不呆板 | `grid` + 子节点 `span`（bento：宽窄混排） |
 | 数据多、需要读者自己找 | `input`（id）+ `table`/`chart`/`list` 的 `filter` 绑定 |
 | 流程 / 步骤 / 阶段 / 时间线 | `steps`、`timeline`、`mermaid`（flowchart/sequence/gantt） |
 | 架构 / 系统拓扑 / 数据流 / 品牌图 | `diagram`（编辑级，27 种类型；自动布局需求才用 `mermaid`） |

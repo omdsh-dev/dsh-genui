@@ -21,7 +21,7 @@
 import type { GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSeries, GenuiScene3D, GenuiSpec, GenuiDiagram, GenuiDiagramTheme, GenuiDiagramKind } from './spec.ts'
 import { wrapSingleComponentRoot } from './spec.ts'
 import {
-  BADGE_TONES, BUTTON_TONES, CALLOUT_TONES, CARD_TONES, CHART_KINDS, COMPONENT_SCHEMAS,
+  BADGE_TONES, BUTTON_TONES, CALLOUT_TONES, CARD_TONES, CHART_KINDS, COMPONENT_SCHEMAS, HERO_TONES,
   DIAGRAM_EDGE_KINDS, DIAGRAM_KINDS, DIAGRAM_NODE_TYPES, DIAGRAM_ROUTES, DIAGRAM_VARIANTS,
   ECHART_PRESETS, FILE_TYPES, GENUI_NATIVE_TYPES, GENUI_SPEC_SCHEMA, INPUT_TYPES,
   MEDIA_ASPECT_RATIOS, MESH_SHAPES, PLOT_KINDS, PROGRESS_VARIANTS, TABLE_CELL_TYPES, TEXT_SIZES,
@@ -221,7 +221,17 @@ function sparkValues(v: unknown): number[] | undefined {
   return out.length >= 2 ? out : undefined
 }
 
+/** Layout hints are component-agnostic: `span` survives repair on ANY node
+ *  (the renderer applies it inside a grid). Kept out of the per-case switches
+ *  so a new component type cannot forget it. */
 function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | null {
+  const node = repairNodeFields(value, ctx, depth)
+  if (node === null) return null
+  const span = int(obj(value)?.span, 2, 12)
+  return span === undefined ? node : ({ ...node, span } as GenuiNode)
+}
+
+function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | null {
   if (depth > GENUI_LIMITS.maxDepth) return null
   const v = obj(value)
   if (v === undefined) return null
@@ -332,6 +342,19 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
       const label = str(v.label, GENUI_LIMITS.maxString) ?? str(v.text, GENUI_LIMITS.maxString) ?? str(v.value, GENUI_LIMITS.maxString)
       if (label === undefined) return null
       return { type: 'badge', label, ...opt('tone', enu(v.tone, BADGE_TONES)), ...opt('icon', str(v.icon, 64)) }
+    }
+    case 'hero': {
+      const title = str(v.title, GENUI_LIMITS.maxString)
+      if (title === undefined) return null
+      return {
+        type: 'hero', title,
+        ...opt('subtitle', str(v.subtitle, GENUI_LIMITS.maxString)),
+        ...opt('value', str(v.value, 128)),
+        ...opt('label', str(v.label, GENUI_LIMITS.maxString)),
+        ...opt('delta', str(v.delta, 64)),
+        ...opt('spark', sparkValues(v.spark)),
+        ...opt('tone', enu(v.tone, HERO_TONES)),
+      }
     }
     case 'stat': {
       const label = str(v.label, GENUI_LIMITS.maxString)
@@ -1653,6 +1676,10 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       isStr('label')
       isStr('text')
       isStr('value')
+      break
+    case 'hero':
+      if (typeof v.title !== 'string') errors.push(`${at}: type 'hero' requires title (string)`)
+      isStr('subtitle')
       break
     case 'stat':
       if (typeof v.label !== 'string') errors.push(`${at}: type 'stat' requires label (string)`)
