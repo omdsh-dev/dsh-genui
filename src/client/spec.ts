@@ -261,6 +261,8 @@ export interface GenuiCard {
 
 export interface GenuiList {
   type: 'list'
+  /** Field id of an input/select: its value filters the items locally. */
+  filter?: string
   items: Array<string | { title: string; desc?: string } | GenuiNode>
 }
 
@@ -275,6 +277,13 @@ export interface GenuiTable {
   /** Optional master-detail payload, positionally aligned with `rows`:
    *  `details[i]` is what row i expands into (omit / empty = not expandable). */
   details?: Array<GenuiNode[] | null>
+  /** Field id of an input/select: its live value filters the rows locally
+   *  (substring match), so the table is searchable without a model round trip. */
+  filter?: string
+  /** Restrict `filter` to one column index (default: every column). */
+  filterColumn?: number
+  /** Field id of a select whose value is a column header: sorts by it locally. */
+  sortField?: string
 }
 
 /** How a table column's cells render.
@@ -301,6 +310,8 @@ export interface GenuiChart {
   horizontal?: boolean
   /** Bars + series: stack the series instead of grouping them. */
   stacked?: boolean
+  /** Field id of an input/select: its value filters the categories locally. */
+  filter?: string
 }
 
 export interface GenuiTab {

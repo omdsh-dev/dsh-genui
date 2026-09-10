@@ -280,6 +280,23 @@ try {
   }
   log('✓ 流式骨架：出现 → settle 后换成真组件')
 
+  // ── 本地筛选（数据绑定）验证 ─────────────────────────────────────────────
+  // 绑定筛选是纯客户端行为：输入框的值直接过滤表格，不发任何请求。断言它在真实
+  // 浏览器里确实生效，且清空后恢复。
+  const filterInput = page.getByPlaceholder('输入关键字即时过滤下表')
+  if (await filterInput.count() > 0) {
+    const before = await page.locator('table tbody tr').count()
+    await filterInput.fill('搜索')
+    await page.waitForTimeout(400)
+    const after = await page.locator('table tbody tr').count()
+    if (!(after < before)) throw new Error(`绑定筛选未生效（${before} → ${after} 行）`)
+    await filterInput.fill('')
+    await page.waitForTimeout(300)
+    const restored = await page.locator('table tbody tr').count()
+    if (restored !== before) throw new Error(`清空筛选后未恢复（期望 ${before}，实际 ${restored}）`)
+    log(`✓ 本地筛选：${before} → ${after} → ${restored} 行`)
+  }
+
   // ── 文件树布局验证 ───────────────────────────────────────────────────────
   // jsdom 没有布局，只有真实浏览器能证明「子节点在父节点下方」——这条断言钉住
   // 曾经的 bug：子节点被塞进父行的 flex 容器，整棵树横着排成一行。

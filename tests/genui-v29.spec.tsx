@@ -29,6 +29,72 @@ function renderBlock(spec: unknown, actions: Array<[string, Record<string, unkno
   )
 }
 
+describe('v12: 本地数据绑定（就地筛选）', () => {
+  it('filters table rows from a bound input, live', () => {
+    const { container } = renderBlock({
+      items: [
+        { type: 'input', id: 'q', label: '搜索' },
+        { type: 'table', columns: ['服务', 'P95'], filter: 'q', rows: [['API 网关', '128'], ['搜索', '190'], ['推荐', '250']] },
+      ],
+    })
+    const rows = () => container.querySelectorAll('tbody tr')
+    expect(rows()).toHaveLength(3)
+    fireEvent.change(container.querySelector('input')!, { target: { value: '搜索' } })
+    expect(rows()).toHaveLength(1)
+    expect(container.querySelector('tbody')?.textContent).toContain('190')
+    expect(container.textContent).toContain('筛选后 1 / 3 行')
+    fireEvent.change(container.querySelector('input')!, { target: { value: '' } })
+    expect(rows()).toHaveLength(3)
+  })
+
+  it('restricts the filter to one column when filterColumn is set', () => {
+    const { container } = renderBlock({
+      items: [
+        { type: 'input', id: 'q' },
+        { type: 'table', columns: ['服务', '备注'], filter: 'q', filterColumn: 0, rows: [['API', '网关'], ['搜索', 'API']] },
+      ],
+    })
+    fireEvent.change(container.querySelector('input')!, { target: { value: 'api' } })
+    const body = container.querySelector('tbody')?.textContent ?? ''
+    expect(body).toContain('API')
+    expect(body).not.toContain('搜索')
+  })
+
+  it('sorts by a bound select value', () => {
+    const { container } = renderBlock({
+      items: [
+        { type: 'select', id: 'sort', options: ['P95'] },
+        { type: 'table', columns: ['服务', 'P95'], sortField: 'sort', rows: [['A', '250'], ['B', '128']] },
+      ],
+    })
+    fireEvent.change(container.querySelector('select')!, { target: { value: 'P95' } })
+    const first = container.querySelector('tbody tr')?.textContent ?? ''
+    expect(first).toContain('B')
+  })
+
+  it('filters chart categories and list items', () => {
+    const chart = renderBlock({
+      items: [
+        { type: 'input', id: 'q' },
+        { type: 'chart', filter: 'q', data: [{ label: '搜索', value: 82 }, { label: '社交', value: 41 }] },
+      ],
+    })
+    fireEvent.change(chart.container.querySelector('input')!, { target: { value: '搜索' } })
+    expect(chart.container.querySelectorAll('[class*="barCol"]')).toHaveLength(1)
+    chart.unmount()
+
+    const list = renderBlock({
+      items: [
+        { type: 'input', id: 'q' },
+        { type: 'list', filter: 'q', items: ['苹果', '香蕉', '苹果派'] },
+      ],
+    })
+    fireEvent.change(list.container.querySelector('input')!, { target: { value: '苹果' } })
+    expect(list.container.querySelectorAll('[class*="li"]').length).toBeGreaterThanOrEqual(2)
+    expect(list.container.textContent).toContain('匹配 2 / 3 项')
+  })
+})
+
 describe('v11: table master-detail rows', () => {
   it('expands a row into its detail panel and folds it back', () => {
     const { container } = renderBlock({
