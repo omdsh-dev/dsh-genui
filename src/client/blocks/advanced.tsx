@@ -202,7 +202,7 @@ export function AccordionNode({ node, onAction, depth = 0, answers }: {
             onClick={() => setOpen(open === i ? null : i)}
           >
             <span className={css.accTitle}>{item.title}</span>
-            <span className={css.accChevron}>{open === i ? '▾' : '▸'}</span>
+            <span className={css.accChevron} data-open={open === i} aria-hidden>▸</span>
           </button>
           {open === i && (
             <div className={css.accBody} id={`${uid}-body-${i}`} aria-labelledby={`${uid}-head-${i}`}>
