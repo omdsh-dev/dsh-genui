@@ -4,7 +4,7 @@
  * the sibling block modules. Depth-guarded against pathological specs.
  * @module @changfenhuang/dsh-genui/client/blocks/render-node
  */
-import { type ComponentType, type ReactNode, useEffect, useState } from 'react'
+import { type ComponentType, type ReactNode, useEffect, useState, type CSSProperties } from 'react'
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
@@ -238,8 +238,15 @@ export function renderNode(
     }
     case 'card': {
       const toneClass = node.tone === undefined ? '' : ` ${css[`card${node.tone[0]!.toUpperCase()}${node.tone.slice(1)}`] ?? ''}`
+      // An explicit accent drives border + title + a very light wash; it is a
+      // colour hint, not a layout change, so it composes with tone.
+      const accentStyle = node.accent === undefined ? undefined : {
+        borderColor: `color-mix(in srgb, ${node.accent} 45%, transparent)`,
+        background: `color-mix(in srgb, ${node.accent} 7%, var(--dsw-alias-bg-layer-1, transparent))`,
+        '--dsl-card-accent': node.accent,
+      } as CSSProperties
       return (
-        <div key={key} className={`${css.card}${toneClass}`}>
+        <div key={key} className={`${css.card}${toneClass}`} style={accentStyle}>
           {node.title !== undefined && <div className={css.cardTitle}>{node.title}</div>}
           {node.items.map((c, i) => renderNode(c, i, onAction, depth + 1, answers))}
         </div>

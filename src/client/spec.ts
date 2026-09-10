@@ -279,6 +279,8 @@ export interface GenuiCard {
   title?: string
   /** Semantic tint for the card surface (default: neutral). */
   tone?: 'info' | 'success' | 'warning' | 'danger'
+  /** Explicit accent (hex) driving the border, title and wash. */
+  accent?: string
   items: GenuiNode[]
 }
 
@@ -297,6 +299,8 @@ export interface GenuiTable {
   types?: TableCellType[]
   /** Append a 合计 footer row (numeric columns are summed). */
   total?: boolean
+  /** Show 复制 Markdown / 复制 CSV chips above the table. */
+  export?: boolean
   /** Optional master-detail payload, positionally aligned with `rows`:
    *  `details[i]` is what row i expands into (omit / empty = not expandable). */
   details?: Array<GenuiNode[] | null>
@@ -333,6 +337,8 @@ export interface GenuiChart {
   horizontal?: boolean
   /** Bars + series: stack the series instead of grouping them. */
   stacked?: boolean
+  /** Explicit categorical palette (hex) — overrides the host theme colours. */
+  palette?: string[]
   /** Field id of an input/select: its value filters the categories locally. */
   filter?: string
 }
@@ -785,6 +791,8 @@ export interface GenuiEChart {
   series?: Array<{ label: string; color?: string; data: GenuiChartDatum[] }>
   /** Node/edge data for the `sankey` and `graph` presets. */
   links?: Array<{ from: string; to: string; value?: number }>
+  /** Explicit categorical palette (hex) for preset mode. */
+  palette?: string[]
   /** Full ECharts option object. When present, `preset`/`data`/`series` are
    * ignored. This is a pass-through to `echarts.setOption`. */
   option?: Record<string, unknown>
