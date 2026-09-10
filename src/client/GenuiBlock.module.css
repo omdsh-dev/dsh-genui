@@ -118,7 +118,18 @@
   display: flex;
   flex-direction: column;
   gap: var(--dsl-g-gap-md);
+  min-width: 0;
 }
+/* Bento rows size every card to the tallest one. Without this, a short card
+   (a single donut next to a tall table) kept its content pinned to the top and
+   left a large dead block underneath. The last child absorbs the extra height,
+   and the graphic shapes centre themselves inside it. */
+.card > :last-child { flex: 1 1 auto; min-height: 0; }
+.card > .chart,
+.card > .lineChart,
+.card > .donut,
+.card > .hbars { justify-content: center; }
+.card > .col { justify-content: center; }
 
 .cardTitle {
   font-size: var(--dsl-g-font-meta);
@@ -896,7 +907,7 @@
 .donutSeg:hover { filter: brightness(1.18); }
 .donutTotal { fill: var(--dsw-alias-label-primary); font-size: var(--dsl-g-font-h2); font-weight: 700; }
 .donutTotalLabel { fill: var(--dsw-alias-label-tertiary); font-size: 10px; }
-.donutLegend { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-secondary); line-height: 1.5; }
+.donutLegend { display: flex; flex-direction: column; justify-content: center; gap: var(--dsl-g-gap-sm); font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-secondary); line-height: 1.5; }
 .donutPct { color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
 
 /* ---------- progress ring + target marker ---------- */

@@ -85,6 +85,19 @@ function assertFileTreeLayout(container: HTMLElement): void {
   expect(container.textContent).toContain('README.md')
 }
 
+describe('bento card layout contract', () => {
+  it('lets a card absorb the row height and centre its graphic', () => {
+    const css = readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
+    // A short card next to a tall one used to pin its content to the top and
+    // leave a dead block underneath; the last child must absorb the slack and
+    // the graphic shapes must centre inside it.
+    expect(css).toMatch(/\.card > :last-child \{[^}]*flex: 1 1 auto/)
+    const centring = /\.card > \.chart,[\s\S]{0,120}?justify-content: center/
+    expect(css).toMatch(centring)
+    expect(css).toMatch(/\.gridSpan \{[^}]*display: flex/)
+  })
+})
+
 describe('GenUI file-tree layout (issue #28)', () => {
   it.skipIf(!hasFenceRegistry)('renders rows, indent and glyphs through the MarkdownText fence harness', () => {
     const { container } = render(<MarkdownText text={fenced({ items: [fileTree] })} />)
