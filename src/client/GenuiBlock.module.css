@@ -638,23 +638,27 @@
 }
 
 .tabs { display: flex; flex-direction: column; gap: var(--dsl-g-gap-md); }
-.tabBar { display: flex; gap: var(--dsl-g-gap-xs); border-bottom: 1px solid var(--dsl-g-border); }
+.tabBar { display: flex; gap: 2px; border-bottom: 1px solid var(--dsl-g-border); }
 .tab {
   background: transparent;
   border: none;
-  color: var(--dsw-alias-label-tertiary);
+  /* Inactive tabs were tertiary (barely readable); secondary + a hover wash
+     keeps the hierarchy while staying legible. */
+  color: var(--dsw-alias-label-secondary);
   font-size: var(--dsl-g-font-title);
   font-weight: 600;
   font-family: inherit;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-bottom: 2px solid transparent;
+  border-radius: var(--dsl-g-radius-sm) var(--dsl-g-radius-sm) 0 0;
   margin-bottom: -1px;
   cursor: pointer;
   line-height: 1.5;
-  transition: color 0.15s, border-bottom-color 0.15s;
+  transition: color 0.15s, background 0.15s, border-bottom-color 0.15s;
 }
-.tab:hover { color: var(--dsw-alias-label-secondary); }
-.tabActive { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsl-g-accent); }
+.tab:hover { color: var(--dsw-alias-label-primary); background: var(--dsl-g-hover); }
+.tabActive { color: var(--dsw-alias-label-primary); font-weight: 650; border-bottom-color: var(--dsl-g-accent); }
+.tab:focus-visible { outline: 2px solid var(--dsl-g-accent); outline-offset: -2px; }
 
 .avatar {
   width: 32px;
@@ -1156,6 +1160,7 @@
   border: 1px solid var(--dsl-g-border);
   border-radius: var(--dsl-g-radius-surface);
   overflow: hidden;
+  background: var(--dsw-alias-bg-layer-1, transparent);
 }
 .accItem { border-bottom: 1px solid var(--dsl-g-border); }
 .accItem:last-child { border-bottom: none; }
@@ -1165,26 +1170,35 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--dsl-g-gap-sm);
-  background: var(--dsw-alias-bg-layer-1);
+  background: transparent;
   border: none;
   color: var(--dsw-alias-label-primary);
-  padding: 10px 14px;
-  font-size: var(--dsl-g-font-title);
+  padding: 12px 15px;
+  font-size: var(--dsl-g-font-body);
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   line-height: 1.5;
+  text-align: left;
   transition: background 0.15s, color 0.15s;
 }
-.accHead:hover { background: color-mix(in srgb, var(--dsw-alias-label-primary) 5%, var(--dsw-alias-bg-layer-1)); }
-.accHead:active { color: var(--dsl-g-accent); }
-.accChevron { color: var(--dsw-alias-label-tertiary); transition: transform 0.2s; }
+.accHead:hover { background: var(--dsl-g-hover); }
+.accHead[aria-expanded="true"] { border-bottom: 1px solid var(--dsl-g-border); }
+/* One chevron that rotates, instead of swapping glyphs: the state change reads
+   as motion, and the closed/open shapes stay consistent. */
+.accChevron {
+  flex-shrink: 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  transition: transform 0.2s ease;
+}
+.accChevron[data-open="true"] { transform: rotate(90deg); }
 .accBody {
-  padding: var(--dsl-g-gap-md) 14px;
+  padding: 12px 15px 14px;
   display: flex;
   flex-direction: column;
   gap: var(--dsl-g-gap-sm);
-  background: var(--dsw-alias-bg-base, #17171a);
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 2%, transparent);
 }
 
 /* ---------- copy chip ---------- */
@@ -1280,22 +1294,34 @@
 
 .timeline { display: flex; flex-direction: column; }
 .tlItem { display: flex; gap: var(--dsl-g-gap-md); }
-.tlRail { display: flex; flex-direction: column; align-items: center; width: 12px; flex-shrink: 0; }
+.tlRail { display: flex; flex-direction: column; align-items: center; width: 10px; flex-shrink: 0; }
 .tlDot {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  margin-top: 4px;
+  margin-top: 5px;
   flex-shrink: 0;
   background: var(--dsl-g-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint-strong), transparent);
+  /* A soft halo instead of a hard ring: the dot reads as a marker on the rail
+     rather than a bullet stuck to the text. */
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsl-g-accent) 16%, transparent);
+  transition: transform 0.15s ease;
 }
-.tlLine { flex: 1; width: 2px; margin: 2px 0; background: var(--dsl-g-border); }
-.tlBody { padding-bottom: var(--dsl-g-gap-lg); flex: 1; min-width: 0; }
+.tlItem:hover .tlDot { transform: scale(1.15); }
+.tlLine { flex: 1; width: 1px; margin: 4px 0 0; background: var(--dsl-g-border); }
+.tlBody { padding-bottom: 18px; flex: 1; min-width: 0; }
+.tlItem:last-child .tlBody { padding-bottom: 0; }
 .tlHead { display: flex; align-items: baseline; gap: var(--dsl-g-gap-md); }
-.tlTitle { font-size: var(--dsl-g-font-title); font-weight: 600; color: var(--dsw-alias-label-primary); line-height: 1.5; }
-.tlTime { font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-tertiary); margin-left: auto; white-space: nowrap; }
-.tlDesc { font-size: var(--dsl-g-font-title); color: var(--dsw-alias-label-secondary); margin-top: 2px; line-height: 1.5; }
+.tlTitle { font-size: var(--dsl-g-font-body); font-weight: 650; color: var(--dsw-alias-label-primary); line-height: 1.45; }
+.tlTime {
+  margin-left: auto;
+  white-space: nowrap;
+  font-family: var(--dsl-g-font-mono);
+  font-size: var(--dsl-g-font-data);
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.tlDesc { font-size: var(--dsl-g-font-title); color: var(--dsw-alias-label-secondary); margin-top: 3px; line-height: 1.55; }
 
 /* ---------- file tree ---------- */
 
