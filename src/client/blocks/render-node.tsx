@@ -246,7 +246,7 @@ export function renderNode(
       // clean — a blended border and the title — which also keeps charts and
       // tables inside the card colour-neutral.
       const accentStyle = node.accent === undefined ? undefined : {
-        borderColor: `color-mix(in srgb, ${node.accent} 34%, var(--dsl-g-border))`,
+        borderColor: `color-mix(in srgb, ${node.accent} 18%, var(--dsl-g-border))`,
         '--dsl-card-accent': node.accent,
       } as CSSProperties
       return (

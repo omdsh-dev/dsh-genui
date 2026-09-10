@@ -978,7 +978,7 @@
    hue toward the theme's own text colour so it stays legible on dark AND light
    surfaces (a raw accent colour on a dark card reads muddy). */
 .card[style*="--dsl-card-accent"] > .cardTitle {
-  color: color-mix(in srgb, var(--dsl-card-accent) 68%, var(--dsw-alias-label-primary));
+  color: color-mix(in srgb, var(--dsl-card-accent) 38%, var(--dsw-alias-label-primary));
 }
 
 /* Master-detail rows (table.details): a chevron in the first cell opens a
