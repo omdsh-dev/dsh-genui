@@ -104,8 +104,8 @@ describe('surface elevation contract', () => {
     // Light theme maps every bg layer to white and its border-l1 is 4% black —
     // a card there would be invisible without border-l2 + a shadow.
     expect(css).toMatch(/--dsl-g-shadow-card:/)
-    expect(css).toMatch(/--dsl-g-surface: color-mix\(in srgb, var\(--dsw-alias-label-primary\) 4%/)
-    expect(css).toMatch(/--dsl-g-border-surface: color-mix\(in srgb, var\(--dsw-alias-label-primary\) 14%/)
+    expect(css).toMatch(/--dsl-g-surface: color-mix\(in srgb, var\(--dsw-alias-label-primary\) 10%/)
+    expect(css).toMatch(/--dsl-g-border-surface: color-mix\(in srgb, var\(--dsw-alias-label-primary\) 24%/)
     for (const rule of ['card', 'stat', 'callout', 'hero', 'accordion']) {
       const block = new RegExp(`\\.${rule} \\{([^}]*)\\}`).exec(css)
       expect(block, `.${rule} must exist`).not.toBeNull()
