@@ -263,6 +263,7 @@ try {
     assert.deepEqual(await table.locator('tbody td').allTextContents(), ['103', '86', '25'])
     await page.waitForFunction(() => [...document.querySelectorAll('[data-primitives-smoke] [class*="reveal"]')]
       .every(element => getComputedStyle(element).animationName === 'none'))
+    await table.scrollIntoViewIfNeeded()
     const beforeHover = await table.boundingBox()
     await table.hover()
     assert.deepEqual(await table.boundingBox(), beforeHover, '悬停不移动表格')

@@ -25,6 +25,8 @@ export interface GenuiBlockProps {
    * owns the matching React identity.
    */
   stateKey?: string | undefined
+  /** Animate newly arriving items; settled message replays opt out. */
+  animateEntrance?: boolean | undefined
 }
 
 /** Per-question metadata registered by grouped radios for local grading. */

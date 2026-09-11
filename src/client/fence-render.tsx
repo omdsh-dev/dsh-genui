@@ -192,14 +192,15 @@ function renderInlineFence(key: Key, context: GenuiFenceContext | undefined, spe
     <ErrorBoundary key={context?.source?.id ?? key} label="该界面">
       <GenuiBlock
         spec={spec}
+        animateEntrance={context?.source === undefined}
         // v2.7 durable state: session + stable source + content fingerprint —
         // replaying the same content restores answers/lock/field values; new
         // content (换题, edited spec) gets a fresh key. Without a stable
         // source (streaming / non-conversation surfaces) state is not
         // persisted.
-        stateKey={sessionId === undefined
+        stateKey={sessionId === undefined || context?.source === undefined
           ? undefined
-          : fenceStateKey(sessionId, context?.source?.id ?? String(key), JSON.stringify(spec))}
+          : fenceStateKey(sessionId, context.source.id, JSON.stringify(spec))}
       />
     </ErrorBoundary>
   )

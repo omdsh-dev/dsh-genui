@@ -71,7 +71,7 @@ function specEquivalent(a: GenuiSpec, b: GenuiSpec): boolean {
  * lifetime: useState seeds durable data exactly once, and every later save
  * belongs to the same stateKey. The exported shell below owns the React key
  * that enforces this invariant for every caller. */
-function GenuiBlockInstance({ spec, stateKey }: GenuiBlockProps) {
+function GenuiBlockInstance({ spec, stateKey, animateEntrance = true }: GenuiBlockProps) {
   const gap = spec.gap ?? 16
   const onAction = useDebouncedAction(useGenuiAction())
   // Grouped radios and grouped checkboxes record their local selections here;
@@ -186,7 +186,7 @@ function GenuiBlockInstance({ spec, stateKey }: GenuiBlockProps) {
             className={css.reveal}
             style={{
               animationDelay: `${Math.min(i * 90, 720)}ms`,
-              ...(persisted !== null ? { animation: 'none' } : {}),
+              ...(!animateEntrance || persisted !== null ? { animation: 'none' } : {}),
             }}
             onAnimationEnd={event => {
               // Reattaching this DOM node must not replay its completed entrance.
@@ -211,4 +211,5 @@ function GenuiBlockInstance({ spec, stateKey }: GenuiBlockProps) {
 export const GenuiBlock = memo(function GenuiBlock(props: GenuiBlockProps) {
   const instanceKey = props.stateKey === undefined ? 'volatile' : `durable:${props.stateKey}`
   return <GenuiBlockInstance key={instanceKey} {...props} />
-}, (prev, next) => prev.stateKey === next.stateKey && specEquivalent(prev.spec, next.spec))
+}, (prev, next) => prev.stateKey === next.stateKey
+  && prev.animateEntrance === next.animateEntrance && specEquivalent(prev.spec, next.spec))

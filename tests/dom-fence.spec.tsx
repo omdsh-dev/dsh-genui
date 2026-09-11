@@ -156,10 +156,21 @@ describe('installDomFenceRenderer', () => {
       const container = row.querySelector('.genui-dom-fence')
       expect(container).not.toBeNull()
       expect(container!.textContent).toContain('你好，世界')
+      const firstReveal = container!.querySelector<HTMLElement>('[class*="reveal"]')!
+      fireEvent.animationEnd(firstReveal)
       // The body grows: the second finished component appears without settle.
       block.querySelector('code')!.textContent = '{"items":[{"type":"text","content":"你好，世界"},{"type":"text","content":"第二块"}]}'
       await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('第二块') === true)
       expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('第二块')
+      const reveals = container!.querySelectorAll<HTMLElement>('[class*="reveal"]')
+      expect(reveals[0]).toBe(firstReveal)
+      expect(reveals[0]!.style.animation).toBe('none')
+      expect(reveals[1]!.style.animation).not.toBe('none')
+      // Settling adds durable identity; already visible content must not re-enter.
+      block.querySelector('div')!.firstElementChild!.textContent = 'dsh-ui'
+      row.removeAttribute('data-streaming')
+      expect(await waitFor(() => [...container!.querySelectorAll<HTMLElement>('[class*="reveal"]')]
+        .every(element => element.style.animation === 'none'))).toBe(true)
     } finally {
       dispose()
     }
