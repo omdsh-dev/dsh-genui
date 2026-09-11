@@ -20,7 +20,16 @@ const FONT_MONO = "'Geist Mono', ui-monospace, 'SF Mono', monospace"
 
 /** Editorial constants (diagram-design §5–7). */
 const NODE_H = 64 // node box height (48→64 for the editorial ramp)
-const LEGEND_H = 56
+const LEGEND_COL_W = 150
+const LEGEND_ROW_H = 22
+const LEGEND_ITEMS: Array<{ label: string; type: string | undefined }> = [
+  { label: 'Focal', type: 'focal' },
+  { label: 'Backend', type: 'backend' },
+  { label: 'Store', type: 'store' },
+  { label: 'External', type: 'external' },
+  { label: 'Optional', type: 'optional' },
+  { label: 'Security', type: 'security' },
+]
 
 /**
  * Compute a deterministic parent map for tree-like kinds: the first edge
@@ -34,14 +43,13 @@ function buildParentMap(edges: Array<{ from: string; to: string }>): (id: string
   return id => parents.get(id)
 }
 
-/** Render one node box + its text content (tag / name / sublabel / index). */
+/** Render one node box + its text content (tag / name / sublabel). */
 function renderNodeBox(
   box: Box,
   label: string,
   sub: string | undefined,
   type: string | undefined,
   tag: string | undefined,
-  index: number,
   palette: ReturnType<typeof resolvePalette>,
 ): React.ReactNode {
   const treatment = nodeTreatment(type, palette)
@@ -72,7 +80,6 @@ function renderNodeBox(
         </>
       )}
       {/* Index number: bottom-right, half-transparent, editorial big numeral */}
-      <text x={box.x + box.w - 6} y={box.y + box.h - 6} fill={inkAt(treatment.stroke, 0.12)} fontSize={24} fontWeight={600} fontFamily={FONT_MONO} textAnchor="end">{String(index).padStart(2, '0')}</text>
       <text x={cx} y={nameY} fill={palette.ink} fontSize={12} fontWeight={600} fontFamily={FONT_SANS} textAnchor="middle">{label}</text>
       {sub !== undefined && (
         <text x={cx} y={subY} fill={palette.soft} fontSize={9} fontFamily={FONT_MONO} textAnchor="middle">{sub}</text>
@@ -162,26 +169,19 @@ function renderZone(z: { label: string; x: number; y: number; w: number; h: numb
 }
 
 /** Legend strip at the bottom: hairline separator + treatment swatches. */
-function renderLegend(palette: ReturnType<typeof resolvePalette>): React.ReactNode {
-  const items: Array<{ label: string; type: string | undefined }> = [
-    { label: 'Focal', type: 'focal' },
-    { label: 'Backend', type: 'backend' },
-    { label: 'Store', type: 'store' },
-    { label: 'External', type: 'external' },
-    { label: 'Optional', type: 'optional' },
-    { label: 'Security', type: 'security' },
-  ]
+function renderLegend(palette: ReturnType<typeof resolvePalette>, items: typeof LEGEND_ITEMS, width: number, cols: number): React.ReactNode {
   return (
     <g>
-      <line x1={40} y1={0} x2={1000} y2={0} stroke={inkAt(palette.ink, 0.10)} strokeWidth={0.8} />
+      <line x1={40} y1={0} x2={Math.max(120, width - 40)} y2={0} stroke={inkAt(palette.ink, 0.10)} strokeWidth={0.8} />
       <text x={40} y={16} fill={palette.soft} fontSize={8} fontFamily={FONT_MONO} letterSpacing={1.6}>LEGEND</text>
       {items.map((item, i) => {
         const t = nodeTreatment(item.type, palette)
-        const x = 40 + i * 170
+        const x = 40 + (i % cols) * LEGEND_COL_W
+        const y = 32 + Math.floor(i / cols) * LEGEND_ROW_H
         return (
           <g key={item.label}>
-            <rect x={x} y={32} width={14} height={10} rx={2} fill={t.fill} stroke={t.stroke} strokeWidth={1} strokeDasharray={t.dashed === true ? '3,2' : undefined} />
-            <text x={x + 20} y={41} fill={palette.soft} fontSize={8.5} fontFamily={FONT_SANS}>{item.label}</text>
+            <rect x={x} y={y} width={14} height={10} rx={2} fill={t.fill} stroke={t.stroke} strokeWidth={1} strokeDasharray={t.dashed === true ? '3,2' : undefined} />
+            <text x={x + 20} y={y + 9} fill={palette.soft} fontSize={8.5} fontFamily={FONT_SANS}>{item.label}</text>
           </g>
         )
       })}
@@ -205,6 +205,8 @@ function nextUid(): string {
 /** The `diagram` node renderer. */
 export function DiagramNode({ node }: { node: GenuiDiagram }) {
   const uid = useMemo(nextUid, [])
+  // Host tokens are read from the document (with body/root fallbacks), so the
+  // palette follows the surrounding UI instead of a hardcoded editorial skin.
   const palette = useMemo(() => resolvePalette(node.variant, node.theme), [node.variant, node.theme])
   const layout = useMemo(() => resolveLayout(node, buildParentMap(node.edges ?? [])), [node])
 
@@ -226,7 +228,15 @@ export function DiagramNode({ node }: { node: GenuiDiagram }) {
 
   // Canvas: content bounds + editorial chrome (bottom legend strip).
   const contentH = layout.height
-  const canvasH = contentH + LEGEND_H + 24
+  // Legend: only the types this diagram actually uses, wrapped to the canvas
+  // width (the old fixed 170px pitch + hardcoded 1000px rule overflowed any
+  // narrow canvas and printed "Extern…").
+  const legendItems = LEGEND_ITEMS.filter(item => item.type !== undefined
+    && nodes.some(n => (n.node.type ?? 'backend') === item.type))
+  const legendCols = Math.max(1, Math.floor((layout.width - 40) / LEGEND_COL_W))
+  const legendRows = Math.max(1, Math.ceil(legendItems.length / legendCols))
+  const legendH = 24 + legendRows * LEGEND_ROW_H
+  const canvasH = contentH + legendH + 12
 
   return (
     <figure className="genui-diagram" data-genui-diagram>
@@ -264,19 +274,19 @@ export function DiagramNode({ node }: { node: GenuiDiagram }) {
         </g>
         {/* nodes after edges */}
         <g>
-          {nodes.map((l, idx) => {
+          {nodes.map(l => {
             const effectiveType = l.node.type === 'focal' && focalSeen >= focalBudget ? undefined : l.node.type
             if (l.node.type === 'focal') focalSeen += 1
             return (
               <g key={l.node.id}>
-                {renderNodeBox(l.box, l.node.label, l.node.sub, effectiveType, l.node.tag, idx + 1, palette)}
+                {renderNodeBox(l.box, l.node.label, l.node.sub, effectiveType, l.node.tag, palette)}
               </g>
             )
           })}
         </g>
         {/* legend strip */}
         <g transform={`translate(0, ${contentH + 8})`}>
-          {renderLegend(palette)}
+          {renderLegend(palette, legendItems, layout.width, legendCols)}
         </g>
       </svg>
     </figure>

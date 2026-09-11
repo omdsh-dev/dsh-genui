@@ -123,7 +123,10 @@ describe('DiagramNode', () => {
     expect(texts).toContain('FRONTEND')
     expect(texts).toContain('DATA')
     expect(texts).toContain('LEGEND')
-    expect(texts).toContain('Focal')
+    // The legend lists only the node types this diagram actually uses: two
+    // untyped nodes are `backend`, so `Backend` shows and unused roles do not.
+    expect(texts).toContain('Backend')
+    expect(texts).not.toContain('Security')
     // Zone hairline rects exist (dashed border + label mask + node boxes).
     expect(container.querySelectorAll('rect').length).toBeGreaterThanOrEqual(8)
   })
