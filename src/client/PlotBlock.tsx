@@ -300,6 +300,9 @@ export const PlotBlock = memo(function PlotBlock({
   const onPointerMove = (e: React.PointerEvent): void => {
     const d = dragRef.current
     if (d === null) return
+    // A few pixels of slack: a plain click or a text-selection drag must not
+    // shift the domain.
+    if (Math.abs(e.clientX - d.startX) < 4) return
     const span = d.xMax - d.xMin
     const dx = ((d.startX - e.clientX) / plotW) * span
     setView(prev => ({ xMin: d.xMin + dx, xMax: d.xMax + dx, yMin: prev.yMin, yMax: prev.yMax }))
@@ -310,11 +313,18 @@ export const PlotBlock = memo(function PlotBlock({
   // onWheel as a passive listener, where preventDefault() is ignored and the
   // event bubbles up to the scroll container. Register natively with
   // { passive: false } instead — the same pattern as the 3D scene viewer.
+  // Wheel zoom requires a modifier (Cmd/Ctrl). Without one the wheel is left
+  // alone so the CONVERSATION scrolls: an unmodified wheel over the chart used
+  // to be swallowed by the plot, so scrolling the page silently rescaled the
+  // chart instead (a reader could end up looking at a domain nobody asked for,
+  // with no way back). The #63 requirement still holds for the modified case —
+  // a native non-passive listener keeps the event from reaching the host.
   const svgRef = useRef<SVGSVGElement | null>(null)
   useEffect(() => {
     const el = svgRef.current
     if (el === null) return
     const onWheel = (e: WheelEvent): void => {
+      if (!e.metaKey && !e.ctrlKey) return
       e.preventDefault()
       const span = xMax - xMin
       const factor = e.deltaY > 0 ? 1.15 : 1 / 1.15
@@ -326,13 +336,35 @@ export const PlotBlock = memo(function PlotBlock({
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [xMin, xMax])
+  }, [xMin, xMax, fromX])
 
   const hasParams = series.some(s => (s.params?.length ?? 0) > 0)
+
+  // Zoom/pan move the x window; without a way back a reader who zoomed by
+  // accident was stuck with a domain nobody asked for. The header therefore
+  // shows the CURRENT domain whenever it differs from the initial one and
+  // offers a one-click return.
+  const initialX = useRef({ min: propXMin, max: propXMax })
+  const viewMoved = Math.abs(xMin - initialX.current.min) > 1e-6 || Math.abs(xMax - initialX.current.max) > 1e-6
+  const resetView = (): void => {
+    setView(prev => ({ ...prev, xMin: initialX.current.min, xMax: initialX.current.max }))
+  }
 
   return (
     <div className={css.block} data-genui-plot>
       {title !== undefined && <div className={css.title}>{title}</div>}
+      {hasData && hasValidRange && (
+        <div className={css.plotTools}>
+          <span className={css.plotHint}>
+            {viewMoved
+              ? `x ∈ [${formatTick(xMin)}, ${formatTick(xMax)}]`
+              : '⌘/Ctrl + 滚轮缩放 · 拖拽平移'}
+          </span>
+          {viewMoved && (
+            <button type="button" className={css.plotReset} onClick={resetView}>↺ 回到初始区间</button>
+          )}
+        </div>
+      )}
       {hasData && hasValidRange ? (
         <svg
           width="100%"

@@ -36,16 +36,31 @@ function mockRect(svg: Element): void {
   } as DOMRect)
 }
 
-const wheelAt = (svg: Element, deltaY: number): void => {
+const wheelAt = (svg: Element, deltaY: number, modifier = false): void => {
   act(() => {
     svg.dispatchEvent(new WheelEvent('wheel', {
       deltaY, clientX: 240, clientY: 160, bubbles: true, cancelable: true,
+      metaKey: modifier, ctrlKey: modifier,
     }))
   })
 }
 
 describe('plot wheel-to-zoom lock', () => {
-  it('cancels wheel events before they reach the scroll container (#63)', () => {
+  it('leaves an unmodified wheel to the page so the conversation still scrolls', () => {
+    const seen: boolean[] = []
+    const { container } = render(
+      <ScrollHost seen={seen}><PlotBlock series={[{ expr: 'sin(x)' }]} /></ScrollHost>,
+    )
+    const svg = container.querySelector('[data-genui-plot] svg') as Element
+    mockRect(svg)
+    const before = container.querySelector('polyline')!.getAttribute('points')!
+    wheelAt(svg, -120)
+    // Not prevented (the page scrolls) and the curve is untouched.
+    for (const prevented of seen) expect(prevented).toBe(false)
+    expect(container.querySelector('polyline')!.getAttribute('points')).toBe(before)
+  })
+
+  it('cancels a MODIFIED wheel before it reaches the scroll container (#63)', () => {
     const seen: boolean[] = []
     const { container } = render(
       <ScrollHost seen={seen}><PlotBlock series={[{ expr: 'sin(x)' }]} /></ScrollHost>,
@@ -54,8 +69,8 @@ describe('plot wheel-to-zoom lock', () => {
     expect(svg).not.toBeNull()
     mockRect(svg)
 
-    wheelAt(svg, -120)
-    wheelAt(svg, 120)
+    wheelAt(svg, -120, true)
+    wheelAt(svg, 120, true)
     // Every bubbled wheel event must arrive already prevented: React's
     // passive onWheel cannot guarantee this (defaultPrevented stays false).
     expect(seen.length).toBeGreaterThan(0)
@@ -71,7 +86,7 @@ describe('plot wheel-to-zoom lock', () => {
     mockRect(svg)
     const polyBefore = container.querySelector('polyline')!.getAttribute('points')!
 
-    wheelAt(svg, -120) // zoom in centered on the middle of the plot
+    wheelAt(svg, -120, true) // ⌘ + wheel zoom in, centered on the plot middle
 
     const polyAfter = container.querySelector('polyline')!.getAttribute('points')!
     expect(polyAfter).not.toBe(polyBefore)
