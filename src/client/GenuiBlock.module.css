@@ -16,6 +16,16 @@
    literals here are only last-resort fallbacks for hosts without the token
    sheets. */
 
+/* Dark theme: the layer step already lifts the card off the canvas, so the
+   extra label tint stays a small overlay (4%) instead of the 10% that light
+   mode needs to clear the 4% lightness-step minimum. */
+body[data-ds-dark-theme] .block,
+body[data-ds-dark-theme] .panel {
+  --dsl-g-surface: color-mix(in srgb, var(--dsw-alias-label-primary) 4%,
+    var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, transparent))));
+  --dsl-g-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.24), 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
 .block,
 .panel {
   /* ── design tokens (design system v2) ──
@@ -71,8 +81,11 @@
      ~232, border ~190. Dark: page 21 → card ~62 (an unmistakable elevation). */
   --dsl-g-surface: color-mix(in srgb, var(--dsw-alias-label-primary) 10%,
     var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, transparent))));
-  --dsl-g-border-surface: color-mix(in srgb, var(--dsw-alias-label-primary) 24%, transparent);
-  --dsl-g-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 6px 16px rgba(0, 0, 0, 0.07);
+  /* Borders separate, shadows lift (design standard: "shadows over borders"):
+     the outline stays quiet and the layered shadow carries the depth, with the
+     first layer at the documented minimum `0 1px 3px rgba(0,0,0,0.10)`. */
+  --dsl-g-border-surface: color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent);
+  --dsl-g-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.10), 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
 .block {
@@ -150,10 +163,14 @@
 .card > .col { justify-content: center; }
 
 .cardTitle {
-  font-size: var(--dsl-g-font-meta);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  /* Was 12.5px uppercase with tracking while the card BODY is 14.5px: the
+     title read as a small grey label, which is why nothing scanned. A card
+     title is a section heading, so it sits above body size, sentence case,
+     no tracking. The 12.5px uppercase treatment belongs to eyebrows only. */
+  font-size: var(--dsl-g-font-h3);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-transform: none;
   color: var(--dsw-alias-label-secondary);
 }
 
@@ -176,7 +193,8 @@
 /* CJK reads looser than Latin at the same size: 1.7 for body copy, 1.65 for
    secondary lines, and no letter-spacing on Chinese runs (0.02em inserts
    visible gaps between Han characters). */
-.text.body { font-size: var(--dsl-g-font-body); line-height: 1.7; color: var(--dsw-alias-label-primary); text-wrap: pretty; }
+/* ~65ch keeps a comfortable reading measure when the block is wide. */
+.text.body { font-size: var(--dsl-g-font-body); line-height: 1.7; color: var(--dsw-alias-label-primary); text-wrap: pretty; max-width: 68ch; }
 .text.muted { font-size: var(--dsl-g-font-title); line-height: 1.65; color: var(--dsw-alias-label-secondary); }
 .text.caption { font-size: var(--dsl-g-font-meta); line-height: 1.6; color: var(--dsw-alias-label-secondary); }
 .text.center { text-align: center; }
@@ -353,7 +371,7 @@
   font-family: var(--dsl-g-font-mono);
   font-size: 52px;
   font-weight: 750;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.028em;
   line-height: 1;
   color: var(--dsw-alias-label-primary);
   font-variant-numeric: tabular-nums;
