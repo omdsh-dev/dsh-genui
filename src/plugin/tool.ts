@@ -44,7 +44,11 @@ const RENDER_UI_PARAMETERS: Record<string, unknown> = {
   properties: {
     spec: {
       type: 'object',
-      description: 'GenUI component tree (white-listed vocabulary, see the dsh-ui fence section in the system prompt). Deep-validated and repaired by the renderer. Pass the spec as a JSON OBJECT — never as a serialized JSON string (a string fails argument validation).',
+      description: [
+      'Render structured UI for the user (tool-row card). USE THIS whenever the answer contains ≥3 parallel points, a comparison, numbers/metrics, a step sequence, a flow, or a status/report — do NOT write those as markdown bullets or a markdown table.',
+      'Same white-listed vocabulary as the ```dsh-ui fence (see the GenUI system-prompt section). Pick the fence when the UI belongs in the message body; pick this tool when the deliverable is a self-contained card.',
+      'Deep-validated and repaired by the renderer. Pass the spec as a JSON OBJECT — never as a serialized JSON string (a string fails argument validation).',
+    ].join(' '),
       // Structural hints for the tool-call bridge. A bare `object` here was
       // observed to make some bridge layers stringify the whole spec into an
       // OpenAI-style `{ arguments: "<JSON>" }` wrapper (and to corrupt long
