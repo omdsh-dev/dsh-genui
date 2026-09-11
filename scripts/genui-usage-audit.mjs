@@ -71,6 +71,10 @@ const stats = {
   signatureTotal: 0,
   heroAnswers: 0,
   answersWithMultipleHeroes: 0,
+  /** Per-answer card counts: the "default cardless" rule's measurable proxy. */
+  cardAnswers: 0,
+  cardTotal: 0,
+  cardHistogram: {},
   undecodable: 0,
 }
 
@@ -111,6 +115,8 @@ for (const file of files) {
       // metric — if a prompt change made every answer the same shape, the
       // number of distinct signatures drops and the top share climbs.
       const answerTypes = new Set()
+      const answerBag = {}
+      const bagFor = key => answerBag[key] ?? 0
       let heroCount = 0
       for (const match of matches) {
         let spec = null
@@ -124,6 +130,7 @@ for (const file of files) {
         walkTypes(spec, bag)
         for (const [type, count] of Object.entries(bag)) {
           answerTypes.add(type)
+          answerBag[type] = (answerBag[type] ?? 0) + count
           if (type === 'hero') heroCount += count
         }
         walkTypes(spec, stats.components)
@@ -134,6 +141,10 @@ for (const file of files) {
         stats.signatureTotal += 1
         if (heroCount > 1) stats.answersWithMultipleHeroes += 1
         stats.heroAnswers += heroCount > 0 ? 1 : 0
+        const cards = answerTypes.has('card') ? (bagFor('card')) : 0
+        stats.cardAnswers += cards > 0 ? 1 : 0
+        stats.cardTotal += cards
+        stats.cardHistogram[Math.min(cards, 5)] = (stats.cardHistogram[Math.min(cards, 5)] ?? 0) + 1
       }
     }
   }
@@ -166,6 +177,7 @@ if (AS_JSON) {
     const maxEntropy = Math.log2(sigs.length) || 1
     console.log(`\n版式多样性：${total} 条带围栏的回答 / ${sigs.length} 种版式签名；最常见占 ${pct(top[1], total)}；归一化熵 ${(entropy / maxEntropy).toFixed(2)}`)
     console.log(`  hero：${stats.heroAnswers} 条回答用到（${pct(stats.heroAnswers, total)}）；违反「一条一个」的 ${stats.answersWithMultipleHeroes} 条`)
+    console.log(`  card：${stats.cardAnswers} 条回答用到（${pct(stats.cardAnswers, total)}），平均每条 ${(stats.cardTotal / total).toFixed(2)} 个；分布 0/1/2/3/4/5+ = ${[0, 1, 2, 3, 4, 5].map(k => stats.cardHistogram[k] ?? 0).join('/')}`)
     console.log('  最常见三种：')
     for (const [signature, count] of sigs.slice(0, 3)) console.log(`    ${String(count).padStart(4)}  ${signature || '(无组件)'}`)
   }

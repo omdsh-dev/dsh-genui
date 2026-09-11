@@ -105,7 +105,7 @@ describe('surface elevation contract', () => {
     // a card there would be invisible without border-l2 + a shadow.
     expect(css).toMatch(/--dsl-g-shadow-card:/)
     expect(css).toMatch(/--dsl-g-surface: color-mix\(in srgb, var\(--dsw-alias-label-primary\) 10%/)
-    expect(css).toMatch(/--dsl-g-border-surface: color-mix\(in srgb, var\(--dsw-alias-label-primary\) 24%/)
+    expect(css).toMatch(/--dsl-g-border-surface: color-mix\(in srgb, var\(--dsw-alias-label-primary\) 12%/)
     for (const rule of ['card', 'stat', 'callout', 'hero', 'accordion']) {
       const block = new RegExp(`\\.${rule} \\{([^}]*)\\}`).exec(css)
       expect(block, `.${rule} must exist`).not.toBeNull()
@@ -115,6 +115,42 @@ describe('surface elevation contract', () => {
       expect(block![1], `.${rule} needs a visible outline`).toMatch(/border: 1px solid var\(--dsl-g-border-surface\)/)
       expect(block![1], `.${rule} needs a lift`).toMatch(/box-shadow: var\(--dsl-g-shadow-card\)/)
     }
+  })
+})
+
+describe('design-standard contract (research-driven)', () => {
+  const css = () => readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
+
+  it('separates adjacent surfaces by the documented minimum', () => {
+    // design-reference.md: light surfaces need a >=4% lightness step OR a
+    // shadow of at least `0 1px 3px rgba(0,0,0,0.10)`. Our light step is a 10%
+    // label tint (255 -> ~231 = 9.4%) and the shadow carries the documented
+    // first layer.
+    expect(css()).toMatch(/--dsl-g-surface: color-mix\(in srgb, var\(--dsw-alias-label-primary\) 10%/)
+    expect(css()).toMatch(/--dsl-g-shadow-card: 0 1px 3px rgba\(0, 0, 0, 0\.10\)/)
+  })
+
+  it('keeps dark elevation as a small overlay, not a light-mode tint', () => {
+    // Dark communicates elevation with the layer step plus a ~4% overlay;
+    // drop shadows are nearly invisible on dark surfaces.
+    const dark = /body\[data-ds-dark-theme\] \.block,[\s\S]{0,200}?--dsl-g-surface: color-mix\(in srgb, var\(--dsw-alias-label-primary\) 4%/.exec(css())
+    expect(dark, 'dark override must use a 4% overlay').not.toBeNull()
+  })
+
+  it('makes a card title a heading, not a 12.5px uppercase label', () => {
+    // The defect: the card title was SMALLER than the card body (12.5 vs
+    // 14.5px) and uppercase, so every card read as a grey label block.
+    const title = /\.cardTitle \{([^}]*)\}/.exec(css())
+    expect(title).not.toBeNull()
+    expect(title![1]).toMatch(/font-size: var\(--dsl-g-font-h3\)/)
+    expect(title![1]).not.toMatch(/text-transform: uppercase/)
+    expect(title![1]).toMatch(/text-transform: none/)
+  })
+
+  it('reserves uppercase tracking for eyebrows only', () => {
+    const c = css()
+    expect(c).toMatch(/\.heroLabel \{[^}]*text-transform: uppercase/)
+    expect(c).toMatch(/\.heroLabel \{[^}]*letter-spacing: 0\.1em/)
   })
 })
 
