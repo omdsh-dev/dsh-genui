@@ -194,7 +194,7 @@ describe('installDomFenceRenderer', () => {
       expect(skeleton!.getAttribute('role')).toBe('status')
       // The component closes: the skeleton is replaced by the real tree.
       block.querySelector('code')!.textContent = '{"items":[{"type":"text","content":"你好，世界"}]}'
-      await tick()
+      await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('你好，世界') === true)
       expect(row.querySelector('.genui-dom-fence [class*="skeleton"]')).toBeNull()
       expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('你好，世界')
     } finally {
@@ -466,7 +466,7 @@ describe('anchor-less rows (Safari fallback render path)', () => {
     const send = vi.fn()
     const dispose = installDomFenceRenderer(makeCtx('sess-safari-3', send), send)
     try {
-      await tick()
+      await waitFor(() => getPanelSpec('sess-safari-3')?.title === '面板B')
       expect(getPanelSpec('sess-safari-3')?.title).toBe('面板B')
     } finally {
       dispose()
@@ -929,10 +929,13 @@ describe('final-answer blank-out hardening (issue #19)', () => {
     }
   })
 
-  it('re-renders an inline mount whose container content was wiped by a host re-render', async () => {
+  it('preserves input and pending actions when the host wipes a streaming container', async () => {
     const err = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const row = assistantRow('s42')
-    const block = stockCodeBlock(VALID_SPEC, 'dsh-ui')
+    const row = assistantRow('s42', true)
+    const block = stockCodeBlock(JSON.stringify({ items: [
+      { type: 'input', id: 'name', label: '姓名' },
+      { type: 'button', label: '确认', action: 'confirm' },
+    ] }), '')
     row.appendChild(block)
     document.body.appendChild(row)
     const send = vi.fn()
@@ -941,17 +944,21 @@ describe('final-answer blank-out hardening (issue #19)', () => {
       await tick()
       const container = row.querySelector<HTMLElement>('.genui-dom-fence')
       expect(container).not.toBeNull()
-      expect(container!.textContent).toContain('你好，世界')
+      const input = container!.querySelector('input')!
+      fireEvent.change(input, { target: { value: 'typing' } })
+      fireEvent.click(container!.querySelector('button')!)
       // Host re-render wipes the foreign container's children but keeps the
       // node: the stock block must not stay hidden behind an empty box.
       container!.replaceChildren()
       await tick()
       expect(block.style.display).toBe('none')
-      // The mount is rebuilt with a fresh container + root in place.
-      const rebuilt = row.querySelector<HTMLElement>('.genui-dom-fence')
-      expect(rebuilt).not.toBeNull()
-      expect(rebuilt!.textContent).toContain('你好，世界')
-      expect(rebuilt!.previousElementSibling).toBe(block)
+      expect(row.querySelector('.genui-dom-fence')).toBe(container)
+      expect(container!.querySelector('input')).toBe(input)
+      expect(input.value).toBe('typing')
+      expect(container!.previousElementSibling).toBe(block)
+      expect(await waitFor(() => send.mock.calls.length === 1)).toBe(true)
+      await tick(350)
+      expect(send).toHaveBeenCalledTimes(1)
     } finally {
       dispose()
       err.mockRestore()
