@@ -25,15 +25,52 @@ let renderSeq = 0
 function loadMermaid(): Promise<typeof import('mermaid')> {
   mermaidPromise ??= import('mermaid').then(async m => {
     const api = m.default
-    // Follow the host theme: boot-theme sets colorScheme on <html>; a
-    // dark-forced diagram on a light chat looked broken.
-    const dark = typeof document !== 'undefined'
-      && document.documentElement.style.colorScheme === 'dark'
+    // Theme the diagram from the HOST tokens instead of a built-in mermaid
+    // palette: the stock themes render grey boxes with sharp corners, dark
+    // strokes and their own font, which sat next to our components as a
+    // visibly foreign object. `base` + themeVariables is the supported way to
+    // drive every colour (the dark/light branch is gone with it).
+    const token = (name: string, fallback: string): string => {
+      if (typeof document === 'undefined') return fallback
+      const value = getComputedStyle(document.body).getPropertyValue(name).trim()
+      return value === '' ? fallback : value
+    }
     api.initialize({
       startOnLoad: false,
       // Strict default: mermaid escapes/sanitizes; we never enable htmlLabels.
       securityLevel: 'strict',
-      theme: dark ? 'dark' : 'neutral',
+      theme: 'base',
+      themeVariables: {
+        background: 'transparent',
+        fontFamily: 'inherit',
+        fontSize: '13px',
+        primaryColor: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
+        primaryTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
+        primaryBorderColor: token('--dsw-alias-border-l2', 'rgba(255,255,255,0.12)'),
+        secondaryColor: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
+        secondaryTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
+        secondaryBorderColor: token('--dsw-alias-border-l2', 'rgba(255,255,255,0.12)'),
+        tertiaryColor: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
+        tertiaryTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
+        tertiaryBorderColor: token('--dsw-alias-border-l2', 'rgba(255,255,255,0.12)'),
+        mainBkg: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
+        nodeBorder: token('--dsw-alias-border-l2', 'rgba(255,255,255,0.12)'),
+        nodeTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
+        lineColor: token('--dsw-alias-label-tertiary', '#8a8a92'),
+        textColor: token('--dsw-alias-label-primary', '#e6e6e6'),
+        edgeLabelBackground: 'transparent',
+        clusterBkg: 'transparent',
+        clusterBorder: token('--dsw-alias-border-l2', 'rgba(255,255,255,0.12)'),
+        titleColor: token('--dsw-alias-label-primary', '#e6e6e6'),
+      },
+      // Sharp corners and heavy strokes were the loudest mismatch; the radius
+      // is set here because mermaid emits plain <rect> geometry.
+      themeCSS: [
+        '.node rect, .node polygon, .node circle, .node ellipse { rx: 8px; ry: 8px; stroke-width: 1px; }',
+        '.cluster rect { rx: 10px; ry: 10px; }',
+        '.edgePath .path { stroke-width: 1.4px; }',
+        '.label { color: inherit; }',
+      ].join(' '),
       // Fail loudly: with suppressErrorRendering false (the default) mermaid
       // renders an "error" diagram on parse/draw failure — the caller then
       // receives a normal-looking SVG whose text is the raw engine error
