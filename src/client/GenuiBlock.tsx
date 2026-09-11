@@ -67,11 +67,9 @@ function specEquivalent(a: GenuiSpec, b: GenuiSpec): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
-/** Stateful implementation. Its mount lifetime is the interaction-state
- * lifetime: useState seeds durable data exactly once, and every later save
- * belongs to the same stateKey. The exported shell below owns the React key
- * that enforces this invariant for every caller. */
-function GenuiBlockInstance({ spec, stateKey }: GenuiBlockProps) {
+/** Stateful implementation. Streaming state adopts its first durable key
+ * when the reply settles; switching an existing durable key starts fresh. */
+function GenuiBlockInstance({ spec, stateKey, animateEntrance = true }: GenuiBlockProps) {
   const gap = spec.gap ?? 16
   const onAction = useDebouncedAction(useGenuiAction())
   // Grouped radios and grouped checkboxes record their local selections here;
@@ -184,7 +182,14 @@ function GenuiBlockInstance({ spec, stateKey }: GenuiBlockProps) {
           <div
             key={i}
             className={css.reveal}
-            style={{ animationDelay: `${Math.min(i * 90, 720)}ms` }}
+            style={{
+              animationDelay: `${Math.min(i * 90, 720)}ms`,
+              ...(!animateEntrance || persisted !== null ? { animation: 'none' } : {}),
+            }}
+            onAnimationEnd={event => {
+              // Reattaching this DOM node must not replay its completed entrance.
+              if (event.target === event.currentTarget) event.currentTarget.style.animation = 'none'
+            }}
           >
             {renderNode(c, i, trackedAction, 0, answersState)}
           </div>
@@ -196,12 +201,18 @@ function GenuiBlockInstance({ spec, stateKey }: GenuiBlockProps) {
 
 /**
  * Render a GenUI spec as an inline block. `stateKey` is also the durable
- * component identity: changing it remounts the stateful implementation so
- * state loaded for one block can never leak into or be saved under another
- * key. Identity-less streaming renders deliberately share one stable
- * volatile instance, preserving local interaction state as the spec grows.
+ * component identity. A streaming instance adopts its first durable key so
+ * inputs and pending actions survive settling. Leaving an existing durable
+ * key remounts, keeping different blocks' interaction state isolated.
  */
 export const GenuiBlock = memo(function GenuiBlock(props: GenuiBlockProps) {
-  const instanceKey = props.stateKey === undefined ? 'volatile' : `durable:${props.stateKey}`
-  return <GenuiBlockInstance key={instanceKey} {...props} />
-}, (prev, next) => prev.stateKey === next.stateKey && specEquivalent(prev.spec, next.spec))
+  const [identity, setIdentity] = useState({ stateKey: props.stateKey, generation: 0 })
+  if (identity.stateKey !== props.stateKey) {
+    setIdentity({
+      stateKey: props.stateKey,
+      generation: identity.generation + (identity.stateKey === undefined ? 0 : 1),
+    })
+  }
+  return <GenuiBlockInstance key={identity.generation} {...props} />
+}, (prev, next) => prev.stateKey === next.stateKey
+  && prev.animateEntrance === next.animateEntrance && specEquivalent(prev.spec, next.spec))

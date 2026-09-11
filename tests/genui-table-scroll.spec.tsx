@@ -6,10 +6,13 @@
 // (overflow-x: auto) so wide tables scroll instead of clipping.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { hasFenceRegistry } from './helpers/fence-host'
 import { MarkdownText } from './markdown-labels.tsx'
+import { GenuiBlock } from '../src/client/GenuiBlock.tsx'
+import { clearBlockState, saveBlockState } from '../src/client/interaction-store.ts'
+import type { GenuiSpec } from '../src/client/spec.ts'
 
 afterEach(cleanup)
 
@@ -18,6 +21,29 @@ function fenced(spec: unknown): string {
 }
 
 describe('GenUI table overflow', () => {
+  it('does not replay a completed entrance when the host reattaches or restores the block (issue #101)', () => {
+    const stateKey = 'table-entrance-101'
+    clearBlockState(stateKey)
+    const spec: GenuiSpec = { items: [{ type: 'table', columns: ['A'], rows: [[103], [86], [25]] }] }
+    const view = render(<GenuiBlock spec={spec} stateKey={stateKey} />)
+    const reveal = view.container.querySelector<HTMLElement>('[class*="reveal"]')!
+    expect(reveal.style.animation).not.toBe('none')
+    fireEvent.animationEnd(view.container.querySelector('table')!)
+    expect(reveal.style.animation).not.toBe('none')
+    fireEvent.animationEnd(reveal)
+    const parent = reveal.parentElement!
+    reveal.remove()
+    parent.append(reveal)
+    expect(reveal.style.animation).toBe('none')
+    view.unmount()
+    saveBlockState(stateKey, { answers: {}, locked: false })
+    const restored = render(<GenuiBlock spec={spec} stateKey={stateKey} />)
+    expect(restored.container.querySelector<HTMLElement>('[class*="reveal"]')!.style.animation).toBe('none')
+    restored.rerender(<GenuiBlock spec={spec} stateKey="table-entrance-new" />)
+    expect(restored.container.querySelector<HTMLElement>('[class*="reveal"]')!.style.animation).not.toBe('none')
+    clearBlockState(stateKey)
+  })
+
   it.skipIf(!hasFenceRegistry)('wraps the table in a scroll container (DOM structure)', () => {
     const { container } = render(<MarkdownText text={fenced({
       title: 'AS vs Subagent Tree 对比',

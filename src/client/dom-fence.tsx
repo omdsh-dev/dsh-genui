@@ -664,7 +664,15 @@ export function installDomFenceRenderer(
     })
   }
 
-  const observer = new MutationObserver(() => {
+  const observer = new MutationObserver(records => {
+    // Restore detached roots before paint, retaining input and pending actions.
+    // The latest removal owns the current tree if several commits were batched.
+    for (const record of [...records].reverse()) {
+      if (record.removedNodes.length === 0 || record.target.childNodes.length > 0) continue
+      const mount = [...mounts.values()].find(candidate => candidate.container === record.target)
+      if (mount === undefined || !mount.block.isConnected || isPanelRoot(mount.lastNode)) continue
+      mount.container.append(...record.removedNodes)
+    }
     // Pre-paint pass: surgery repair only (cheap DOM ops); the React
     // re-render goes through the rAF-scheduled sweep.
     repairSurgery()
