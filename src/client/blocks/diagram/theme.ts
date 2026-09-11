@@ -49,9 +49,47 @@ const DARK: DiagramPalette = {
   link: '#6a95d8',
 }
 
+/** Read one host token from the element, then body, then the root. */
+function token(name: string, fallback: string, el?: Element | null): string {
+  if (typeof document === 'undefined') return fallback
+  const hosts: Array<Element | null> = [el ?? null, document.body, document.documentElement]
+  for (const host of hosts) {
+    if (host === null) continue
+    const value = getComputedStyle(host).getPropertyValue(name).trim()
+    if (value !== '') return value
+  }
+  return fallback
+}
+
+/**
+ * Palette derived from the HOST design tokens.
+ *
+ * The hardcoded editorial skin (paper #f5f5f5, orange accent #eb6c36) has
+ * nothing to do with the surrounding UI: a diagram dropped into a light chat
+ * came out as a grey slab with a salmon "focal" node. SVG attributes cannot
+ * resolve CSS variables, so the tokens are read as literals here — same
+ * approach as the ECharts theming.
+ */
+export function hostPalette(el?: Element | null): DiagramPalette {
+  const accent = token('--dsw-alias-state-business-primary', '#4f8ef7', el)
+  return {
+    paper: token('--dsw-alias-bg-layer-2', '#ffffff', el),
+    paper2: token('--dsw-alias-bg-layer-3', '#f5f5f5', el),
+    ink: token('--dsw-alias-label-primary', '#2d3142', el),
+    muted: token('--dsw-alias-label-secondary', '#4f5d75', el),
+    soft: token('--dsw-alias-label-tertiary', '#7a8399', el),
+    rule: token('--dsw-alias-border-l2', 'rgba(45,49,66,0.12)', el),
+    accent,
+    accentTint: `color-mix(in srgb, ${accent} 10%, transparent)`,
+    link: accent,
+  }
+}
+
 /** Resolve the active palette from variant + optional theme overrides. */
-export function resolvePalette(variant: GenuiDiagramVariant | undefined, theme: GenuiDiagramTheme | undefined): DiagramPalette {
-  const base = variant === 'dark' ? DARK : LIGHT
+export function resolvePalette(variant: GenuiDiagramVariant | undefined, theme: GenuiDiagramTheme | undefined, el?: Element | null): DiagramPalette {
+  // No explicit variant -> follow the host theme; an explicit variant keeps the
+  // editorial skin (that is what the field is for).
+  const base = variant === undefined ? hostPalette(el) : variant === 'dark' ? DARK : LIGHT
   if (theme === undefined) return base
   return {
     paper: theme.paper ?? base.paper,

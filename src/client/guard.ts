@@ -1061,7 +1061,11 @@ function repairDiagram(v: unknown): GenuiDiagram | null {
   const zones = repairDiagramZones(o.zones)
   if (zones === undefined) return null
   return {
-    type: 'diagram', kind, nodes, edges, zones,
+    // `zones` is optional: emitting `zones: []` made every diagram node differ
+    // from its input for no reason (and broke the "gallery survives the guard
+    // unchanged" contract).
+    type: 'diagram', kind, nodes, edges,
+    ...opt('zones', zones.length > 0 ? zones : undefined),
     ...opt('variant', enu(o.variant, DIAGRAM_VARIANTS)),
     ...opt('title', str(o.title, 256)),
     ...opt('theme', repairDiagramTheme(o.theme)),

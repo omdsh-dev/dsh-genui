@@ -178,6 +178,12 @@ export const gallerySpec: GenuiSpec = {
     ] },
     { type: 'code', lang: 'json', code: '{"hello": "world"}' },
     { type: 'mermaid', code: 'graph TD\nA[模型] --> B[渲染器]\nB --> C[组件]' },
+    { type: 'diagram', kind: 'architecture', title: '架构图（配色跟随宿主令牌）', nodes: [
+      { id: 'm', label: '模型', type: 'external', x: 20, y: 40, w: 100, h: 44 },
+      { id: 'f', label: '围栏 JSON', type: 'focal', x: 160, y: 40, w: 112, h: 44 },
+      { id: 'g', label: 'guard', type: 'backend', x: 312, y: 40, w: 104, h: 44 },
+      { id: 's', label: '组件库', type: 'store', x: 456, y: 40, w: 100, h: 44 },
+    ], edges: [{ from: 'm', to: 'f' }, { from: 'f', to: 'g' }, { from: 'g', to: 's' }] },
     { type: 'scene3d', title: '几何演示', ambient: 1, meshes: [
       { shape: 'box', color: '#4f8ef7', position: [-1.4, 0, 0], rotation: [0.5, 0.8, 0] },
       { shape: 'sphere', color: '#3ecf8e', position: [0, 0, 0] },

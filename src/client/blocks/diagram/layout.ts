@@ -191,7 +191,10 @@ export function resolveLayout(
     height = Math.max(height, l.box.y + l.box.h)
   }
   width = Math.max(320, Math.ceil((width + MARGIN) / 4) * 4)
-  height = Math.max(200, Math.ceil((height + MARGIN) / 4) * 4)
+  // Hug the content: the old 200px floor plus the legend strip made a 4-node
+  // single row render inside a canvas twice its needed height, and the SVG
+  // scales to the container width, so the empty band was amplified on screen.
+  height = Math.max(96, Math.ceil((height + MARGIN) / 4) * 4)
 
   const edgesOut: LayoutEdge[] = edges.map(e => ({ edge: e, fromId: e.from, toId: e.to }))
 
