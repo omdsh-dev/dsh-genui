@@ -2,8 +2,10 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GenuiBlock } from '../src/client/GenuiBlock.tsx'
+import { GenuiActionContext } from '../src/client/action-context.ts'
+import { renderGenuiFence, renderResolvedFenceNode } from '../src/client/fence-render.tsx'
 import { repairGenuiSpec } from '../src/client/guard.ts'
-import { loadBlockState, saveBlockState } from '../src/client/interaction-store.ts'
+import { fenceStateKey, loadBlockState, saveBlockState } from '../src/client/interaction-store.ts'
 
 const fieldSpec = repairGenuiSpec({
   items: [{ type: 'input', id: 'name', label: '姓名' }],
@@ -62,5 +64,28 @@ describe('GenUI durable state identity', () => {
 
     view.rerender(<GenuiBlock spec={second} />)
     expect(fieldValue()).toBe('typing')
+  })
+
+  it.each([renderGenuiFence, renderResolvedFenceNode])('keeps input and pending actions when a streaming fence settles (%#)', renderFence => {
+    const spec = repairGenuiSpec({ items: [
+      ...fieldSpec.items, { type: 'button', label: '确认', action: 'confirm' },
+    ] })!
+    const raw = JSON.stringify(spec)
+    const onAction = vi.fn()
+    const source = { id: 'assistant:17:fence:0', order: [17, 0, 0] as const }
+    const view = render(<GenuiActionContext.Provider value={onAction}>
+      {renderFence(raw, 0, { sessionId: 'stream-session' })}
+    </GenuiActionContext.Provider>)
+    const input = screen.getByRole('textbox', { name: '姓名' })
+    fireEvent.change(input, { target: { value: 'typing' } })
+    fireEvent.click(screen.getByRole('button', { name: '确认' }))
+    view.rerender(<GenuiActionContext.Provider value={onAction}>
+      {renderFence(raw, 0, { sessionId: 'stream-session', source })}
+    </GenuiActionContext.Provider>)
+    expect(screen.getByRole('textbox', { name: '姓名' })).toBe(input)
+    expect(fieldValue()).toBe('typing')
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(onAction).toHaveBeenCalledTimes(1)
+    expect(loadBlockState(fenceStateKey('stream-session', source.id, raw))?.fields?.name).toBe('typing')
   })
 })

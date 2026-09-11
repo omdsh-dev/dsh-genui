@@ -184,12 +184,12 @@ export function resolveGenuiSpec(raw: string, context?: GenuiFenceContext): Genu
 function renderInlineFence(key: Key, context: GenuiFenceContext | undefined, spec: GenuiSpec): ReactNode {
   const sessionId = context?.sessionId
   return (
-    // React key carries the stable source identity when present (atomic
-    // remount at streaming→settled), falling back to the document key.
+    // Keep the document slot mounted across streaming→settled; GenuiBlock
+    // owns durable-state changes, while a session change resets the tree.
     // Repaired specs render SILENTLY: once the UI renders, no amber note
     // tells the user something was wrong — only an unrecoverable body keeps
     // the red diagnostic.
-    <ErrorBoundary key={context?.source?.id ?? key} label="该界面">
+    <ErrorBoundary key={JSON.stringify([sessionId, key])} label="该界面">
       <GenuiBlock
         spec={spec}
         animateEntrance={context?.source === undefined}

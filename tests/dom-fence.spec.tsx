@@ -171,6 +171,7 @@ describe('installDomFenceRenderer', () => {
       row.removeAttribute('data-streaming')
       expect(await waitFor(() => [...container!.querySelectorAll<HTMLElement>('[class*="reveal"]')]
         .every(element => element.style.animation === 'none'))).toBe(true)
+      expect(container!.querySelector('[class*="reveal"]')).toBe(firstReveal)
     } finally {
       dispose()
     }

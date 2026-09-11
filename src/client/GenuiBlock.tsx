@@ -67,10 +67,8 @@ function specEquivalent(a: GenuiSpec, b: GenuiSpec): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
-/** Stateful implementation. Its mount lifetime is the interaction-state
- * lifetime: useState seeds durable data exactly once, and every later save
- * belongs to the same stateKey. The exported shell below owns the React key
- * that enforces this invariant for every caller. */
+/** Stateful implementation. Streaming state adopts its first durable key
+ * when the reply settles; switching an existing durable key starts fresh. */
 function GenuiBlockInstance({ spec, stateKey, animateEntrance = true }: GenuiBlockProps) {
   const gap = spec.gap ?? 16
   const onAction = useDebouncedAction(useGenuiAction())
@@ -203,13 +201,18 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true }: GenuiBlo
 
 /**
  * Render a GenUI spec as an inline block. `stateKey` is also the durable
- * component identity: changing it remounts the stateful implementation so
- * state loaded for one block can never leak into or be saved under another
- * key. Identity-less streaming renders deliberately share one stable
- * volatile instance, preserving local interaction state as the spec grows.
+ * component identity. A streaming instance adopts its first durable key so
+ * inputs and pending actions survive settling. Leaving an existing durable
+ * key remounts, keeping different blocks' interaction state isolated.
  */
 export const GenuiBlock = memo(function GenuiBlock(props: GenuiBlockProps) {
-  const instanceKey = props.stateKey === undefined ? 'volatile' : `durable:${props.stateKey}`
-  return <GenuiBlockInstance key={instanceKey} {...props} />
+  const [identity, setIdentity] = useState({ stateKey: props.stateKey, generation: 0 })
+  if (identity.stateKey !== props.stateKey) {
+    setIdentity({
+      stateKey: props.stateKey,
+      generation: identity.generation + (identity.stateKey === undefined ? 0 : 1),
+    })
+  }
+  return <GenuiBlockInstance key={identity.generation} {...props} />
 }, (prev, next) => prev.stateKey === next.stateKey
   && prev.animateEntrance === next.animateEntrance && specEquivalent(prev.spec, next.spec))
