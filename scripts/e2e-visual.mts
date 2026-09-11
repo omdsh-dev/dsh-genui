@@ -245,6 +245,26 @@ try {
   await page.screenshot({ path: join(OUT_DIR, 'gallery.png'), fullPage: true })
   log(`✓ 截图 gallery.png`)
 
+  // Per-component crops: the gallery is far taller than a viewport, so a
+  // single full-page shot is useless for reviewing one component's design.
+  const parts: Array<[string, string]> = [
+    ['steps', '[class*="steps"]'],
+    ['timeline', '[class*="timeline"]'],
+    ['mermaid', '[data-genui] svg[id^="mermaid"], [class*="mermaid"] svg'],
+    ['quiz', '[class*="quiz"]'],
+    ['media', '[class*="media"]'],
+    ['kv', '[class*="kvRow"]'],
+    ['controls', '[class*="input"], [class*="select"], [class*="textarea"]'],
+  ]
+  for (const [name, selector] of parts) {
+    const el = await page.$(selector)
+    if (el === null) continue
+    await el.scrollIntoViewIfNeeded()
+    await page.waitForTimeout(250)
+    await el.screenshot({ path: join(OUT_DIR, `part-${name}.png`) }).catch(() => {})
+  }
+  log(`✓ 组件逐个截图：${parts.map(p => p[0]).join(' / ')}`)
+
   // ── 流式骨架验证 ─────────────────────────────────────────────────────────
   // 半截 JSON 的 dsh-ui 围栏：不显示裸 JSON，而是骨架；settle 后若仍解析不了
   // 必须把原始代码块还回来（不能永久藏起来）。

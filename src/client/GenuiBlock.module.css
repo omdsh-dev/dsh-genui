@@ -98,6 +98,10 @@ body[data-ds-dark-theme] .panel {
   /* Numbers line up wherever they appear (stats, tables, progress, legends). */
   font-variant-numeric: tabular-nums;
 }
+/* Content-box padding made a <select> and an <input> with the same
+   width:100% measure 365 vs 391px. One reset inside our subtree. */
+.block *, .block *::before, .block *::after,
+.panel *, .panel *::before, .panel *::after { box-sizing: border-box; }
 
 .banner {
   /* Hierarchy through type, not decoration: 22px/800 with generous space
@@ -257,8 +261,8 @@ body[data-ds-dark-theme] .panel {
 .field > span { font-size: var(--dsl-g-font-meta); color: var(--dsw-alias-label-tertiary); }
 
 .input, .select {
-  background: var(--dsw-alias-bg-base, #17171a);
-  border: 1px solid var(--dsl-g-border);
+  background: var(--dsl-g-surface);
+  border: 1px solid var(--dsl-g-border-surface);
   border-radius: var(--dsl-g-radius-control);
   color: var(--dsw-alias-label-primary);
   padding: 8px 12px;
@@ -310,12 +314,15 @@ body[data-ds-dark-theme] .panel {
   display: flex;
   flex-direction: column;
   gap: var(--dsl-g-gap-sm);
-  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block));
-  border: 1px solid var(--dsl-g-border);
+  background: var(--dsl-g-surface);
+  border: 1px solid var(--dsl-g-border-surface);
   border-radius: var(--dsl-g-radius-surface);
 }
 .mediaLabel { font-size: var(--dsl-g-font-title); font-weight: 600; color: var(--dsw-alias-label-primary); }
-.mediaPlayer { display: block; width: 100%; min-width: 0; }
+.mediaPlayer { display: block; width: 100%; min-width: 0; border-radius: var(--dsl-g-radius-control); }
+/* Reserve the box before the bytes arrive: without an intrinsic ratio an
+   unloaded <img> collapses to 0px and the card looks broken. */
+img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl-g-surface); }
 .videoPlayer { max-height: min(70vh, 720px); background: #000; object-fit: contain; }
 .mediaError { font-size: var(--dsl-g-font-title); color: var(--dsw-alias-state-error-primary, #f25a5a); }
 
@@ -858,8 +865,8 @@ body[data-ds-dark-theme] .panel {
   font-size: var(--dsl-g-font-meta);
   font-weight: 700;
   flex-shrink: 0;
-  background: var(--dsw-alias-bg-layer-1);
-  border: 1px solid var(--dsl-g-border);
+  background: var(--dsl-g-surface);
+  border: 1px solid var(--dsl-g-border-surface);
   color: var(--dsw-alias-label-secondary);
   z-index: 1;
 }
@@ -1336,8 +1343,8 @@ body[data-ds-dark-theme] .panel {
 
 .textarea {
   width: 100%;
-  background: var(--dsw-alias-bg-base, #17171a);
-  border: 1px solid var(--dsl-g-border);
+  background: var(--dsl-g-surface);
+  border: 1px solid var(--dsl-g-border-surface);
   border-radius: var(--dsl-g-radius-control);
   color: var(--dsw-alias-label-primary);
   padding: var(--dsl-g-gap-sm) 12px;
@@ -1808,7 +1815,16 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   color: var(--dsw-alias-state-success-primary, #3ecf8e);
   line-height: 1.5;
 }
-.quizMarker { width: 16px; text-align: center; font-weight: 700; }
+.quizMarker {
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--dsw-alias-label-tertiary);
+  flex-shrink: 0;
+}
+.quizOptCorrect .quizMarker { color: var(--dsw-alias-state-success-primary, #3ecf8e); }
+.quizOptWrong .quizMarker { color: var(--dsw-alias-state-error-primary, #ff6b6b); }
 .quizResult { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
 .quizCorrectMsg { font-size: var(--dsl-g-font-title); font-weight: 600; color: var(--dsw-alias-state-success-primary, #3ecf8e); }
 .quizWrongMsg { font-size: var(--dsl-g-font-title); font-weight: 600; color: var(--dsw-alias-state-error-primary, #ff6b6b); }

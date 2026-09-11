@@ -471,7 +471,11 @@ export const QuizNode = memo(function QuizNode({ node, onAction }: {
                 }
               }}
             >
-              <span className={css.quizMarker}>{answered && (opt.correct === true ? '✓' : isChosen ? '✗' : '')}</span>
+              {/* Before answering: a radio affordance so the row reads as a
+                  choice. After: ✓ on the right answer, ✗ on a wrong pick. */}
+              <span className={css.quizMarker}>
+                {answered ? (opt.correct === true ? '✓' : isChosen ? '✗' : '') : isChosen ? '●' : '○'}
+              </span>
               {opt.label}
             </button>
           )
