@@ -8,6 +8,7 @@ import { type ComponentType, type ReactNode, useEffect, useState, type CSSProper
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
+import { renderInline } from '../inline.ts'
 import type { GenuiList, GenuiNode } from '../spec.ts'
 import type { AnswersState, GenuiBlockProps } from './state.ts'
 import { AudioNode, avatarColor, ClickFeedbackButton, VideoNode } from './basic.tsx'
@@ -202,7 +203,7 @@ export function renderNode(
       const size = node.size ?? 'body'
       return (
         <div key={key} className={`${css.text} ${css[size]}` + (node.center ? ` ${css.center}` : '')}>
-          {node.content}
+          {renderInline(node.content)}
         </div>
       )
     }
@@ -412,7 +413,7 @@ export function renderNode(
             <div key={i} className={css.li}>
               {isListItemNode(item)
                 ? renderNode(item, i, onAction, depth + 1, answers)
-                : <><span className={css.liTitle}>{typeof item === 'string' ? item : item.title}</span>{typeof item !== 'string' && item.desc !== undefined && <span className={css.liDesc}>{item.desc}</span>}</>}
+                : <><span className={css.liTitle}>{renderInline(typeof item === 'string' ? item : item.title)}</span>{typeof item !== 'string' && item.desc !== undefined && <span className={css.liDesc}>{renderInline(item.desc)}</span>}</>}
             </div>
           ))}
           {bound !== undefined && <span className={css.filterHint}>匹配 {items.length} / {all.length} 项</span>}

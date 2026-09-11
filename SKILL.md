@@ -116,6 +116,19 @@ description: "Render structured interactive UI inline in your reply via the dsh-
 
 **别用的情况**：一句话能说清的事、纯闲聊、用户明确说不要 UI、以及"为了炫技硬塞"——组件服务内容，不是内容服务组件。
 
+## 行内富文本（文字类回答的底座）
+
+`text.content`、`list` 项、`table` 文本列、`keyvalue` 值、`callout` 标题与正文里可以直接写四种行内标记——**重点留在句子里，不必为一个词单起一个组件**：
+
+| 写法 | 渲染 |
+|---|---|
+| `` `code` `` | 行内代码胶囊 |
+| `**加粗**` | 强调（不换行、不成块） |
+| `==高亮==` | 极淡底色标记 |
+| `[文字](https://…)` | 行内链接（http/https/mailto；非法目标退化为纯文字） |
+
+不嵌套、不解析 HTML（每个标记生成 React 元素，不走 innerHTML）；标记没闭合时原样显示。数值列 / badge / spark 单元格不解析（数字没什么可强调的）。
+
 ## 回答级版式：默认无卡，焦点唯一
 
 **规则来自设计规范，不是口味**（`design` skill 的 `references/design-reference.md`）：

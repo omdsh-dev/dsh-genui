@@ -6,6 +6,7 @@
  */
 import { memo, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CodeBlock, DiffBlock, JsonTree, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
+import { renderInline } from '../inline.ts'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import { PlotBlock } from '../PlotBlock.tsx'
@@ -27,8 +28,8 @@ export const CalloutNode = memo(function CalloutNode({ node }: { node: GenuiCall
   const toneClass = CALLOUT_TONES[tone] ?? css.calloutInfo
   return (
     <div className={`${css.callout} ${toneClass}`} data-genui-callout>
-      {node.title !== undefined && <div className={css.calloutTitle}>{node.title}</div>}
-      <div className={css.calloutBody}>{node.content}</div>
+      {node.title !== undefined && <div className={css.calloutTitle}>{renderInline(node.title)}</div>}
+      <div className={css.calloutBody}>{renderInline(node.content)}</div>
     </div>
   )
 })
@@ -64,7 +65,7 @@ export const KeyValueNode = memo(function KeyValueNode({ node }: { node: GenuiKe
       {pairs.map((pair, i) => (
         <div key={i} className={css.kvRow}>
           <dt className={css.kvKey}>{pair.key}</dt>
-          <dd className={css.kvValue}>{pair.value}</dd>
+          <dd className={css.kvValue}>{renderInline(pair.value)}</dd>
         </div>
       ))}
     </dl>

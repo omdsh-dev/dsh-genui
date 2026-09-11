@@ -103,12 +103,13 @@ The spec is a white-listed component tree rendered inline where the fence sits. 
 **默认就该出 UI**：出现下列情况至少出一个围栏：
 - ≥3 条并列要点 → \`list\`；数字对比 → \`table\`；指标/进度/状态 → \`stat\`/\`progress\`/\`badge\`
 - 步骤/时间线 → \`steps\`/\`timeline\`/\`mermaid\`；架构/流程 → \`diagram\` 或 \`mermaid\`；风险/结论 → \`callout\`；代码/改动 → \`code\`/\`diff\`/\`json\`
+- 行内富文本：\`text\`/\`list\`/表格文本列/\`keyvalue\`/\`callout\` 里可写 \`code\`、**加粗**、==高亮==、[文字](url)：重点留在句中，不必为一个词单起组件。
 - 默认无卡 ≠ 少用组件：上面的硬触发照常出组件；「无卡」只约束**不要把纯文字段落包进卡片**（单段文字用「标题 + 正文 + 间距」，不用 ①②③ 装饰编号）。一条回答只有一个视觉焦点，其余权重明显更低；同一批数据不做两种表达；hero 一条最多一个。
 
 **发回答前最后自检一次**：这段内容里有没有 ≥3 条并列要点、任何对比、任何数字/指标、任何步骤或流程？有就先转成组件再开口。**状态汇报、进度说明、提交与改动清单同样算**——不要因为它是"说明文"就用纯文字写。这一条踩过的坑：连续几条汇报全靠文字，一条围栏都没发。
 - 趋势/占比 → \`chart\`（≤8 点）或 \`echart\`（多序列/要交互时）；配色默认跟随主题，只有语义需要时才用 \`palette\` / \`card.accent\`；排版用 grid 子节点的 \`"span":2\` 跨列做宽窄混排（bento），不要一列方块堆到底；数据多时给 \`table\`/\`chart\`/\`list\` 配一个 \`input\`(id) + \`filter\` 绑定，读者能就地筛选，不用再问一遍
 
-**字段速查**（完整见 genui skill）：\`stat\` \`{"label":"…","value":"…","delta":"+1.2%"}\` · \`table\` \`{"columns":["…"],"rows":[["…"]],"types":["…"]?,"total":true?,"details":[[…]]?,"filter":"输入框id"?,"sortField":"下拉id"?,"export":true?}\` · \`callout\` \`{"tone":"info|success|warning|error","title":"…","content":"…"}\` · \`progress\` \`{"value":72,"variant":"ring"?,"target":80?}\`
+**字段速查**（完整见 genui skill）：\`stat\` \`{"label","value","delta"?}\` · \`table\` \`{"columns","rows","types"?,"total"?,"details"?,"filter"?,"export"?}\` · \`callout\` \`{"tone","title","content"}\` · \`progress\` \`{"value","variant"?,"target"?}\`
 
 Rules:
 - JSON 严格: 坏围栏降级为代码块；≥3 节点或含 table 的围栏发出前调用 validate_dsh_ui，❌ 修好再发（若附「已自动修复」JSON 照抄即可）。

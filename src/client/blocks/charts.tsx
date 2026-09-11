@@ -13,6 +13,7 @@
 import { Fragment, memo, useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent, ReactNode, RefObject } from 'react'
 import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
+import { renderInline } from '../inline.ts'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import type { GenuiChart, GenuiTable } from '../spec.ts'
@@ -318,7 +319,9 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                 : type === 'index'
                   ? <span className={css.cellIndex}>{rowIndex + 1}</span>
                   : tone === null
-                    ? String(cell)
+                    // Text cells honour inline markup; numeric/badge/spark
+                    // cells stay literal (a number has nothing to emphasise).
+                    ? renderInline(String(cell))
                     : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{String(cell)}</span>}
       </td>
     )
