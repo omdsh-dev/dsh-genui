@@ -166,6 +166,56 @@ description: "Render structured interactive UI inline in your reply via the dsh-
 
 `node scripts/genui-usage-audit.mjs` 输出「版式多样性」：不同版式签名数、最常见签名占比、归一化熵（越接近 1 越多样）、每回答 card 数分布。熵明显下降或 card 数不降反升，就说明规则没生效。
 
+## 范例：示范「判断」，不要照抄组件序列
+
+每个范例后面都跟着**什么时候不要这样**。组件多是好事——只要每个都在承载不同信息、并且有焦点和层次；真正的毛病是重复表达、以及把纯文字段落包进卡片。
+
+### 1. 状态汇报（多点 + 有构图）
+
+```json
+{"items":[{"type":"grid","cols":4,"items":[{"type":"stat","label":"已合并","value":"26","delta":"#123–#148"},{"type":"stat","label":"未合并","value":"0"},{"type":"stat","label":"测试","value":"556","delta":"全绿"},{"type":"stat","label":"组件","value":"45"}]},{"type":"table","columns":["层","状态","生效方式"],"types":["text","badge","text"],"rows":[["组件与样式","已生效","每次从磁盘读"],["系统提示","待重启","Node 半只在启动时加载"]]},{"type":"callout","tone":"info","title":"结论","content":"改动都上了，但 **效果还没证据**。"}]}
+```
+
+不要这样：把同一句话既写进正文又放进卡片；也不要为每条信息配一张卡（4 个 stat 排一行就够）。
+
+### 2. 解释/教学（文字为主，一个点睛组件）
+
+```json
+{"items":[{"type":"text","size":"body","content":"根因不是记性，是规则自相矛盾：一条说「≥3 条并列 → 出 list」，另一条说「组件只在 ==文字表达会更差== 时出现」。"},{"type":"list","items":[{"title":"先修规则","desc":"把闸门限定为「不要包卡片」，而不是「少用组件」"},{"title":"再看数据","desc":"如果漏发率不降，才考虑兜底手段"}]},{"type":"callout","tone":"warning","title":"别急着加监控","content":"事后提醒来得太晚，还会逼人在不需要组件的地方硬塞。"}]}
+```
+
+不要这样：每段都配一个组件；把一句话拆成好几个 text 节点（用行内标记就够了）。
+
+### 3. 对比选型
+
+```json
+{"items":[{"type":"table","columns":["方案","代价","判断"],"types":["text","text","badge"],"rows":[["改规则","改一行字","推荐"],["加看门狗","事后才提醒，会变噪音","不推荐"]]},{"type":"callout","tone":"success","title":"选前者","content":"成本一行，且解决根因。"}]}
+```
+
+不要这样：表格里放同一批数据后又画一张图。
+
+### 4. 排查诊断（顺序即叙事）
+
+```json
+{"items":[{"type":"steps","current":1,"steps":[{"title":"复现","desc":"滚动页面时光标压在图上"},{"title":"定位","desc":"onWheel 无条件 preventDefault"},{"title":"修复","desc":"改为仅 ⌘/Ctrl + 滚轮缩放"}]},{"type":"diff","diffs":[{"path":"PlotBlock.tsx","oldText":"e.preventDefault()","newText":"if (!e.metaKey && !e.ctrlKey) return"}]},{"type":"callout","tone":"info","title":"另外补了退路","content":"视图偏离时显示当前区间并提供 ==回到初始区间==。"}]}
+```
+
+不要这样：把"复现/定位/修复"写成三个卡片并列（那是流程，用 steps）。
+
+### 5. 数据结论（一个主图 + 明细）
+
+```json
+{"items":[{"type":"chart","kind":"line","data":[],"series":[{"label":"本周","data":[{"label":"一","value":8},{"label":"二","value":12},{"label":"三","value":9}]}]},{"type":"table","columns":["时段","量","环比"],"types":["text","num","delta"],"rows":[["周一","8","-4%"],["周二","12","+50%"]]}]}
+```
+
+不要这样：图与表用同一粒度表达同一批数据（图看趋势、表看明细才不重复）。
+
+### 6. 短回答：正确地不套组件
+
+> 这个改动我先不做了——它要动宿主的输入组件，而你说了不碰宿主。
+
+不要这样：一句话的结论配 stat + 表格 + callout。**没有内容就不发组件，这是对的，不算漏发。**
+
 ## 使用规则
 
 1. **围栏放哪，组件就出现在哪** —— 文字在前后自然流动，不要用工具、不要解释"这是一个围栏"。**围栏一闭合就立即渲染**（不等整条回答结束），所以可以边写文字边出组件
