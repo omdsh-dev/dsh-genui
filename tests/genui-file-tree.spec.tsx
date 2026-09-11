@@ -85,6 +85,37 @@ function assertFileTreeLayout(container: HTMLElement): void {
   expect(container.textContent).toContain('README.md')
 }
 
+describe('host isolation contract', () => {
+  // The plugin must never restyle the host: styles are confined to the fence
+  // subtree. A bare element selector (`pre {}`, `button {}`) or a `:global`
+  // block would reach the host's own UI.
+  for (const file of ['GenuiBlock.module.css', 'PlotBlock.module.css']) {
+    it(`${file} stays scoped to its own classes`, () => {
+      const raw = readFileSync(join(process.cwd(), 'src/client', file), 'utf8')
+      expect(raw).not.toContain(':global')
+      // Keyframe stops (`0%`, `from`, `to`) are not selectors.
+      const src = raw.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^}]*\}\s*)*\}/g, '')
+      const offenders: string[] = []
+      for (const match of src.matchAll(/(?:^|\n)([^\n{}/][^\n{]*?)\{/g)) {
+        const selector = (match[1] ?? '').trim()
+        if (selector === '' || selector.startsWith('@') || selector.startsWith('/*')) continue
+        for (const part of selector.split(',').map(p => p.trim())) {
+          if (part === '') continue
+          // Scoping rule: every selector must be ANCHORED by one of our module
+          // classes somewhere. `.table th`, `.card > :last-child` and
+          // `body[data-ds-dark-theme] .panel` are all contained; a bare
+          // `pre { }` or `body { }` would reach the host.
+          if (!/\./.test(part)) {
+            offenders.push(selector.slice(0, 60))
+            break
+          }
+        }
+      }
+      expect(offenders).toEqual([])
+    })
+  }
+})
+
 describe('component design contract (measured defects)', () => {
   const css = () => readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
 
