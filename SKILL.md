@@ -172,7 +172,7 @@ description: "Render structured interactive UI inline in your reply via the dsh-
 
 ### 1. 状态汇报（多点 + 有构图）
 
-```json
+```json dsh-ui
 {"items":[{"type":"grid","cols":4,"items":[{"type":"stat","label":"已合并","value":"26","delta":"#123–#148"},{"type":"stat","label":"未合并","value":"0"},{"type":"stat","label":"测试","value":"556","delta":"全绿"},{"type":"stat","label":"组件","value":"45"}]},{"type":"table","columns":["层","状态","生效方式"],"types":["text","badge","text"],"rows":[["组件与样式","已生效","每次从磁盘读"],["系统提示","待重启","Node 半只在启动时加载"]]},{"type":"callout","tone":"info","title":"结论","content":"改动都上了，但 **效果还没证据**。"}]}
 ```
 
@@ -180,7 +180,7 @@ description: "Render structured interactive UI inline in your reply via the dsh-
 
 ### 2. 解释/教学（文字为主，一个点睛组件）
 
-```json
+```json dsh-ui
 {"items":[{"type":"text","size":"body","content":"根因不是记性，是规则自相矛盾：一条说「≥3 条并列 → 出 list」，另一条说「组件只在 ==文字表达会更差== 时出现」。"},{"type":"list","items":[{"title":"先修规则","desc":"把闸门限定为「不要包卡片」，而不是「少用组件」"},{"title":"再看数据","desc":"如果漏发率不降，才考虑兜底手段"}]},{"type":"callout","tone":"warning","title":"别急着加监控","content":"事后提醒来得太晚，还会逼人在不需要组件的地方硬塞。"}]}
 ```
 
@@ -188,15 +188,23 @@ description: "Render structured interactive UI inline in your reply via the dsh-
 
 ### 3. 对比选型
 
-```json
+```json dsh-ui
 {"items":[{"type":"table","columns":["方案","代价","判断"],"types":["text","text","badge"],"rows":[["改规则","改一行字","推荐"],["加看门狗","事后才提醒，会变噪音","不推荐"]]},{"type":"callout","tone":"success","title":"选前者","content":"成本一行，且解决根因。"}]}
 ```
 
 不要这样：表格里放同一批数据后又画一张图。
 
+反例（这条会被围栏校验直接拒绝，所以别抄）：
+
+```json dsh-ui-bad
+{"items":[{"type":"chart","kind":"donut","data":[{"label":"A","value":1}],"series":[{"label":"B","data":[{"label":"B","value":2}]}]}]}
+```
+
+为什么拒：`series` 只对 `bars`/`line` 有效；环形图给了 `series` 属于契约冲突，围栏会**静默降级为代码块**。
+
 ### 4. 排查诊断（顺序即叙事）
 
-```json
+```json dsh-ui
 {"items":[{"type":"steps","current":1,"steps":[{"title":"复现","desc":"滚动页面时光标压在图上"},{"title":"定位","desc":"onWheel 无条件 preventDefault"},{"title":"修复","desc":"改为仅 ⌘/Ctrl + 滚轮缩放"}]},{"type":"diff","diffs":[{"path":"PlotBlock.tsx","oldText":"e.preventDefault()","newText":"if (!e.metaKey && !e.ctrlKey) return"}]},{"type":"callout","tone":"info","title":"另外补了退路","content":"视图偏离时显示当前区间并提供 ==回到初始区间==。"}]}
 ```
 
@@ -204,7 +212,7 @@ description: "Render structured interactive UI inline in your reply via the dsh-
 
 ### 5. 数据结论（一个主图 + 明细）
 
-```json
+```json dsh-ui
 {"items":[{"type":"chart","kind":"line","data":[],"series":[{"label":"本周","data":[{"label":"一","value":8},{"label":"二","value":12},{"label":"三","value":9}]}]},{"type":"table","columns":["时段","量","环比"],"types":["text","num","delta"],"rows":[["周一","8","-4%"],["周二","12","+50%"]]}]}
 ```
 
