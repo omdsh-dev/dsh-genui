@@ -72,10 +72,25 @@ const stats = {
   heroAnswers: 0,
   answersWithMultipleHeroes: 0,
   /** Per-answer card counts: the "default cardless" rule's measurable proxy. */
+  echartPresets: {},
+  echartRawOption: 0,
+  echartUnspecified: 0,
   cardAnswers: 0,
   cardTotal: 0,
   cardHistogram: {},
   undecodable: 0,
+}
+
+/** Count echart node styles: named preset vs raw option. */
+function collectEchart(node) {
+  if (node === null || typeof node !== 'object') return
+  if (Array.isArray(node)) { for (const item of node) collectEchart(item); return }
+  if (node.type === 'echart') {
+    if (typeof node.preset === 'string') stats.echartPresets[node.preset] = (stats.echartPresets[node.preset] ?? 0) + 1
+    else if (node.option !== undefined) stats.echartRawOption += 1
+    else stats.echartUnspecified += 1
+  }
+  for (const value of Object.values(node)) if (value !== null && typeof value === 'object') collectEchart(value)
 }
 
 function walkTypes(node, bag) {
@@ -128,6 +143,9 @@ for (const file of files) {
         if (spec === null) continue
         const bag = {}
         walkTypes(spec, bag)
+        // ECharts preset adoption: preset mode (one line) vs a hand-written
+        // `option` (the 500-byte path the presets exist to replace).
+        collectEchart(spec)
         for (const [type, count] of Object.entries(bag)) {
           answerTypes.add(type)
           answerBag[type] = (answerBag[type] ?? 0) + count
@@ -180,6 +198,13 @@ if (AS_JSON) {
     console.log(`  card：${stats.cardAnswers} 条回答用到（${pct(stats.cardAnswers, total)}），平均每条 ${(stats.cardTotal / total).toFixed(2)} 个；分布 0/1/2/3/4/5+ = ${[0, 1, 2, 3, 4, 5].map(k => stats.cardHistogram[k] ?? 0).join('/')}`)
     console.log('  最常见三种：')
     for (const [signature, count] of sigs.slice(0, 3)) console.log(`    ${String(count).padStart(4)}  ${signature || '(无组件)'}`)
+  }
+  const presetTotal = Object.values(stats.echartPresets).reduce((a, b) => a + b, 0)
+  const echartTotal = presetTotal + stats.echartRawOption + stats.echartUnspecified
+  if (echartTotal > 0) {
+    console.log(`\nechart：${echartTotal} 个节点 · preset ${presetTotal}（${pct(presetTotal, echartTotal)}）· 手写 option ${stats.echartRawOption} · 未指定 ${stats.echartUnspecified}`)
+    const top = Object.entries(stats.echartPresets).sort((a, b) => b[1] - a[1]).slice(0, 6)
+    if (top.length > 0) console.log('  ' + top.map(([k, v]) => `${k}:${v}`).join('  '))
   }
   console.log('\n组件使用（Top 15）：')
   for (const [name, count] of top.slice(0, 15)) console.log(`  ${String(count).padStart(5)}  ${name}`)
