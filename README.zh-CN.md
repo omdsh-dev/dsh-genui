@@ -93,7 +93,7 @@ https://github.com/user-attachments/assets/f5db33ec-7471-4d4a-a85b-79c9962ab4ef
 
 前置条件，缺一不可：
 
-1. **dsh `^0.1.2-rc.1 || ^0.1.5-alpha.1`**（dsh-genui 0.9.9 要求这一 DSH 发布线；使用 DSH `<=0.1.1-rc.x` 的用户请使用 dsh-genui `0.9.8`）
+1. **dsh `^0.1.2-rc.1 || ^0.1.5-alpha.1`**（dsh-genui 0.10.0 已验证 DSH 0.1.5-rc.2，并保留 0.1.2-rc.1 下限验证；使用 DSH `<=0.1.1-rc.x` 的用户请使用 dsh-genui `0.9.8`）
 2. **`pnpm` 在 PATH 上**：`dsh plugin` 命令依赖它。没有就 `corepack enable`（或 `npm i -g pnpm`），然后**新开一个终端**，确认 `pnpm -v` 有输出
 
 安装并在 DSH 中激活（一行命令，自动带上全部依赖）：

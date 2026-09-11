@@ -22,6 +22,7 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process'
+import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { createWriteStream, rmSync } from 'node:fs'
 import { mkdtemp, mkdir, copyFile, rm, writeFile, appendFile } from 'node:fs/promises'
@@ -236,6 +237,11 @@ try {
         { type: 'diff', diffs: [{ path: 'smoke.txt', oldText: 'before', newText: 'after' }] },
         { type: 'code', lang: 'text', code: 'primitive smoke' },
         { type: 'json', value: { answer: 42 } },
+        { type: 'table', columns: ['数值校验'], rows: [['103'], [86], ['25']] },
+        { type: 'text', content: '表格后续文字' },
+        { type: 'badge', label: '颜色校验', tone: 'success' },
+        { type: 'progress', value: 70 },
+        { type: 'callout', title: '提示颜色校验', tone: 'success', content: '颜色应正常显示' },
       ] })
       pre.appendChild(code)
       host.append(label, pre)
@@ -250,6 +256,37 @@ try {
     }
     await rendered.locator('.md-code-block button').click()
     await page.waitForFunction(async () => await navigator.clipboard.readText() === 'primitive smoke')
+    const table = rendered.locator('table').filter({ has: page.getByRole('button', { name: '数值校验' }) })
+    await table.getByRole('button', { name: '数值校验' }).click()
+    assert.deepEqual(await table.locator('tbody td').allTextContents(), ['25', '86', '103'])
+    await table.getByRole('button', { name: '数值校验' }).click()
+    assert.deepEqual(await table.locator('tbody td').allTextContents(), ['103', '86', '25'])
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-primitives-smoke] [class*="reveal"]')]
+      .every(element => getComputedStyle(element).animationName === 'none'))
+    const beforeHover = await table.boundingBox()
+    await table.hover()
+    assert.deepEqual(await table.boundingBox(), beforeHover, '悬停不移动表格')
+    const position = await table.evaluate(element => {
+      const reveal = element.closest('[class*="reveal"]')
+      const following = reveal.nextElementSibling
+      const before = [element.getBoundingClientRect().y, following.getBoundingClientRect().y]
+      reveal.remove()
+      following.before(reveal)
+      return { before, after: [element.getBoundingClientRect().y, following.getBoundingClientRect().y], animations: reveal.getAnimations().length }
+    })
+    assert.deepEqual(position.after, position.before, '重新插入已显示表格不重播位移动画')
+    assert.equal(position.animations, 0)
+    const colors = await rendered.evaluate(element => {
+      const background = selector => getComputedStyle(element.querySelector(selector)).backgroundColor
+      const fill = element.querySelector('[class*="track"] > [class*="fill"]')
+      return { badge: background('[class*="badge"]'), callout: background('[class*="calloutSuccess"]'), fill: getComputedStyle(fill).backgroundImage, width: fill.style.width }
+    })
+    for (const color of [colors.badge, colors.callout]) {
+      assert.ok(color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)', `语义颜色无效: ${color}`)
+    }
+    assert.notEqual(colors.fill, 'none')
+    assert.equal(colors.width, '70%')
+    log(`排序、颜色、悬停和节点重新插入验证通过：${JSON.stringify({ position, colors })}`)
     if (pageErrors.length > 0) throw new Error(`组件渲染异常: ${pageErrors.join(' | ')}`)
     log('smoke 模式：安装、激活、Diff/Code/JSON 真实渲染及复制均通过')
     await browser.close()

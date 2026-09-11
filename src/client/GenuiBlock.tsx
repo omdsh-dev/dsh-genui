@@ -184,7 +184,14 @@ function GenuiBlockInstance({ spec, stateKey }: GenuiBlockProps) {
           <div
             key={i}
             className={css.reveal}
-            style={{ animationDelay: `${Math.min(i * 90, 720)}ms` }}
+            style={{
+              animationDelay: `${Math.min(i * 90, 720)}ms`,
+              ...(persisted !== null ? { animation: 'none' } : {}),
+            }}
+            onAnimationEnd={event => {
+              // Reattaching this DOM node must not replay its completed entrance.
+              if (event.target === event.currentTarget) event.currentTarget.style.animation = 'none'
+            }}
           >
             {renderNode(c, i, trackedAction, 0, answersState)}
           </div>

@@ -93,7 +93,7 @@ The repository ships both renderer channels, the host plugin, and the built brow
 
 Prerequisites — all required:
 
-1. **dsh `^0.1.2-rc.1 || ^0.1.5-alpha.1`** (dsh-genui 0.9.9 requires this DSH release line; users on DSH `<=0.1.1-rc.x` should use dsh-genui `0.9.8`)
+1. **dsh `^0.1.2-rc.1 || ^0.1.5-alpha.1`** (dsh-genui 0.10.0 is verified on DSH 0.1.5-rc.2 and the 0.1.2-rc.1 minimum; users on DSH `<=0.1.1-rc.x` should use dsh-genui `0.9.8`)
 2. **`pnpm` on your PATH**: the `dsh plugin` command depends on it. If missing: `corepack enable` (or `npm i -g pnpm`), then **open a new terminal** and confirm `pnpm -v` prints a version
 
 Install and activate in DSH (one command, all dependencies included):
