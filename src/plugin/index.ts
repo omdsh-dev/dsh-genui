@@ -129,6 +129,7 @@ Rules:
 // plugin — hosts without tool access keep the fence channel working. Cordis
 // inject entries are hard requirements, so the registry is probed at runtime
 // instead (see apply).
+export const name = '@changfenhuang/dsh-genui'
 export const inject = ['systemPrompt']
 
 const BUNDLED_SKILL_RANK = 600
