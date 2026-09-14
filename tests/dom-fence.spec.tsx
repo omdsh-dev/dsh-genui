@@ -61,6 +61,27 @@ function deepsuiteCodeBlock(raw: string, lang: string, cls = 'code-block'): HTML
   return block
 }
 
+/** DSH 2.0.9-style surface: data attributes identify the banner/content
+ * regions while the code body is wrapped below the banner. */
+function dsh209CodeBlock(raw: string, lang: string): HTMLElement {
+  const block = document.createElement('div')
+  block.className = 'md-code-block'
+  const banner = document.createElement('div')
+  banner.setAttribute('data-code-block-banner', '')
+  const label = document.createElement('span')
+  label.textContent = lang
+  banner.appendChild(label)
+  const content = document.createElement('div')
+  content.setAttribute('data-code-block-content', '')
+  const pre = document.createElement('pre')
+  const code = document.createElement('code')
+  code.textContent = raw
+  pre.appendChild(code)
+  content.appendChild(pre)
+  block.append(banner, content)
+  return block
+}
+
 function assistantRow(anchorKey: string, streaming = false): HTMLElement {
   const row = document.createElement('div')
   row.setAttribute('data-chat-anchor-key', anchorKey)
@@ -636,6 +657,43 @@ describe('multi-surface discovery across host DOM shapes (issue #6)', () => {
     }
   })
 
+  it('takes over the DSH 2.0.9 data-attribute surface with a wrapped pre', async () => {
+    const row = assistantRow('s20-dsh209')
+    const block = dsh209CodeBlock(VALID_SPEC, '  dsh-ui\n')
+    row.appendChild(block)
+    document.body.appendChild(row)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('sess-6-dsh209', send), send)
+    try {
+      await tick()
+      expect(block.hasAttribute('data-genui-rendered')).toBe(true)
+      expect(block.style.display).toBe('none')
+      expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('你好，世界')
+    } finally {
+      dispose()
+    }
+  })
+
+  it('uses the normalized dsh-ui label for streaming settle re-verification', async () => {
+    const row = assistantRow('s20-dsh209-stream', true)
+    const block = dsh209CodeBlock(VALID_SPEC, '')
+    row.appendChild(block)
+    document.body.appendChild(row)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('sess-6-dsh209-stream', send), send)
+    try {
+      await tick()
+      expect(block.hasAttribute('data-genui-rendered')).toBe(true)
+      block.querySelector('span')!.textContent = '\n dsh-ui \t'
+      row.removeAttribute('data-streaming')
+      await tick()
+      expect(block.hasAttribute('data-genui-rendered')).toBe(true)
+      expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('你好，世界')
+    } finally {
+      dispose()
+    }
+  })
+
   it('structural backstop: an unlisted surface class renders via label+pre, warning once', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const row = assistantRow('s22')
@@ -898,6 +956,32 @@ describe('final-answer blank-out hardening (issue #19)', () => {
       // 恰好一条 issue #19 防御诊断，跨 sweep 不刷屏。
       const calls = warn.mock.calls.filter(([m]) => String(m).includes('疑似消息容器'))
       expect(calls).toHaveLength(1)
+      expect(String(calls[0]![0])).toContain('preCount=1')
+      expect(String(calls[0]![0])).toContain('outsideBlockTags=p')
+      expect(String(calls[0]![0])).not.toContain('这段正文必须在任何情况下可见')
+    } finally {
+      dispose()
+      warn.mockRestore()
+    }
+  })
+
+  it('diagnoses a near dsh-ui label once without warning for ordinary code blocks', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const row = assistantRow('s41-near-label')
+    const near = stockCodeBlock(VALID_SPEC, 'dsh-ui?')
+    const ordinary = stockCodeBlock('const dshUi = true', 'ts')
+    row.append(near, ordinary)
+    document.body.appendChild(row)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('sess-19-near-label', send), send)
+    try {
+      await tick()
+      await tick()
+      expect(near.hasAttribute('data-genui-rendered')).toBe(false)
+      expect(ordinary.hasAttribute('data-genui-rendered')).toBe(false)
+      const nearWarnings = warn.mock.calls.filter(([m]) => String(m).includes('疑似 dsh-ui'))
+      expect(nearWarnings).toHaveLength(1)
+      expect(String(nearWarnings[0]![0])).not.toContain(VALID_SPEC)
     } finally {
       dispose()
       warn.mockRestore()
@@ -905,6 +989,7 @@ describe('final-answer blank-out hardening (issue #19)', () => {
   })
 
   it('refuses a surface-class element that is actually a message container', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const row = assistantRow('s41')
     const root = document.createElement('div')
     root.className = 'md-code-block'
@@ -924,8 +1009,52 @@ describe('final-answer blank-out hardening (issue #19)', () => {
       expect(root.hasAttribute('data-genui-rendered')).toBe(false)
       expect(root.style.display).toBe('')
       expect(row.querySelector('.genui-dom-fence')).toBeNull()
+      const calls = warn.mock.calls.filter(([message]) => String(message).includes('疑似消息容器'))
+      expect(calls).toHaveLength(1)
+      expect(String(calls[0]![0])).toContain('preCount=1')
+      expect(String(calls[0]![0])).toContain('outsideBlockTags=p')
+      expect(String(calls[0]![0])).not.toContain('正文')
+      expect(String(calls[0]![0])).not.toContain(VALID_SPEC)
     } finally {
       dispose()
+      warn.mockRestore()
+    }
+  })
+
+  it('diagnoses and refuses a known surface with multiple pre bodies', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const row = assistantRow('s41-multiple-pre')
+    const root = document.createElement('div')
+    root.className = 'md-code-block'
+    const banner = document.createElement('div')
+    const label = document.createElement('span')
+    label.textContent = 'dsh-ui'
+    banner.appendChild(label)
+    const first = document.createElement('pre')
+    first.textContent = VALID_SPEC
+    const second = document.createElement('pre')
+    second.textContent = 'second code body'
+    root.append(banner, first, second)
+    row.appendChild(root)
+    document.body.appendChild(row)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('sess-19-multiple-pre', send), send)
+    try {
+      await tick()
+      await tick()
+      expect(root.hasAttribute('data-genui-rendered')).toBe(false)
+      expect(root.style.display).toBe('')
+      expect(root.querySelectorAll('pre')).toHaveLength(2)
+      expect(row.querySelector('.genui-dom-fence')).toBeNull()
+      const calls = warn.mock.calls.filter(([message]) => String(message).includes('[dsh-genui]'))
+      expect(calls).toHaveLength(1)
+      expect(String(calls[0]![0])).toContain('preCount=2')
+      expect(String(calls[0]![0])).toContain('outsideBlockTags=none')
+      expect(String(calls[0]![0])).not.toContain(VALID_SPEC)
+      expect(String(calls[0]![0])).not.toContain('second code body')
+    } finally {
+      dispose()
+      warn.mockRestore()
     }
   })
 

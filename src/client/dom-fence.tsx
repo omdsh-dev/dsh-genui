@@ -82,6 +82,36 @@ const SURFACE_HOPS = 4
  * final answer (issue #19's residual variant of the issue #13 class). */
 const BLOCK_CONTENT_SELECTOR = 'p, ul, ol, dl, table, h1, h2, h3, h4, h5, h6, blockquote, hr, img, figure'
 
+/** Normalize a host-rendered fence language label before comparing it. Host
+ * banners can carry formatting whitespace while streaming settles, but that
+ * whitespace must not change whether the same fence is recognized. */
+function normalizeFenceLabel(text: string): string {
+  return text.trim()
+}
+
+/** Identify labels that are close enough to `dsh-ui` to explain a missed
+ * fence, without treating arbitrary code-language labels as actionable. */
+function looksLikeDshUiLabel(text: string): boolean {
+  const normalized = normalizeFenceLabel(text).toLowerCase()
+  if (normalized === 'dsh-ui') return false
+  const compact = normalized.replace(/[\s\u200b\u200c\u200d\ufeff]/g, '')
+  return compact === 'dsh-ui' || compact.startsWith('dsh-ui') || compact.endsWith('dsh-ui')
+}
+
+/** Summarize why a labeled surface is not safe to take over. The summary is
+ * intentionally structural only: it never includes fence body text. */
+function implausibleSurfaceDetails(candidate: Element): string {
+  const preCount = candidate.querySelectorAll('pre').length
+  const outsideBlockTags = new Set<string>()
+  for (const el of candidate.querySelectorAll(BLOCK_CONTENT_SELECTOR)) {
+    const pre = el.closest('pre')
+    if (pre !== null && candidate.contains(pre)) continue
+    outsideBlockTags.add(el.tagName.toLowerCase())
+  }
+  const tags = [...outsideBlockTags].sort().join(',') || 'none'
+  return `preCount=${preCount}, outsideBlockTags=${tags}`
+}
+
 /** Does this element look like a single code-block surface rather than a
  * message container? The only allowed non-code content is banner chrome. */
 function isPlausibleFenceSurface(candidate: Element): boolean {
@@ -146,8 +176,8 @@ function isTextNode(node: Node): node is Text {
   return node.nodeType === Node.TEXT_NODE
 }
 
-/** The banner's language label: a leaf element whose text is exactly the
- * lang. CodeBlock renders the label as a childless div; deepsuite-style
+/** The banner's language label: a leaf element whose trimmed text is exactly
+ * the lang. CodeBlock renders the label as a childless div; deepsuite-style
  * surfaces use a span; the ONLY structural invariants across hosts are "a
  * leaf element holds exactly the lang text" and "it lives outside the code
  * body" — a fence whose code literally contains the text `dsh-ui` must not
@@ -159,7 +189,7 @@ function infostringOf(block: Element): string | null {
   const pre = block.querySelector('pre')
   for (const el of block.querySelectorAll('*')) {
     if (el.childElementCount !== 0) continue
-    if (el.textContent !== 'dsh-ui') continue
+    if (normalizeFenceLabel(el.textContent ?? '') !== 'dsh-ui') continue
     if (pre !== null && pre.contains(el)) continue
     // A leaf label that belongs to a NESTED known code surface is that
     // surface's banner, not `block`'s own banner. Only accept labels whose
@@ -172,16 +202,18 @@ function infostringOf(block: Element): string | null {
   return null
 }
 
-/** The banner label's raw text (empty while streaming — the host renders the
- * language label only once the reply settles). Returns the first leaf
- * outside the code body (banners always lead with the language), so a
- * span-label host reads identically to the div-label host. */
+/** The banner label's normalized text (empty while streaming — the host
+ * renders the language label only once the reply settles). Leading and
+ * trailing whitespace is removed so streaming and settled checks share the
+ * same semantics. Returns the first leaf outside the code body (banners
+ * always lead with the language), so a span-label host reads identically to
+ * the div-label host. */
 function labelTextOf(block: Element): string {
   const pre = block.querySelector('pre')
   for (const el of block.querySelectorAll('*')) {
     if (el.childElementCount !== 0) continue
     if (pre !== null && pre.contains(el)) continue
-    return el.textContent ?? ''
+    return normalizeFenceLabel(el.textContent ?? '')
   }
   return ''
 }
@@ -228,6 +260,16 @@ function implausibleLabeledAncestorOf(pre: HTMLElement, scope: ParentNode = docu
   return null
 }
 
+/** Find a nearby label that is almost `dsh-ui`, so malformed whitespace or a
+ * host decoration gets one useful diagnostic instead of a silent skip. */
+function suspectedDshUiAncestorOf(pre: HTMLElement, scope: ParentNode = document): HTMLElement | null {
+  let el: HTMLElement | null = pre.parentElement
+  for (let hops = 0; el !== null && el !== scope && hops < SURFACE_HOPS; hops += 1, el = el.parentElement) {
+    if (looksLikeDshUiLabel(labelTextOf(el))) return el
+  }
+  return null
+}
+
 /**
  * Every dsh-ui fence surface under `scope`, outer-most first, deduped.
  * Known surface classes first (cheap, ordered), then a structural sweep —
@@ -247,7 +289,11 @@ function findFenceCandidates(scope: ParentNode = document): HTMLElement[] {
     if (seen.has(el)) continue
     // Message-level containers that happen to carry a surface class must
     // not be taken over: hiding them hides the whole answer (issue #19).
-    if (!isPlausibleFenceSurface(el)) continue
+    if (!isPlausibleFenceSurface(el)) {
+      if (infostringOf(el) === 'dsh-ui') warnImplausibleSurface(el)
+      continue
+    }
+    if (looksLikeDshUiLabel(labelTextOf(el))) warnSuspectedDshUiLabel()
     out.push(el)
     seen.add(el)
   }
@@ -263,10 +309,9 @@ function findFenceCandidates(scope: ParentNode = document): HTMLElement[] {
     if (surface === null) {
       // Diagnose the issue #19 guard: a labeled ancestor that is NOT a code
       // surface (prose/multiple code bodies) was skipped on purpose.
-      if (implausibleLabeledAncestorOf(pre, scope) !== null && !plausibilityWarned) {
-        plausibilityWarned = true
-        console.warn('[dsh-genui] 跳过带 dsh-ui 标签但疑似消息容器的节点（含段落或多个代码体）——防止 DOM 通道隐藏整条消息（issue #19）')
-      }
+      const implausible = implausibleLabeledAncestorOf(pre, scope)
+      if (implausible !== null) warnImplausibleSurface(implausible)
+      if (suspectedDshUiAncestorOf(pre, scope) !== null) warnSuspectedDshUiLabel()
       continue
     }
     if (seen.has(surface)) continue
@@ -288,6 +333,23 @@ function findFenceCandidates(scope: ParentNode = document): HTMLElement[] {
 let driftWarned = false
 /** One-time-per-install issue #19 guard diagnostic (same budget). */
 let plausibilityWarned = false
+/** One-time-per-install near-label diagnostic (ordinary code labels do not
+ * match the constrained dsh-ui shape). */
+let suspectedLabelWarned = false
+
+/** Warn once when the issue #19 safety guard rejects a labeled candidate. */
+function warnImplausibleSurface(candidate: Element): void {
+  if (plausibilityWarned) return
+  plausibilityWarned = true
+  console.warn(`[dsh-genui] 跳过带 dsh-ui 标签的疑似消息容器（${implausibleSurfaceDetails(candidate)}）——防止 DOM 通道隐藏整条消息（issue #19）`)
+}
+
+/** Warn once when a host label is close to dsh-ui but not recognized. */
+function warnSuspectedDshUiLabel(): void {
+  if (suspectedLabelWarned) return
+  suspectedLabelWarned = true
+  console.warn('[dsh-genui] 检测到疑似 dsh-ui 语言标签但未精确匹配；请检查标签中的额外字符或格式（未读取围栏正文）')
+}
 
 /** Root factory seam (tests / tuning): the DOM channel creates one React root
  * per taken-over fence through this indirection so mount-failure cleanup is
@@ -385,6 +447,7 @@ export function installDomFenceRenderer(
   if (typeof document === 'undefined') return () => {}
   driftWarned = false
   plausibilityWarned = false
+  suspectedLabelWarned = false
   const mounts = new Map<HTMLElement, Mount>()
   let disposed = false
   let rafId: number | null = null
