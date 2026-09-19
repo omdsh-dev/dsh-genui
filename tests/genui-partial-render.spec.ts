@@ -60,3 +60,29 @@ describe('partial fence rendering (issue #186)', () => {
     expect(partialRepairGenuiSpec(processGenuiSpec(JSON.parse(raw)))).toEqual(fenceSpec(raw))
   })
 })
+
+describe('partial fence pruning with multiple bad siblings (issue #190)', () => {
+  it('drops two bad siblings and renders the good tail node', () => {
+    const raw = '{"items":[{"type":"stat","label":42,"value":"1/5"},{"type":"stat","label":43,"value":"2/5"},{"type":"callout","content":"kept"}]}'
+    const spec = fenceSpec(raw)
+    expect(spec).not.toBeNull()
+    expect(spec!.items).toEqual([{ type: 'callout', content: 'kept' }])
+  })
+
+  it('drops two bad tail siblings when the good node comes first', () => {
+    const raw = '{"items":[{"type":"callout","content":"kept"},{"type":"stat","label":42,"value":"1/5"},{"type":"stat","label":43,"value":"2/5"}]}'
+    const spec = fenceSpec(raw)
+    expect(spec).not.toBeNull()
+    expect(spec!.items).toEqual([{ type: 'callout', content: 'kept' }])
+  })
+
+  it('drops two bad nested siblings under one container without touching the container', () => {
+    const raw = '{"items":[{"type":"col","items":[{"type":"stat","label":"a","value":"1"},{"type":"progress","value":200},{"type":"progress","value":300}]},{"type":"text","content":"tail"}]}'
+    const spec = fenceSpec(raw)
+    expect(spec).not.toBeNull()
+    expect(spec!.items).toEqual([
+      { type: 'col', items: [{ type: 'stat', label: 'a', value: '1' }] },
+      { type: 'text', content: 'tail' },
+    ])
+  })
+})

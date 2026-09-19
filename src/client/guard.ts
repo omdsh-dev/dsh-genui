@@ -1685,10 +1685,24 @@ export function partialRepairGenuiSpec(processed: GenuiProcessResult): GenuiSpec
   if (paths.size === 0) return null
   const pruned = cloneJsonValue(processed.value)
   if (pruned === null) return null
-  // Deepest paths first: dropping a parent shifts every later sibling index.
-  for (const path of [...paths].sort((a, b) => b.split('.').length - a.split('.').length)) {
-    const slot = nodeSlotAt(pruned, path)
-    if (slot !== undefined) slot.array.splice(slot.index, 1)
+  // Resolve every slot BEFORE the first splice: each drop shifts the later
+  // siblings of the same array, so a resolve-after-splice (deepest-first or
+  // not) lands on the wrong row whenever two erroring nodes share a parent.
+  // A resolved slot keeps its own array reference, so a parent drop cannot
+  // invalidate an already-resolved child slot; per array, splicing
+  // highest-index first keeps the remaining indexes valid (issue #190).
+  const slots = [...paths]
+    .map((path) => nodeSlotAt(pruned, path))
+    .filter((slot): slot is { array: unknown[]; index: number } => slot !== undefined)
+  const byArray = new Map<unknown[], number[]>()
+  for (const { array, index } of slots) {
+    const indexes = byArray.get(array)
+    if (indexes === undefined) byArray.set(array, [index])
+    else indexes.push(index)
+  }
+  for (const [array, indexes] of byArray) {
+    indexes.sort((a, b) => b - a)
+    for (const index of indexes) array.splice(index, 1)
   }
   const retry = processGenuiSpec(pruned)
   if (!isRenderableProcess(retry) || retry.renderedNativeCount === 0) return null
