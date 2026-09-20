@@ -172,9 +172,9 @@
     "yaml": "^2.4.2"
   },
   "scripts": {
-    "build": "rm -rf lib && tsc -p tsconfig.json && tsdown",
+    "build": "node scripts/clean.mjs && tsc -p tsconfig.json && tsdown",
     "test": "vitest run",
-    "check": "rm -rf lib && tsc -p tsconfig.json && vitest run && tsdown",
+    "check": "node scripts/clean.mjs && tsc -p tsconfig.json && vitest run && tsdown",
     "prepack": "node scripts/prepack.mjs"
   },
   "dsh": {
