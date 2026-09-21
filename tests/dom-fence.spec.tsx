@@ -641,6 +641,24 @@ describe('anchor-less rows (Safari fallback render path)', () => {
     }
   })
 
+  it('assigns distinct fallback identities to fences in separate anchor-less rows', async () => {
+    const firstRow = document.createElement('div')
+    firstRow.setAttribute('data-chat-flow-kind', 'assistant-step')
+    firstRow.appendChild(stockCodeBlock('{"panel":true,"title":"面板A","items":[{"type":"text","content":"A"}]}', 'dsh-ui'))
+    const secondRow = document.createElement('div')
+    secondRow.setAttribute('data-chat-flow-kind', 'assistant-step')
+    secondRow.appendChild(stockCodeBlock('{"panel":true,"title":"面板B","items":[{"type":"text","content":"B"}]}', 'dsh-ui'))
+    document.body.append(firstRow, secondRow)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('sess-safari-6', send), send)
+    try {
+      await waitFor(() => getPanelSpec('sess-safari-6')?.title === '面板B')
+      expect(getPanelSpec('sess-safari-6')?.title).toBe('面板B')
+    } finally {
+      dispose()
+    }
+  })
+
   it('warns once when the row anchor is missing, and stays silent for anchored rows', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const anchored = assistantRow('s15')

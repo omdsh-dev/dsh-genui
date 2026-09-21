@@ -339,14 +339,12 @@ function rowOf(block: Element): Element {
   return block.closest('[data-chat-anchor-key]') ?? block.closest(FLOW_ROW) ?? block
 }
 
-/** 1-based ordinal of this block among the row's settled dsh-ui blocks
- * (document order). Streaming candidates are skipped, so the ordinal stays
- * stable while the block itself is still streaming. When the fallback chain
- * bottoms out at the block itself (no owning row in the DOM at all), the
- * ordinal falls back to document order among ALL settled dsh-ui blocks so
- * sibling fences never collide on the same `dom:unknown:N` identity. */
+/** 1-based ordinal of this block among settled dsh-ui blocks in its identity
+ * scope. Streaming candidates are skipped, so the ordinal stays stable while
+ * the block itself is still streaming. Anchor-less rows share the document
+ * scope so fences from different messages cannot reuse `dom:unknown:N`. */
 function fenceIndexOf(row: Element, block: Element): number {
-  const scope = row === block ? document : row
+  const scope = row.getAttribute('data-chat-anchor-key') === null ? document : row
   let index = 0
   for (const candidate of findFenceCandidates(scope)) {
     if (candidate.closest(STREAMING) !== null) continue
