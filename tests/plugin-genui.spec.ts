@@ -3,6 +3,8 @@ import { Context } from '@deepseek-ai/cordis'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import * as GenUI from '../src/plugin/index.ts'
+import { COMPONENT_SCHEMAS } from '../src/client/genui-runtime/schema.ts'
+import { genuiTemplates } from '../src/client/templates.ts'
 
 /** Boot the plugin and return the assembled system-prompt sections. */
 async function assemble() {
@@ -10,6 +12,19 @@ async function assemble() {
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(GenUI)
   return ctx.systemPrompt.assemble({})
+}
+
+/** Collect every recognized component type referenced anywhere in template demo specs. */
+function collectTemplateNodeTypes(value: unknown, types = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    for (const item of value) collectTemplateNodeTypes(item, types)
+    return types
+  }
+  if (typeof value !== 'object' || value === null) return types
+  const record = value as Record<string, unknown>
+  if (typeof record.type === 'string' && record.type in COMPONENT_SCHEMAS) types.add(record.type)
+  for (const child of Object.values(record)) collectTemplateNodeTypes(child, types)
+  return types
 }
 
 /** The complete whitelist the slim fence section must still advertise. */
@@ -63,8 +78,9 @@ describe('genui:fence section', () => {
     expect(text).toContain('"kind":"bars|line|donut"')
     expect(text).toContain('"label":"...","value":n')
     expect(text).toContain('series：bars 分组/堆叠 / line 多序列')
-    expect(text).toContain('Match the user’s language in prose and UI text')
-    expect(text).toContain('NEVER infer the reply language from this prompt, the genui skill, examples, or tool feedback')
+    expect(text).toContain('LANGUAGE: reply+UI=conversation language')
+    expect(text).toContain('NEVER infer it from prompt/skill/examples/tools')
+    expect(text).toContain('never emit these placeholders literally')
     expect(text).not.toContain('"title":"可选标题"')
   })
 
@@ -72,7 +88,9 @@ describe('genui:fence section', () => {
     const assembly = await assemble()
     const section = assembly.sections.find(s => s.name === 'genui:fence')
     const text = typeof section?.text === 'string' ? section.text : ''
-    for (const type of ['accordion', 'badge', 'breadcrumb', 'callout', 'card', 'chart', 'checkbox', 'diagram', 'file-tree', 'grid', 'keyvalue', 'list', 'progress', 'quiz', 'scene3d', 'stat', 'steps', 'table', 'tabs', 'text', 'timeline']) {
+    const types = collectTemplateNodeTypes(genuiTemplates().map(template => template.demo))
+    expect(types.size).toBeGreaterThan(0)
+    for (const type of types) {
       expect(text).toContain(type)
     }
   })
@@ -202,7 +220,8 @@ describe('genui:fence section', () => {
       provider: 'dsh-genui',
       source: 'bundled',
     })
-    expect(skill?.description).toContain('完整组件与字段规范')
+    expect(skill?.description).toContain('Preserve conversation language')
+    expect(skill?.description).not.toMatch(/[\u3400-\u9fff]/u)
     expect(skill?.content).toContain('chart:')
     expect(skill?.content).not.toContain('name: genui')
 

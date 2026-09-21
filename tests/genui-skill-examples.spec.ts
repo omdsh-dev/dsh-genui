@@ -34,6 +34,7 @@ describe('SKILL.md examples', () => {
   })
 
   it('keeps user-visible example values language-neutral', () => {
+    expect(skill).toContain('never emit these placeholders literally')
     expect(skill).toContain('"title":"<user-language text>"')
     expect(skill).not.toContain('"title":"可选标题"')
     expect(skill).not.toContain('"label":"已合并"')

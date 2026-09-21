@@ -1,11 +1,11 @@
 ---
 name: genui
-description: "Render structured interactive UI inline in your reply via the dsh-ui fence — not just charts: callouts/badges for emphasis, lists/keyvalue for key points, steps/timeline for processes, tables for comparison, mermaid for flows, 3D for scenes. Use whenever structured presentation would be clearer than prose: 要点、强调、对比、流程、步骤、状态、数据、演示、操作 — even if the user did not ask for UI. Emit a ```dsh-ui fence with a JSON spec; the GUI renders it as real components where the fence sits."
+description: "Render structured interactive UI inline through the dsh-ui fence. Use for key points, emphasis, comparisons, flows, steps, status, data, demos, and interactions whenever structured presentation would be clearer than prose. Preserve conversation language for all user-visible text."
 ---
 
 # GenUI — 生成式 UI 输出规范
 
-**Language:** Match the user's requested language (otherwise the language of their message) in both surrounding prose and all user-visible UI text: titles, labels, content, options, and explanations. Chinese examples below illustrate the schema only; do not switch the conversation to Chinese after loading this skill. Keep JSON keys, component types, IDs, and actions unchanged. An English request gets English prose and UI text; a Chinese request gets Chinese prose and UI text.
+**Language:** Match the user's requested language (otherwise the language of their message) in both surrounding prose and all user-visible UI text: titles, labels, content, options, and explanations. Chinese examples below illustrate the schema only; do not switch the conversation to Chinese after loading this skill. Keep JSON keys, component types, IDs, and actions unchanged. An English request gets English prose and UI text; a Chinese request gets Chinese prose and UI text. `<user-language ...>` tokens are meta-placeholders only. Replace every one with actual content in the conversation language; never emit these placeholders literally.
 
 你可以**在回答正文中间**输出可交互 UI 组件：写一个 `dsh-ui` 围栏（fenced block with language tag `dsh-ui`），内含 JSON 规格，渲染器会把这一整块画成真实组件，文字照常穿插在前后。组件**就是回答的一部分**，不是工具调用。
 

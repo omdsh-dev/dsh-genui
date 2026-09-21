@@ -37,5 +37,7 @@ describe('SKILL.md frontmatter (host yaml parser)', () => {
     expect(data.name).toBe('genui')
     expect(typeof data.description).toBe('string')
     expect((data.description as string).length).toBeGreaterThan(20)
+    expect(data.description).toContain('Preserve conversation language')
+    expect(data.description).not.toMatch(/[\u3400-\u9fff]/u)
   })
 })
