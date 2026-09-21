@@ -57,6 +57,7 @@ import { GenuiActionContext, type GenuiActionHandler } from './action-context.ts
 import css from './GenuiBlock.module.css'
 import { renderSvgFence } from './svg-fence.tsx'
 import { describeFenceFailure, FenceDiagnostic, renderResolvedFenceNode, type GenuiFenceContext } from './fence-render.tsx'
+import { resolveViewedSessionId } from './session-resolver.ts'
 
 /** Fence surfaces the channel can take over, newest host first: the shared
  * CodeBlock surface every rc.6+ markdown fence renders through
@@ -414,7 +415,7 @@ export function installDomFenceRenderer(
 
   const sessionIdOf = (): SessionId | undefined => {
     try {
-      return ctx.sessions.list.getSnapshot().current
+      return resolveViewedSessionId(ctx.sessions.list.getSnapshot())
     } catch {
       return undefined
     }
@@ -532,6 +533,22 @@ export function installDomFenceRenderer(
     console.warn(`[dsh-genui] ${message}`)
   }
 
+  /**
+   * 通过当前宿主会话发送 DOM 通道 action。
+   *
+   * @param block - 触发 action 的围栏元素
+   * @param action - 组件声明的 action 名称
+   * @param payload - 组件产生的交互数据
+   */
+  function sendActionForBlock(block: Element, action: string, payload: Record<string, unknown>): void {
+    const sessionId = sessionIdOf()
+    if (sessionId === undefined) {
+      warnOnce(block, `cannot resolve the viewed session; action "${action}" was not sent`)
+      return
+    }
+    sendAction(sessionId, action, payload)
+  }
+
   function renderBlock(block: HTMLElement): void {
     if (block.hasAttribute(PROCESSED)) return
     const row = rowOf(block)
@@ -586,11 +603,7 @@ export function installDomFenceRenderer(
       return
     }
     try {
-      const handler: GenuiActionHandler = (action, payload) => {
-        const sid = sessionIdOf()
-        if (sid === undefined) return
-        sendAction(sid, action, payload)
-      }
+      const handler: GenuiActionHandler = (action, payload) => sendActionForBlock(block, action, payload)
       root.render(<GenuiActionContext.Provider value={handler}>{payload}</GenuiActionContext.Provider>)
     } catch (error) {
       try {
@@ -725,10 +738,7 @@ export function installDomFenceRenderer(
           block.after(fresh)
           try {
             const freshRoot = domRootFactory(fresh)
-            const handler: GenuiActionHandler = (action, payload) => {
-              const sid = sessionIdOf()
-              if (sid !== undefined) sendAction(sid, action, payload)
-            }
+            const handler: GenuiActionHandler = (action, payload) => sendActionForBlock(block, action, payload)
             freshRoot.render(<GenuiActionContext.Provider value={handler}>{node}</GenuiActionContext.Provider>)
             mount.root = freshRoot
             mount.container = fresh
@@ -744,10 +754,7 @@ export function installDomFenceRenderer(
           }
         } else {
           try {
-            mount.root.render(<GenuiActionContext.Provider value={(action, payload) => {
-              const sid = sessionIdOf()
-              if (sid !== undefined) sendAction(sid, action, payload)
-            }}>{node}</GenuiActionContext.Provider>)
+            mount.root.render(<GenuiActionContext.Provider value={(action, payload) => sendActionForBlock(block, action, payload)}>{node}</GenuiActionContext.Provider>)
           } catch (error) {
             // Never leave the stock block hidden behind a broken root: restore
             // the raw code block and drop the mount (issue #19).

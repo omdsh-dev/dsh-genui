@@ -9,6 +9,7 @@
 
 ### 修复
 - **Tetris 形 table columns 不再让围栏退化成代码块**：模型把表头数组提前闭合、又把行矩阵写成 `columns` 的**兄弟数组元素**（`"columns":["a","b"],["rows":[[…]]]` 或 `"columns":["a","b"],[["1","2"]]`）。这类正文两侧括号是**配平**的，所以 tier-2 的补括号扫描救不回来；现在 tier-2 先做一次形状重写（把该兄弟数组收编为 `"rows":[…]`、并丢弃错位留下的多余闭合符），整串 parse 通过才采纳。四个真实会话 130 条围栏的未渲染数从 1 归零（#192）。
+- **兼容新版 DSH 会话快照**：DOM 通道在宿主移除 `sessions.list.current` 后，改用 `byId[*].retainedBy.mainView` 解析当前会话，恢复 action 回传、状态持久化和 `panel:true` 发布，并在无法解析会话时输出一次诊断（#196）。
 - **离散交互不再被防抖合并**：`button` / `checkbox` / `radio` / `switch` / `select` / `input` / `textarea` / `submit` / `quiz` 等一次手势一次事件的交互**立即逐次回传**。此前 300ms 防抖以 action 名为 key，快速连点同 action 名的控件会静默丢弃前几次事件，模型收到残缺交互状态，与 SKILL.md 承诺的 checkbox「默认保持逐次 action 行为」矛盾（#178）。
 - `slider` 拖拽保留防抖合并，且 key 从「action 名」改为「action 名 + `id`」：同一滑块的连续拖动仍合并成最后一次的值，多个共享 action 名的滑块互不挤占（#178）。
 
