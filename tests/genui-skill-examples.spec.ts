@@ -33,6 +33,14 @@ describe('SKILL.md examples', () => {
     expect(skill).toContain('正确地不套组件')
   })
 
+  it('keeps user-visible example values language-neutral', () => {
+    expect(skill).toContain('"title":"<user-language text>"')
+    expect(skill).not.toContain('"title":"可选标题"')
+    expect(skill).not.toContain('"label":"已合并"')
+    expect(skill).not.toContain('"columns":["方案","代价","判断"]')
+    expect(skill).not.toContain('"label":"本周"')
+  })
+
   for (const [i, raw] of good.entries()) {
     it(`example ${i + 1} renders`, () => {
       expect(renders(raw)).toBe(true)

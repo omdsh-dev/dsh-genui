@@ -138,8 +138,8 @@ describe('fenceFailures: only fences that would stay a code block', () => {
   })
 
   it('reports unparseable and unterminated bodies distinctly', () => {
-    expect(fenceFailures('```dsh-ui\n{ not json\n```')[0]!.detail).toContain('不是合法 JSON')
-    expect(fenceFailures('```dsh-ui\n{"items":[]}')[0]!.detail).toContain('未闭合')
+    expect(fenceFailures('```dsh-ui\n{ not json\n```')[0]!.detail).toContain('error=invalid_json')
+    expect(fenceFailures('```dsh-ui\n{"items":[]}')[0]!.detail).toContain('error=unterminated_fence')
   })
 
   it('accepts bodies repaired by the settled renderer pipeline', () => {
@@ -175,7 +175,7 @@ describe('planFenceFeedback: the bounds that prevent a retry storm', () => {
     expect(plan).not.toBeNull()
     expect(plan!.turn).toBe(1)
     expect(plan!.fingerprints).toEqual([fenceFingerprint(BROKEN)])
-    expect(plan!.text).toContain('只重发修正后的 dsh-ui 围栏')
+    expect(plan!.text).toContain('next=resend_corrected_fence_only')
   })
 
   it('checks the final reply body even when an earlier validated body was valid', () => {
@@ -212,8 +212,12 @@ describe('the steered correction message', () => {
   it('is a plugin-sourced notice with a stable marker and the failure detail', () => {
     const failures = fenceFailures(reply(BROKEN))
     const text = fenceCorrectionText(failures)
-    expect(text).toContain(`[genui 自修 #${failures[0]!.fingerprint}]`)
+    expect(text).toContain(`[genui-fence-repair #${failures[0]!.fingerprint}]`)
+    expect(text).toContain('[genui-fence-repair]')
+    expect(text).toContain('reply_language=preserve')
     expect(text).toContain("type 'stat' requires label")
+    expect(text).not.toContain('围栏没有渲染成界面')
+    expect(text).not.toContain('请只重发修正后的')
     const message = createFeedbackMessage(text)
     expect(message.role).toBe('user')
     expect(typeof message.id).toBe('string')
@@ -227,8 +231,8 @@ describe('the steered correction message', () => {
     const failures = fenceFailures(reply(BROKEN, '{"items":[{"type":"table"}]}'))
     expect(failures).toHaveLength(2)
     const text = fenceCorrectionText(failures)
-    expect(text).toContain('第 1 个围栏')
-    expect(text).toContain('第 2 个围栏')
+    expect(text).toContain('fence=1')
+    expect(text).toContain('fence=2')
   })
 })
 

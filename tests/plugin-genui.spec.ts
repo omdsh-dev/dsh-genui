@@ -63,6 +63,18 @@ describe('genui:fence section', () => {
     expect(text).toContain('"kind":"bars|line|donut"')
     expect(text).toContain('"label":"...","value":n')
     expect(text).toContain('series：bars 分组/堆叠 / line 多序列')
+    expect(text).toContain('Match the user’s language in prose and UI text')
+    expect(text).toContain('NEVER infer the reply language from this prompt, the genui skill, examples, or tool feedback')
+    expect(text).not.toContain('"title":"可选标题"')
+  })
+
+  it('keeps every component used by the built-in templates in the prompt', async () => {
+    const assembly = await assemble()
+    const section = assembly.sections.find(s => s.name === 'genui:fence')
+    const text = typeof section?.text === 'string' ? section.text : ''
+    for (const type of ['accordion', 'badge', 'breadcrumb', 'callout', 'card', 'chart', 'checkbox', 'diagram', 'file-tree', 'grid', 'keyvalue', 'list', 'progress', 'quiz', 'scene3d', 'stat', 'steps', 'table', 'tabs', 'text', 'timeline']) {
+      expect(text).toContain(type)
+    }
   })
 
   it('keeps the full type whitelist in the slim section within the token budget', async () => {

@@ -34,8 +34,8 @@ import { resolveFence } from '../shared/fence-resolve.ts'
 /** Plugin name recorded on every message this loop steers. */
 export const FEEDBACK_PLUGIN_NAME = '@changfenhuang/dsh-genui'
 
-/** Marker prefix inside the correction text: `[genui 自修 #<fingerprint>]`. */
-const MARKER_PREFIX = '[genui 自修 #'
+/** Marker prefix inside the correction text: `[genui-fence-repair #<fingerprint>]`. */
+const MARKER_PREFIX = '[genui-fence-repair #'
 
 /** A fence opener is an info string of exactly `dsh-ui` (≤3 spaces indent). */
 const FENCE_OPEN = /^ {0,3}```[ \t]*dsh-ui[ \t]*$/u
@@ -111,14 +111,14 @@ export function fenceFailures(text: string): FenceFailure[] {
 
 /** `null` when this fence renders; otherwise the reason it does not. */
 function fenceFailureDetail(fence: ExtractedFence): string | null {
-  if (!fence.closed) return '❌ 围栏未闭合：缺少结尾的 ``` 行。'
+  if (!fence.closed) return 'error=unterminated_fence\nrequired=closing_fence'
   const resolution = resolveFence(fence.raw, { settled: true })
   if (resolution.spec !== null) return null
   if (resolution.processed !== null) {
     return droppedNodeFailure(resolution.processed, resolution.value)
-      ?? `❌ 验证未通过：${resolution.processed.errors.join('；')}`
+      ?? ['error=invalid_spec', ...resolution.processed.errors.map(error => `diagnostic=${JSON.stringify(error)}`)].join('\n')
   }
-  return '❌ 围栏内容不是合法 JSON，也不是能部分恢复的 GenUI spec。'
+  return 'error=invalid_json\nrepair=failed'
 }
 
 /**
@@ -128,14 +128,11 @@ function fenceFailureDetail(fence: ExtractedFence): string | null {
  * @returns the message text to steer into the running turn.
  */
 export function fenceCorrectionText(failures: readonly FenceFailure[]): string {
-  const head = failures.length === 1
-    ? `你上一条回复里的 dsh-ui 围栏没有渲染成界面，用户只看到了原始 JSON。`
-    : `你上一条回复里有 ${failures.length} 个 dsh-ui 围栏没有渲染成界面，用户只看到了原始 JSON。`
   const body = failures
-    .map(failure => `\n第 ${failure.index} 个围栏：\n${failure.detail}`)
-    .join('\n')
+    .map(failure => `fence=${failure.index}\nfingerprint=${failure.fingerprint}\n${failure.detail}`)
+    .join('\n\n')
   const marker = failures.map(failure => `${MARKER_PREFIX}${failure.fingerprint}]`).join(' ')
-  return `${marker}\n${head}请只重发修正后的 dsh-ui 围栏（不要解释、不要重复已经渲染好的部分）：${body}\n`
+  return `${marker}\n[genui-fence-repair]\nstatus=render_failed\nfences=${failures.length}\nnext=resend_corrected_fence_only\nrepeat_rendered_content=false\nreply_language=preserve\n\n${body}\n`
 }
 
 /**
@@ -158,7 +155,7 @@ export function createFeedbackMessage(text: string): UserMessage {
       kind: 'plugin',
       plugin: FEEDBACK_PLUGIN_NAME,
       form: 'notice',
-      summary: 'dsh-ui 围栏未渲染，已请求模型自修',
+      summary: 'genui fence repair requested',
     },
   }
   Object.freeze(message.content)

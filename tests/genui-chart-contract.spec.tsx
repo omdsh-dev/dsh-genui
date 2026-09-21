@@ -117,11 +117,11 @@ describe('native chart renderability contract', () => {
       ],
     }
     const validation = String(await createValidateDshUiTool().execute({ spec: JSON.stringify(input) }))
-    expect(validation).toContain('✅')
-    expect(validation).toContain('items[0].label → items[0].title')
-    expect(validation).toContain('items[1].headers → items[1].columns')
-    expect(validation).toContain('items[2].kind → items[2].tone')
-    expect(validation).toContain('items[3].items → items[3].steps')
+    expect(validation).toContain('status=valid')
+    expect(validation).toContain('path=items[0].label canonical=items[0].title')
+    expect(validation).toContain('path=items[1].headers canonical=items[1].columns')
+    expect(validation).toContain('path=items[2].kind canonical=items[2].tone')
+    expect(validation).toContain('path=items[3].items canonical=items[3].steps')
 
     const renderTool = createRenderUiTool()
     const meta = renderTool.output.presentationMeta!({ spec: input })
@@ -146,7 +146,7 @@ describe('native chart renderability contract', () => {
       ],
     }
     const validation = String(await createValidateDshUiTool().execute({ spec: JSON.stringify(input) }))
-    expect(validation).toContain('✅')
+    expect(validation).toContain('status=valid')
     expect(validation).toContain('items[0].extension')
     expect(validation).toContain('unknown field')
 
@@ -156,6 +156,6 @@ describe('native chart renderability contract', () => {
     }
     expect(meta.items[0]).not.toHaveProperty('extension')
     expect(meta.items[1]).toEqual(input.items[1])
-    expect(await renderTool.execute({ spec: input })).toContain('2 个组件')
+    expect(await renderTool.execute({ spec: input })).toContain('rendered=2')
   })
 })
