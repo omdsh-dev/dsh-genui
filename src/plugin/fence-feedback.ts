@@ -31,7 +31,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { isRenderableProcess, processGenuiSpec } from '../client/guard.ts'
 import { parsePartialGenuiSpec } from '../client/parse-partial.ts'
 import { droppedNodeFailure } from './tool.ts'
-import { resolveFenceSpec } from '../shared/fence-resolve.ts'
+import { resolveFence } from '../shared/fence-resolve.ts'
 
 /** Plugin name recorded on every message this loop steers. */
 export const FEEDBACK_PLUGIN_NAME = '@changfenhuang/dsh-genui'
@@ -114,7 +114,12 @@ export function fenceFailures(text: string): FenceFailure[] {
 /** `null` when this fence renders; otherwise the reason it does not. */
 function fenceFailureDetail(fence: ExtractedFence): string | null {
   if (!fence.closed) return '❌ 围栏未闭合：缺少结尾的 ``` 行。'
-  if (resolveFenceSpec(fence.raw, { settled: true }) !== null) return null
+  const resolution = resolveFence(fence.raw, { settled: true })
+  if (resolution.spec !== null) return null
+  if (resolution.processed !== null) {
+    return droppedNodeFailure(resolution.processed, resolution.value)
+      ?? `❌ 验证未通过：${resolution.processed.errors.join('；')}`
+  }
   const parsed = parsePartialGenuiSpec(fence.raw)
   if (parsed === null) return '❌ 围栏内容不是合法 JSON，也不是能部分恢复的 GenUI spec。'
   const processed = processGenuiSpec(parsed)

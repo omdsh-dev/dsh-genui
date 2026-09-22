@@ -29,7 +29,10 @@ const BARE_STEPS = JSON.stringify({ type: 'steps', items: [{ title: '第一层' 
 /** A fence body that cannot render: required field missing. */
 const BROKEN = JSON.stringify({ items: [{ type: 'stat' }] })
 const REPAIRABLE = '{"title":"x","items":[{"type":"text","content":"好",},]}'
+const REPAIRED_SCHEMA_FAILURE = '{"items":[{"type":"stat","value":"好",},]}'
 const ISSUE_200 = '{"type":"keyvalue","items":[{"label":"a","value":"b"}]}'
+const CUT = '{"items":[{"type":"text","content":"补全"}'
+const TIER2_ONLY = '{"title":"x","items":[{"type":"text","content":"半截'
 
 function reply(...bodies: string[]): string {
   return bodies.map(body => `说明文字\n\`\`\`dsh-ui\n${body}\n\`\`\`\n`).join('\n')
@@ -137,6 +140,18 @@ describe('fenceFailures: only fences that would stay a code block', () => {
 
   it('accepts bodies repaired by the settled renderer pipeline', () => {
     expect(fenceFailures(reply(REPAIRABLE))).toEqual([])
+  })
+
+  it('reports schema errors after tier-1 JSON repair', () => {
+    const failures = fenceFailures(reply(REPAIRED_SCHEMA_FAILURE))
+    expect(failures).toHaveLength(1)
+    expect(failures[0]!.detail).toContain("type 'stat' requires label")
+    expect(failures[0]!.detail).not.toContain('不是合法 JSON')
+  })
+
+  it('accepts a settled body repaired by tier-2 completion', () => {
+    expect(fenceFailures(reply(CUT))).toEqual([])
+    expect(fenceFailures(reply(TIER2_ONLY))).toEqual([])
   })
 
   it('accepts the issue #200 keyvalue alias shape', () => {
