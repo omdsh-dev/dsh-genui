@@ -480,7 +480,7 @@ export function installDomFenceRenderer(
   function renderDiagnostic(block: HTMLElement, raw: string): void {
     // Nothing to report (renderable, empty, or still streaming): never leave
     // an empty strip behind, and drop one that is no longer true.
-    if (describeFenceFailure(raw) === null) {
+    if (describeFenceFailure(raw, { settled: true }) === null) {
       clearDiagnostic(block)
       return
     }
@@ -500,7 +500,7 @@ export function installDomFenceRenderer(
     let root: Root
     try {
       root = domRootFactory(container)
-      root.render(<FenceDiagnostic raw={raw} />)
+      root.render(<FenceDiagnostic raw={raw} settled />)
     } catch (error) {
       container.remove()
       warnOnce(block, `failed to mount the dsh-ui diagnostic (${error instanceof Error ? error.message : String(error)}); keeping the stock code block visible`)

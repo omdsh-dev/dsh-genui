@@ -136,6 +136,12 @@ describe('spec healing (parseable but structurally invalid)', () => {
     expect(describeFenceFailure(REPAIRED)).toBeNull()
   })
 
+  it('uses settled repair for schema diagnostics', () => {
+    const TIER2_SCHEMA_FAILURE = '{"items":[{"type":"stat","value":"好"'
+    expect(describeFenceFailure(TIER2_SCHEMA_FAILURE)).toContain('label')
+    expect(describeFenceFailure(TIER2_SCHEMA_FAILURE, { settled: false })).toContain('解析失败')
+  })
+
   it('heals defects silently and renders the UI', () => {
     render(<div>{renderGenuiFence(
       '{"title":"x","items":[{"type":"table","columns":["a"],"rows":[["1"]]},[],["callout","info","已排除","x"],{"type":"button","label":"ok","action":"a"}]}',

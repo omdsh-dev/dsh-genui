@@ -14,6 +14,7 @@ const VALID_SPEC = '{"title":"卡片","items":[{"type":"text","content":"你好�
 const BUTTON_SPEC = '{"items":[{"type":"button","label":"刷新","action":"refresh"}]}'
 const PANEL_SPEC = '{"panel":true,"title":"面板A","items":[{"type":"text","content":"A"}]}'
 const BROKEN_SPEC = '{"items":[{"type":"text","content":'
+const TIER2_SCHEMA_FAILURE = '{"items":[{"type":"stat","value":"好"'
 
 function makeCtx(sessionId: string | undefined, send: ReturnType<typeof vi.fn>): Context {
   return {
@@ -437,6 +438,24 @@ describe('installDomFenceRenderer', () => {
       expect(row.querySelector('.genui-dom-fence-diagnostic')!.nextElementSibling).toBe(block)
       await tick(60)
       expect(row.querySelectorAll('.genui-dom-fence-diagnostic')).toHaveLength(1)
+    } finally {
+      dispose()
+    }
+  })
+
+  it('shows the settled schema diagnostic after tier-2 JSON repair', async () => {
+    const row = assistantRow('s10-tier2-diag')
+    const block = stockCodeBlock(TIER2_SCHEMA_FAILURE, 'dsh-ui')
+    row.appendChild(block)
+    document.body.appendChild(row)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('sess-tier2-diag', send), send)
+    try {
+      await tick()
+      const alert = row.querySelector('.genui-dom-fence-diagnostic [role="alert"]')
+      expect(alert).not.toBeNull()
+      expect(alert!.textContent).toContain('label')
+      expect(alert!.textContent).not.toContain('解析失败')
     } finally {
       dispose()
     }
