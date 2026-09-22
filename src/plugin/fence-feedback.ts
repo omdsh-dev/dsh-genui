@@ -36,6 +36,8 @@ export const FEEDBACK_PLUGIN_NAME = '@changfenhuang/dsh-genui'
 
 /** Marker prefix inside the correction text: `[genui-fence-repair #<fingerprint>]`. */
 const MARKER_PREFIX = '[genui-fence-repair #'
+/** Marker prefix written by older plugin versions. */
+const LEGACY_MARKER_PREFIX = '[genui 自修 #'
 
 /** A fence opener is an info string of exactly `dsh-ui` (≤3 spaces indent). */
 const FENCE_OPEN = /^ {0,3}```[ \t]*dsh-ui[ \t]*$/u
@@ -132,7 +134,7 @@ export function fenceCorrectionText(failures: readonly FenceFailure[]): string {
     .map(failure => `fence=${failure.index}\nfingerprint=${failure.fingerprint}\n${failure.detail}`)
     .join('\n\n')
   const marker = failures.map(failure => `${MARKER_PREFIX}${failure.fingerprint}]`).join(' ')
-  return `${marker}\n[genui-fence-repair]\nstatus=render_failed\nfences=${failures.length}\nnext=resend_corrected_fence_only\nrepeat_rendered_content=false\nreply_language=preserve\n\n${body}\n`
+  return `${marker}\n\n[genui-fence-repair]\nstatus=render_failed\nfences=${failures.length}\nnext=resend_corrected_fence_only\nrepeat_rendered_content=false\nreply_language=preserve\n\n${body}\n`
 }
 
 /**
@@ -225,12 +227,18 @@ function textOfContent(content: unknown): string {
 /** Fingerprints this loop already recorded inside a steered correction. */
 function markersIn(text: string): string[] {
   const out: string[] = []
-  let index = text.indexOf(MARKER_PREFIX)
-  while (index >= 0) {
-    const end = text.indexOf(']', index)
+  let cursor = 0
+  while (cursor < text.length) {
+    const current = text.indexOf(MARKER_PREFIX, cursor)
+    const legacy = text.indexOf(LEGACY_MARKER_PREFIX, cursor)
+    if (current < 0 && legacy < 0) break
+    const useLegacy = legacy >= 0 && (current < 0 || legacy < current)
+    const prefix = useLegacy ? LEGACY_MARKER_PREFIX : MARKER_PREFIX
+    const index = useLegacy ? legacy : current
+    const end = text.indexOf(']', index + prefix.length)
     if (end < 0) break
-    out.push(text.slice(index + MARKER_PREFIX.length, end))
-    index = text.indexOf(MARKER_PREFIX, end + 1)
+    out.push(text.slice(index + prefix.length, end))
+    cursor = end + 1
   }
   return out
 }

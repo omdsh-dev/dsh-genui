@@ -36,17 +36,17 @@ function declaredNodeAt(value: unknown, path: string): Record<string, unknown> |
     : undefined
 }
 
-/** 将校验错误转换为模型可直接修正的字段提示。 */
+/** 将校验错误转换为固定协议字段。 */
 function fieldSymptom(error: string, path: string, type: string): string {
   const rest = error.slice(path.length)
   const unknown = /^\.([A-Za-z0-9_-]+): unknown field\b/.exec(rest)
   if (unknown !== null) {
     const known = knownFieldsOf(type)
-    return `字段 \`${unknown[1]}\` 不是 ${type} 的字段${known.length === 0 ? '' : `（可写：${known.join(' / ')}）`}`
+    return [`error=unknown_field`, `field=${unknown[1]}`, ...(known.length === 0 ? [] : [`allowed=${known.join(',')}`])].join('\n')
   }
   const missing = /requires ([A-Za-z0-9_-]+)/.exec(rest)
-  if (missing !== null) return `缺少必填字段 \`${missing[1]}\``
-  return rest.replace(/^:\s*/, '').slice(0, 120)
+  if (missing !== null) return `error=missing_required_field\nfield=${missing[1]}`
+  return `error=validation_error\ndetail=${JSON.stringify(rest.replace(/^:\s*/, '').slice(0, 120))}`
 }
 
 /** 获取校验错误中声明的组件类型。 */
@@ -70,11 +70,14 @@ function droppedNodeDiagnosis(processed: GenuiProcessResult, raw: unknown): stri
     const type = (typeof node?.type === 'string' ? node.type : undefined)
       ?? errors.map(errorTypeOf).find(candidate => candidate !== undefined)
     if (type !== undefined && repairedContainsType(processed.repaired, type)) continue
-    const label = type ?? '未知类型'
     const emitted = node === undefined ? [] : Object.keys(node).filter(key => key !== 'type')
-    const symptoms = [...new Set(errors.map(error => fieldSymptom(error, path, label)))]
-    const wrote = emitted.length === 0 ? '' : `；已写字段 ${emitted.join(' / ')}`
-    lines.push(`${path}（${label}）${symptoms.join('；')}${wrote}`)
+    const symptoms = [...new Set(errors.map(error => fieldSymptom(error, path, type ?? 'unknown')))]
+    lines.push([
+      `node=${path}`,
+      `type=${type ?? 'unknown'}`,
+      ...symptoms,
+      ...(emitted.length === 0 ? [] : [`written=${emitted.join(',')}`]),
+    ].join('\n'))
   }
   return lines
 }
@@ -93,15 +96,21 @@ function repairedContainsType(node: unknown, type: string): boolean {
  *
  * @param processed - 节点处理结果。
  * @param raw - 节点处理使用的原始值。
- * @returns 丢弃节点诊断；没有节点被丢弃时返回 undefined。
+ * @returns 结构化丢弃节点诊断；没有节点被丢弃时返回 undefined。
  */
 export function droppedNodeFailure(processed: GenuiProcessResult, raw: unknown): string | undefined {
   if (!processed.errors.some(error => error.startsWith('repair dropped '))) return undefined
   const dropped = processed.declaredNativeCount - processed.renderedNativeCount
   const diagnosis = droppedNodeDiagnosis(processed, raw)
-  const head = `❌ 验证未通过：声明了 ${processed.declaredNativeCount} 个组件，仅解析出 ${processed.renderedNativeCount} 个（${dropped} 个被丢弃）。`
-  const detail = diagnosis.length === 0
-    ? `\n- ${processed.errors.join('\n- ')}`
-    : `\n被丢弃的节点：\n- ${diagnosis.join('\n- ')}\n原始诊断：\n- ${processed.errors.join('\n- ')}`
-  return `${head}${detail}\n请修正后重新验证。`
+  return [
+    '[genui-validation]',
+    'status=invalid',
+    `declared=${processed.declaredNativeCount}`,
+    `rendered=${processed.renderedNativeCount}`,
+    `dropped=${dropped}`,
+    ...diagnosis.flatMap(line => [line, '']),
+    ...processed.errors.map(error => `diagnostic=${JSON.stringify(error)}`),
+    'next=fix_and_revalidate',
+    'reply_language=preserve',
+  ].join('\n')
 }

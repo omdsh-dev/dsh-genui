@@ -292,6 +292,23 @@ describe('installFenceFeedback wiring', () => {
     expect(h.steer).not.toHaveBeenCalled()
   })
 
+  it('adopts fingerprints from legacy repair markers', () => {
+    const h = harness()
+    const fingerprint = fenceFingerprint(BROKEN)
+    h.emitSession({
+      type: 'user/message',
+      seq: 4,
+      time: 1,
+      data: {
+        content: [{ type: 'text', text: `[genui 自修 #${fingerprint}]\nlegacy repair notice` }],
+        source: { kind: 'plugin', plugin: FEEDBACK_PLUGIN_NAME, form: 'notice', summary: 'legacy' },
+      },
+    } as unknown as SessionEvent)
+    h.emitSession(assistantEvent(reply(BROKEN)))
+    h.boundary({ agent: { session: { id: 'sess-1', header: { id: 'sess-1' } }, steer: h.steer }, turn: 9, signal: new AbortController().signal })
+    expect(h.steer).not.toHaveBeenCalled()
+  })
+
   it('stays silent when the reply renders', () => {
     const h = harness()
     h.emitSession(assistantEvent(reply(STAT_GROUP, BARE_STEPS)))
