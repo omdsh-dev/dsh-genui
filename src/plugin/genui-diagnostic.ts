@@ -96,21 +96,17 @@ function repairedContainsType(node: unknown, type: string): boolean {
  *
  * @param processed - 节点处理结果。
  * @param raw - 节点处理使用的原始值。
- * @returns 结构化丢弃节点诊断；没有节点被丢弃时返回 undefined。
+ * @returns 可嵌入调用方协议的诊断字段；没有节点被丢弃时返回 undefined。
  */
-export function droppedNodeFailure(processed: GenuiProcessResult, raw: unknown): string | undefined {
+export function droppedNodeFailure(processed: GenuiProcessResult, raw: unknown): string[] | undefined {
   if (!processed.errors.some(error => error.startsWith('repair dropped '))) return undefined
   const dropped = processed.declaredNativeCount - processed.renderedNativeCount
   const diagnosis = droppedNodeDiagnosis(processed, raw)
   return [
-    '[genui-validation]',
-    'status=invalid',
     `declared=${processed.declaredNativeCount}`,
     `rendered=${processed.renderedNativeCount}`,
     `dropped=${dropped}`,
     ...diagnosis.flatMap(line => [line, '']),
     ...processed.errors.map(error => `diagnostic=${JSON.stringify(error)}`),
-    'next=fix_and_revalidate',
-    'reply_language=conversation',
-  ].join('\n')
+  ]
 }

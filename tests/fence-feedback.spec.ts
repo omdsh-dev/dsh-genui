@@ -134,6 +134,9 @@ describe('fenceFailures: only fences that would stay a code block', () => {
     const failures = fenceFailures(reply(BROKEN))
     expect(failures).toHaveLength(1)
     expect(failures[0]!.detail).toContain("type 'stat' requires label")
+    expect(failures[0]!.detail).not.toContain('[genui-validation]')
+    expect(failures[0]!.detail).not.toContain('next=fix_and_revalidate')
+    expect(failures[0]!.detail).not.toContain('reply_language=conversation')
     expect(failures[0]!.fingerprint).toBe(fenceFingerprint(BROKEN))
   })
 
@@ -216,6 +219,8 @@ describe('the steered correction message', () => {
     expect(text).toContain('[genui-fence-repair]')
     expect(text).toContain('reply_language=conversation')
     expect(text).toContain("type 'stat' requires label")
+    expect(text).not.toContain('[genui-validation]')
+    expect(text).not.toContain('next=fix_and_revalidate')
     expect(text).not.toContain('围栏没有渲染成界面')
     expect(text).not.toContain('请只重发修正后的')
     const message = createFeedbackMessage(text)

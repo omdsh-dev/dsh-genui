@@ -286,6 +286,8 @@ describe('validate_dsh_ui tool', () => {
     const value = String(await vtool.execute({ spec: {
       items: [{ type: 'callout', title: '只有标题' }, { type: 'text', content: '好' }],
     } }))
+    expect(value).toContain('[genui-validation]')
+    expect(value).toContain('next=fix_and_revalidate')
     expect(value).toContain('node=items[0]')
     expect(value).toContain('type=callout')
     expect(value).toContain('error=missing_required_field')

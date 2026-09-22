@@ -384,8 +384,9 @@ export function createValidateDshUiTool(): ToolDefinition {
       const chartFailure = formatProcessFailure(processed)
       if (chartFailure !== undefined) return chartFailure
       if (processed.spec === null || processed.errors.length > 0) {
-        return droppedNodeFailure(processed, parsed)
-          ?? validationProtocol([
+        const dropped = droppedNodeFailure(processed, parsed)
+        return dropped === undefined
+          ? validationProtocol([
             'status=invalid',
             'error=invalid_spec',
             ...(processed.errors.length === 0
@@ -393,6 +394,7 @@ export function createValidateDshUiTool(): ToolDefinition {
               : processed.errors.map(error => `diagnostic=${JSON.stringify(error)}`)),
             'next=fix_and_revalidate',
           ])
+          : validationProtocol(['status=invalid', ...dropped, 'next=fix_and_revalidate'])
       }
       const warnings = formatProcessWarnings(processed)
       return validationProtocol(['status=valid', `rendered=${processed.renderedCount}`, ...warnings, 'next=emit_fence'])

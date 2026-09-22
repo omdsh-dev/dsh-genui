@@ -117,7 +117,8 @@ function fenceFailureDetail(fence: ExtractedFence): string | null {
   const resolution = resolveFence(fence.raw, { settled: true })
   if (resolution.spec !== null) return null
   if (resolution.processed !== null) {
-    return droppedNodeFailure(resolution.processed, resolution.value)
+    const dropped = droppedNodeFailure(resolution.processed, resolution.value)
+    return dropped?.join('\n')
       ?? ['error=invalid_spec', ...resolution.processed.errors.map(error => `diagnostic=${JSON.stringify(error)}`)].join('\n')
   }
   return 'error=invalid_json\nrepair=failed'
