@@ -8,6 +8,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { renderGenuiFence } from '../src/client/index.tsx'
+import { describeFenceFailure } from '../src/client/fence-render.tsx'
 
 afterEach(cleanup)
 
@@ -128,6 +129,11 @@ describe('spec healing (parseable but structurally invalid)', () => {
     expect(alert.textContent).toContain('stat')
     expect(alert.textContent).toContain('label')
     expect(alert.textContent).not.toContain('解析失败')
+  })
+
+  it('returns no diagnostic when settled repair produces a renderable spec', () => {
+    const REPAIRED = '{"items":[{"type":"text","content":"好",},]}'
+    expect(describeFenceFailure(REPAIRED)).toBeNull()
   })
 
   it('heals defects silently and renders the UI', () => {

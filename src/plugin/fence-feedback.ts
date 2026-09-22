@@ -273,16 +273,19 @@ export function installFenceFeedback(ctx: Context, enabled: boolean): void {
       return
     }
     if (event.type !== 'user/message') return
-    const state = stateOf(sessionId)
     const data = event.data as { content?: unknown; source?: { kind?: unknown; plugin?: unknown } }
     if (data.source?.kind === 'plugin' && data.source.plugin === FEEDBACK_PLUGIN_NAME) {
       // Our own correction (re-observed after a plugin reload): adopt its
       // fingerprints so a second boundary cannot repeat it.
-      for (const fingerprint of markersIn(textOfContent(data.content))) state.corrected.add(fingerprint)
+      const fingerprints = markersIn(textOfContent(data.content))
+      if (fingerprints.length === 0) return
+      const state = stateOf(sessionId)
+      for (const fingerprint of fingerprints) state.corrected.add(fingerprint)
       return
     }
     // A genuine user prompt starts a new turn: the previous reply is settled.
-    state.text = ''
+    const state = sessions.get(sessionId)
+    if (state !== undefined) state.text = ''
   })
 
   ctx.on('agent/turn-stopping', ({ agent, turn, signal }): void => {

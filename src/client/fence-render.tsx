@@ -93,10 +93,12 @@ function processSemanticFailure(resolution: FenceResolution): string | null {
  * renderable, or it is an empty/streaming half).
  *
  * @param raw - the raw fence body.
+ * @param options - whether settled-only structural repair may be used.
  * @returns the diagnostic text, or null.
  */
-export function describeFenceFailure(raw: string): string | null {
-  const resolution = resolveFence(raw, { settled: true })
+export function describeFenceFailure(raw: string, options: { settled?: boolean } = {}): string | null {
+  const resolution = resolveFence(raw, { settled: options.settled ?? true })
+  if (resolution.spec !== null) return null
   const processDiagnostic = processSemanticFailure(resolution)
   if (processDiagnostic !== null) {
     return t('err.fenceKeptAsCode', { diagnostic: processDiagnostic })
@@ -118,10 +120,10 @@ export function describeFenceFailure(raw: string): string | null {
  * @param raw - the raw fence body.
  * @returns the alert strip, or null when the body has nothing to report.
  */
-export function FenceDiagnostic({ raw }: { raw: string }): ReactNode {
+export function FenceDiagnostic({ raw, settled = false }: { raw: string; settled?: boolean }): ReactNode {
   // Subscribe so a language switch re-renders an already-visible diagnostic.
   useT()
-  const message = describeFenceFailure(raw)
+  const message = describeFenceFailure(raw, { settled })
   if (message === null) return null
   return <div style={FENCE_ERROR_STYLE} role="alert">{message}</div>
 }
