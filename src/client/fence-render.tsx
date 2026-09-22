@@ -21,12 +21,13 @@ import { codeBlockLabels } from './primitive-labels.ts'
 import { t, useT } from './i18n/index.ts'
 import { ErrorBoundary } from './ErrorBoundary.tsx'
 import { GenuiBlock } from './GenuiBlock.tsx'
-import { isRenderableProcess, partialRepairGenuiSpec, processGenuiSpec } from './guard.ts'
+import { isRenderableProcess, processGenuiSpec } from './guard.ts'
 import { fenceStateKey } from './interaction-store.ts'
 import { parsePartialGenuiSpec } from './parse-partial.ts'
 import { applyPanelOperation, diagnosePanelBudget, type PanelOperationStatus } from './panel-store.ts'
 import type { GenuiSpec } from './spec.ts'
-import { completeFenceJson, describeJsonFailure, isCompleteJson, repairFenceJson } from '../shared/fence-repair.ts'
+import { describeJsonFailure, isCompleteJson } from '../shared/fence-repair.ts'
+import { resolveFenceSpec } from '../shared/fence-resolve.ts'
 
 /** Settled fence source identity (data shape, host-independent). */
 export interface GenuiFenceSource {
@@ -172,14 +173,6 @@ function FencePanelPublisher({ sessionId, sourceId, order, spec }: {
   return null
 }
 
-/** Process one parsed value into a renderable spec: the strict pipeline, then
- *  — when that refuses — a single partial retry that drops the erroring nodes
- *  and renders what survives (issue #186: one bad node must not take the
- *  whole fence back to a raw code block). */
-function repairRenderableSpec(value: unknown): GenuiSpec | null {
-  return partialRepairGenuiSpec(processGenuiSpec(value))
-}
-
 /**
  * Resolve a raw fence body to a guarded spec.
  *
@@ -194,23 +187,7 @@ function repairRenderableSpec(value: unknown): GenuiSpec | null {
  *   default/blank chart.
  */
 export function resolveGenuiSpec(raw: string, context?: GenuiFenceContext): GenuiSpec | null {
-  const parsed = parsePartialGenuiSpec(raw)
-  let spec = parsed === null ? null : repairRenderableSpec(parsed)
-  if (spec === null) {
-    const repaired = repairFenceJson(raw)
-    if (repaired !== null) {
-      const reparsed = parsePartialGenuiSpec(repaired.text)
-      spec = reparsed === null ? null : repairRenderableSpec(reparsed)
-    }
-    if (spec === null && context?.source !== undefined) {
-      const completed = completeFenceJson(raw)
-      if (completed !== null) {
-        const reparsed = parsePartialGenuiSpec(completed.text)
-        spec = reparsed === null ? null : repairRenderableSpec(reparsed)
-      }
-    }
-  }
-  return spec
+  return resolveFenceSpec(raw, { settled: context?.source !== undefined })
 }
 
 /** The inline GenuiBlock tree for a resolved non-panel spec. */

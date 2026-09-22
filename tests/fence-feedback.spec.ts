@@ -28,6 +28,8 @@ const BARE_STEPS = JSON.stringify({ type: 'steps', items: [{ title: '第一层' 
 
 /** A fence body that cannot render: required field missing. */
 const BROKEN = JSON.stringify({ items: [{ type: 'stat' }] })
+const REPAIRABLE = '{"title":"x","items":[{"type":"text","content":"好",},]}'
+const ISSUE_200 = '{"type":"keyvalue","items":[{"label":"a","value":"b"}]}'
 
 function reply(...bodies: string[]): string {
   return bodies.map(body => `说明文字\n\`\`\`dsh-ui\n${body}\n\`\`\`\n`).join('\n')
@@ -133,6 +135,14 @@ describe('fenceFailures: only fences that would stay a code block', () => {
     expect(fenceFailures('```dsh-ui\n{"items":[]}')[0]!.detail).toContain('未闭合')
   })
 
+  it('accepts bodies repaired by the settled renderer pipeline', () => {
+    expect(fenceFailures(reply(REPAIRABLE))).toEqual([])
+  })
+
+  it('accepts the issue #200 keyvalue alias shape', () => {
+    expect(fenceFailures(reply(ISSUE_200))).toEqual([])
+  })
+
   it('ignores JSON fences and prose', () => {
     expect(fenceFailures('```json\n{"items":[{"type":"stat"}]}\n```\n正文 dsh-ui')).toEqual([])
   })
@@ -147,6 +157,13 @@ describe('planFenceFeedback: the bounds that prevent a retry storm', () => {
     expect(plan!.turn).toBe(1)
     expect(plan!.fingerprints).toEqual([fenceFingerprint(BROKEN)])
     expect(plan!.text).toContain('只重发修正后的 dsh-ui 围栏')
+  })
+
+  it('checks the final reply body even when an earlier validated body was valid', () => {
+    expect(fenceFailures(reply(STAT_GROUP))).toEqual([])
+    const finalReply = planFenceFeedback({ ...base, text: reply(BROKEN) })
+    expect(finalReply).not.toBeNull()
+    expect(finalReply!.text).toContain("type 'stat' requires label")
   })
 
   it('stays silent for the same turn (at most one correction per turn)', () => {
@@ -197,7 +214,7 @@ describe('the steered correction message', () => {
 })
 
 describe('installFenceFeedback wiring', () => {
-  it('is inert unless the config opts in', () => {
+  it('is inert when explicitly disabled', () => {
     const h = harness({ enabled: false })
     expect(h.listeners.size).toBe(0)
   })

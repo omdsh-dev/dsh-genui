@@ -7,8 +7,7 @@
  * fence while the user is still looking at the raw JSON.
  *
  * The loop is deliberately narrow, matching the contract agreed on the issue:
- * - **Opt-in.** `fenceFeedback: true` in this plugin's config; a host that does
- *   not ask for it never steers anything.
+ * - **默认开启。** 插件配置中的 `fenceFeedback: false` 可以关闭回合转向。
  * - **Bounded.** At most one correction per turn AND at most one per fence
  *   body per process, so a correction that is itself wrong cannot loop.
  * - **Never for subagents.** A child session's fence belongs to a parent reply.
@@ -19,10 +18,8 @@
  *   so a re-entrant boundary cannot deliver the same correction twice.
  * - **Cancellation-aware.** An aborted turn or a missing session is left alone.
  *
- * Detection reuses the renderer's own pipeline (`parsePartialGenuiSpec` →
- * `processGenuiSpec` → `isRenderableProcess`) and the tool's model-facing
- * diagnosis, so the correction quotes the same field errors the validator
- * reports.
+ * 检查会复用 renderer 在回合结束后的流程，包括 JSON 修复和坏节点清理；
+ * 已经可以渲染的最终回复不会收到修正请求。
  * @module @changfenhuang/dsh-genui/plugin/fence-feedback
  */
 
@@ -34,6 +31,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { isRenderableProcess, processGenuiSpec } from '../client/guard.ts'
 import { parsePartialGenuiSpec } from '../client/parse-partial.ts'
 import { droppedNodeFailure } from './tool.ts'
+import { resolveFenceSpec } from '../shared/fence-resolve.ts'
 
 /** Plugin name recorded on every message this loop steers. */
 export const FEEDBACK_PLUGIN_NAME = '@changfenhuang/dsh-genui'
@@ -116,6 +114,7 @@ export function fenceFailures(text: string): FenceFailure[] {
 /** `null` when this fence renders; otherwise the reason it does not. */
 function fenceFailureDetail(fence: ExtractedFence): string | null {
   if (!fence.closed) return '❌ 围栏未闭合：缺少结尾的 ``` 行。'
+  if (resolveFenceSpec(fence.raw, { settled: true }) !== null) return null
   const parsed = parsePartialGenuiSpec(fence.raw)
   if (parsed === null) return '❌ 围栏内容不是合法 JSON，也不是能部分恢复的 GenUI spec。'
   const processed = processGenuiSpec(parsed)
@@ -244,7 +243,7 @@ function markersIn(text: string): string[] {
 }
 
 /**
- * Install the opt-in fence feedback loop.
+ * 根据插件配置启用围栏反馈流程。
  *
  * @param ctx - the host context.
  * @param enabled - the plugin config flag; the loop is inert when false.

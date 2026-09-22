@@ -8,6 +8,7 @@
 - **裸 `svg` 围栏自动预览**：模型直接输出 ` ```svg ` 代码围栏（不带 `dsh-ui` 包装）时，落定后自动显示为图形预览，带「预览/源码」切换，源码可复制；流式生成中保持原样，不闪错误；仅接管语言标签明确为 `svg` 的围栏，其他语言代码块不受影响。registry 与 DOM 两条渲染通道均已接入（#183）。
 
 ### 修复
+- **dsh-ui 最终围栏反馈默认开启**：回合结束时直接检查 assistant message 的最终围栏正文，并与浏览器 renderer 共用 JSON 修复、组件归一化和坏节点清理流程；无法渲染时在同一回合请求模型修正，`fenceFeedback: false` 可关闭（#200）。
 - **Tetris 形 table columns 不再让围栏退化成代码块**：模型把表头数组提前闭合、又把行矩阵写成 `columns` 的**兄弟数组元素**（`"columns":["a","b"],["rows":[[…]]]` 或 `"columns":["a","b"],[["1","2"]]`）。这类正文两侧括号是**配平**的，所以 tier-2 的补括号扫描救不回来；现在 tier-2 先做一次形状重写（把该兄弟数组收编为 `"rows":[…]`、并丢弃错位留下的多余闭合符），整串 parse 通过才采纳。四个真实会话 130 条围栏的未渲染数从 1 归零（#192）。
 - **兼容新版 DSH 会话快照**：DOM 通道在宿主移除 `sessions.list.current` 后，改用 `byId[*].retainedBy.mainView` 解析当前会话，恢复 action 回传、状态持久化和 `panel:true` 发布，并在无法解析会话时输出一次诊断（#196）。
 - **离散交互不再被防抖合并**：`button` / `checkbox` / `radio` / `switch` / `select` / `input` / `textarea` / `submit` / `quiz` 等一次手势一次事件的交互**立即逐次回传**。此前 300ms 防抖以 action 名为 key，快速连点同 action 名的控件会静默丢弃前几次事件，模型收到残缺交互状态，与 SKILL.md 承诺的 checkbox「默认保持逐次 action 行为」矛盾（#178）。
