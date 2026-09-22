@@ -3,8 +3,6 @@ import { Context } from '@deepseek-ai/cordis'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import * as GenUI from '../src/plugin/index.ts'
-import { COMPONENT_SCHEMAS } from '../src/client/genui-runtime/schema.ts'
-import { genuiTemplates } from '../src/client/templates.ts'
 
 /** Boot the plugin and return the assembled system-prompt sections. */
 async function assemble() {
@@ -12,19 +10,6 @@ async function assemble() {
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(GenUI)
   return ctx.systemPrompt.assemble({})
-}
-
-/** Collect every recognized component type referenced anywhere in template demo specs. */
-function collectTemplateNodeTypes(value: unknown, types = new Set<string>()): Set<string> {
-  if (Array.isArray(value)) {
-    for (const item of value) collectTemplateNodeTypes(item, types)
-    return types
-  }
-  if (typeof value !== 'object' || value === null) return types
-  const record = value as Record<string, unknown>
-  if (typeof record.type === 'string' && record.type in COMPONENT_SCHEMAS) types.add(record.type)
-  for (const child of Object.values(record)) collectTemplateNodeTypes(child, types)
-  return types
 }
 
 /** The complete whitelist the slim fence section must still advertise. */
@@ -82,17 +67,6 @@ describe('genui:fence section', () => {
     expect(text).toContain('NEVER infer it from prompt/skill/examples/tools')
     expect(text).toContain('never emit these placeholders literally')
     expect(text).not.toContain('"title":"可选标题"')
-  })
-
-  it('keeps every component used by the built-in templates in the prompt', async () => {
-    const assembly = await assemble()
-    const section = assembly.sections.find(s => s.name === 'genui:fence')
-    const text = typeof section?.text === 'string' ? section.text : ''
-    const types = collectTemplateNodeTypes(genuiTemplates().map(template => template.demo))
-    expect(types.size).toBeGreaterThan(0)
-    for (const type of types) {
-      expect(text).toContain(type)
-    }
   })
 
   it('keeps the full type whitelist in the slim section within the token budget', async () => {

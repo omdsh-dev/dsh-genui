@@ -48,7 +48,7 @@ describe('render_ui execute', () => {
     const value = await tool.execute({ spec: { title: '监控面板', items: [text('a'), { type: 'stat', label: 'CPU', value: '42%' }] } })
     expect(String(value)).toContain('监控面板')
     expect(String(value)).toContain('rendered=2')
-    expect(String(value)).toContain('reply_language=preserve')
+    expect(String(value)).toContain('reply_language=conversation')
   })
 
   it('repairs oversized specs before summarizing (caps apply)', async () => {
@@ -291,7 +291,7 @@ describe('validate_dsh_ui tool', () => {
     expect(value).toContain('error=missing_required_field')
     expect(value).toContain('field=content')
     expect(value).toContain('written=title')
-    expect(value).toContain('reply_language=preserve')
+    expect(value).toContain('reply_language=conversation')
     expect(value).not.toContain('验证未通过')
     expect(value).not.toContain('请修正')
     expect(value).not.toContain('node=items[1]')

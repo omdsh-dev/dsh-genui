@@ -214,7 +214,7 @@ describe('the steered correction message', () => {
     const text = fenceCorrectionText(failures)
     expect(text).toContain(`[genui-fence-repair #${failures[0]!.fingerprint}]`)
     expect(text).toContain('[genui-fence-repair]')
-    expect(text).toContain('reply_language=preserve')
+    expect(text).toContain('reply_language=conversation')
     expect(text).toContain("type 'stat' requires label")
     expect(text).not.toContain('围栏没有渲染成界面')
     expect(text).not.toContain('请只重发修正后的')

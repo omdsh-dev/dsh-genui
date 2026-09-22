@@ -14,7 +14,7 @@ describe('genui diagnostic protocol', () => {
     expect(result).toContain('error=missing_required_field')
     expect(result).toContain('field=content')
     expect(result).toContain('written=title')
-    expect(result).toContain('reply_language=preserve')
+    expect(result).toContain('reply_language=conversation')
     expect(result).not.toContain('验证未通过')
     expect(result).not.toContain('缺少必填字段')
     expect(result).not.toContain('请修正')

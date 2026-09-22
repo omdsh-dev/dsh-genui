@@ -147,7 +147,7 @@ function processRenderableValue(value: unknown): GenuiProcessResult {
 
 /** Wrap model-facing validation fields in the stable GenUI protocol envelope. */
 function validationProtocol(lines: string[]): string {
-  return ['[genui-validation]', ...lines, 'reply_language=preserve'].join('\n')
+  return ['[genui-validation]', ...lines, 'reply_language=conversation'].join('\n')
 }
 
 /** Render process diagnostics as stable model-facing warning fields. */
@@ -210,7 +210,7 @@ export function createRenderUiTool(): ToolDefinition {
     async execute(args: unknown): Promise<JsonValue> {
       const processed = processRenderableValue(specOf(args))
       if (processed.spec === null) {
-        return ['[genui-render]', 'status=invalid', 'error=invalid_spec', 'required=items', 'next=fix_and_retry', 'reply_language=preserve'].join('\n')
+        return ['[genui-render]', 'status=invalid', 'error=invalid_spec', 'required=items', 'next=fix_and_retry', 'reply_language=conversation'].join('\n')
       }
       if (!isRenderableProcess(processed)) {
         throw new Error('render_ui spec invalid: ' + processed.errors.join('; '))
@@ -224,7 +224,7 @@ export function createRenderUiTool(): ToolDefinition {
         `rendered=${processed.renderedCount}`,
         'action_feedback=[genui-action]',
         ...warnings,
-        'reply_language=preserve',
+        'reply_language=conversation',
       ].join('\n')
     },
     presentCall(args: unknown): GenericCallView | undefined {
@@ -250,7 +250,7 @@ export function createRenderUiTool(): ToolDefinition {
 const VALIDATE_DESCRIPTION =
   'Validate the JSON body of a ```dsh-ui fence BEFORE emitting it — use for non-trivial specs (≥3 nodes or containing a table); skip for trivial ones (≤2 nodes). '
   + 'Pass the exact JSON text you are about to put inside the fence as the "spec" argument (a string). '
-  + 'Returns a [genui-validation] protocol block with status, diagnostics, next action, and reply_language=preserve. '
+  + 'Returns a [genui-validation] protocol block with status, diagnostics, next action, and reply_language=conversation. '
   + 'When invalid JSON is repairable, next=emit_repaired_fence and repaired_json contain the exact fence body to emit.'
 
 const VALIDATE_PARAMETERS: Record<string, unknown> = {

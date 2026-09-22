@@ -111,6 +111,6 @@ export function droppedNodeFailure(processed: GenuiProcessResult, raw: unknown):
     ...diagnosis.flatMap(line => [line, '']),
     ...processed.errors.map(error => `diagnostic=${JSON.stringify(error)}`),
     'next=fix_and_revalidate',
-    'reply_language=preserve',
+    'reply_language=conversation',
   ].join('\n')
 }
