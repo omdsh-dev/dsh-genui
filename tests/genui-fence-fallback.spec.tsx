@@ -121,6 +121,15 @@ describe('tier-2 structural repair (settled messages only)', () => {
 })
 
 describe('spec healing (parseable but structurally invalid)', () => {
+  it('shows repaired schema failure instead of the original JSON parse failure', () => {
+    const REPAIRED_SCHEMA_FAILURE = '{"items":[{"type":"stat","value":"好",},]}'
+    render(<div>{renderGenuiFence(REPAIRED_SCHEMA_FAILURE, 's0')}</div>)
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toContain('stat')
+    expect(alert.textContent).toContain('label')
+    expect(alert.textContent).not.toContain('解析失败')
+  })
+
   it('heals defects silently and renders the UI', () => {
     render(<div>{renderGenuiFence(
       '{"title":"x","items":[{"type":"table","columns":["a"],"rows":[["1"]]},[],["callout","info","已排除","x"],{"type":"button","label":"ok","action":"a"}]}',

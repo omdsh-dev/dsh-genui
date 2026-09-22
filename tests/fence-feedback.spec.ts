@@ -41,6 +41,7 @@ function reply(...bodies: string[]): string {
 interface Harness {
   ctx: Context
   emitSession: (event: unknown) => void
+  disposeSession: () => void
   boundary: (payload: unknown) => void
   steer: ReturnType<typeof vi.fn>
   listeners: Map<string, (payload: unknown, ...rest: unknown[]) => unknown>
@@ -68,6 +69,9 @@ function harness(options: { parentSession?: string; enabled?: boolean } = {}): H
     listeners,
     emitSession: (event: unknown) => {
       listeners.get('session/event')?.(session, event)
+    },
+    disposeSession: () => {
+      listeners.get('session/disposed')?.(session)
     },
     boundary: (payload: unknown) => {
       listeners.get('agent/turn-stopping')?.(payload)
@@ -287,6 +291,22 @@ describe('installFenceFeedback wiring', () => {
   it('stays silent when the reply renders', () => {
     const h = harness()
     h.emitSession(assistantEvent(reply(STAT_GROUP, BARE_STEPS)))
+    h.boundary({ agent: { session: { id: 'sess-1', header: { id: 'sess-1' } }, steer: h.steer }, turn: 1, signal: new AbortController().signal })
+    expect(h.steer).not.toHaveBeenCalled()
+  })
+
+  it('clears the latest reply when a plain assistant message replaces it', () => {
+    const h = harness()
+    h.emitSession(assistantEvent(reply(BROKEN)))
+    h.emitSession(assistantEvent('普通文本'))
+    h.boundary({ agent: { session: { id: 'sess-1', header: { id: 'sess-1' } }, steer: h.steer }, turn: 1, signal: new AbortController().signal })
+    expect(h.steer).not.toHaveBeenCalled()
+  })
+
+  it('releases session feedback state after session disposal', () => {
+    const h = harness()
+    h.emitSession(assistantEvent(reply(BROKEN)))
+    h.disposeSession()
     h.boundary({ agent: { session: { id: 'sess-1', header: { id: 'sess-1' } }, steer: h.steer }, turn: 1, signal: new AbortController().signal })
     expect(h.steer).not.toHaveBeenCalled()
   })

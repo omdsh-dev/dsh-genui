@@ -28,9 +28,7 @@ import type {} from '@deepseek-ai/dsh-agent'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { UserMessage } from '@deepseek-ai/dsh-session'
 import { createHash, randomUUID } from 'node:crypto'
-import { isRenderableProcess, processGenuiSpec } from '../client/guard.ts'
-import { parsePartialGenuiSpec } from '../client/parse-partial.ts'
-import { droppedNodeFailure } from './tool.ts'
+import { droppedNodeFailure } from './genui-diagnostic.ts'
 import { resolveFence } from '../shared/fence-resolve.ts'
 
 /** Plugin name recorded on every message this loop steers. */
@@ -120,14 +118,7 @@ function fenceFailureDetail(fence: ExtractedFence): string | null {
     return droppedNodeFailure(resolution.processed, resolution.value)
       ?? `❌ 验证未通过：${resolution.processed.errors.join('；')}`
   }
-  const parsed = parsePartialGenuiSpec(fence.raw)
-  if (parsed === null) return '❌ 围栏内容不是合法 JSON，也不是能部分恢复的 GenUI spec。'
-  const processed = processGenuiSpec(parsed)
-  if (isRenderableProcess(processed)) return null
-  // The tool's diagnosis names the dropped node and the field that is missing;
-  // fall back to the raw error list when nothing was dropped (case B: a bare
-  // root misread as an envelope reports missing `type` instead).
-  return droppedNodeFailure(processed, parsed) ?? `❌ 验证未通过：${processed.errors.join('；')}`
+  return '❌ 围栏内容不是合法 JSON，也不是能部分恢复的 GenUI spec。'
 }
 
 /**
@@ -265,15 +256,24 @@ export function installFenceFeedback(ctx: Context, enabled: boolean): void {
     return state
   }
 
+  ctx.on('session/disposed', (session): void => {
+    sessions.delete(String(session.id))
+  })
+
   ctx.on('session/event', (session, event: SessionEvent) => {
-    const state = stateOf(String(session.id))
+    const sessionId = String(session.id)
     if (event.type === 'assistant/message') {
-      // Only the LAST assistant message of a turn is the reply the reader sees:
-      // an earlier step's fence was already replaced by the model.
-      state.text = textOfContent((event.data as { message?: { content?: unknown } }).message?.content)
+      const text = textOfContent((event.data as { message?: { content?: unknown } }).message?.content)
+      if (extractDshUiFences(text).length === 0) {
+        const state = sessions.get(sessionId)
+        if (state !== undefined) state.text = ''
+        return
+      }
+      stateOf(sessionId).text = text
       return
     }
     if (event.type !== 'user/message') return
+    const state = stateOf(sessionId)
     const data = event.data as { content?: unknown; source?: { kind?: unknown; plugin?: unknown } }
     if (data.source?.kind === 'plugin' && data.source.plugin === FEEDBACK_PLUGIN_NAME) {
       // Our own correction (re-observed after a plugin reload): adopt its

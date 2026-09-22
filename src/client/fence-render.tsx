@@ -21,13 +21,11 @@ import { codeBlockLabels } from './primitive-labels.ts'
 import { t, useT } from './i18n/index.ts'
 import { ErrorBoundary } from './ErrorBoundary.tsx'
 import { GenuiBlock } from './GenuiBlock.tsx'
-import { isRenderableProcess, processGenuiSpec } from './guard.ts'
 import { fenceStateKey } from './interaction-store.ts'
-import { parsePartialGenuiSpec } from './parse-partial.ts'
 import { applyPanelOperation, diagnosePanelBudget, type PanelOperationStatus } from './panel-store.ts'
 import type { GenuiSpec } from './spec.ts'
 import { describeJsonFailure, isCompleteJson } from '../shared/fence-repair.ts'
-import { resolveFenceSpec } from '../shared/fence-resolve.ts'
+import { resolveFence, resolveFenceSpec, type FenceResolution } from '../shared/fence-resolve.ts'
 
 /** Settled fence source identity (data shape, host-independent). */
 export interface GenuiFenceSource {
@@ -63,15 +61,12 @@ function formatChartProcessErrors(errors: string[]): string | null {
   return chartErrors.length === 0 ? null : chartErrors.join('；')
 }
 
-/** Return a semantic/schema diagnostic for parseable raw fence content. */
-function processSemanticFailure(raw: string): string | null {
-  const parsed = parsePartialGenuiSpec(raw)
-  if (parsed === null) return null
-  const processed = processGenuiSpec(parsed)
-  if (isRenderableProcess(processed)) return null
-  const chartErrors = formatChartProcessErrors(processed.errors)
+/** Return a semantic/schema diagnostic from the unified fence resolution. */
+function processSemanticFailure(resolution: FenceResolution): string | null {
+  if (resolution.spec !== null || resolution.processed === null) return null
+  const chartErrors = formatChartProcessErrors(resolution.processed.errors)
   return chartErrors === null
-    ? t('err.fieldValidation', { errors: processed.errors.join('；') })
+    ? t('err.fieldValidation', { errors: resolution.processed.errors.join('；') })
     : t('err.chartValidation', { errors: chartErrors })
 }
 
@@ -101,7 +96,8 @@ function processSemanticFailure(raw: string): string | null {
  * @returns the diagnostic text, or null.
  */
 export function describeFenceFailure(raw: string): string | null {
-  const processDiagnostic = processSemanticFailure(raw)
+  const resolution = resolveFence(raw, { settled: true })
+  const processDiagnostic = processSemanticFailure(resolution)
   if (processDiagnostic !== null) {
     return t('err.fenceKeptAsCode', { diagnostic: processDiagnostic })
   }
