@@ -4,6 +4,7 @@ import type { AssistantBlock, ChatNode, ChatSnapshot } from '@deepseek-ai/dsh-cl
 export interface SourceFence {
   lang: string | null
   value: string
+  openingLineComplete: boolean
 }
 
 interface MarkdownNode {
@@ -11,6 +12,7 @@ interface MarkdownNode {
   lang?: string | null
   value?: string
   children?: MarkdownNode[]
+  position?: { start: { offset?: number } }
 }
 
 /**
@@ -23,7 +25,13 @@ export function sourceFencesOf(markdown: string): SourceFence[] {
   const fences: SourceFence[] = []
   const visit = (node: MarkdownNode): void => {
     if (node.type === 'code') {
-      fences.push({ lang: node.lang ?? null, value: node.value as string })
+      const openingOffset = node.position?.start.offset
+      const openingLineEnd = openingOffset === undefined ? -1 : markdown.indexOf('\n', openingOffset)
+      fences.push({
+        lang: node.lang ?? null,
+        value: node.value as string,
+        openingLineComplete: openingLineEnd >= 0,
+      })
     }
     for (const child of node.children ?? []) visit(child)
   }

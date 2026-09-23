@@ -6,27 +6,33 @@ import { sourceFencesOf, sourceFencesOfAssistant, sourceLanguageAt } from '../sr
 describe('sourceFencesOf', () => {
   it('reads one dsh-ui fence surrounded by Markdown and ignores inline code', () => {
     expect(sourceFencesOf('before `inline` text\n\n```dsh-ui\n{"items":[]}\n```\n\nafter')).toEqual([
-      { lang: 'dsh-ui', value: '{"items":[]}' },
+      { lang: 'dsh-ui', value: '{"items":[]}', openingLineComplete: true },
     ])
   })
 
   it('preserves language and order for multiple and unlabelled fences', () => {
     expect(sourceFencesOf('```ts\na()\n```\n```\nplain\n```\n```foobar\nx\n```')).toEqual([
-      { lang: 'ts', value: 'a()' },
-      { lang: null, value: 'plain' },
-      { lang: 'foobar', value: 'x' },
+      { lang: 'ts', value: 'a()', openingLineComplete: true },
+      { lang: null, value: 'plain', openingLineComplete: true },
+      { lang: 'foobar', value: 'x', openingLineComplete: true },
     ])
   })
 
   it('recognizes an unclosed streaming dsh-ui fence', () => {
     expect(sourceFencesOf('```dsh-ui\n{"items":[{')).toEqual([
-      { lang: 'dsh-ui', value: '{"items":[{' },
+      { lang: 'dsh-ui', value: '{"items":[{', openingLineComplete: true },
+    ])
+  })
+
+  it('keeps an unfinished opening line provisional', () => {
+    expect(sourceFencesOf('```dsh-ui')).toEqual([
+      { lang: 'dsh-ui', value: '', openingLineComplete: false },
     ])
   })
 
   it('reads fences nested inside Markdown containers', () => {
     expect(sourceFencesOf('> ```foobar\n> nested\n> ```')).toEqual([
-      { lang: 'foobar', value: 'nested' },
+      { lang: 'foobar', value: 'nested', openingLineComplete: true },
     ])
   })
 
@@ -38,8 +44,8 @@ describe('sourceFencesOf', () => {
       { kind: 'text', text: '```dsh-ui\nsecond\n```' },
     ]
     expect(sourceFencesOfAssistant(blocks)).toEqual([
-      { lang: 'ts', value: 'first' },
-      { lang: 'dsh-ui', value: 'second' },
+      { lang: 'ts', value: 'first', openingLineComplete: true },
+      { lang: 'dsh-ui', value: 'second', openingLineComplete: true },
     ])
   })
 })

@@ -53,7 +53,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { ChatNode, ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { GenuiActionContext, type GenuiActionHandler } from './action-context.ts'
 import css from './GenuiBlock.module.css'
@@ -63,7 +63,7 @@ import { resolveViewedSessionId } from './session-resolver.ts'
 import { validateCanonicalGenuiSpec } from './guard.ts'
 import { diagnoseUnknownGenuiFields } from './genui-runtime/diagnostics.ts'
 import { normalizeGenuiSpec } from './genui-runtime/normalize.ts'
-import { sourceLanguageAt } from './source-fence.ts'
+import { sourceFencesOfAssistant, sourceLanguageAt } from './source-fence.ts'
 
 /** Fence surfaces the channel can take over, newest host first: the shared
  * CodeBlock surface every rc.6+ markdown fence renders through
@@ -377,13 +377,13 @@ function rowOf(block: Element): Element {
 }
 
 /** Return a stable one-based ordinal among settled GenUI fences in this row. */
-function fenceIndexOf(ctx: Context, row: Element, block: Element): number {
+function fenceIndexOf(ctx: Context, row: Element, block: Element, sourceLanguage: (block: Element) => string | null | undefined = candidate => sourceLanguageOf(ctx, candidate)): number {
   if (!row.matches(ASSISTANT_FLOW_ROW) || row.getAttribute('data-chat-anchor-key') === null) {
     const scope = row.getAttribute('data-chat-anchor-key') === null ? document : row
     let fallbackIndex = 0
     for (const candidate of findFenceCandidates(scope)) {
       if (candidate.closest(STREAMING) !== null) continue
-      const language = domLanguageOf(candidate) ?? sourceLanguageOf(ctx, candidate)
+      const language = domLanguageOf(candidate) ?? sourceLanguage(candidate)
       if (language !== 'dsh-ui' && !(language === undefined && isGenericGenuiFence(candidate, rawOf(candidate)))) continue
       fallbackIndex += 1
       if (candidate === block) return fallbackIndex
@@ -393,7 +393,7 @@ function fenceIndexOf(ctx: Context, row: Element, block: Element): number {
   let index = 0
   for (const candidate of hostFenceBlocksOf(row)) {
     if (candidate.closest(STREAMING) !== null) continue
-    const language = domLanguageOf(candidate) ?? sourceLanguageOf(ctx, candidate)
+    const language = domLanguageOf(candidate) ?? sourceLanguage(candidate)
     if (language !== 'dsh-ui' && !(language === undefined && isGenericGenuiFence(candidate, rawOf(candidate)))) continue
     index += 1
     if (candidate === block) return index
@@ -426,9 +426,64 @@ export function sourceLanguageOf(ctx: Context, block: Element): string | null | 
   const index = hostFenceIndexOf(row, block)
   const sessionId = sessionIdOfForSource(ctx)
   if (!nodeKey || index < 0 || sessionId === undefined) return undefined
-  const uiConversation = uiConversationOf(ctx)
-  const chat: ChatSnapshot | undefined = uiConversation?.binding(sessionId).target('chat').getSnapshot()
+  const chat = chatSourceOf(ctx, sessionId)?.getSnapshot()
   return sourceLanguageAt(chat, nodeKey, index)
+}
+
+/** Cache each row's Markdown parse for one sweep and retain confirmed opening-line languages per host block. */
+function createSourceLanguageResolver(ctx: Context): { beginSweep: () => void; get: (block: Element) => string | null | undefined } {
+  const stableLanguages = new WeakMap<Element, { sessionId: SessionId; nodeKey: string; language: string | null }>()
+  let sweepLanguages = new Map<Element, string | null | undefined>()
+  let parsedNodes = new Map<string, ReturnType<typeof sourceFencesOfAssistant>>()
+  let sessionId: SessionId | undefined
+  let chat: ChatSnapshot | undefined
+  let chatRead = false
+
+  return {
+    beginSweep() {
+      sweepLanguages = new Map()
+      parsedNodes = new Map()
+      sessionId = undefined
+      chat = undefined
+      chatRead = false
+    },
+    get(block) {
+      if (sweepLanguages.has(block)) return sweepLanguages.get(block)
+      const row = block.closest<HTMLElement>(`${ASSISTANT_FLOW_ROW}[data-chat-node-key]`)
+      if (row === null || row.dataset.chatGroupPart === 'reasoning') return undefined
+      const nodeKey = row.dataset.chatNodeKey
+      const activeSessionId = sessionIdOfForSource(ctx)
+      if (!nodeKey || activeSessionId === undefined) return undefined
+
+      const stable = stableLanguages.get(block)
+      if (stable?.sessionId === activeSessionId && stable.nodeKey === nodeKey) {
+        sweepLanguages.set(block, stable.language)
+        return stable.language
+      }
+      if (!chatRead || sessionId !== activeSessionId) {
+        sessionId = activeSessionId
+        chat = chatSourceOf(ctx, activeSessionId)?.getSnapshot()
+        chatRead = true
+      }
+      const node = chat?.nodes.get(nodeKey)
+      if (node?.kind !== 'assistant-step') return undefined
+      const assistantNode = node as ChatNode<'assistant-step'>
+      let fences = parsedNodes.get(nodeKey)
+      if (fences === undefined) {
+        fences = sourceFencesOfAssistant(assistantNode.data.blocks)
+        parsedNodes.set(nodeKey, fences)
+      }
+      const index = hostFenceIndexOf(row, block)
+      if (index < 0) return undefined
+      const fence = fences[index]
+      const language = fence?.lang
+      if (fence !== undefined && fence.openingLineComplete) {
+        stableLanguages.set(block, { sessionId: activeSessionId, nodeKey, language: fence.lang })
+      }
+      sweepLanguages.set(block, language)
+      return language
+    },
+  }
 }
 
 /**
@@ -451,6 +506,32 @@ function sessionIdOfForSource(ctx: Context): SessionId | undefined {
 function uiConversationOf(ctx: Context): Context['uiConversation'] | undefined {
   if (typeof ctx.get !== 'function') return undefined
   return ctx.get('uiConversation', false) as Context['uiConversation'] | undefined
+}
+
+/** Read the current ChatSnapshot source without interrupting sweeps during session transitions. */
+function chatSourceOf(ctx: Context, sessionId: SessionId): { getSnapshot: () => ChatSnapshot | undefined; subscribe: (listener: () => void) => (() => void) | undefined } | undefined {
+  try {
+    const source = uiConversationOf(ctx)?.binding(sessionId).target('chat')
+    if (source === undefined) return undefined
+    return {
+      getSnapshot: () => {
+        try {
+          return source.getSnapshot()
+        } catch {
+          return undefined
+        }
+      },
+      subscribe: listener => {
+        try {
+          return source.subscribe(listener)
+        } catch {
+          return undefined
+        }
+      },
+    }
+  } catch {
+    return undefined
+  }
 }
 
 /**
@@ -509,6 +590,7 @@ export function installDomFenceRenderer(
   let rafId: number | null = null
   let activeChatSession: SessionId | undefined
   let unsubscribeChat: (() => void) | undefined
+  const sourceLanguages = createSourceLanguageResolver(ctx)
 
   const sessionIdOf = (): SessionId | undefined => {
     try {
@@ -529,7 +611,7 @@ export function installDomFenceRenderer(
       // per block so the degraded path is visible in the console.
       warnOnce(block, 'no [data-chat-anchor-key] ancestor for a dsh-ui fence (host render path without row anchor — e.g. Safari); using fallback identity dom:unknown:N')
     }
-    const fenceIndex = fenceIndexOf(ctx, row, block)
+    const fenceIndex = fenceIndexOf(ctx, row, block, sourceLanguages.get)
     const anchorKey = row.getAttribute('data-chat-anchor-key') ?? 'unknown'
     const key = `dom:${anchorKey}:${fenceIndex}` as Key
     const sessionId = sessionIdOf()
@@ -651,7 +733,7 @@ export function installDomFenceRenderer(
     const row = rowOf(block)
     const settled = isSettled(block)
     const domLanguage = domLanguageOf(block)
-    const sourceLanguage = domLanguage === null ? sourceLanguageOf(ctx, block) : undefined
+    const sourceLanguage = domLanguage === null ? sourceLanguages.get(block) : undefined
     const language = domLanguage ?? sourceLanguage
     const raw = rawOf(block)
     // DSH 0.1.7-alpha.2 会在最终 DOM 隐去不支持高亮的语言；公开 ChatSnapshot 的原始 Markdown 是 language 来源。
@@ -773,13 +855,14 @@ export function installDomFenceRenderer(
    * new dsh-ui block — settled or still streaming. */
   function sweep(): void {
     if (disposed) return
+    sourceLanguages.beginSweep()
     const sessionId = sessionIdOf()
     if (sessionId !== activeChatSession) {
       unsubscribeChat?.()
       unsubscribeChat = undefined
       activeChatSession = sessionId
       if (sessionId !== undefined) {
-        unsubscribeChat = uiConversationOf(ctx)?.binding(sessionId).target('chat').subscribe(schedule)
+        unsubscribeChat = chatSourceOf(ctx, sessionId)?.subscribe(schedule)
       }
     }
     for (const [block, mount] of mounts) {
@@ -790,7 +873,7 @@ export function installDomFenceRenderer(
       const raw = rawOf(block)
       const settled = isSettled(block)
       const domLanguage = domLanguageOf(block)
-      const sourceLanguage = domLanguage === null ? sourceLanguageOf(ctx, block) : undefined
+      const sourceLanguage = domLanguage === null ? sourceLanguages.get(block) : undefined
       const language = domLanguage ?? sourceLanguage
       const validGenui = language === 'dsh-ui'
         || (language === undefined && settled && isGenericGenuiFence(block, raw))
@@ -885,7 +968,7 @@ export function installDomFenceRenderer(
       // would be about the wrong block.
       if (isSettled(block)) {
         const domLanguage = domLanguageOf(block)
-        const sourceLanguage = domLanguage === null ? sourceLanguageOf(ctx, block) : undefined
+        const sourceLanguage = domLanguage === null ? sourceLanguages.get(block) : undefined
         if ((domLanguage ?? sourceLanguage) !== 'dsh-ui') {
           clearDiagnostic(block)
           continue

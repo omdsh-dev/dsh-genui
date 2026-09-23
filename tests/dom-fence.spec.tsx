@@ -220,6 +220,44 @@ describe('installDomFenceRenderer', () => {
     } finally { dispose() }
   })
 
+  it('parses each assistant Markdown source once after the opening language is stable', async () => {
+    const row = assistantRow('cached-source')
+    const block = genericCodeBlock(VALID_SPEC)
+    row.append(block)
+    document.body.append(row)
+    let sourceReads = 0
+    const data = Object.defineProperty({}, 'blocks', {
+      get: () => {
+        sourceReads += 1
+        return [{ kind: 'text', text: `\`\`\`dsh-ui\n${VALID_SPEC}\n\`\`\`` }]
+      },
+    })
+    const chat = { nodes: { get: () => ({ kind: 'assistant-step', data }) } }
+    const dispose = installDomFenceRenderer(makeSourceCtx('source-session', () => chat, () => () => {}), () => {})
+    try {
+      expect(await waitFor(() => block.hasAttribute('data-genui-rendered'))).toBe(true)
+      await tick(1100)
+      expect(sourceReads).toBe(1)
+    } finally { dispose() }
+  })
+
+  it('keeps rendering when the current session has no ChatSnapshot binding', async () => {
+    const row = assistantRow('inactive-source')
+    const block = genericCodeBlock(VALID_SPEC)
+    row.append(block)
+    document.body.append(row)
+    const ctx = {
+      ...makeModernCtx('inactive-session'),
+      get: (name: string) => name === 'uiConversation' ? {
+        binding: () => { throw new Error('session is inactive') },
+      } : undefined,
+    } as unknown as Context
+    const dispose = installDomFenceRenderer(ctx, () => {})
+    try {
+      expect(await waitFor(() => block.hasAttribute('data-genui-rendered'))).toBe(true)
+    } finally { dispose() }
+  })
+
   it.each([
     ['json', '```json'],
     ['foobar', '```foobar'],
@@ -246,8 +284,9 @@ describe('installDomFenceRenderer', () => {
   })
 
   it('uses the ChatSnapshot subscription when the DOM appears before source data', async () => {
-    const row = assistantRow('late-source')
-    const block = genericCodeBlock(VALID_SPEC)
+    const row = assistantRow('late-source', true)
+    const partial = '{"items":[{"type":"text","content":"hel'
+    const block = genericCodeBlock(partial)
     row.append(block)
     document.body.append(row)
     let chat: unknown = { nodes: { get: () => undefined } }
@@ -258,14 +297,23 @@ describe('installDomFenceRenderer', () => {
     }), () => {})
     try {
       await tick()
-      expect(block.hasAttribute('data-genui-rendered')).toBe(true)
+      expect(block.hasAttribute('data-genui-rendered')).toBe(false)
+      chat = {
+        nodes: {
+          get: () => ({ kind: 'assistant-step', data: { blocks: [{ kind: 'text', text: `\`\`\`dsh-ui\n${partial}` }] } }),
+        },
+      }
+      update?.()
+      expect(await waitFor(() => block.hasAttribute('data-genui-rendered'))).toBe(true)
+      expect(row.querySelector('.genui-dom-fence')).not.toBeNull()
+      block.querySelector('code')!.textContent = VALID_SPEC
       chat = {
         nodes: {
           get: () => ({ kind: 'assistant-step', data: { blocks: [{ kind: 'text', text: `\`\`\`dsh-ui\n${VALID_SPEC}\n\`\`\`` }] } }),
         },
       }
       update?.()
-      expect(await waitFor(() => block.hasAttribute('data-genui-rendered'))).toBe(true)
+      expect(await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('你好，世界') === true)).toBe(true)
       expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('你好，世界')
     } finally { dispose() }
   })
