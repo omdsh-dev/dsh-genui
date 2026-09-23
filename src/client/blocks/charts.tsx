@@ -588,11 +588,12 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
   const showValues = labels.length <= 12
   const stacked = chart.stacked === true && isGrouped
   const categoryTotals = labels.map((_l, i) => seriesValues.reduce((sum, values) => sum + Math.max(0, values[i] ?? 0), 0))
+  const positiveMax = stacked ? Math.max(...categoryTotals, 0) : Math.max(...flat, 0)
 
   // Horizontal: label column + one track per series. The axis is always
   // 0..max (a horizontal track has no zero line to cross).
   if (chart.horizontal === true) {
-    const scale = Math.max(Math.max(...flat, 0), 1)
+    const scale = Math.max(positiveMax, 1)
     const legend = isGrouped
       ? (
         <div className={css.chartLegend}>
@@ -663,7 +664,7 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
   // Vertical: grouped bars clamp negatives (the flex layout stacks upward), so
   // the axis starts at zero for that shape; single-series bars render against
   // a true zero line and draw negatives downward.
-  const ticks = niceTicks(isGrouped ? 0 : Math.min(...flat, 0), Math.max(...flat, 0), 4)
+  const ticks = niceTicks(isGrouped ? 0 : Math.min(...flat, 0), positiveMax, 4)
   const lo = ticks[0]!
   const hi = ticks[ticks.length - 1]!
   const span = hi - lo || 1

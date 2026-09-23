@@ -307,6 +307,47 @@ describe('v7: table sections/totals, stacked bars, card tones', () => {
     expect(segments).toHaveLength(2)
     // 30/40 of the total height -> 75%.
     expect((segments[0] as HTMLElement).style.height).toBe('75%')
+    const stack = segments[0]!.parentElement as HTMLElement
+    expect(parseFloat(stack.style.height)).toBeLessThanOrEqual(100)
+    expect(stack.style.height).toBe('100%')
+  })
+
+  it('scales vertical stacks by the largest category total', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'chart',
+        data: [],
+        stacked: true,
+        series: [
+          { label: 'A', data: [{ label: 'Q1', value: 30 }, { label: 'Q2', value: 10 }] },
+          { label: 'B', data: [{ label: 'Q1', value: 10 }, { label: 'Q2', value: 10 }] },
+        ],
+      }],
+    })
+    const stacks = [...container.querySelectorAll('[class*="barCol"] > [class*="stack"]:not([class*="stackSeg"]):not([class*="stackValue"])')] as HTMLElement[]
+    expect(stacks).toHaveLength(2)
+    expect(stacks.map(stack => stack.style.height)).toEqual(['100%', '50%'])
+    expect(container.querySelector('[class*="chartYAxis"]')?.textContent).toContain('40')
+  })
+
+  it('scales horizontal stacks by the largest category total', () => {
+    const { container } = renderBlock({
+      items: [{
+        type: 'chart',
+        data: [],
+        horizontal: true,
+        stacked: true,
+        series: [
+          { label: 'A', data: [{ label: 'Q1', value: 30 }, { label: 'Q2', value: 10 }] },
+          { label: 'B', data: [{ label: 'Q1', value: 10 }, { label: 'Q2', value: 10 }] },
+        ],
+      }],
+    })
+    const tracks = [...container.querySelectorAll('[class*="hbarTrack"]:not([class*="hbarTracks"])')] as HTMLElement[]
+    expect(tracks).toHaveLength(2)
+    const totals = tracks.map(track => [...track.querySelectorAll('[class*="hbarSeg"]')]
+      .reduce((sum, segment) => sum + parseFloat((segment as HTMLElement).style.width), 0))
+    expect(totals).toEqual([100, 50])
   })
 
   it('shows an instant tooltip with the segment breakdown on hover', () => {

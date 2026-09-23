@@ -206,6 +206,19 @@ try {
 
   // 注入画廊围栏：真实 dsh-ui fence 表面（叶子语言标签 + 单一 <pre> 代码体），
   // DOM 通道应当发现它并以插件自己的 React root 挂载真实组件。
+  const visualSpec = {
+    ...gallerySpec,
+    items: [...gallerySpec.items, {
+      type: 'chart' as const,
+      kind: 'bars' as const,
+      data: [],
+      stacked: true,
+      series: [
+        { label: 'Issue 206 A', data: [{ label: '回归最大值', value: 30 }, { label: '回归一半', value: 10 }] },
+        { label: 'Issue 206 B', data: [{ label: '回归最大值', value: 10 }, { label: '回归一半', value: 10 }] },
+      ],
+    }],
+  }
   await page.evaluate((specJson: string) => {
     const host = document.createElement('div')
     host.className = 'md-code-block'
@@ -219,7 +232,7 @@ try {
     host.append(label, pre)
     const mount = document.querySelector('[data-chat-flow]') ?? document.body
     mount.appendChild(host)
-  }, JSON.stringify(gallerySpec))
+  }, JSON.stringify(visualSpec))
 
   let blocks = 0
   for (let i = 0; i < 30; i++) {
@@ -502,6 +515,23 @@ try {
     }
     log(`✓ 图表 tooltip：${tipText.replace(/\s+/g, ' ').trim()}`)
   }
+
+  const regressionChart = page.locator('[data-genui-chart="bars"]').filter({ hasText: 'Issue 206' }).first()
+  const regressionStacks = regressionChart.locator('[class*="barCol"] > [class*="stack"]:not([class*="stackSeg"]):not([class*="stackValue"])')
+  if (await regressionStacks.count() !== 2) throw new Error('Issue #206 回归图表未渲染出两根堆叠柱')
+  const regressionPlot = regressionChart.locator('[class*="chartPlot"]')
+  const plotBox = await regressionPlot.boundingBox()
+  for (const stack of await regressionStacks.all()) {
+    const stackBox = await stack.boundingBox()
+    if (stackBox === null || plotBox === null) throw new Error('Issue #206 回归图表缺少绘图区几何信息')
+    if (stackBox.y < plotBox.y - 1) {
+      throw new Error(`堆叠柱越出绘图区：stack top=${stackBox.y}, plot top=${plotBox.y}`)
+    }
+    if (stackBox.y + stackBox.height > plotBox.y + plotBox.height + 1) {
+      throw new Error('堆叠柱越出绘图区底部')
+    }
+  }
+  log('✓ Issue #206 堆叠柱均处于绘图区范围内')
 
   // ── 本地交互验证 ─────────────────────────────────────────────────────────
   // 点击在第一个 evaluate 里做；React 18 的状态更新是异步的，断言放到
