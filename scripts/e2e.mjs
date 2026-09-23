@@ -457,7 +457,7 @@ try {
     assert.ok(badAlertText.includes('保持为代码块'), '#158 诊断应说明围栏保持为代码块')
     log('issue #172 围栏（stat 指标组、裸 steps 根、非法对照组+可见诊断）验证通过')
 
-    // 在 DSH 0.1.7 的通用 CodeToolbar DOM 结构中验证实际安装包。
+    // 在真实宿主中验证打包产物的 source-unavailable 最终兜底；该 fixture 不代表真实模型消息验收。
     await page.evaluate(() => {
       const assistantRow = document.createElement('div')
       assistantRow.setAttribute('data-chat-flow-kind', 'assistant-step')
@@ -496,7 +496,7 @@ try {
       assert.equal(await page.locator(`[data-generic-${name}] [data-genui]`).count(), 0, `${name} 应保持普通代码块`)
       assert.equal(await page.locator(`[data-generic-${name}] .md-code-block`).isVisible(), true)
     }
-    log('packed client 通用 CodeBlock 严格识别验证通过')
+    log('packed client source-unavailable CodeBlock 严格兜底验证通过')
 
     log('smoke 模式：安装、激活、Diff/Code/JSON 真实渲染及复制均通过')
     await browser.close()

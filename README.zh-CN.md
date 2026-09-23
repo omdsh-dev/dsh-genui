@@ -75,9 +75,11 @@ https://github.com/user-attachments/assets/f5db33ec-7471-4d4a-a85b-79c9962ab4ef
 
 - **Registry 通道**：宿主提供 `fence-registry` 扩展点（新版 dsh 构建）时，围栏经宿主流式渲染管线注册，行为与宿主无缝；
 - **DOM 通道**：宿主没有该扩展点（包括支持范围内的原版 DSH 构建）时，插件观察会话 DOM 自行挂载渲染树。自 0.7.2 起**支持流式渲染**：模型写到哪渲染到哪，首个完成的组件立即出现，不用等整段回复写完。自 0.8.3 起围栏发现**多表面兼容**：同时匹配标准 `md-code-block` 表面、部分宿主构建使用的 deepsuite 风格 `.code-block` / `.code-block-small` 表面，并以「label+`<pre>`」结构兜底——任何 banner 标注 `dsh-ui` 且含 `<pre>` 正文的元素都能被识别。即使你的 dsh 构建用了别的类名，围栏照常渲染（控制台会有一条一次性提示说明宿主 DOM 发生漂移）。
-- **DSH 0.1.7 通用代码块**：在 assistant 消息行内，宿主没有提供围栏 language metadata、只显示通用 CodeBlock 时，DOM 通道仅识别完整 JSON 且通过现有 GenUI 规范校验的文档。仍可从 DOM 读取的 language 标签优先。宿主会把不支持语法高亮的 language 也显示成通用标签，因此 DOM 无法区分这类围栏与未标记的 GenUI 内容。
+- **DSH 0.1.7 通用代码块**：宿主最终 DOM 没有提供围栏 language metadata 时，dsh-genui 会从公开 ChatSnapshot 读取当前 assistant 的原始 Markdown，并且只接管 `dsh-ui` 围栏。DOM 负责确定挂载位置。source 数据暂时不可用时，assistant 已结束的通用 CodeBlock 才能通过严格的 canonical GenUI 规范校验进入最终兜底。
 
 无论走哪条通道，组件、交互、面板、持久化行为完全一致。
+
+CI 的 packed host smoke 会把实际生成的 npm tarball 安装到真实 DSH 宿主，并验证宿主启动与界面渲染。source-backed 围栏识别由 integration tests 覆盖；该 smoke 不代表真实模型回复验收。真实模型 E2E 需要配置模型凭据。
 
 本仓库已经包含两条渲染通道、服务端插件和浏览器构建产物；宿主仍负责**激活客户端模块**，并提供 `slots` 与 `sessions` 服务。`client.js` 返回 200 或出现在 ModuleLoader 缓存里，只能证明文件下载成功；真正激活后一定会打印 `[genui] client active; fence-channel=registry|dom`。没有这行时应先核对包名/网页配置/宿主激活链，`data-streaming`、`data-chat-anchor-key` 等页面属性只是可选信息，不是安装前提。
 

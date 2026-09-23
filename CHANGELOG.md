@@ -7,9 +7,9 @@
 - 增加 DSH `^0.1.7-alpha.1` 支持；真实宿主验收覆盖 `dsh-v0.1.7-alpha.1` 与 `dsh-v0.1.7-alpha.2`。
 - 保留 DSH `0.1.2-rc.1` 最低兼容基线检查。
 - 增加新版 DSH API 编译检查，确保宿主公开类型变化能够在发布前被发现。
+- DSH `0.1.7-alpha.2` 隐去围栏 language 时，从公开 ChatSnapshot 恢复原始 Markdown language；流式围栏可以立即识别，source 数据暂时不可用时保留严格的 settled CodeBlock 兜底。
 - 适配新版 `CommandClaim.name` 与 ui-primitives 箭头图标导出变化。
 - 适配 `0.1.7-alpha.2` 的 `DiffBlockLabels` 工具栏文案。
-- 适配 `0.1.7-alpha.2` 代码块丢失 `dsh-ui` language metadata 的情况：仅在 assistant 消息行内对通用 CodeBlock 的完整 JSON 执行原有 GenUI 规范校验；仍可从 DOM 读取的 language 标签优先。不支持语法高亮的 language 会与通用标签合并，DOM 无法还原其原始值。
 
 ### 新增
 - **ECharts 词云**：`echart` 节点新增 `preset: "wordCloud"`，`data:[{label,value}]` 的 value 即权重，颜色按序循环 `palette`（缺省跟随主题调色板）；`option` 模式同步注册 `echarts-wordcloud` 扩展，`series[].type: "wordCloud"` 直接可用。完整版引擎新增约 30 KB（#183）。
