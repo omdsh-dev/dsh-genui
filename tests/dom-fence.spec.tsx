@@ -258,6 +258,33 @@ describe('installDomFenceRenderer', () => {
     } finally { dispose() }
   })
 
+  it('retries the ChatSnapshot subscription after an unavailable session binding recovers', async () => {
+    let available = false
+    let subscriptions = 0
+    const ctx = {
+      ...makeModernCtx('recovering-session'),
+      get: (name: string) => name === 'uiConversation' ? {
+        binding: () => {
+          if (!available) throw new Error('session is inactive')
+          return { target: () => ({
+            getSnapshot: () => undefined,
+            subscribe: () => {
+              subscriptions += 1
+              return () => {}
+            },
+          }) }
+        },
+      } : undefined,
+    } as unknown as Context
+    const dispose = installDomFenceRenderer(ctx, () => {})
+    try {
+      await tick(40)
+      expect(subscriptions).toBe(0)
+      available = true
+      expect(await waitFor(() => subscriptions === 1, 1500)).toBe(true)
+    } finally { dispose() }
+  })
+
   it.each([
     ['json', '```json'],
     ['foobar', '```foobar'],

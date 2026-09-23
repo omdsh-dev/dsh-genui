@@ -600,6 +600,18 @@ export function installDomFenceRenderer(
     }
   }
 
+  /** Retry ChatSnapshot subscription while the active session binding is unavailable. */
+  function syncChatSubscription(sessionId: SessionId | undefined): void {
+    if (sessionId !== activeChatSession) {
+      unsubscribeChat?.()
+      unsubscribeChat = undefined
+      activeChatSession = sessionId
+    }
+    if (sessionId !== undefined && unsubscribeChat === undefined) {
+      unsubscribeChat = chatSourceOf(ctx, sessionId)?.subscribe(schedule)
+    }
+  }
+
   /** Render context for a block: session always; the stable source identity
    * only once settled — streaming renders are identity-less (no panel
    * publish, no durable state), mirroring the registry channel. */
@@ -857,14 +869,7 @@ export function installDomFenceRenderer(
     if (disposed) return
     sourceLanguages.beginSweep()
     const sessionId = sessionIdOf()
-    if (sessionId !== activeChatSession) {
-      unsubscribeChat?.()
-      unsubscribeChat = undefined
-      activeChatSession = sessionId
-      if (sessionId !== undefined) {
-        unsubscribeChat = chatSourceOf(ctx, sessionId)?.subscribe(schedule)
-      }
-    }
+    syncChatSubscription(sessionId)
     for (const [block, mount] of mounts) {
       if (!block.isConnected) {
         unmountBlock(block)
