@@ -12,6 +12,7 @@
 
 ### 修复
 
+- 去除 `validateGenuiSpec` 与 `processGenuiSpec` 中完全相同的重复校验错误，覆盖 chart、tabs 和 accordion 的嵌套数据（#222）。
 - 根据 Session 格式版本生成 fence 修复反馈来源；v4 使用 `plugin:@changfenhuang/dsh-genui`，旧格式继续使用 `plugin` 来源，避免修复请求导致整轮失败（#218）。自我识别同时覆盖原始插件来源和迁移后的 v4 来源。
 
 ## [0.11.1] - 2026-09-24

@@ -63,6 +63,26 @@ describe('GenUI runtime schema normalization', () => {
     expect(result.repaired?.items[0]).toEqual({ type: 'steps', steps: [] })
   })
 
+  it('returns each nested record error once across validation and processing', () => {
+    const cases = [
+      { name: 'chart data', spec: { items: [{ type: 'chart', kind: 'line', data: [3, 4] }] }, paths: ['items[0].data[0]', 'items[0].data[1]'] },
+      { name: 'chart series data', spec: { items: [{ type: 'chart', kind: 'line', data: [{ label: 'a', value: 1 }], series: [{ label: 'S1', data: [3, 4] }] }] }, paths: ['items[0].series[0].data[0]', 'items[0].series[0].data[1]'] },
+      { name: 'tabs', spec: { items: [{ type: 'tabs', tabs: [3, 4] }] }, paths: ['items[0].tabs[0]', 'items[0].tabs[1]'] },
+      { name: 'accordion', spec: { items: [{ type: 'accordion', items: [3, 4] }] }, paths: ['items[0].items[0]', 'items[0].items[1]'] },
+      { name: 'two chart series with five points each', spec: { items: [{ type: 'chart', kind: 'line', data: [{ label: 'a', value: 1 }], series: [{ label: 'S1', data: [1, 2, 3, 4, 5] }, { label: 'S2', data: [1, 2, 3, 4, 5] }] }] }, paths: [
+        'items[0].series[0].data[0]', 'items[0].series[0].data[1]', 'items[0].series[0].data[2]', 'items[0].series[0].data[3]', 'items[0].series[0].data[4]',
+        'items[0].series[1].data[0]', 'items[0].series[1].data[1]', 'items[0].series[1].data[2]', 'items[0].series[1].data[3]', 'items[0].series[1].data[4]',
+      ] },
+    ]
+    for (const { name, spec, paths } of cases) {
+      const expected = paths.map(path => `${path} must be an object`)
+      for (const errors of [validateGenuiSpec(spec).errors, processGenuiSpec(spec).errors]) {
+        expect(errors, name).toEqual([...new Set(errors)])
+        expect(errors.filter(error => error.endsWith('must be an object')), name).toEqual(expected)
+      }
+    }
+  })
+
   it('validates enum domains from the runtime registry', () => {
     // 'purple' stays outside every tone vocabulary; 'warn'/'danger' on a
     // callout are now value-aliases (warn→warning, danger→error, issue #186),
