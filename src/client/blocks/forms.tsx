@@ -495,8 +495,9 @@ export function TextareaNode({ node, onAction, answers }: {
 }) {
   const action = node.action
   const id = node.id
-  const [value, setValue] = useState<string>(() =>
-    node.value ?? (id !== undefined ? answers?.fields[id] ?? '' : ''))
+  // Durable state wins over the spec default (same contract as InputNode).
+  const restored = id !== undefined ? answers?.fields[id] : undefined
+  const [value, setValue] = useState<string>(() => restored ?? node.value ?? '')
   // Last value delivered to the model: blur sends only on change. Seeded
   // with the mount value so an unedited blur stays silent.
   const lastSent = useRef<string | null>(value)
@@ -507,13 +508,15 @@ export function TextareaNode({ node, onAction, answers }: {
     }
   }
   const ime = useImeComposing()
-  // Field invariant: a spec-provided non-blank default registers at mount.
+  // Field invariant: a non-blank initial value registers at mount. When a
+  // durable value was restored, registering it is a no-op (setField dedupes);
+  // otherwise the spec default registers — never the other way around.
   const mounted = useRef(false)
   useEffect(() => {
     if (mounted.current) return
     mounted.current = true
-    if (id !== undefined && node.value !== undefined && node.value.trim() !== '') {
-      answers?.setField(id, node.value)
+    if (id !== undefined && value.trim() !== '') {
+      answers?.setField(id, value)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
