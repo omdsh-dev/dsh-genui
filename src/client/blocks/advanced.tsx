@@ -446,6 +446,14 @@ export const QuizNode = memo(function QuizNode({ node, onAction }: {
 }) {
   const t = useT()
   const [selected, setSelected] = useState<number | null>(null)
+  // `id` is the documented reset signal: when the model swaps the quiz in
+  // place (same tree position, new question), the component instance is
+  // reused, so the answered state must not leak onto the new question.
+  const [prevId, setPrevId] = useState(node.id)
+  if (node.id !== prevId) {
+    setPrevId(node.id)
+    setSelected(null)
+  }
   const options = node.options.slice(0, GENUI_LIMITS.maxQuizOptions)
   const answered = selected !== null
   const chosen = selected === null ? undefined : options[selected]
