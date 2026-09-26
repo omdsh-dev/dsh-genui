@@ -1524,7 +1524,8 @@ export function validateCanonicalGenuiSpec(value: unknown): GenuiValidation {
     }
   }
   walk(v.items, 0, 'items')
-  return { ok: errors.length === 0, errors }
+  const uniqueErrors = [...new Set(errors)]
+  return { ok: uniqueErrors.length === 0, errors: uniqueErrors }
 }
 
 /**
