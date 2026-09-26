@@ -2,18 +2,25 @@
 
 ## [Unreleased]
 
+## [0.11.2-preview.1] - 2026-09-26
+
 ### 新增
 
-- 完成态 GenUI 支持导出 standalone HTML 与 `.genui.json`；独立页面内嵌渲染器、样式、KaTeX 字体及按规格选择的图形引擎，JSON 保存安全的交互状态、语言和主题（#205）。
+- 完成态 GenUI 支持导出 standalone HTML 与 `.genui.json`（#205、PR #212）。
+- standalone 页面内嵌运行时、样式、主题、KaTeX 字体及按需选择的图形引擎，可独立打开；成果物保存安全的交互状态、语言和主题。
 
 ### 兼容性
 
 - `preview-latest` 与 Release API、packed smoke 宿主检查统一更新为 DSH `0.1.7-rc.2`，并保留 `0.1.7-rc.1` API 标签检查能力。
+- Session format v4 的 fence repair feedback 使用 producer-owned source kind，避免新版 DSH 拒绝反馈消息；同时识别原始插件来源和迁移后的 v4 来源（#218、PR #220）。
 
 ### 修复
 
-- 去除 `validateGenuiSpec` 与 `processGenuiSpec` 中完全相同的重复校验错误，覆盖 chart、tabs 和 accordion 的嵌套数据（#222）。
-- 根据 Session 格式版本生成 fence 修复反馈来源；v4 使用 `plugin:@changfenhuang/dsh-genui`，旧格式继续使用 `plugin` 来源，避免修复请求导致整轮失败（#218）。自我识别同时覆盖原始插件来源和迁移后的 v4 来源。
+- 去除 `validateGenuiSpec` 与 `processGenuiSpec` 中完全相同的重复校验错误，覆盖 chart、tabs 和 accordion 的嵌套数据（#222、PR #223）。
+- `TextareaNode` 恢复时优先使用已持久化的用户值，避免重新挂载后被 spec 默认值覆盖（PR #213）。
+- `QuizNode` 的 `id` 改变时重置已作答状态，避免原位换题后保留旧题状态（PR #214）。
+- 允许 tab 缺少 `items` 及空 tab，修复相关校验失败（PR #216）。
+- 改进行内 Markdown 内容校验与反引号解析，减少误报并保留代码围栏原文（PR #217）。
 
 ## [0.11.1] - 2026-09-24
 
