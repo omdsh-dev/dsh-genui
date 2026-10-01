@@ -191,7 +191,7 @@ body[data-ds-dark-theme] .panel {
 
 /* ---------- text ---------- */
 
-.text { color: var(--dsw-alias-label-primary); }
+.text { color: var(--dsw-alias-label-primary); white-space: pre-line; }
 .text.h1 {
   font-size: var(--dsl-g-font-h1);
   font-weight: 800;
@@ -659,7 +659,31 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 .kvValue,
 .tlDesc,
 .detailBody,
-.accBody { white-space: pre-line; }
+.accBody,
+.banner,
+.cardTitle,
+.calloutTitle,
+.stepTitle,
+.stepDesc,
+.kvKey,
+.tlTitle,
+.accTitle,
+.quizQuestion,
+.quizFeedback,
+.quizExplanation,
+.bcText,
+.scene3dTitle,
+.button,
+.badge,
+.checkbox,
+.radio,
+.tab,
+.field > span,
+.fieldLabel,
+.switchLabel,
+.copyChip,
+.link,
+.linkText { white-space: pre-line; }
 
 /* sortable header button (v2.9) */
 .thSort {

@@ -146,6 +146,25 @@ describe('inline markup', () => {
     expect(css).toMatch(/\.calloutBody,[\s\S]*?white-space:\s*pre-line/)
   })
 
+  it('paints real newlines in text and control labels (#249)', () => {
+    const { container } = render(<GenuiBlock spec={{ items: [
+      { type: 'text', content: '甲\n乙' },
+      { type: 'badge', label: '待办\n事项' },
+      { type: 'button', label: '继续\n操作' },
+      { type: 'checkbox', label: '选择\n项目' },
+      { type: 'radio', label: '选项\n列表', options: ['第一\n项'] },
+      { type: 'tabs', tabs: [{ label: '概要\n信息', items: [] }] },
+      { type: 'submit', label: '提交\n答案' },
+    ] }} />)
+    expect(container.querySelectorAll('br')).toHaveLength(0)
+    for (const value of ['甲\n乙', '待办\n事项', '继续\n操作', '选择\n项目', '选项\n列表', '第一\n项', '概要\n信息', '提交\n答案']) {
+      expect(container.textContent).toContain(value)
+    }
+    const css = readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
+    expect(css).toMatch(/\.text\s*\{[^}]*white-space:\s*pre-line/)
+    expect(css).toMatch(/\.button,\s*\.badge,\s*\.checkbox,\s*\.radio,\s*\.tab,[^}]*white-space:\s*pre-line/)
+  })
+
   it('updates a formula without leaving stale math or damaging surrounding text', () => {
     const { container, rerender } = render(<span>{renderInline(String.raw`**\(x\)** tail`)}</span>)
     expect(container.querySelector('strong .katex')).not.toBeNull()
