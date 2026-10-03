@@ -344,6 +344,61 @@ function scanFenceJson(raw: string, complete: boolean): { text: string; repairs:
 }
 
 /**
+ * 取**第一个平衡根值**的文本（丢弃其后的杂字符）；没有平衡根时返回 null。
+ *
+ * 与 {@link completeFenceJson} 里的前缀回退同源，但**只做裁剪、不做结构补全**：
+ * 内容识别用它来容忍「合法 JSON + 尾部泄漏文本」（真实样本：模型把自己的工具调用
+ * 模板泄漏在 JSON 之后，且围栏没闭合）。根值正好结束在末尾时返回 null —— 那种情况
+ * `JSON.parse` 本来就会成功。
+ *
+ * @param text - 候选正文。
+ * @returns 平衡根前缀；无可裁剪内容时 null。
+ */
+export function trimToBalancedRoot(text: string): string | null {
+  const stack: Array<'}' | ']'> = []
+  let inString = false
+  let escaped = false
+  let started = false
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (inString) {
+      if (ch === '\\') escaped = true
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') {
+      inString = true
+      started = true
+      continue
+    }
+    if (ch === '{') {
+      stack.push('}')
+      started = true
+      continue
+    }
+    if (ch === '[') {
+      stack.push(']')
+      started = true
+      continue
+    }
+    if (ch === '}' || ch === ']') {
+      // 不匹配的闭括号 ⇒ 这份正文结构上已经坏了，不做"裁剪"式的猜测。
+      if (stack[stack.length - 1] !== ch) return null
+      stack.pop()
+      if (stack.length === 0 && started) {
+        if (i + 1 >= text.length) return null
+        return text.slice(0, i + 1).trim()
+      }
+    }
+  }
+  return null
+}
+
+/**
  * Rewrite the "Tetris table" shape into legal JSON: the model closed the
  * `columns` array after the header cells and then wrote the row matrix as a
  * SIBLING array element —

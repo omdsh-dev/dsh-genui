@@ -58,7 +58,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { GenuiActionContext, type GenuiActionHandler } from './action-context.ts'
 import css from './GenuiBlock.module.css'
 import { renderSvgFence } from './svg-fence.tsx'
-import { repairFenceJson } from '../shared/fence-repair.ts'
+import { repairFenceJson, trimToBalancedRoot } from '../shared/fence-repair.ts'
 import { describeFenceFailure, FenceDiagnostic, renderResolvedFenceNode, type GenuiFenceContext } from './fence-render.tsx'
 import { resolveViewedSessionId } from './session-resolver.ts'
 import { validateCanonicalGenuiSpec } from './guard.ts'
@@ -238,7 +238,15 @@ function isGenericGenuiFence(block: Element, raw: string): boolean {
   try {
     value = JSON.parse(candidate)
   } catch {
-    return false
+    // 「合法 JSON + 尾部杂字符」（真实样本：模型把工具调用模板泄漏在 JSON 之后，
+    // 而且围栏没闭合）同样要能认出来：裁到平衡根值再试一次。只裁剪、不补全结构。
+    const trimmed = trimToBalancedRoot(candidate)
+    if (trimmed === null) return false
+    try {
+      value = JSON.parse(trimmed)
+    } catch {
+      return false
+    }
   }
   if (!validateCanonicalGenuiSpec(value).ok || diagnoseUnknownGenuiFields(value).length > 0) return false
   return JSON.stringify(normalizeGenuiSpec(value).value) === JSON.stringify(value)

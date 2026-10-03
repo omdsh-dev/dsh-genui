@@ -161,6 +161,23 @@ describe('installDomFenceRenderer', () => {
     } finally { dispose() }
   })
 
+  it('takes over a generic banner whose body is a spec followed by trailing junk', async () => {
+    // Real sample: the model leaked its tool-call template after the JSON and
+    // never closed the fence, so the host rendered everything as one code block.
+    // Content recognition must cut back to the balanced root instead of giving up.
+    const body = '{"items":[{"type":"table","columns":["观察项"],"rows":[["RL3b 转 pass"]]}]}'
+    const leaker = `${body}\n</x> parameter>\n</x> invoke>\n</x> calls>`
+    const row = assistantRow('generic-trailing-junk')
+    const block = genericCodeBlock(leaker)
+    row.appendChild(block)
+    document.body.appendChild(row)
+    const dispose = installDomFenceRenderer(makeModernCtx('generic-session'), () => {})
+    try {
+      expect(await waitFor(() => block.hasAttribute('data-genui-rendered'))).toBe(true)
+      expect(await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('RL3b 转 pass') === true)).toBe(true)
+    } finally { dispose() }
+  })
+
   it.each([
     '{"name":"ordinary","items":[]}',
     '{"items":[{"type":"text","content":',
