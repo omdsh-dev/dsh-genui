@@ -172,12 +172,13 @@ describe('fenceFailures: only fences that would stay a code block', () => {
 })
 
 describe('planFenceFeedback: the bounds that prevent a retry storm', () => {
-  const base = { text: reply(BROKEN), turn: 1, lastCorrectedTurn: undefined, corrected: new Set<string>(), aborted: false }
+  const base = { text: reply(BROKEN), turn: 1, correctedSpec: new Set<string>(), aborted: false }
 
   it('plans one correction for a rejected fence', () => {
     const plan = planFenceFeedback(base)
     expect(plan).not.toBeNull()
     expect(plan!.turn).toBe(1)
+    expect(plan!.kind).toBe('render')
     expect(plan!.fingerprints).toEqual([fenceFingerprint(BROKEN)])
     expect(plan!.text).toContain('next=resend_corrected_fence_only')
   })
@@ -189,19 +190,21 @@ describe('planFenceFeedback: the bounds that prevent a retry storm', () => {
     expect(finalReply!.text).toContain("type 'stat' requires label")
   })
 
-  it('stays silent for the same turn (at most one correction per turn)', () => {
-    expect(planFenceFeedback({ ...base, lastCorrectedTurn: 1 })).toBeNull()
-    expect(planFenceFeedback({ ...base, lastCorrectedTurn: 0 })).not.toBeNull()
+  it('allows a SECOND correction in the same turn, never a third', () => {
+    expect(planFenceFeedback({ ...base, correctionsThisTurn: 1, correctionsTurn: 1 })).not.toBeNull()
+    expect(planFenceFeedback({ ...base, correctionsThisTurn: 2, correctionsTurn: 1 })).toBeNull()
+    // A stale count from an earlier turn never bounds a new one.
+    expect(planFenceFeedback({ ...base, correctionsThisTurn: 2, correctionsTurn: 0 })).not.toBeNull()
   })
 
   it('stays silent for a fence body already corrected', () => {
-    expect(planFenceFeedback({ ...base, corrected: new Set([fenceFingerprint(BROKEN)]) })).toBeNull()
+    expect(planFenceFeedback({ ...base, correctedSpec: new Set([fenceFingerprint(BROKEN)]) })).toBeNull()
   })
 
   it('corrects only the new fences when a reply repeats an old broken one', () => {
-    const plan = planFenceFeedback({ ...base, text: reply(BROKEN, STAT_GROUP), corrected: new Set([fenceFingerprint(BROKEN)]) })
+    const plan = planFenceFeedback({ ...base, text: reply(BROKEN, STAT_GROUP), correctedSpec: new Set([fenceFingerprint(BROKEN)]) })
     expect(plan).toBeNull()
-    const other = planFenceFeedback({ ...base, text: reply(BROKEN, '{"items":[{"type":"table"}]}'), corrected: new Set([fenceFingerprint(BROKEN)]) })
+    const other = planFenceFeedback({ ...base, text: reply(BROKEN, '{"items":[{"type":"table"}]}'), correctedSpec: new Set([fenceFingerprint(BROKEN)]) })
     expect(other!.fingerprints).toEqual([fenceFingerprint('{"items":[{"type":"table"}]}')])
   })
 
@@ -210,7 +213,41 @@ describe('planFenceFeedback: the bounds that prevent a retry storm', () => {
     expect(planFenceFeedback({ ...base, text: reply(STAT_GROUP) })).toBeNull()
     expect(planFenceFeedback({ ...base, text: '   ' })).toBeNull()
   })
+
+  it('reminds only after a formal validate call that produced no delivery', () => {
+    const idle = { text: '', turn: 2, correctedSpec: new Set<string>(), aborted: false }
+    // Nothing formal happened: silence (an empty body alone is not a GenUI turn).
+    expect(planFenceFeedback(idle)).toBeNull()
+    // validate_dsh_ui ran, nothing was delivered: remind once.
+    const plan = planFenceFeedback({ ...idle, validatedThisTurn: true })
+    expect(plan).not.toBeNull()
+    expect(plan!.kind).toBe('delivery')
+    expect(plan!.fingerprints).toEqual([])
+    expect(plan!.text).toContain('status=nothing_delivered')
+    expect(plan!.text).toContain('本轮尚未产生正式回答')
+    // The reminder never quotes a draft.
+    expect(plan!.text).not.toContain('```')
+    // Already reminded in this turn: silence.
+    expect(planFenceFeedback({ ...idle, validatedThisTurn: true, deliveryRemindedTurns: new Set([2]) })).toBeNull()
+    // A new turn may be reminded again.
+    expect(planFenceFeedback({ ...idle, turn: 3, validatedThisTurn: true, deliveryRemindedTurns: new Set([2]) })).not.toBeNull()
+  })
+
+  it('says nothing when the turn already delivered something formal', () => {
+    const delivered = { text: '', turn: 5, correctedSpec: new Set<string>(), aborted: false, validatedThisTurn: true, deliveredThisTurn: true }
+    expect(planFenceFeedback(delivered)).toBeNull()
+    // validate_dsh_ui alone is not a delivery; neither is an ordinary tool call.
+    expect(planFenceFeedback({ ...delivered, deliveredThisTurn: false })).not.toBeNull()
+  })
+
+  it('has no reasoning input at all: the decision is formal-event only', () => {
+    // Structural assertion for the #236 boundary: the planner's input carries no
+    // reasoning/draft field, so a draft cannot influence publishing or retrying.
+    const input = { ...base, validatedThisTurn: true }
+    expect(Object.keys(input).some(key => key.toLowerCase().includes('reason') || key.toLowerCase().includes('draft'))).toBe(false)
+  })
 })
+
 
 describe('the steered correction message', () => {
   it('uses the producer-owned source kind for Session format v4', () => {
@@ -276,6 +313,85 @@ describe('installFenceFeedback wiring', () => {
     h.boundary({ agent, turn: 4, signal: new AbortController().signal })
     expect(h.steer).toHaveBeenCalledTimes(1)
   })
+
+  const toolCallEvent = (name: string): unknown => ({ type: 'tool/call', seq: 4, time: 2, data: { name } }) as unknown as SessionEvent
+  const reasoningEvent = (text: string): unknown => ({
+    type: 'assistant/message',
+    seq: 5,
+    time: 2,
+    data: { message: { content: [{ type: 'reasoning', text }] } },
+  }) as unknown as SessionEvent
+
+  it('reminds when a formal validate call produced no delivery', () => {
+    const h = harness()
+    h.emitSession(userEvent())
+    h.emitSession(toolCallEvent('validate_dsh_ui'))
+    h.emitSession({ type: 'assistant/message', seq: 6, time: 3, data: { message: { content: [{ type: 'reasoning', text: '草稿' }] } } } as unknown as SessionEvent)
+    const agent = { session: { id: 'sess-1', header: { id: 'sess-1', version: 4 } }, steer: h.steer }
+    h.boundary({ agent, turn: 7, signal: new AbortController().signal })
+    expect(h.steer).toHaveBeenCalledTimes(1)
+    const message = h.steer.mock.calls[0]![0] as { content: Array<{ text: string }> }
+    expect(message.content[0]!.text).toContain('status=nothing_delivered')
+    expect(message.content[0]!.text).toContain('本轮尚未产生正式回答')
+    // Only one reminder per turn.
+    h.boundary({ agent, turn: 7, signal: new AbortController().signal })
+    expect(h.steer).toHaveBeenCalledTimes(1)
+  })
+
+  it('never lets reasoning content change the decision (only formal events do)', () => {
+    // Same formal state (validate called, nothing delivered); the reasoning block
+    // differs wildly — including "a complete fence", "several fences" and "a later
+    // candidate that negates the first". The decision must be identical because the
+    // loop never reads the reasoning block (maintainer requirement on #236).
+    const drafts = [
+      '',
+      '```dsh-ui\n{"items":[{"type":"text","content":"候选一"}]}\n```',
+      '```dsh-ui\n{"items":[{"type":"text","content":"候选一"}]}\n```\n推翻它\n```dsh-ui\n{"items":[{"type":"text","content":"候选二"}]}\n```',
+    ]
+    const decisions = drafts.map(draft => {
+      const h = harness()
+      h.emitSession(userEvent())
+      h.emitSession(toolCallEvent('validate_dsh_ui'))
+      if (draft !== '') h.emitSession(reasoningEvent(draft))
+      const agent = { session: { id: 'sess-1', header: { id: 'sess-1', version: 4 } }, steer: h.steer }
+      h.boundary({ agent, turn: 3, signal: new AbortController().signal })
+      return h.steer.mock.calls.length
+    })
+    expect(decisions).toEqual([1, 1, 1])
+  })
+
+  it('stays silent when the turn delivered a body or a render_ui card', () => {
+    const delivered = harness()
+    delivered.emitSession(userEvent())
+    delivered.emitSession(toolCallEvent('validate_dsh_ui'))
+    delivered.emitSession(assistantEvent('就是这些，没有别的要汇报。'))
+    const agent = { session: { id: 'sess-1', header: { id: 'sess-1', version: 4 } }, steer: delivered.steer }
+    delivered.boundary({ agent, turn: 8, signal: new AbortController().signal })
+    expect(delivered.steer).not.toHaveBeenCalled()
+
+    const card = harness()
+    card.emitSession(userEvent())
+    card.emitSession(toolCallEvent('render_ui'))
+    card.emitSession({ type: 'assistant/message', seq: 7, time: 4, data: { message: { content: [{ type: 'tool-call', name: 'render_ui', arguments: '{}' }] } } } as unknown as SessionEvent)
+    card.boundary({ agent: { session: { id: 'sess-1', header: { id: 'sess-1', version: 4 } }, steer: card.steer }, turn: 9, signal: new AbortController().signal })
+    expect(card.steer).not.toHaveBeenCalled()
+  })
+
+  it('keeps the delivery ledger separate from the render-failure ledger', () => {
+    const h = harness()
+    h.emitSession(userEvent())
+    h.emitSession(toolCallEvent('validate_dsh_ui'))
+    const agent = { session: { id: 'sess-1', header: { id: 'sess-1', version: 4 } }, steer: h.steer }
+    h.boundary({ agent, turn: 4, signal: new AbortController().signal })
+    expect(h.steer).toHaveBeenCalledTimes(1)          // delivery reminder (slot 1)
+    h.emitSession(assistantEvent(reply(BROKEN)))      // now a body fence fails to render
+    h.boundary({ agent, turn: 4, signal: new AbortController().signal })
+    expect(h.steer).toHaveBeenCalledTimes(2)          // render correction (slot 2) still fires
+    const second = h.steer.mock.calls[1]![0] as { content: Array<{ text: string }> }
+    expect(second.content[0]!.text).toContain('next=resend_corrected_fence_only')
+  })
+
+
 
   it('never steers for a subagent session', () => {
     const h = harness({ parentSession: 'parent-1' })
