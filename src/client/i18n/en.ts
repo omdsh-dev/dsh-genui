@@ -18,6 +18,8 @@ export const EN = {
   'artifact.externalMediaNotice': 'External media may not appear when this file is opened offline.',
 
   // ---------------------------------------------------------------- panel
+  'salvage.title': 'Recovered from the thinking block',
+  'salvage.body': 'The model wrote this interface inside its reasoning block and left the reply body empty, so nothing rendered. The plugin recovered the same spec here.',
   'panel.badge': 'Panel',
   'panel.title.default': 'GenUI panel',
   'panel.title.explore': 'GenUI explorer',

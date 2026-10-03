@@ -68,3 +68,19 @@ export function sourceLanguageAt(chat: ChatSnapshot | undefined, nodeKey: string
   const fence = sourceFencesOfAssistant(assistantNode.data.blocks)[index]
   return fence?.lang
 }
+
+/**
+ * 只从 assistant 的 reasoning blocks 中读取代码围栏（思考块抢救用，见
+ * {@link ./reasoning-salvage.ts}）。宿主把 reasoning 也当作 assistant block
+ * 暴露，因此这里读的是原始 Markdown，不需要 DOM。
+ *
+ * @param blocks - ChatSnapshot 提供的 assistant 内容块
+ * @returns 按内容块顺序排列的代码围栏
+ */
+export function sourceFencesOfReasoning(blocks: readonly AssistantBlock[]): SourceFence[] {
+  const fences: SourceFence[] = []
+  for (const block of blocks) {
+    if (block.kind === 'reasoning') fences.push(...sourceFencesOf(block.text))
+  }
+  return fences
+}

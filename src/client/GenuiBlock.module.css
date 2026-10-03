@@ -2225,3 +2225,12 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 /* Formula markup remains phrasing content inside labels and buttons. */
 .inlineMath { display: inline; }
 .inlineMath [class~="katex-display"] { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+
+/* 从思考块抢救回来的界面（见 src/client/reasoning-salvage.tsx）：它出现在宿主消息行
+   之后，视觉上要能看出这是插件补回来的，所以给一圈虚线与轻微内缩，不抢正常回答的排版。 */
+.salvageInline {
+  margin: 6px 0 10px;
+  padding: 8px 10px;
+  border: 1px dashed var(--dsw-alias-border-secondary, rgba(128, 128, 128, 0.45));
+  border-radius: 10px;
+}

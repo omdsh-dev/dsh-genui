@@ -16,6 +16,8 @@ export const ZH: Record<keyof typeof EN, string> = {
   'artifact.externalMediaNotice': '此页面含有外部媒体，离线打开时部分内容可能无法显示。',
 
   // ---------------------------------------------------------------- panel
+  'salvage.title': '已从思考块恢复',
+  'salvage.body': '模型把这份界面写进了思考块、正文留空，所以什么都没渲染；插件把同一份 spec 恢复到这里。',
   'panel.badge': '面板',
   'panel.title.default': 'GenUI 面板',
   'panel.title.explore': 'GenUI 探索',
