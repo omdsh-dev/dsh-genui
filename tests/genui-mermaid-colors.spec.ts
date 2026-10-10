@@ -78,4 +78,36 @@ describe('Mermaid theme colors', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
     expect(readMermaidThemeColor(TOKEN, FALLBACK)).toBe(FALLBACK)
   })
+
+  it('keeps the fallback if Canvas rejects a valid modern color assignment', () => {
+    document.body.style.setProperty(TOKEN, 'oklch(40% .1 210)')
+    let fillStyle = ''
+    const context = {
+      get fillStyle() {
+        return fillStyle
+      },
+      set fillStyle(value: string) {
+        if (value === '#010203') fillStyle = value
+      },
+      fillRect: vi.fn(),
+      getImageData: vi.fn(),
+    }
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D)
+    expect(readMermaidThemeColor(TOKEN, FALLBACK)).toBe(FALLBACK)
+    expect(context.fillRect).not.toHaveBeenCalled()
+    expect(context.getImageData).not.toHaveBeenCalled()
+  })
+
+  it('keeps the fallback if Canvas pixel reading fails', () => {
+    document.body.style.setProperty(TOKEN, 'oklch(40% .1 210)')
+    const context = {
+      fillStyle: '',
+      fillRect: vi.fn(),
+      getImageData: vi.fn(() => {
+        throw new Error('pixel read failed')
+      }),
+    }
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D)
+    expect(readMermaidThemeColor(TOKEN, FALLBACK)).toBe(FALLBACK)
+  })
 })

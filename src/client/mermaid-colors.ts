@@ -25,8 +25,15 @@ export function readMermaidThemeColor(name: string, fallback: string): string {
   canvas.width = canvas.height = 1
   const context = canvas.getContext('2d')
   if (context === null) return fallback
+  context.fillStyle = '#010203'
+  const initialFillStyle = context.fillStyle
   context.fillStyle = color
-  context.fillRect(0, 0, 1, 1)
-  const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data
-  return `rgba(${r}, ${g}, ${b}, ${a! / 255})`
+  if (context.fillStyle === initialFillStyle) return fallback
+  try {
+    context.fillRect(0, 0, 1, 1)
+    const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data
+    return `rgba(${r}, ${g}, ${b}, ${a! / 255})`
+  } catch {
+    return fallback
+  }
 }
