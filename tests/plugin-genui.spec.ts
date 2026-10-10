@@ -34,8 +34,18 @@ function emitAssistantReply(ctx: Context, session: object): void {
   } as never)
 }
 
+/** 写入 validate_dsh_ui 调用事件，触发本轮无交付修正路径。 */
+function emitValidationToolCall(ctx: Context, session: object): void {
+  ctx.emit('session/event', session as never, {
+    type: 'tool/call',
+    seq: 2,
+    time: 2,
+    data: { name: 'validate_dsh_ui' },
+  } as never)
+}
+
 /** 触发允许插件请求修正的回合结束事件。 */
-function emitTurnStopping(ctx: Context, session: object, steer: () => void): void {
+function emitTurnStopping(ctx: Context, session: object, steer: (message: { content: Array<{ text: string }> }) => void): void {
   ctx.emit('agent/turn-stopping', {
     agent: { session, steer },
     turn: 1,
@@ -66,7 +76,21 @@ describe('genui:fence section', () => {
     expect(text).toContain('LANGUAGE: reply+UI=conversation language')
     expect(text).toContain('NEVER infer it from prompt/skill/examples/tools')
     expect(text).toContain('never emit these placeholders literally')
+    expect(text).toContain('Tool channel: render_ui')
     expect(text).not.toContain('"title":"可选标题"')
+  })
+
+  it('omits render_ui guidance from the system prompt when the tool is disabled', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    const genui = await ctx.plugin(GenUI, { renderUiTool: false })
+    const assembly = await ctx.systemPrompt.assemble({})
+    const section = assembly.sections.find(item => item.name === 'genui:fence')
+    const text = typeof section?.text === 'string' ? section.text : ''
+
+    expect(text).toContain('validate_dsh_ui')
+    expect(text).not.toContain('render_ui')
+    await genui.dispose()
   })
 
   it('keeps the full type whitelist in the slim section within the token budget', async () => {
@@ -371,6 +395,23 @@ describe('genui:fence section', () => {
     expect(steerCalls).toBe(1)
     await genui.dispose()
     expect(registered.size).toBe(0)
+  })
+
+  it('steers a fence-only delivery correction when render_ui is disabled', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    const genui = await ctx.plugin(GenUI, { renderUiTool: false })
+    const session = { id: 'render-ui-disabled-delivery', header: { id: 'render-ui-disabled-delivery', version: 4 }, snapshotEvents: () => [] }
+    const steered: Array<{ content: Array<{ text: string }> }> = []
+    const steer = (message: { content: Array<{ text: string }> }) => { steered.push(message) }
+    emitValidationToolCall(ctx, session)
+    emitTurnStopping(ctx, session, steer)
+
+    expect(steered).toHaveLength(1)
+    expect(steered[0]!.content[0]!.text).toContain('status=nothing_delivered')
+    expect(steered[0]!.content[0]!.text).toContain('需要 UI 时，在回答正文输出你最终选定的 dsh-ui 围栏。')
+    expect(steered[0]!.content[0]!.text).not.toContain('render_ui')
+    await genui.dispose()
   })
 
   it('allows final fence feedback to be disabled explicitly', async () => {

@@ -83,6 +83,8 @@ async function serveGenuiAsset(req: IncomingMessage, res: ServerResponse): Promi
   }
 }
 
+const RENDER_UI_TOOL_GUIDANCE = '- Tool channel: render_ui 工具把同一 spec 渲染为工具行卡片；围栏用于回答内联 UI。'
+
 /** The fence language description injected into every assembled system prompt.
  *  Deliberately slim: the `genui` skill carries the full component→field
  *  mapping; this section keeps only the contract that must always be
@@ -123,7 +125,7 @@ Rules:
 - Durable state: 交互状态按「会话+内容指纹」持久化——刷新/重放恢复；相同内容保留，新内容重置。
 - 卷子模式: 每题一个 radio（group+answer+explanation）+ 一个 submit（groups 全列），本地判分。
 - Secrets ban: 不索取密码、API Key、Token、恢复码；需要时拒绝并解释。
-- Tool channel: render_ui 工具把同一 spec 渲染为工具行卡片；围栏用于回答内联 UI。
+${RENDER_UI_TOOL_GUIDANCE}
 - 围栏位置：\`dsh-ui\` 只写在**回答正文**；写在 reasoning/思考块里不渲染、用户看不到——思考里验证好 spec，正文再输出同一份。
 - Panel: "panel":true 只渲染进会话面板 dock 并原地更新；"append":true 追加合并；上限 200 节点/200 次追加，满了发 replace 重建。面板来的 [genui-action] 只回一个 panel:true 围栏 + 至多一行 10 字内确认。`
 
@@ -197,18 +199,19 @@ export interface GenuiPluginConfig {
 }
 
 export function apply(ctx: Context, config?: GenuiPluginConfig): void {
+  const renderUiToolEnabled = config?.renderUiTool !== false
   ctx.systemPrompt.section({
     name: 'genui:fence',
     order: ctx.systemPrompt.getSectionOrder('STRUCTURED_OUTPUT'),
-    text: GENUI_SECTION_TEXT,
+    text: renderUiToolEnabled ? GENUI_SECTION_TEXT : GENUI_SECTION_TEXT.replace(`${RENDER_UI_TOOL_GUIDANCE}\n`, ''),
   })
-  installFenceFeedback(ctx, config?.fenceFeedback !== false)
+  installFenceFeedback(ctx, config?.fenceFeedback !== false, renderUiToolEnabled)
   // Hosts without tool access keep the fence channel. The dependency fiber
   // starts whenever tools becomes available and unloads its registrations
   // before either the service or this plugin is replaced.
   ctx.inject(['tools'], (toolsCtx) => {
     toolsCtx.effect(function* () {
-      if (config?.renderUiTool !== false) {
+      if (renderUiToolEnabled) {
         yield toolsCtx.tools.register(createRenderUiTool())
       }
       yield toolsCtx.tools.register(createValidateDshUiTool())

@@ -482,6 +482,7 @@ describe('installFenceFeedback wiring', () => {
     const message = h.steer.mock.calls[0]![0] as { content: Array<{ text: string }> }
     expect(message.content[0]!.text).toContain('status=nothing_delivered')
     expect(message.content[0]!.text).toContain('本轮尚未产生正式回答')
+    expect(message.content[0]!.text).toContain('或明确调用 render_ui')
     // Only one reminder per turn.
     h.boundary({ agent, turn: 7, signal: new AbortController().signal })
     expect(h.steer).toHaveBeenCalledTimes(1)

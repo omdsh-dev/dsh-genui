@@ -243,6 +243,8 @@ export interface FenceFeedbackPlanInput {
   readonly correctionsThisTurn?: number | undefined
   /** Turn {@link correctionsThisTurn} counts (stale counts are ignored). */
   readonly correctionsTurn?: number | undefined
+  /** Whether the host has registered the `render_ui` tool. Defaults to enabled. */
+  readonly renderUiToolEnabled?: boolean | undefined
 }
 
 /** A correction the caller must account for before steering. */
@@ -289,7 +291,12 @@ export function planFenceFeedback(input: FenceFeedbackPlanInput): FenceFeedbackP
   // then delivered nothing, remind the model once for this turn.
   if (input.validatedThisTurn !== true || input.deliveredThisTurn === true) return null
   if (input.deliveryRemindedTurns?.has(input.turn) === true) return null
-  return { text: missingBodyCorrectionText(input.turn, used + 1), fingerprints: [], turn: input.turn, kind: 'delivery' }
+  return {
+    text: missingBodyCorrectionText(input.turn, used + 1, input.renderUiToolEnabled ?? true),
+    fingerprints: [],
+    turn: input.turn,
+    kind: 'delivery',
+  }
 }
 
 /**
@@ -298,12 +305,14 @@ export function planFenceFeedback(input: FenceFeedbackPlanInput): FenceFeedbackP
  *
  * @param turn - turn that reached the boundary.
  * @param attempt - correction number within the shared turn budget.
+ * @param renderUiToolEnabled - whether the correction may recommend `render_ui`.
  * @returns the message text to steer into the running turn.
  */
-export function missingBodyCorrectionText(turn: number, attempt = 1): string {
+export function missingBodyCorrectionText(turn: number, attempt = 1, renderUiToolEnabled = true): string {
   const head = `${MARKER_PREFIX}turn-${turn}]\n\n[genui-fence-repair]\nstatus=nothing_delivered\nfences=0\nnext=emit_fence_in_body\nrepeat_rendered_content=false\nreply_language=conversation\n\n`
   const emphasis = attempt <= 1 ? '' : `（第 ${attempt} 次提醒）`
-  return `${head}本轮尚未产生正式回答，也没有通过支持的通道交付结果${emphasis}。请根据用户当前请求完成正式答复；需要 UI 时，在回答正文输出你最终选定的 dsh-ui 围栏，或明确调用 render_ui。可以修改或放弃此前候选；不能完成时，请在正文说明原因。\n`
+  const renderUiInstruction = renderUiToolEnabled ? '，或明确调用 render_ui' : ''
+  return `${head}本轮尚未产生正式回答，也没有通过支持的通道交付结果${emphasis}。请根据用户当前请求完成正式答复；需要 UI 时，在回答正文输出你最终选定的 dsh-ui 围栏${renderUiInstruction}。可以修改或放弃此前候选；不能完成时，请在正文说明原因。\n`
 }
 
 /**
@@ -471,8 +480,9 @@ function isFeedbackSource(source: { kind?: unknown; plugin?: unknown } | undefin
  *
  * @param ctx - 宿主 Context。
  * @param enabled - 是否启用同回合围栏修正。
+ * @param renderUiToolEnabled - 是否已注册 `render_ui` 工具。
  */
-export function installFenceFeedback(ctx: Context, enabled: boolean): void {
+export function installFenceFeedback(ctx: Context, enabled: boolean, renderUiToolEnabled = true): void {
   const sessions = new Map<string, SessionFeedback>()
   const stateOf = (sessionId: string): SessionFeedback => {
     let state = sessions.get(sessionId)
@@ -637,6 +647,7 @@ export function installFenceFeedback(ctx: Context, enabled: boolean): void {
       aborted: signal.aborted,
       correctionsThisTurn: usedThisTurn,
       correctionsTurn: state.correctionsTurn,
+      renderUiToolEnabled,
     })
     if (plan === null) return
     // Account BEFORE sending: a re-entrant boundary must not deliver twice.
