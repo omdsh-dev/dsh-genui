@@ -15,6 +15,8 @@ interface Case {
   selector: string
   expected: string
   whiteSpace: string
+  tableGeometry?: boolean
+  detailWhitespace?: boolean
 }
 
 const cases: Case[] = []
@@ -59,11 +61,35 @@ cases.push({
   name: 'inline code spacing', node: { type: 'text', content: '`a    b`' },
   selector: 'code', expected: 'a    b', whiteSpace: 'pre-wrap',
 })
+const mixedLengthRows = [
+  ['Run `const  result = executeLongOperation(argumentOne, argumentTwo, argumentThree)` now', 'The operation completed after reconnecting to the service and checking each resource', 'Ready'],
+  ['ok', 'Done', 'Yes'],
+  ['Repeat `const  result = executeLongOperation(argumentOne, argumentTwo, argumentThree)` later', 'Pending', 'Waiting'],
+  ['x', 'Queued', 'No'],
+  ['Complete', 'Done', 'Yes'],
+]
+cases.push({
+  name: 'single-line table inline code stays inside its column',
+  node: {
+    type: 'table', columns: ['Command', 'Result', 'Status'], rows: mixedLengthRows,
+  },
+  selector: 'td', expected: '', whiteSpace: '', tableGeometry: true,
+})
+cases.push({
+  name: 'expanded table details preserve nested inline code whitespace',
+  node: {
+    type: 'table', columns: ['Item'], rows: [['Expandable']], details: [[
+      { type: 'text', content: 'Detail `outerInlineCodeShouldWrap`' },
+      { type: 'table', columns: ['Snippet'], rows: [['before `nestedInlineCodeShouldWrap`\n    after']] },
+    ]],
+  },
+  selector: '', expected: '', whiteSpace: '', detailWhitespace: true,
+})
 
 createRoot(document.getElementById('root')!).render(
   <div id="fixtures">
     {cases.map((item, index) => (
-      <section className="case" key={index} data-case={index}>
+      <section className={`case${item.tableGeometry ? ' table-geometry' : ''}`} key={index} data-case={index}>
         <header>{item.name}</header>
         <GenuiBlock spec={{ items: [item.node] }} />
       </section>
@@ -73,7 +99,61 @@ createRoot(document.getElementById('root')!).render(
 
 /** Character ranges measure actual painted line boxes, including rich text. */
 function measure(phase: string) {
-  return cases.map((item, index) => {
+  return cases.flatMap((item, index) => {
+    if (item.detailWhitespace) {
+      const fixture = document.querySelector<HTMLElement>(`[data-case="${index}"]`)
+      const detailRow = fixture?.querySelector<HTMLElement>('[class*="detailRow"]')
+      const textCode = detailRow?.querySelector<HTMLElement>('[class*="text"] code')
+      const nestedCode = detailRow?.querySelector<HTMLElement>('table td[class*="tdCode"] code')
+      const textWhiteSpace = textCode == null ? null : getComputedStyle(textCode).whiteSpace
+      const nestedWhiteSpace = nestedCode == null ? null : getComputedStyle(nestedCode).whiteSpace
+      return [
+        { name: 'expanded detail text inline code keeps pre-wrap', phase, whiteSpace: textWhiteSpace, pass: textWhiteSpace === 'pre-wrap' },
+        { name: 'nested detail table code keeps pre-wrap', phase, whiteSpace: nestedWhiteSpace, pass: nestedWhiteSpace === 'pre-wrap' },
+      ]
+    }
+    if (item.tableGeometry) {
+      const fixture = document.querySelector<HTMLElement>(`[data-case="${index}"]`)
+      const wrapper = fixture?.querySelector<HTMLElement>('[class*="tableWrap"]')
+      const rows = wrapper?.querySelectorAll<HTMLTableRowElement>('tbody tr')
+      if (fixture === null || wrapper == null || rows === undefined) {
+        return { name: item.name, phase, pass: false, error: 'Missing table geometry fixture' }
+      }
+      const inlineCodes = [...wrapper.querySelectorAll<HTMLElement>('tbody td code')]
+      const expectedWhiteSpace = 'pre'
+      const spacingPreserved = inlineCodes.length === 2 && inlineCodes.every(code =>
+        code.textContent?.includes('  ') === true && getComputedStyle(code).whiteSpace === expectedWhiteSpace,
+      )
+      const overlaps: Array<{ row: number; maxTextRight: number; nextCellLeft: number }> = []
+      rows.forEach((row, rowIndex) => {
+        const firstCell = row.cells[0]
+        const nextCell = row.cells[1]
+        if (firstCell === undefined || nextCell === undefined) return
+        let maxTextRight = Number.NEGATIVE_INFINITY
+        const walker = document.createTreeWalker(firstCell, NodeFilter.SHOW_TEXT)
+        for (let text = walker.nextNode(); text !== null; text = walker.nextNode()) {
+          const content = text.textContent ?? ''
+          for (let position = 0; position < content.length; position++) {
+            if (/\s/.test(content[position]!)) continue
+            const range = document.createRange()
+            range.setStart(text, position)
+            range.setEnd(text, position + 1)
+            for (const rect of range.getClientRects()) maxTextRight = Math.max(maxTextRight, rect.right)
+          }
+        }
+        const nextCellLeft = nextCell.getBoundingClientRect().left
+        if (maxTextRight > nextCellLeft + 1) overlaps.push({ row: rowIndex, maxTextRight, nextCellLeft })
+      })
+      return [
+        { name: `${item.name} adjacent-column overlap`, phase, overlaps, pass: overlaps.length === 0 },
+        {
+          name: `${item.name} horizontal scrolling`, phase,
+          scrollWidth: wrapper.scrollWidth, clientWidth: wrapper.clientWidth,
+          pass: wrapper.scrollWidth > wrapper.clientWidth,
+        },
+        { name: `${item.name} inline code whitespace`, phase, spacingPreserved, expectedWhiteSpace, pass: spacingPreserved },
+      ]
+    }
     const owner = document.querySelector(`[data-case="${index}"] ${item.selector}`)
     if (owner === null) return { name: item.name, phase, pass: false, error: 'Missing label owner' }
     const lineTops: number[] = []
@@ -112,22 +192,29 @@ function measure(phase: string) {
 }
 
 setTimeout(() => {
-  const results = measure('initial')
-  // Repeated local controls/rerenders must leave label formatting intact.
-  for (const checkbox of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
-    checkbox.click()
-    checkbox.click()
-  }
-  for (const radio of document.querySelectorAll<HTMLInputElement>('input[type="radio"]')) radio.click()
-  for (const tabs of document.querySelectorAll('[role="tablist"]')) {
-    const buttons = tabs.querySelectorAll<HTMLButtonElement>('[role="tab"]')
-    buttons[1]!.click()
-    buttons[0]!.click()
+  for (const [index, item] of cases.entries()) {
+    if (item.detailWhitespace) {
+      document.querySelector<HTMLElement>(`[data-case="${index}"] [class*="detailToggle"]`)?.click()
+    }
   }
   setTimeout(() => {
-    results.push(...measure('after-controls'))
-    window.getSelection()!.removeAllRanges()
-    document.getElementById('results')!.textContent = JSON.stringify(results)
-    document.body.dataset.qa = results.every(result => result.pass) ? 'PASS' : 'FAIL'
+    const results = measure('initial')
+    // Repeated local controls/rerenders must leave label formatting intact.
+    for (const checkbox of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
+      checkbox.click()
+      checkbox.click()
+    }
+    for (const radio of document.querySelectorAll<HTMLInputElement>('input[type="radio"]')) radio.click()
+    for (const tabs of document.querySelectorAll('[role="tablist"]')) {
+      const buttons = tabs.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+      buttons[1]!.click()
+      buttons[0]!.click()
+    }
+    setTimeout(() => {
+      results.push(...measure('after-controls'))
+      window.getSelection()!.removeAllRanges()
+      document.getElementById('results')!.textContent = JSON.stringify(results)
+      document.body.dataset.qa = results.every(result => result.pass) ? 'PASS' : 'FAIL'
+    }, 100)
   }, 100)
 }, 600)
