@@ -15,6 +15,7 @@ interface Case {
   selector: string
   expected: string
   whiteSpace: string
+  tableGeometry?: boolean
 }
 
 const cases: Case[] = []
@@ -59,11 +60,21 @@ cases.push({
   name: 'inline code spacing', node: { type: 'text', content: '`a    b`' },
   selector: 'code', expected: 'a    b', whiteSpace: 'pre-wrap',
 })
+cases.push({
+  name: 'single-line table inline code stays inside its column',
+  node: {
+    type: 'table', columns: ['Command', 'Result', 'Status'], rows: [
+      ['Run `const result = executeLongOperation(argumentOne, argumentTwo, argumentThree)` now', 'Complete', 'Ready'],
+      ['Repeat `const result = executeLongOperation(argumentOne, argumentTwo, argumentThree)` later', 'Pending', 'Waiting'],
+    ],
+  },
+  selector: 'td', expected: '', whiteSpace: '', tableGeometry: true,
+})
 
 createRoot(document.getElementById('root')!).render(
   <div id="fixtures">
     {cases.map((item, index) => (
-      <section className="case" key={index} data-case={index}>
+      <section className={`case${item.tableGeometry ? ' table-geometry' : ''}`} key={index} data-case={index}>
         <header>{item.name}</header>
         <GenuiBlock spec={{ items: [item.node] }} />
       </section>
@@ -74,6 +85,38 @@ createRoot(document.getElementById('root')!).render(
 /** Character ranges measure actual painted line boxes, including rich text. */
 function measure(phase: string) {
   return cases.map((item, index) => {
+    if (item.tableGeometry) {
+      const fixture = document.querySelector<HTMLElement>(`[data-case="${index}"]`)
+      const wrapper = fixture?.querySelector<HTMLElement>('[class*="tableWrap"]')
+      const rows = wrapper?.querySelectorAll<HTMLTableRowElement>('tbody tr')
+      if (fixture === null || wrapper == null || rows === undefined) {
+        return { name: item.name, phase, pass: false, error: 'Missing table geometry fixture' }
+      }
+      const overlaps: Array<{ row: number; maxTextRight: number; nextCellLeft: number }> = []
+      rows.forEach((row, rowIndex) => {
+        const firstCell = row.cells[0]
+        const nextCell = row.cells[1]
+        if (firstCell === undefined || nextCell === undefined) return
+        let maxTextRight = Number.NEGATIVE_INFINITY
+        const walker = document.createTreeWalker(firstCell, NodeFilter.SHOW_TEXT)
+        for (let text = walker.nextNode(); text !== null; text = walker.nextNode()) {
+          const content = text.textContent ?? ''
+          for (let position = 0; position < content.length; position++) {
+            if (/\s/.test(content[position]!)) continue
+            const range = document.createRange()
+            range.setStart(text, position)
+            range.setEnd(text, position + 1)
+            for (const rect of range.getClientRects()) maxTextRight = Math.max(maxTextRight, rect.right)
+          }
+        }
+        const nextCellLeft = nextCell.getBoundingClientRect().left
+        if (maxTextRight > nextCellLeft + 1) overlaps.push({ row: rowIndex, maxTextRight, nextCellLeft })
+      })
+      return {
+        name: item.name, phase, scrollWidth: wrapper.scrollWidth, clientWidth: wrapper.clientWidth, overlaps,
+        pass: wrapper.scrollWidth > wrapper.clientWidth && overlaps.length === 0,
+      }
+    }
     const owner = document.querySelector(`[data-case="${index}"] ${item.selector}`)
     if (owner === null) return { name: item.name, phase, pass: false, error: 'Missing label owner' }
     const lineTops: number[] = []

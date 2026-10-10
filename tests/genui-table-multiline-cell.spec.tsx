@@ -84,6 +84,19 @@ describe('multi-line table cells keep their line structure and indentation', () 
     expect(td.className).not.toContain('tdMultiline')
   })
 
+  it('preserves repeated spaces in inline code inside a single-line table cell', () => {
+    const td = renderCell('`hello    world`').querySelector('td:nth-child(2)')!
+    expect(td.querySelector('code')?.textContent).toBe('hello    world')
+    expect(td.className).not.toContain('tdCode')
+    expect(td.className).not.toContain('tdMultiline')
+  })
+
+  it('keeps inline code in multi-line cells under the existing cell whitespace rule', () => {
+    const td = renderCell('before `hello    world`\n    after').querySelector('td:nth-child(2)')!
+    expect(td.className).toContain('tdCode')
+    expect(td.querySelector('code')?.textContent).toBe('hello    world')
+  })
+
   it('marks a multi-line header too', () => {
     const { container } = render(<GenuiBlock spec={{
       items: [{ type: 'table', columns: ['A\n    B', 'C'], rows: [['1', '2']] }],
@@ -98,6 +111,7 @@ describe('multi-line table cells keep their line structure and indentation', () 
     expect(css).toMatch(/\.table th\.tdCode,\s*\.table td\.tdCode\s*\{[^}]*white-space:\s*pre-wrap/)
     expect(css).toMatch(/\.table th\.tdMultiline,\s*\.table td\.tdMultiline\s*\{[^}]*white-space:\s*pre-line/)
     expect(css).toMatch(/\.table td\s*\{[^}]*white-space:\s*nowrap/)
+    expect(css).toMatch(/\.table th:not\(\.tdCode\):not\(\.tdMultiline\) \.inlineCode,[\s\S]*?\.table td:not\(\.tdCode\):not\(\.tdMultiline\) \.inlineCode\s*\{[^}]*white-space:\s*pre/)
     // Prose containers that may now carry a real newline must paint it.
     expect(css).toMatch(/\.calloutBody,[\s\S]*?\.kvValue[\s\S]*?\{[^}]*white-space:\s*pre-line/)
   })

@@ -6,7 +6,6 @@
  */
 import { execFile } from 'node:child_process'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
@@ -15,10 +14,11 @@ import { createServer } from 'vite'
 const exec = promisify(execFile)
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const out = resolve(root, '.e2e-artifacts/text-newlines')
-const profile = await mkdtemp(join(tmpdir(), 'genui-newlines-'))
+let profile
 let server
 try {
   await mkdir(out, { recursive: true })
+  profile = await mkdtemp(join(out, 'chrome-profile-'))
   const candidates = process.env.BROWSER_BIN ? [process.env.BROWSER_BIN] : ['google-chrome', 'chromium', 'chromium-browser']
   let browser
   for (const candidate of candidates) {
@@ -52,12 +52,12 @@ try {
   if (raw === undefined || raw === 'pending') throw new Error('Browser fixture did not finish; inspect page.html and browser.log')
   const results = JSON.parse(raw.replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&'))
   await writeFile(join(out, 'results.json'), JSON.stringify(results, null, 2) + '\n')
-  if (results.length !== 108) throw new Error(`Expected 108 initial/repeated-control newline cases, got ${results.length}`)
+  if (results.length !== 110) throw new Error(`Expected 110 initial/repeated-control layout cases, got ${results.length}`)
   const failed = results.filter(result => !result.pass)
   if (failed.length > 0) throw new Error(`Browser newline regression failed:\n${JSON.stringify(failed, null, 2)}`)
   await readFile(join(out, 'layout.png'))
   console.log(`Chromium newline layout/selection check passed: ${results.length} cases`)
 } finally {
   await server?.close()
-  await rm(profile, { recursive: true, force: true })
+  if (profile !== undefined) await rm(profile, { recursive: true, force: true })
 }
