@@ -16,6 +16,7 @@
  * @module @changfenhuang/dsh-genui/client/mermaid-core
  */
 import { assertSafeSvg, ensureFlowchartKind, repairMermaidSource } from './mermaid-safe.ts'
+import { readMermaidThemeColor } from './mermaid-colors.ts'
 
 let mermaidPromise: Promise<typeof import('mermaid')> | null = null
 
@@ -30,10 +31,13 @@ function loadMermaid(): Promise<typeof import('mermaid')> {
     // strokes and their own font, which sat next to our components as a
     // visibly foreign object. `base` + themeVariables is the supported way to
     // drive every colour (the dark/light branch is gone with it).
+    const colors = new Map<string, string>()
     const token = (name: string, fallback: string): string => {
-      if (typeof document === 'undefined') return fallback
-      const value = getComputedStyle(document.body).getPropertyValue(name).trim()
-      return value === '' ? fallback : value
+      const cached = colors.get(name)
+      if (cached !== undefined) return cached
+      const color = readMermaidThemeColor(name, fallback)
+      colors.set(name, color)
+      return color
     }
     api.initialize({
       startOnLoad: false,
