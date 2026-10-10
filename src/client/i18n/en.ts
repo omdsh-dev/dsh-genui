@@ -288,6 +288,10 @@ export const EN = {
   // ------------------------------------------------- component chrome
   'block.copyMarkdown': 'Copy Markdown',
   'block.copyCsv': 'Copy CSV',
+  'block.table.expandDetails': 'Expand details for {label}',
+  'block.table.collapseDetails': 'Collapse details for {label}',
+  'block.table.expandGroup': 'Expand group {label}',
+  'block.table.collapseGroup': 'Collapse group {label}',
   'block.total': 'Total',
   'block.filteredRows': '{visible} / {total} rows after filtering',
   'block.filterMatch': '{shown} / {total} matched',

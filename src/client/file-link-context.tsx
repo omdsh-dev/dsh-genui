@@ -1,4 +1,4 @@
-import { createContext, createElement, useContext, useMemo, useSyncExternalStore, type ReactNode } from 'react'
+import { createContext, createElement, useContext, useMemo, useSyncExternalStore, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { fileAddressFor } from './file-address.ts'
 import { resolveViewedSessionId } from './session-resolver.ts'
 import css from './GenuiBlock.module.css'
@@ -95,7 +95,10 @@ export function FileLink({ path, line, label, children }: { path: string; line?:
     className: css.inlineFileLink,
     title: path,
     'aria-label': `${label} (${path})`,
-    onClick: () => open(path, line),
+    onClick: (event: ReactMouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation()
+      open(path, line)
+    },
   }, children)
 }
 

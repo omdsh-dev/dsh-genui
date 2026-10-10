@@ -26,7 +26,8 @@ import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { Key, ReactNode } from 'react'
+import { createElement, type Key, type ReactNode } from 'react'
+import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 import { installDomFenceRenderer } from './dom-fence.tsx'
 import { createFileLinkAvailability, withFileLinkContext, type FileLinkCordisContext } from './file-link-context.tsx'
@@ -178,7 +179,13 @@ export function apply(ctx: Context): () => void {
   disposers.push(ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
     name: 'tool.call.toolview',
     key: 'render_ui',
-  }, GenuiToolView)))
+  }, (props: ToolCallViewProps) => withFileLinkContext(
+    ctx as unknown as FileLinkCordisContext,
+    fileLinkAvailability,
+    props.sessionId,
+    false,
+    createElement(GenuiToolView, props),
+  ))))
   // Session panel dock: a session-scoped, always-present seat above the
   // composer (TodoDock posture). Renders the session's latest render_ui
   // spec in place; absent spec = no panel.
@@ -186,7 +193,10 @@ export function apply(ctx: Context): () => void {
     name: 'conversation.input.dock',
     id: 'genui-panel',
     order: 50,
-    inject: (sessionId: SessionId): GenuiPanelInjected => panelActionSend(ctx, sessionId),
+    inject: (sessionId: SessionId): GenuiPanelInjected => ({
+      ...panelActionSend(ctx, sessionId),
+      fileLinkContext: { ctx: ctx as unknown as FileLinkCordisContext, availability: fileLinkAvailability },
+    }),
   }, GenuiPanel)))
   // /panel slash command: a deterministic, client-side entry point that
   // opens the panel dock (publishes the default spec + expand request),

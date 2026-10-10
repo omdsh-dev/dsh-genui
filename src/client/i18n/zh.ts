@@ -283,6 +283,10 @@ export const ZH: Record<keyof typeof EN, string> = {
   // ------------------------------------------------- component chrome
   'block.copyMarkdown': '复制 Markdown',
   'block.copyCsv': '复制 CSV',
+  'block.table.expandDetails': '展开 {label} 的明细',
+  'block.table.collapseDetails': '收起 {label} 的明细',
+  'block.table.expandGroup': '展开分组 {label}',
+  'block.table.collapseGroup': '收起分组 {label}',
   'block.total': '合计',
   'block.filteredRows': '筛选后 {visible} / {total} 行',
   'block.filterMatch': '匹配 {shown} / {total} 项',

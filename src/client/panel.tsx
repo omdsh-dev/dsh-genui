@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import { GenuiActionContext, type GenuiActionHandler } from './action-context.ts'
+import { withFileLinkContext, type FileLinkAvailability, type FileLinkCordisContext } from './file-link-context.tsx'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { ExportableGenuiBlock } from './artifact/ExportableGenuiBlock.tsx'
 import { ErrorBoundary } from './ErrorBoundary.tsx'
@@ -50,6 +51,7 @@ import { recordPanel, recordTemplateUse } from './achievement-store.ts'
 export interface GenuiPanelInjected {
   sessionId: string
   sendGenuiAction: GenuiActionHandler
+  fileLinkContext?: { ctx: FileLinkCordisContext; availability: FileLinkAvailability }
   /** Template center "try it": insert the template instruction into the
    *  current composer draft (standard conversation.input.for channel). */
   insertTemplate: (text: string) => void
@@ -63,7 +65,7 @@ export type GenuiPanelProps = PropsRuntime<'conversation.input.dock'> & GenuiPan
  * default so the dock never steals the message flow's scroll room; the
  * header always shows the current panel title.
  */
-export function GenuiPanel({ sessionId, sendGenuiAction, insertTemplate }: GenuiPanelProps) {
+export function GenuiPanel({ sessionId, sendGenuiAction, insertTemplate, fileLinkContext }: GenuiPanelProps) {
   const t = useT()
   const spec = useSyncExternalStore(subscribePanel, () => getPanelSpec(sessionId))
   const expandToken = useSyncExternalStore(subscribePanelExpand, () => getPanelExpandToken(sessionId))
@@ -271,10 +273,21 @@ export function GenuiPanel({ sessionId, sendGenuiAction, insertTemplate }: Genui
             />
           ) : spec !== null ? (
             <GenuiActionContext.Provider value={sendGenuiAction}>
-              <ErrorBoundary label={t('panel.boundary')}>
-                {/* content-fingerprinted: same panel spec re-published restores its state */}
-                <ExportableGenuiBlock spec={spec} stateKey={panelStateKey(sessionId, JSON.stringify(spec))} />
-              </ErrorBoundary>
+              {fileLinkContext === undefined
+                ? <ErrorBoundary label={t('panel.boundary')}>
+                  {/* content-fingerprinted: same panel spec re-published restores its state */}
+                  <ExportableGenuiBlock spec={spec} stateKey={panelStateKey(sessionId, JSON.stringify(spec))} />
+                </ErrorBoundary>
+                : withFileLinkContext(
+                  fileLinkContext.ctx,
+                  fileLinkContext.availability,
+                  sessionId,
+                  false,
+                  <ErrorBoundary label={t('panel.boundary')}>
+                    {/* content-fingerprinted: same panel spec re-published restores its state */}
+                    <ExportableGenuiBlock spec={spec} stateKey={panelStateKey(sessionId, JSON.stringify(spec))} />
+                  </ErrorBoundary>,
+                )}
             </GenuiActionContext.Provider>
           ) : null}
         </div>

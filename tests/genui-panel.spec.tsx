@@ -11,6 +11,7 @@ import {
   applyPanelOperation, clearSessionPanel, getPanelExpandToken, getPanelSpec, requestPanelExpand, setLocalPanel, setPanelLimits, subscribePanel,
 } from '../src/client/panel-store.ts'
 import { GenuiToolView } from '../src/client/toolview.tsx'
+import { createFileLinkAvailability, type FileLinkCordisContext } from '../src/client/file-link-context.tsx'
 import type { ToolCallBlock } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 
@@ -80,6 +81,28 @@ describe('GenuiPanel dock', () => {
   it('renders nothing without a published spec', () => {
     const { container } = renderPanel()
     expect(container.querySelector('[data-genui-panel]')).toBeNull()
+  })
+
+  it('opens file links from the session panel with the panel session identity', () => {
+    const openResource = vi.fn()
+    const ctx = {
+      get: () => ({ openResource }),
+      sessions: { list: { getSnapshot: () => ({ current: 's1', byId: { s1: { cwd: '/workspace/app' } } }) } },
+      inject: (_services: ['sidebarRight'], callback: (scope: unknown) => void) => callback({
+        get: () => ({ openResource }),
+        effect: (effect: () => void | (() => void)) => { effect() },
+      }),
+    } as unknown as FileLinkCordisContext
+    const availability = createFileLinkAvailability(ctx)
+    direct('s1', { items: [text('[Panel](src/panel.ts#L19)')] })
+    const view = render(<GenuiPanel
+      sessionId="s1"
+      sendGenuiAction={() => {}}
+      fileLinkContext={{ ctx, availability }}
+    />)
+    fireEvent.click(view.container.querySelector('[aria-expanded="false"]')!)
+    fireEvent.click(view.getByRole('button', { name: 'Panel (src/panel.ts)' }))
+    expect(openResource).toHaveBeenCalledWith('dsh-resource://file/session/s1/src/panel.ts', { params: { line: 19 } })
   })
 
   it('dismisses the panel in place via the header ✕ button and persists the cleared state (issue #23)', () => {

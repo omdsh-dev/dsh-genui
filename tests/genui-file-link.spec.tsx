@@ -149,25 +149,35 @@ describe('file links in GenUI rendering', () => {
     }], host)
     expect(view.container.querySelectorAll('tbody button')).toHaveLength(7)
     expect(view.container.querySelectorAll('button button, a button, button a')).toHaveLength(0)
-    fireEvent.click(screen.getByRole('button', { name: '展开明细' }))
+    fireEvent.click(screen.getByRole('button', { name: '展开 Alpha 的明细' }))
     const detailLink = screen.getByRole('button', { name: 'Detail (src/detail.ts)' })
     expect(detailLink.getAttribute('type')).toBe('button')
     expect(detailLink.title).toBe('src/detail.ts')
+    fireEvent.click(screen.getByRole('button', { name: 'Alpha (src/alpha.ts)' }))
+    expect(screen.getByText('Detail')).toBeTruthy()
     fireEvent.click(view.container.querySelector('thead th button')!)
     fireEvent.click(screen.getByRole('button', { name: 'Alpha (src/alpha.ts)' }))
     expect(view.action).not.toHaveBeenCalled()
   })
 
   it('keeps sorting, group collapse, and detail expansion controls independently operable', () => {
+    const host = sessionContext()
+    host.provide()
     const view = renderSpec([{
       type: 'table', columns: ['组', '路径'], types: ['group', 'text'],
-      rows: [['第一组', ''], ['第一组', '[Alpha](src/a.ts)'], ['第一组', '[Beta](src/b.ts)']],
-      details: [null, [{ type: 'text', content: '明细内容' }], null],
-    }])
+      rows: [['[第一组](src/group.ts#L3)', ''], ['[Alpha](src/a.ts)', '第一组'], ['第一组', '[Beta](src/b.ts)'], ['普通明细行', '普通值']],
+      details: [null, [{ type: 'text', content: '文件明细内容' }], null, [{ type: 'text', content: '普通明细内容' }]],
+    }], host)
     fireEvent.click(view.container.querySelector('thead th button')!)
-    fireEvent.click(screen.getByRole('button', { name: '展开明细' }))
-    expect(screen.getByText('明细内容')).toBeTruthy()
-    const group = screen.getByRole('button', { name: /第一组/ })
+    fireEvent.click(view.getByText('普通明细行'))
+    expect(screen.getByText('普通明细内容')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '收起 普通明细行 的明细' }))
+    expect(screen.queryByText('普通明细内容')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '展开 Alpha 的明细' }))
+    expect(screen.getByText('文件明细内容')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '第一组 (src/group.ts)' }))
+    expect(screen.getByRole('button', { name: '收起 Alpha 的明细' })).toBeTruthy()
+    const group = screen.getByRole('button', { name: '收起分组 第一组' })
     fireEvent.click(group)
     expect(screen.queryByRole('button', { name: 'Alpha (src/a.ts)' })).toBeNull()
     expect(view.container.querySelectorAll('button button')).toHaveLength(0)
@@ -272,7 +282,9 @@ describe('fence render channels', () => {
 
     const dispose = installDomFenceRenderer(host.ctx as never, () => {}, host.availability)
     try {
-      await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('DOM') === true)
+      await waitFor(() => {
+        expect(row.querySelector('.genui-dom-fence')?.textContent).toContain('DOM')
+      })
       expect(row.querySelector('.genui-dom-fence button')).toBeNull()
       row.removeAttribute('data-streaming')
       await waitFor(() => expect(row.querySelector('.genui-dom-fence button')).not.toBeNull())
