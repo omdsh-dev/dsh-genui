@@ -16,6 +16,7 @@ interface Case {
   expected: string
   whiteSpace: string
   tableGeometry?: boolean
+  detailWhitespace?: boolean
 }
 
 const cases: Case[] = []
@@ -74,6 +75,16 @@ cases.push({
   },
   selector: 'td', expected: '', whiteSpace: '', tableGeometry: true,
 })
+cases.push({
+  name: 'expanded table details preserve nested inline code whitespace',
+  node: {
+    type: 'table', columns: ['Item'], rows: [['Expandable']], details: [[
+      { type: 'text', content: 'Detail `outerInlineCodeShouldWrap`' },
+      { type: 'table', columns: ['Snippet'], rows: [['before `nestedInlineCodeShouldWrap`\n    after']] },
+    ]],
+  },
+  selector: '', expected: '', whiteSpace: '', detailWhitespace: true,
+})
 
 createRoot(document.getElementById('root')!).render(
   <div id="fixtures">
@@ -89,6 +100,18 @@ createRoot(document.getElementById('root')!).render(
 /** Character ranges measure actual painted line boxes, including rich text. */
 function measure(phase: string) {
   return cases.flatMap((item, index) => {
+    if (item.detailWhitespace) {
+      const fixture = document.querySelector<HTMLElement>(`[data-case="${index}"]`)
+      const detailRow = fixture?.querySelector<HTMLElement>('[class*="detailRow"]')
+      const textCode = detailRow?.querySelector<HTMLElement>('[class*="text"] code')
+      const nestedCode = detailRow?.querySelector<HTMLElement>('table td[class*="tdCode"] code')
+      const textWhiteSpace = textCode == null ? null : getComputedStyle(textCode).whiteSpace
+      const nestedWhiteSpace = nestedCode == null ? null : getComputedStyle(nestedCode).whiteSpace
+      return [
+        { name: 'expanded detail text inline code keeps pre-wrap', phase, whiteSpace: textWhiteSpace, pass: textWhiteSpace === 'pre-wrap' },
+        { name: 'nested detail table code keeps pre-wrap', phase, whiteSpace: nestedWhiteSpace, pass: nestedWhiteSpace === 'pre-wrap' },
+      ]
+    }
     if (item.tableGeometry) {
       const fixture = document.querySelector<HTMLElement>(`[data-case="${index}"]`)
       const wrapper = fixture?.querySelector<HTMLElement>('[class*="tableWrap"]')
@@ -169,22 +192,29 @@ function measure(phase: string) {
 }
 
 setTimeout(() => {
-  const results = measure('initial')
-  // Repeated local controls/rerenders must leave label formatting intact.
-  for (const checkbox of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
-    checkbox.click()
-    checkbox.click()
-  }
-  for (const radio of document.querySelectorAll<HTMLInputElement>('input[type="radio"]')) radio.click()
-  for (const tabs of document.querySelectorAll('[role="tablist"]')) {
-    const buttons = tabs.querySelectorAll<HTMLButtonElement>('[role="tab"]')
-    buttons[1]!.click()
-    buttons[0]!.click()
+  for (const [index, item] of cases.entries()) {
+    if (item.detailWhitespace) {
+      document.querySelector<HTMLElement>(`[data-case="${index}"] [class*="detailToggle"]`)?.click()
+    }
   }
   setTimeout(() => {
-    results.push(...measure('after-controls'))
-    window.getSelection()!.removeAllRanges()
-    document.getElementById('results')!.textContent = JSON.stringify(results)
-    document.body.dataset.qa = results.every(result => result.pass) ? 'PASS' : 'FAIL'
+    const results = measure('initial')
+    // Repeated local controls/rerenders must leave label formatting intact.
+    for (const checkbox of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
+      checkbox.click()
+      checkbox.click()
+    }
+    for (const radio of document.querySelectorAll<HTMLInputElement>('input[type="radio"]')) radio.click()
+    for (const tabs of document.querySelectorAll('[role="tablist"]')) {
+      const buttons = tabs.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+      buttons[1]!.click()
+      buttons[0]!.click()
+    }
+    setTimeout(() => {
+      results.push(...measure('after-controls'))
+      window.getSelection()!.removeAllRanges()
+      document.getElementById('results')!.textContent = JSON.stringify(results)
+      document.body.dataset.qa = results.every(result => result.pass) ? 'PASS' : 'FAIL'
+    }, 100)
   }, 100)
 }, 600)

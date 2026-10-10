@@ -52,11 +52,11 @@ try {
   if (raw === undefined || raw === 'pending') throw new Error('Browser fixture did not finish; inspect page.html and browser.log')
   const results = JSON.parse(raw.replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&'))
   await writeFile(join(out, 'results.json'), JSON.stringify(results, null, 2) + '\n')
-  if (results.length !== 114) throw new Error(`Expected 114 initial/repeated-control layout checks, got ${results.length}`)
+  if (results.length !== 118) throw new Error(`Expected 118 initial/repeated-control layout checks, got ${results.length}`)
   const failed = results.filter(result => !result.pass)
   if (failed.length > 0) throw new Error(`Browser newline regression failed:\n${JSON.stringify(failed, null, 2)}`)
   await readFile(join(out, 'layout.png'))
-  console.log(`Chromium newline layout/selection check passed: ${results.length} cases`)
+  console.log(`Chromium newline layout/selection check passed: ${results.length} checks`)
 } finally {
   await server?.close()
   if (profile !== undefined) await rm(profile, { recursive: true, force: true })

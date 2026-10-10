@@ -111,7 +111,7 @@ describe('multi-line table cells keep their line structure and indentation', () 
     expect(css).toMatch(/\.table th\.tdCode,\s*\.table td\.tdCode\s*\{[^}]*white-space:\s*pre-wrap/)
     expect(css).toMatch(/\.table th\.tdMultiline,\s*\.table td\.tdMultiline\s*\{[^}]*white-space:\s*pre-line/)
     expect(css).toMatch(/\.table td\s*\{[^}]*white-space:\s*nowrap/)
-    expect(css).toMatch(/\.table th:not\(\.tdCode\):not\(\.tdMultiline\) \.inlineCode,[\s\S]*?\.table td:not\(\.tdCode\):not\(\.tdMultiline\) \.inlineCode\s*\{[^}]*white-space:\s*pre/)
+    expect(css).toMatch(/\.table > thead > tr > th:not\(\.tdCode\):not\(\.tdMultiline\) \.inlineCode,[\s\S]*?\.table > tbody > tr:not\(\.detailRow\) > td:not\(\.tdCode\):not\(\.tdMultiline\) \.inlineCode\s*\{[^}]*white-space:\s*pre/)
     // Prose containers that may now carry a real newline must paint it.
     expect(css).toMatch(/\.calloutBody,[\s\S]*?\.kvValue[\s\S]*?\{[^}]*white-space:\s*pre-line/)
   })

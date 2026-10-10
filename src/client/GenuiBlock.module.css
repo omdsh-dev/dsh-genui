@@ -651,8 +651,8 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 /* An inline code span keeps its own spacing too (a pasted snippet often lives
    inside backticks), matching the block-level code surface. */
 .inlineCode { white-space: pre-wrap; }
-.table th:not(.tdCode):not(.tdMultiline) .inlineCode,
-.table td:not(.tdCode):not(.tdMultiline) .inlineCode {
+.table > thead > tr > th:not(.tdCode):not(.tdMultiline) .inlineCode,
+.table > tbody > tr:not(.detailRow) > td:not(.tdCode):not(.tdMultiline) .inlineCode {
   white-space: pre;
 }
 /* Rich-text owners must paint the real newlines kept by renderInline. Scope
