@@ -572,7 +572,11 @@ export function hostFenceIndexOf(row: Element, block: Element): number {
 
 /** Read the currently viewed session for source Markdown lookup. */
 function sessionIdOfForSource(ctx: Context): SessionId | undefined {
-  return resolveViewedSessionId(ctx.sessions.list.getSnapshot())
+  try {
+    return resolveViewedSessionId(ctx.sessions.list.getSnapshot())
+  } catch {
+    return undefined
+  }
 }
 
 /** Read uiConversation as an optional service so Cordis does not require a hard inject. */
@@ -665,13 +669,7 @@ export function installDomFenceRenderer(
   let unsubscribeChat: (() => void) | undefined
   const sourceLanguages = createSourceLanguageResolver(ctx)
 
-  const sessionIdOf = (): SessionId | undefined => {
-    try {
-      return resolveViewedSessionId(ctx.sessions.list.getSnapshot())
-    } catch {
-      return undefined
-    }
-  }
+  const sessionIdOf = (): SessionId | undefined => sessionIdOfForSource(ctx)
 
   /** Retry ChatSnapshot subscription while the active session binding is unavailable. */
   function syncChatSubscription(sessionId: SessionId | undefined): void {

@@ -207,6 +207,54 @@ describe('installDomFenceRenderer', () => {
     } finally { dispose() }
   })
 
+  it('continues DOM scans while sessions context is inactive and resumes after recovery', async () => {
+    const row = assistantRow('inactive-sessions')
+    const block = genericCodeBlock(VALID_SPEC)
+    row.appendChild(block)
+    document.body.appendChild(row)
+    const ctx = makeModernCtx('inactive-session')
+    const sessions = ctx.sessions
+    let inactive = false
+    Object.defineProperty(ctx, 'sessions', {
+      get: () => {
+        if (inactive) throw new Error('cannot get required service "sessions" in inactive context')
+        return sessions
+      },
+    })
+    const uncaught: unknown[] = []
+    const captureError = (event: ErrorEvent) => {
+      uncaught.push(event.error)
+      event.preventDefault()
+    }
+    window.addEventListener('error', captureError)
+    const dispose = installDomFenceRenderer(ctx, () => {})
+    let disposed = false
+    try {
+      expect(await waitFor(() => block.hasAttribute('data-genui-rendered'))).toBe(true)
+
+      inactive = true
+      expect(sourceLanguageOf(ctx, block)).toBeUndefined()
+      block.querySelector('code')!.textContent = '{"items":[{"type":"text","content":"会话不可用期间更新"}]}'
+      expect(await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('会话不可用期间更新') === true)).toBe(true)
+      expect(uncaught).toEqual([])
+
+      inactive = false
+      block.querySelector('code')!.textContent = '{"items":[{"type":"text","content":"会话恢复后更新"}]}'
+      expect(await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('会话恢复后更新') === true)).toBe(true)
+      expect(uncaught).toEqual([])
+
+      dispose()
+      disposed = true
+      block.querySelector('code')!.textContent = '{"items":[{"type":"text","content":"卸载后不再扫描"}]}'
+      await tick()
+      expect(row.querySelector('.genui-dom-fence')).toBeNull()
+      expect(uncaught).toEqual([])
+    } finally {
+      if (!disposed) dispose()
+      window.removeEventListener('error', captureError)
+    }
+  })
+
   it('takes over a generic banner whose body only needs tier-1 punctuation repairs', async () => {
     // Real session (seq 40530): the model finally emitted the fence in the body,
     // but one value carried unescaped half-width quotes. The host hides the
