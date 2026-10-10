@@ -1,5 +1,6 @@
 /** Synthetic real-renderer regression for #249. No host or model service. */
 import { createRoot } from 'react-dom/client'
+import { flushSync } from 'react-dom'
 import { GenuiBlock } from '../../src/client/GenuiBlock.tsx'
 import css from '../../src/client/GenuiBlock.module.css'
 import { STANDALONE_THEME_CSS } from '../../src/client/artifact/standalone-theme.ts'
@@ -86,16 +87,24 @@ cases.push({
   selector: '', expected: '', whiteSpace: '', detailWhitespace: true,
 })
 
-createRoot(document.getElementById('root')!).render(
-  <div id="fixtures">
-    {cases.map((item, index) => (
-      <section className={`case${item.tableGeometry ? ' table-geometry' : ''}`} key={index} data-case={index}>
-        <header>{item.name}</header>
-        <GenuiBlock spec={{ items: [item.node] }} />
-      </section>
-    ))}
-  </div>,
-)
+const root = createRoot(document.getElementById('root')!)
+flushSync(() => {
+  root.render(
+    <div id="fixtures">
+      {cases.map((item, index) => (
+        <section className={`case${item.tableGeometry ? ' table-geometry' : ''}`} key={index} data-case={index}>
+          <header>{item.name}</header>
+          <GenuiBlock spec={{ items: [item.node] }} />
+        </section>
+      ))}
+    </div>,
+  )
+})
+
+const mountedFixtures = document.querySelectorAll('#fixtures > .case').length
+if (mountedFixtures !== cases.length) {
+  throw new Error(`React fixture mount incomplete: expected ${cases.length}, got ${mountedFixtures}`)
+}
 
 /** Character ranges measure actual painted line boxes, including rich text. */
 function measure(phase: string) {
