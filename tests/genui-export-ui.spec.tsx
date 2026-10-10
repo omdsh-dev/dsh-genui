@@ -37,6 +37,15 @@ describe('artifact export entry points', () => {
     expect(screen.getByRole('button', { name: '导出' })).toBeTruthy()
   })
 
+  it('renders the export entry as a borderless icon-only trigger', () => {
+    render(<ExportableGenuiBlock spec={{ items: [{ type: 'text', content: 'View' }] }} />)
+    const trigger = screen.getByRole('button', { name: '导出' })
+    expect(trigger.querySelector('svg')).toBeTruthy()
+    expect(trigger.textContent).toBe('')
+    expect(trigger.getAttribute('aria-label')).toBe('导出')
+    expect(trigger.getAttribute('title')).toBe('导出')
+  })
+
   it('shows export for settled tool and panel content', () => {
     const tool = render(<GenuiToolView {...toolProps()} />)
     expect(screen.getByRole('button', { name: '导出' })).toBeTruthy()

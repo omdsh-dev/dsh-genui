@@ -13,6 +13,17 @@ interface ArtifactExportMenuProps {
   getArtifact: () => ReturnType<typeof createGenuiArtifact>
 }
 
+/** 导出入口的图标字形：托盘 + 下箭头（“导出为文件”），14px 描边、随文字取色。 */
+function ExportGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M8 2.2v7.1" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M5 6.4 8 9.4l3-3" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2.9 10.9v1.5a1 1 0 0 0 1 1h8.2a1 1 0 0 0 1-1v-1.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 /** 提供 JSON 和 HTML 的本地化导出菜单。 */
 function ArtifactExportMenu({ getArtifact }: ArtifactExportMenuProps) {
   const t = useT()
@@ -65,8 +76,18 @@ function ArtifactExportMenu({ getArtifact }: ArtifactExportMenuProps) {
     <div className={css.chrome} ref={rootRef} data-genui-export>
       {report.externalMedia.length > 0 && <span className={css.notice}>{t('artifact.externalMediaNotice')}</span>}
       {errorMessage !== '' && <span className={css.statusError} aria-live="polite">{errorMessage}</span>}
-      <button type="button" className={css.trigger} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(value => !value)}>
-        {t('artifact.export')}
+      {/* 无边框图标入口：完成态内容不再多出一个描边按钮。图标按钮的 aria-label
+          + title 组合与项目里的 panelTpl / panelToggle 一致。 */}
+      <button
+        type="button"
+        className={css.trigger}
+        aria-label={t('artifact.export')}
+        title={t('artifact.export')}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen(value => !value)}
+      >
+        <ExportGlyph />
       </button>
       {open && (
         <div className={css.menu} role="menu">
