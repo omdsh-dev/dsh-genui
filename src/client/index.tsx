@@ -29,6 +29,7 @@ import type { IConversation } from '@deepseek-ai/dsh-client-ui-conversation/clie
 import type { Key, ReactNode } from 'react'
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 import { installDomFenceRenderer } from './dom-fence.tsx'
+import { createFileLinkAvailability, withFileLinkContext, type FileLinkCordisContext } from './file-link-context.tsx'
 import { renderGenuiFence, type GenuiFenceContext } from './fence-render.tsx'
 import { renderSvgFence } from './svg-fence.tsx'
 import { createPanelSlashSource } from './panel-command.ts'
@@ -151,11 +152,18 @@ export function apply(ctx: Context): () => void {
   const localeDispose = bridgeHostLocale(ctx)
   const registerFn = (primitives as unknown as HostFenceExt).registerFenceRenderer
   const useRegistry = typeof registerFn === 'function' && !forcedDomChannel()
+  const fileLinkAvailability = createFileLinkAvailability(ctx as unknown as FileLinkCordisContext)
   const channel = useRegistry ? 'registry' : 'dom'
   console.info(`[genui] client active; fence-channel=${channel}`)
   const disposers: Array<() => void> = useRegistry
-    ? [localeDispose, registerFn!('dsh-ui', renderGenuiFence), registerFn!('svg', renderSvgFence)]
-    : [localeDispose, installDomFenceRenderer(ctx, (sessionId, action, payload) => sendInlineGenuiAction(ctx, sessionId, action, payload))]
+    ? [localeDispose, registerFn!('dsh-ui', (raw, key, context) => withFileLinkContext(
+      ctx as unknown as FileLinkCordisContext,
+      fileLinkAvailability,
+      context?.sessionId,
+      context?.source === undefined,
+      renderGenuiFence(raw, key, context),
+    )), registerFn!('svg', renderSvgFence)]
+    : [localeDispose, installDomFenceRenderer(ctx, (sessionId, action, payload) => sendInlineGenuiAction(ctx, sessionId, action, payload), fileLinkAvailability)]
   // Idle prefetch of the lazy engine assets: the browser downloads them at
   // LOW priority whenever the page is idle, so the first mermaid/3D node in
   // a session usually hits a warm cache instead of paying the fetch on first

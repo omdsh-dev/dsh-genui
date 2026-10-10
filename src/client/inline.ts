@@ -2,7 +2,8 @@
 import { createElement, useLayoutEffect, useRef, type ReactNode } from 'react'
 import katex from 'katex'
 import css from './GenuiBlock.module.css'
-import { safeHref } from './genui-runtime/value-utils.ts'
+import { classifyLinkTarget } from './file-link.ts'
+import { FileLink } from './file-link-context.tsx'
 
 /** KaTeX owns this span's children; React owns the span and its lifecycle.
  * The host's ui-primitives already supplies KaTeX CSS/fonts, including embeds. */
@@ -35,7 +36,7 @@ export function hasInlineMarkup(text: string): boolean {
 }
 
 /** Render safe phrasing content, usable in headings, buttons and labels too. */
-export function renderInline(text: string, allowLinks = true, depth = 0): ReactNode {
+export function renderInline(text: string, allowLinks: boolean | 'file' = true, depth = 0): ReactNode {
   if (typeof text !== 'string' || text === '' || !hasInlineMarkup(text) || depth >= 8) return text
   const segments: ReactNode[] = []
   let fenceEnd = 0
@@ -93,10 +94,20 @@ export function renderInline(text: string, allowLinks = true, depth = 0): ReactN
       if (parts === null) {
         out.push(token)
       } else {
-        const href = safeHref(parts[2])
-        out.push(href === undefined || !allowLinks ? renderInline(parts[1]!, false, depth + 1) : createElement('a', {
-          key: key++, className: css.inlineLink, href, target: '_blank', rel: 'noreferrer noopener',
-        }, renderInline(parts[1]!, false, depth + 1)))
+        const target = classifyLinkTarget(parts[2])
+        const label = renderInline(parts[1]!, false, depth + 1)
+        if (target.type === 'external' && allowLinks === true) {
+          out.push(createElement('a', {
+            key: key++, className: css.inlineLink, href: target.href, target: '_blank', rel: 'noreferrer noopener',
+          }, label))
+        } else if (target.type === 'file' && allowLinks !== false) {
+          out.push(createElement(FileLink, {
+            key: key++, path: target.file.path, label: parts[1]!,
+            ...(target.file.line === undefined ? {} : { line: target.file.line }),
+          }, label))
+        } else {
+          out.push(label)
+        }
       }
     }
     last = index + token.length

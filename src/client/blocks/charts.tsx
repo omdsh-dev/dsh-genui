@@ -345,7 +345,7 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
           .join(' ') || undefined}
       >
         {type === 'badge'
-          ? <span className={css.cellBadge}>{renderInline(String(cell), false)}</span>
+          ? <span className={css.cellBadge}>{renderInline(String(cell), 'file')}</span>
           : type === 'bar'
             ? <CellBar cell={cell} />
             : type === 'spark'
@@ -356,8 +356,8 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                   ? <span className={css.cellIndex}>{rowIndex + 1}</span>
                   : tone === null
                     // Format displayed text without changing sorting or exported data.
-                    ? renderInline(String(cell), false)
-                    : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{renderInline(String(cell), false)}</span>}
+                    ? renderInline(String(cell), 'file')
+                    : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{renderInline(String(cell), 'file')}</span>}
       </td>
     )
   }
@@ -419,12 +419,13 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                                 <button
                                   type="button"
                                   className={css.detailToggle}
+                                  aria-label={open ? '收起明细' : '展开明细'}
                                   aria-expanded={open}
                                   onClick={() => toggleDetail(child.index)}
                                 >
                                   <span className={css.detailChevron} data-open={open} aria-hidden>▸</span>
-                                  {renderInline(String(cell), false)}
                                 </button>
+                                <span>{renderInline(String(cell), 'file')}</span>
                               </td>
                             )
                             : renderCell(cell, j, child.index)
