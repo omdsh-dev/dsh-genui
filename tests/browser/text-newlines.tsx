@@ -1,5 +1,6 @@
 /** Synthetic real-renderer regression for #249. No host or model service. */
 import { createRoot } from 'react-dom/client'
+import { useEffect } from 'react'
 import { GenuiBlock } from '../../src/client/GenuiBlock.tsx'
 import css from '../../src/client/GenuiBlock.module.css'
 import { STANDALONE_THEME_CSS } from '../../src/client/artifact/standalone-theme.ts'
@@ -60,16 +61,44 @@ cases.push({
   selector: 'code', expected: 'a    b', whiteSpace: 'pre-wrap',
 })
 
-createRoot(document.getElementById('root')!).render(
-  <div id="fixtures">
-    {cases.map((item, index) => (
-      <section className="case" key={index} data-case={index}>
-        <header>{item.name}</header>
-        <GenuiBlock spec={{ items: [item.node] }} />
-      </section>
-    ))}
-  </div>,
-)
+/** Wait for the committed React tree before measuring browser text layout. */
+function Fixtures() {
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      const results = measure('initial')
+      // Repeated local controls/rerenders must leave label formatting intact.
+      for (const checkbox of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
+        checkbox.click()
+        checkbox.click()
+      }
+      for (const radio of document.querySelectorAll<HTMLInputElement>('input[type="radio"]')) radio.click()
+      for (const tabs of document.querySelectorAll('[role="tablist"]')) {
+        const buttons = tabs.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+        buttons[1]!.click()
+        buttons[0]!.click()
+      }
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        results.push(...measure('after-controls'))
+        window.getSelection()!.removeAllRanges()
+        document.getElementById('results')!.textContent = JSON.stringify(results)
+        document.body.dataset.qa = results.every(result => result.pass) ? 'PASS' : 'FAIL'
+      }))
+    })
+  }, [])
+
+  return (
+    <div id="fixtures">
+      {cases.map((item, index) => (
+        <section className="case" key={index} data-case={index}>
+          <header>{item.name}</header>
+          <GenuiBlock spec={{ items: [item.node] }} />
+        </section>
+      ))}
+    </div>
+  )
+}
+
+createRoot(document.getElementById('root')!).render(<Fixtures />)
 
 /** Character ranges measure actual painted line boxes, including rich text. */
 function measure(phase: string) {
@@ -110,24 +139,3 @@ function measure(phase: string) {
     }
   })
 }
-
-setTimeout(() => {
-  const results = measure('initial')
-  // Repeated local controls/rerenders must leave label formatting intact.
-  for (const checkbox of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
-    checkbox.click()
-    checkbox.click()
-  }
-  for (const radio of document.querySelectorAll<HTMLInputElement>('input[type="radio"]')) radio.click()
-  for (const tabs of document.querySelectorAll('[role="tablist"]')) {
-    const buttons = tabs.querySelectorAll<HTMLButtonElement>('[role="tab"]')
-    buttons[1]!.click()
-    buttons[0]!.click()
-  }
-  setTimeout(() => {
-    results.push(...measure('after-controls'))
-    window.getSelection()!.removeAllRanges()
-    document.getElementById('results')!.textContent = JSON.stringify(results)
-    document.body.dataset.qa = results.every(result => result.pass) ? 'PASS' : 'FAIL'
-  }, 100)
-}, 600)

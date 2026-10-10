@@ -162,7 +162,7 @@ describe('file links in GenUI rendering', () => {
 
   it('keeps sorting, group collapse, and detail expansion controls independently operable', () => {
     const host = sessionContext()
-    host.provide()
+    const openResource = host.provide()
     const view = renderSpec([{
       type: 'table', columns: ['组', '路径'], types: ['group', 'text'],
       rows: [['[第一组](src/group.ts#L3)', ''], ['[Alpha](src/a.ts)', '第一组'], ['第一组', '[Beta](src/b.ts)'], ['普通明细行', '普通值']],
@@ -173,10 +173,19 @@ describe('file links in GenUI rendering', () => {
     expect(screen.getByText('普通明细内容')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '收起 普通明细行 的明细' }))
     expect(screen.queryByText('普通明细内容')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Alpha (src/a.ts)' }))
+    expect(screen.queryByText('文件明细内容')).toBeNull()
+    fireEvent.click(view.container.querySelector('[class*="detailContent"]')!)
+    expect(screen.getByText('文件明细内容')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '收起 Alpha 的明细' }))
+    expect(screen.queryByText('文件明细内容')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '展开 Alpha 的明细' }))
     expect(screen.getByText('文件明细内容')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '第一组 (src/group.ts)' }))
-    expect(screen.getByRole('button', { name: '收起 Alpha 的明细' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Alpha (src/a.ts)' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '收起分组 第一组' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '第一组 (src/group.ts)' }))
+    expect(openResource).toHaveBeenCalledWith('dsh-resource://file/session/session-1/src/group.ts', { params: { line: 3 } })
     const group = screen.getByRole('button', { name: '收起分组 第一组' })
     fireEvent.click(group)
     expect(screen.queryByRole('button', { name: 'Alpha (src/a.ts)' })).toBeNull()

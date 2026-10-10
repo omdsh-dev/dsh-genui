@@ -404,7 +404,10 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                       >
                         <span className={css.groupChevron} aria-hidden>{isCollapsed ? '▸' : '▾'}</span>
                       </button>
-                      <span className={css.groupLabel} onClick={() => toggleSection(headerIndex)}>
+                      <span className={css.groupLabel} onClick={event => {
+                        if (event.target instanceof Element && event.target.closest('button')) return
+                        toggleSection(headerIndex)
+                      }}>
                         {renderInline(String(section.header.row[0]), 'file')}
                         <span className={css.groupCount}>{section.children.length}</span>
                       </span>
@@ -432,7 +435,10 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                                 >
                                   <span className={css.detailChevron} data-open={open} aria-hidden>▸</span>
                                 </button>
-                                <span className={css.detailContent} onClick={() => toggleDetail(child.index)}>
+                                <span className={css.detailContent} onClick={event => {
+                                  if (event.target instanceof Element && event.target.closest('button')) return
+                                  toggleDetail(child.index)
+                                }}>
                                   {renderInline(String(cell), 'file')}
                                 </span>
                               </td>

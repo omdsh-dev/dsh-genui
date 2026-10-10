@@ -1132,14 +1132,15 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
    page or opening a modal. */
 .detailCell { position: relative; padding-left: var(--dsl-g-gap-sm); }
 .detailToggle {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  display: flex;
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  width: 100%;
-  height: 100%;
+  justify-content: center;
+  vertical-align: middle;
+  width: 24px;
+  height: 24px;
+  margin-right: 4px;
   padding: 0;
   border: none;
   background: none;
@@ -1152,7 +1153,7 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 .detailToggle:hover { color: var(--dsl-g-accent); }
 .detailCell:hover .detailToggle { color: var(--dsl-g-accent); }
 .detailToggle:focus-visible { outline: 2px solid var(--dsl-g-accent); outline-offset: 2px; border-radius: 4px; }
-.detailContent { position: relative; z-index: 1; }
+.detailContent { position: relative; z-index: 1; vertical-align: middle; cursor: pointer; }
 .detailChevron {
   flex-shrink: 0;
   font-size: 10px;
@@ -1194,14 +1195,15 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 .table tbody tr.groupRow:nth-child(even) { background: none; }
 .groupRow td { position: relative; }
 .groupToggle {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  display: flex;
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
-  width: 100%;
-  height: 100%;
+  justify-content: center;
+  vertical-align: middle;
+  width: 24px;
+  height: 24px;
+  margin-right: 7px;
   padding: 0;
   border: none;
   background: none;
@@ -1215,7 +1217,7 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 .groupToggle:hover { color: var(--dsl-g-accent); }
 .groupLabel:hover { color: var(--dsl-g-accent); }
 .groupToggle:focus-visible { outline: 2px solid var(--dsl-g-accent); outline-offset: 2px; border-radius: 4px; }
-.groupLabel { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 7px; }
+.groupLabel { position: relative; z-index: 1; display: inline-flex; vertical-align: middle; align-items: center; gap: 7px; cursor: pointer; }
 .groupChevron { color: var(--dsw-alias-label-tertiary); font-size: 11px; width: 10px; }
 .groupCount {
   padding: 0 7px;
