@@ -61,11 +61,11 @@ cases.push({
   selector: 'code', expected: 'a    b', whiteSpace: 'pre-wrap',
 })
 cases.push({
-  name: 'single-line table inline code stays inside its column',
+    name: 'single-line table inline code stays inside its column',
   node: {
     type: 'table', columns: ['Command', 'Result', 'Status'], rows: [
-      ['Run `const result = executeLongOperation(argumentOne, argumentTwo, argumentThree)` now', 'Complete', 'Ready'],
-      ['Repeat `const result = executeLongOperation(argumentOne, argumentTwo, argumentThree)` later', 'Pending', 'Waiting'],
+      ['Run `const  result = executeLongOperation(argumentOne, argumentTwo, argumentThree)` now', 'Complete', 'Ready'],
+      ['Repeat `const  result = executeLongOperation(argumentOne, argumentTwo, argumentThree)` later', 'Pending', 'Waiting'],
     ],
   },
   selector: 'td', expected: '', whiteSpace: '', tableGeometry: true,
@@ -92,6 +92,10 @@ function measure(phase: string) {
       if (fixture === null || wrapper == null || rows === undefined) {
         return { name: item.name, phase, pass: false, error: 'Missing table geometry fixture' }
       }
+      const inlineCodes = [...wrapper.querySelectorAll<HTMLElement>('tbody td code')]
+      const spacingPreserved = inlineCodes.length === 2 && inlineCodes.every(code =>
+        code.textContent?.includes('  ') === true && getComputedStyle(code).whiteSpace === 'pre',
+      )
       const overlaps: Array<{ row: number; maxTextRight: number; nextCellLeft: number }> = []
       rows.forEach((row, rowIndex) => {
         const firstCell = row.cells[0]
@@ -113,8 +117,8 @@ function measure(phase: string) {
         if (maxTextRight > nextCellLeft + 1) overlaps.push({ row: rowIndex, maxTextRight, nextCellLeft })
       })
       return {
-        name: item.name, phase, scrollWidth: wrapper.scrollWidth, clientWidth: wrapper.clientWidth, overlaps,
-        pass: wrapper.scrollWidth > wrapper.clientWidth && overlaps.length === 0,
+        name: item.name, phase, scrollWidth: wrapper.scrollWidth, clientWidth: wrapper.clientWidth, spacingPreserved, overlaps,
+        pass: wrapper.scrollWidth > wrapper.clientWidth && spacingPreserved && overlaps.length === 0,
       }
     }
     const owner = document.querySelector(`[data-case="${index}"] ${item.selector}`)
