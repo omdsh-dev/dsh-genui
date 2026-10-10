@@ -52,7 +52,7 @@ try {
   if (raw === undefined || raw === 'pending') throw new Error('Browser fixture did not finish; inspect page.html and browser.log')
   const results = JSON.parse(raw.replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&'))
   await writeFile(join(out, 'results.json'), JSON.stringify(results, null, 2) + '\n')
-  if (results.length !== 108) throw new Error(`Expected 108 initial/repeated-control newline cases, got ${results.length}`)
+  if (results.length !== 112) throw new Error(`Expected 112 newline and table-control layout checks, got ${results.length}`)
   const failed = results.filter(result => !result.pass)
   if (failed.length > 0) throw new Error(`Browser newline regression failed:\n${JSON.stringify(failed, null, 2)}`)
   await readFile(join(out, 'layout.png'))

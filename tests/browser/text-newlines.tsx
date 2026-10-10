@@ -61,11 +61,17 @@ cases.push({
   selector: 'code', expected: 'a    b', whiteSpace: 'pre-wrap',
 })
 
+const tableLayout: GenuiNode = {
+  type: 'table', columns: ['Group', 'Description'], types: ['group', 'text'],
+  rows: [['Section', ''], ['Detail', 'Description']],
+  details: [null, [{ type: 'text', content: 'Detail content' }]],
+}
+
 /** Wait for the committed React tree before measuring browser text layout. */
 function Fixtures() {
   useEffect(() => {
     requestAnimationFrame(() => {
-      const results = measure('initial')
+      const results: Array<Record<string, unknown>> = [...measure('initial'), ...measureTableControlLayout('initial')]
       // Repeated local controls/rerenders must leave label formatting intact.
       for (const checkbox of document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
         checkbox.click()
@@ -79,6 +85,7 @@ function Fixtures() {
       }
       requestAnimationFrame(() => requestAnimationFrame(() => {
         results.push(...measure('after-controls'))
+        results.push(...measureTableControlLayout('after-controls'))
         window.getSelection()!.removeAllRanges()
         document.getElementById('results')!.textContent = JSON.stringify(results)
         document.body.dataset.qa = results.every(result => result.pass) ? 'PASS' : 'FAIL'
@@ -87,14 +94,17 @@ function Fixtures() {
   }, [])
 
   return (
-    <div id="fixtures">
-      {cases.map((item, index) => (
-        <section className="case" key={index} data-case={index}>
-          <header>{item.name}</header>
-          <GenuiBlock spec={{ items: [item.node] }} />
-        </section>
-      ))}
-    </div>
+    <>
+      <div id="fixtures">
+        {cases.map((item, index) => (
+          <section className="case" key={index} data-case={index}>
+            <header>{item.name}</header>
+            <GenuiBlock spec={{ items: [item.node] }} />
+          </section>
+        ))}
+      </div>
+      <div id="table-layout"><GenuiBlock spec={{ items: [tableLayout] }} /></div>
+    </>
   )
 }
 
@@ -138,4 +148,40 @@ function measure(phase: string) {
         && owner.querySelector('br') === null,
     }
   })
+}
+
+/** Check that table controls follow their cell padding and align with labels. */
+function measureTableControlLayout(phase: string) {
+  const groupCell = document.querySelector<HTMLElement>(`#table-layout .${css.groupRow} td`)
+  const groupToggle = groupCell?.querySelector<HTMLElement>(`.${css.groupToggle}`)
+  const groupLabel = groupCell?.querySelector<HTMLElement>(`.${css.groupLabel}`)
+  const detailCell = document.querySelector<HTMLElement>(`#table-layout .${css.detailCell}`)
+  const detailToggle = detailCell?.querySelector<HTMLElement>(`.${css.detailToggle}`)
+  const detailContent = detailCell?.querySelector<HTMLElement>(`.${css.detailContent}`)
+  if (!groupCell || !groupToggle || !groupLabel || !detailCell || !detailToggle || !detailContent) {
+    return [{ name: 'table control layout', phase, pass: false, error: 'Missing table control' }]
+  }
+
+  const groupToggleBox = groupToggle.getBoundingClientRect()
+  const groupLabelBox = groupLabel.getBoundingClientRect()
+  const detailToggleBox = detailToggle.getBoundingClientRect()
+  const detailContentBox = detailContent.getBoundingClientRect()
+  const groupPadding = parseFloat(getComputedStyle(groupCell).paddingLeft)
+  const detailPadding = parseFloat(getComputedStyle(detailCell).paddingLeft)
+  return [
+    {
+      name: 'group arrow and label layout', phase,
+      pass: Math.abs(groupToggleBox.left - (groupCell.getBoundingClientRect().left + groupPadding)) < 2
+        && groupLabelBox.left >= groupToggleBox.right
+        && Math.abs(groupToggleBox.top + groupToggleBox.height / 2 - (groupLabelBox.top + groupLabelBox.height / 2)) < 2,
+      groupToggle: groupToggleBox.toJSON(), groupLabel: groupLabelBox.toJSON(),
+    },
+    {
+      name: 'detail arrow and label layout', phase,
+      pass: Math.abs(detailToggleBox.left - (detailCell.getBoundingClientRect().left + detailPadding)) < 2
+        && detailContentBox.left >= detailToggleBox.right
+        && Math.abs(detailToggleBox.top + detailToggleBox.height / 2 - (detailContentBox.top + detailContentBox.height / 2)) < 2,
+      detailToggle: detailToggleBox.toJSON(), detailContent: detailContentBox.toJSON(),
+    },
+  ]
 }
