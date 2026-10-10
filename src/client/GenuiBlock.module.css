@@ -651,8 +651,16 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 /* An inline code span keeps its own spacing too (a pasted snippet often lives
    inside backticks), matching the block-level code surface. */
 .inlineCode { white-space: pre-wrap; }
+/* Table cells are single-line by default, so a chip inside them must not
+   re-open line breaking. Host shells render message bodies inside `.markdown`,
+   which makes every chip an atomic `inline-flex` box and inherits
+   `overflow-wrap: anywhere` into the cell; together with `pre-wrap` the chip's
+   automatic minimum size collapses, the column can then be sized below its
+   content, and the still-unbroken text is painted over the next column (#280).
+   Keep the cell's own line-breaking contract for every table section. */
 .table > thead > tr > th:not(.tdCode):not(.tdMultiline) .inlineCode,
-.table > tbody > tr:not(.detailRow) > td:not(.tdCode):not(.tdMultiline) .inlineCode {
+.table > tbody > tr:not(.detailRow) > td:not(.tdCode):not(.tdMultiline) .inlineCode,
+.table > tfoot > tr > td:not(.tdCode):not(.tdMultiline) .inlineCode {
   white-space: pre;
 }
 /* Rich-text owners must paint the real newlines kept by renderInline. Scope
