@@ -60,13 +60,17 @@ cases.push({
   name: 'inline code spacing', node: { type: 'text', content: '`a    b`' },
   selector: 'code', expected: 'a    b', whiteSpace: 'pre-wrap',
 })
+const mixedLengthRows = [
+  ['Run `const  result = executeLongOperation(argumentOne, argumentTwo, argumentThree)` now', 'The operation completed after reconnecting to the service and checking each resource', 'Ready'],
+  ['ok', 'Done', 'Yes'],
+  ['Repeat `const  result = executeLongOperation(argumentOne, argumentTwo, argumentThree)` later', 'Pending', 'Waiting'],
+  ['x', 'Queued', 'No'],
+  ['Complete', 'Done', 'Yes'],
+]
 cases.push({
-    name: 'single-line table inline code stays inside its column',
+  name: 'single-line table inline code stays inside its column',
   node: {
-    type: 'table', columns: ['Command', 'Result', 'Status'], rows: [
-      ['Run `const  result = executeLongOperation(argumentOne, argumentTwo, argumentThree)` now', 'Complete', 'Ready'],
-      ['Repeat `const  result = executeLongOperation(argumentOne, argumentTwo, argumentThree)` later', 'Pending', 'Waiting'],
-    ],
+    type: 'table', columns: ['Command', 'Result', 'Status'], rows: mixedLengthRows,
   },
   selector: 'td', expected: '', whiteSpace: '', tableGeometry: true,
 })
@@ -84,7 +88,7 @@ createRoot(document.getElementById('root')!).render(
 
 /** Character ranges measure actual painted line boxes, including rich text. */
 function measure(phase: string) {
-  return cases.map((item, index) => {
+  return cases.flatMap((item, index) => {
     if (item.tableGeometry) {
       const fixture = document.querySelector<HTMLElement>(`[data-case="${index}"]`)
       const wrapper = fixture?.querySelector<HTMLElement>('[class*="tableWrap"]')
@@ -93,8 +97,9 @@ function measure(phase: string) {
         return { name: item.name, phase, pass: false, error: 'Missing table geometry fixture' }
       }
       const inlineCodes = [...wrapper.querySelectorAll<HTMLElement>('tbody td code')]
+      const expectedWhiteSpace = 'pre'
       const spacingPreserved = inlineCodes.length === 2 && inlineCodes.every(code =>
-        code.textContent?.includes('  ') === true && getComputedStyle(code).whiteSpace === 'pre',
+        code.textContent?.includes('  ') === true && getComputedStyle(code).whiteSpace === expectedWhiteSpace,
       )
       const overlaps: Array<{ row: number; maxTextRight: number; nextCellLeft: number }> = []
       rows.forEach((row, rowIndex) => {
@@ -116,10 +121,15 @@ function measure(phase: string) {
         const nextCellLeft = nextCell.getBoundingClientRect().left
         if (maxTextRight > nextCellLeft + 1) overlaps.push({ row: rowIndex, maxTextRight, nextCellLeft })
       })
-      return {
-        name: item.name, phase, scrollWidth: wrapper.scrollWidth, clientWidth: wrapper.clientWidth, spacingPreserved, overlaps,
-        pass: wrapper.scrollWidth > wrapper.clientWidth && spacingPreserved && overlaps.length === 0,
-      }
+      return [
+        { name: `${item.name} adjacent-column overlap`, phase, overlaps, pass: overlaps.length === 0 },
+        {
+          name: `${item.name} horizontal scrolling`, phase,
+          scrollWidth: wrapper.scrollWidth, clientWidth: wrapper.clientWidth,
+          pass: wrapper.scrollWidth > wrapper.clientWidth,
+        },
+        { name: `${item.name} inline code whitespace`, phase, spacingPreserved, expectedWhiteSpace, pass: spacingPreserved },
+      ]
     }
     const owner = document.querySelector(`[data-case="${index}"] ${item.selector}`)
     if (owner === null) return { name: item.name, phase, pass: false, error: 'Missing label owner' }
