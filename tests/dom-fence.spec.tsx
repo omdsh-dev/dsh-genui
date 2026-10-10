@@ -255,6 +255,58 @@ describe('installDomFenceRenderer', () => {
     }
   })
 
+  it('preserves a ChatSnapshot-mounted streaming fence while sessions context is inactive', async () => {
+    const currentSpec = JSON.stringify({
+      items: [{ type: 'table', columns: ['状态'], rows: [['进行中']], details: [[{ type: 'text', content: '初始详情' }]] }],
+    })
+    const inactiveSpec = JSON.stringify({
+      items: [{ type: 'table', columns: ['状态'], rows: [['进行中']], details: [[{ type: 'text', content: '失效期间更新' }]] }],
+    })
+    const recoveredSpec = JSON.stringify({
+      items: [{ type: 'table', columns: ['状态'], rows: [['已恢复']], details: [[{ type: 'text', content: '恢复后更新' }]] }],
+    })
+    let sourceMarkdown = `\`\`\`dsh-ui\n${currentSpec}\n\`\`\``
+    const chat = {
+      nodes: {
+        get: () => ({ kind: 'assistant-step', data: { blocks: [{ kind: 'text', text: sourceMarkdown }] } }),
+      },
+    }
+    const sourceCtx = makeSourceCtx('streaming-inactive-session', () => chat, () => () => {})
+    const sessions = sourceCtx.sessions
+    let inactive = false
+    Object.defineProperty(sourceCtx, 'sessions', {
+      get: () => {
+        if (inactive) throw new Error('cannot get required service "sessions" in inactive context')
+        return sessions
+      },
+    })
+    const row = assistantRow('streaming-inactive-source', true)
+    const block = genericCodeBlock(currentSpec)
+    row.appendChild(block)
+    document.body.appendChild(row)
+    expect(sourceLanguageOf(sourceCtx, block)).toBe('dsh-ui')
+    const dispose = installDomFenceRenderer(sourceCtx, () => {})
+    try {
+      expect(await waitFor(() => block.hasAttribute('data-genui-rendered'))).toBe(true)
+      expect(await waitFor(() => row.querySelector('[class*="detailToggle"]') !== null)).toBe(true)
+      fireEvent.click(row.querySelector('[class*="detailToggle"]')!)
+      expect(await waitFor(() => row.querySelector('[class*="detailRow"]')?.textContent?.includes('初始详情') === true)).toBe(true)
+      const mountedDetailRow = row.querySelector('[class*="detailRow"]')
+
+      inactive = true
+      block.querySelector('code')!.textContent = inactiveSpec
+      expect(await waitFor(() => row.querySelector('[class*="detailRow"]')?.textContent?.includes('失效期间更新') === true)).toBe(true)
+      expect(row.querySelector('[class*="detailRow"]')).toBe(mountedDetailRow)
+
+      sourceMarkdown = `\`\`\`dsh-ui\n${recoveredSpec}\n\`\`\``
+      inactive = false
+      block.querySelector('code')!.textContent = recoveredSpec
+      expect(await waitFor(() => row.querySelector('[class*="detailRow"]')?.textContent?.includes('恢复后更新') === true)).toBe(true)
+      expect(row.querySelector('[class*="detailRow"]')).toBe(mountedDetailRow)
+      expect(row.querySelector('[class*="detailToggle"]')?.getAttribute('aria-expanded')).toBe('true')
+    } finally { dispose() }
+  })
+
   it('takes over a generic banner whose body only needs tier-1 punctuation repairs', async () => {
     // Real session (seq 40530): the model finally emitted the fence in the body,
     // but one value carried unescaped half-width quotes. The host hides the
