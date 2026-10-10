@@ -189,6 +189,11 @@ export interface GenuiPluginConfig {
    * 每回合和每个围栏正文最多请求一次，子代理不触发，每次修正请求会消耗模型步数。
    */
   fenceFeedback?: boolean
+
+  /**
+   * 是否注册 render_ui 模型工具。默认开启，设置为 false 时关闭；不影响 validate_dsh_ui 和 dsh-ui 围栏渲染。
+   */
+  renderUiTool?: boolean
 }
 
 export function apply(ctx: Context, config?: GenuiPluginConfig): void {
@@ -203,7 +208,9 @@ export function apply(ctx: Context, config?: GenuiPluginConfig): void {
   // before either the service or this plugin is replaced.
   ctx.inject(['tools'], (toolsCtx) => {
     toolsCtx.effect(function* () {
-      yield toolsCtx.tools.register(createRenderUiTool())
+      if (config?.renderUiTool !== false) {
+        yield toolsCtx.tools.register(createRenderUiTool())
+      }
       yield toolsCtx.tools.register(createValidateDshUiTool())
     }, 'dsh-genui: model tools')
   })

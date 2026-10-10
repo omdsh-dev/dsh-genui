@@ -177,7 +177,15 @@ dsh plugin --profile web add link:$PWD
 - **本地优先原则**：UI 自己能完成的状态变化（判卷、判题、重置、展开、选中）一律本地即时完成；action 只用于必须模型参与的事（生成新内容、执行工具、下一步建议）
 - **诚实交互**：交互组件必须带 `action`；不带 `action` 的按钮渲染为禁用态（消灭"看着能点、点了没反应"的假按钮）；带 `action` 的按钮点击后立即显示「已触发」本地反馈（只证明本地事件已触发，不代表模型已收到）
 - **事件循环**：按钮、复选框、单选、开关、下拉、输入、文本域、提交和测验等离散交互按一次手势一次事件立即回传模型；`slider` 连续拖动保留尾沿防抖，同一滑块只回传最终值，不同 `id` 的滑块互不合并。
-- **工具通道**：`render_ui` 工具把同一份 spec 渲染成工具行卡片（交付物型 UI 走工具、回答型 UI 走围栏）
+- **工具通道**：默认注册 `render_ui`，并将同一份 spec 渲染成工具行卡片；`validate_dsh_ui` 始终可用。在本插件的 `config:` 中设置 `renderUiTool: false` 后，宿主不再注册 `render_ui`。正文 `dsh-ui` 围栏、`panel: true`、`/panel` 和客户端工具视图中的历史 `render_ui` 结果仍可使用。修改此设置后需要让宿主重新加载插件。
+- **关闭 `render_ui` 工具**：在用户 profile 中本插件条目的 `config:` 下添加：
+
+  ```yaml
+  - id: genui
+    name: '@changfenhuang/dsh-genui'
+    config:
+      renderUiTool: false
+  ```
 - **会话面板**：composer 上方常驻 dock，`render_ui` / `panel: true` 围栏原地更新同一块界面；`/panel` 命令客户端直开（`/panel <指令>` 转模型定制、`/panel clear` 清空）；顶边框可拖拽调高；`append: true` 增量合并——同名标签页追加内容、新标签页新增；整面板默认最多 200 节点 / 200 条追加，达到上限后模型应发送 `replace` 重建
 - **围栏自修**：默认开启；在 profile 的 cordis.patch.yml 中本插件条目的 `config:` 下设置 `fenceFeedback: false` 可以关闭同回合围栏修正。已调用 `validate_dsh_ui` 的 GenUI 回合若只输出 reasoning 并以 `stop` 结束，仍会转换为 `EMPTY_RESPONSE`，交给宿主重试策略处理。回答最终的 dsh-ui 围栏无法渲染时，插件借宿主的轮内转向（steer）把逐节点诊断送回**同一轮**，模型重发修好的围栏。每个 turn 最多发送两条 correction，渲染失败与“已验证但没有正式交付”共用该上限；同一 turn 内相同围栏 fingerprint 只修正一次，新 turn 可以重新修正相同错误；同一 turn 的零交付提醒只发送一次。plugin reload 后会从持久化的 correction message 恢复当前 turn 的围栏去重记录、已消费的 correction 次数以及零交付提醒记录。子代理回合不会收到围栏修正。
 - **自愈与上限**：每个围栏过规格守卫——坏节点静默丢弃（同围栏其余组件照常渲染，单个坏组件不再拖垮整条围栏）、数值钳位、字符串截断，整树 ≤200 节点 / 8 层嵌套，病态 spec 不会拖垮界面
