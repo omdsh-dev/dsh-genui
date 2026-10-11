@@ -9,6 +9,8 @@ import * as primitives from '../primitive-adapter.ts'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import { renderInline } from '../inline.ts'
+import { classifyLinkTarget } from '../file-link.ts'
+import { FileLink } from '../file-link-context.tsx'
 import { t } from '../i18n/index.ts'
 import type { GenuiList, GenuiNode } from '../spec.ts'
 import type { AnswersState, GenuiBlockProps } from './state.ts'
@@ -283,13 +285,14 @@ export function renderNode(
     case 'select': return <SelectNode key={key} node={node} onAction={onAction} answers={answers} />
     case 'checkbox': return <CheckboxNode key={key} node={node} onAction={onAction} answers={answers} />
     case 'link': {
-      // Honest affordance: with a whitelisted href this is a REAL anchor;
-      // without one it is plain styled text (a dead clickable-looking button
-      // was the same complaint class as the disabled-button fix).
-      const href = node.href
-      return href !== undefined
-        ? <a key={key} className={css.link} href={href} target="_blank" rel="noopener noreferrer">{renderInline(node.label, false)}</a>
-        : <span key={key} className={css.linkText}>{renderInline(node.label, false)}</span>
+      const target = classifyLinkTarget(node.href)
+      if (target.type === 'external') {
+        return <a key={key} className={css.link} href={target.href} target="_blank" rel="noopener noreferrer">{renderInline(node.label, false)}</a>
+      }
+      if (target.type === 'file') {
+        return <FileLink key={key} path={target.file.path} label={node.label} {...(target.file.line === undefined ? {} : { line: target.file.line })}>{renderInline(node.label, false)}</FileLink>
+      }
+      return <span key={key} className={css.linkText}>{renderInline(node.label, false)}</span>
     }
     case 'image': return <ImageNode key={`${key}:${node.src}`} node={node} />
     case 'audio': return <AudioNode key={`${key}:${node.src}`} node={node} />

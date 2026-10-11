@@ -33,7 +33,8 @@ import type { GenuiDiagnostic } from './genui-runtime/diagnostics.ts'
 import { GENUI_LIMITS } from './genui-runtime/limits.ts'
 import { analyzeSubmissionRegistry } from './submission-registry.ts'
 import { isTableDetailReachable, prepareTableRows, tableRowsForDetails } from './table-details.ts'
-import { color, enu, int, num, obj, opt, safeHref, safeMediaSrc, str } from './genui-runtime/value-utils.ts'
+import { color, enu, int, num, obj, opt, safeMediaSrc, str } from './genui-runtime/value-utils.ts'
+import { classifyLinkTarget } from './file-link.ts'
 
 /** Result of `validateGenuiSpec`. */
 export interface GenuiValidation {
@@ -336,7 +337,9 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
     case 'link': {
       const label = str(v.label, GENUI_LIMITS.maxString)
       if (label === undefined) return null
-      return { type: 'link', label, ...opt('href', safeHref(v.href)) }
+      const target = classifyLinkTarget(v.href)
+      const href = target.type === 'external' ? target.href : target.type === 'file' ? String(v.href).trim() : undefined
+      return { type: 'link', label, ...opt('href', href) }
     }
     case 'image': {
       const src = safeMediaSrc(v.src)

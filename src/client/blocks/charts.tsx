@@ -345,7 +345,7 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
           .join(' ') || undefined}
       >
         {type === 'badge'
-          ? <span className={css.cellBadge}>{renderInline(String(cell), false)}</span>
+          ? <span className={css.cellBadge}>{renderInline(String(cell), 'file')}</span>
           : type === 'bar'
             ? <CellBar cell={cell} />
             : type === 'spark'
@@ -356,8 +356,8 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                   ? <span className={css.cellIndex}>{rowIndex + 1}</span>
                   : tone === null
                     // Format displayed text without changing sorting or exported data.
-                    ? renderInline(String(cell), false)
-                    : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{renderInline(String(cell), false)}</span>}
+                    ? renderInline(String(cell), 'file')
+                    : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{renderInline(String(cell), 'file')}</span>}
       </td>
     )
   }
@@ -396,13 +396,21 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                       <button
                         type="button"
                         className={css.groupToggle}
+                        aria-label={tr(isCollapsed ? 'block.table.expandGroup' : 'block.table.collapseGroup', {
+                          label: String(section.header.row[0]).replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
+                        })}
                         aria-expanded={!isCollapsed}
                         onClick={() => toggleSection(headerIndex)}
                       >
                         <span className={css.groupChevron} aria-hidden>{isCollapsed ? '▸' : '▾'}</span>
-                        {renderInline(String(section.header.row[0]), false)}
-                        <span className={css.groupCount}>{section.children.length}</span>
                       </button>
+                      <span className={css.groupLabel} onClick={event => {
+                        if (event.target instanceof Element && event.target.closest('button')) return
+                        toggleSection(headerIndex)
+                      }}>
+                        {renderInline(String(section.header.row[0]), 'file')}
+                        <span className={css.groupCount}>{section.children.length}</span>
+                      </span>
                     </td>
                   </tr>
                 )}
@@ -419,12 +427,20 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                                 <button
                                   type="button"
                                   className={css.detailToggle}
+                                  aria-label={tr(open ? 'block.table.collapseDetails' : 'block.table.expandDetails', {
+                                    label: String(cell).replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
+                                  })}
                                   aria-expanded={open}
                                   onClick={() => toggleDetail(child.index)}
                                 >
                                   <span className={css.detailChevron} data-open={open} aria-hidden>▸</span>
-                                  {renderInline(String(cell), false)}
                                 </button>
+                                <span className={css.detailContent} onClick={event => {
+                                  if (event.target instanceof Element && event.target.closest('button')) return
+                                  toggleDetail(child.index)
+                                }}>
+                                  {renderInline(String(cell), 'file')}
+                                </span>
                               </td>
                             )
                             : renderCell(cell, j, child.index)

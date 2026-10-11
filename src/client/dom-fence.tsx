@@ -58,6 +58,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ChatNode, ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { GenuiActionContext, type GenuiActionHandler } from './action-context.ts'
+import { withFileLinkContext, type FileLinkAvailability, type FileLinkCordisContext } from './file-link-context.tsx'
 import css from './GenuiBlock.module.css'
 import { renderSvgFence } from './svg-fence.tsx'
 import { repairFenceJson, trimToBalancedRoot } from '../shared/fence-repair.ts'
@@ -86,6 +87,10 @@ const DIAGNOSTIC_CLASS = 'genui-dom-fence-diagnostic'
 /** Slow sweep interval: the observer catches everything, this is the 1s
  * belt-and-braces pass (history loads, missed attribute batches). */
 const SWEEP_MS = 1000
+const NO_FILE_LINK_AVAILABILITY: FileLinkAvailability = {
+  subscribe: () => () => {},
+  getSnapshot: () => false,
+}
 
 /** Max ancestors walked from a `<pre>` to its fence surface root (banner +
  * pre holder). Most hosts put the pre directly under the surface; some wrap
@@ -675,6 +680,7 @@ function anchorSeqOf(row: Element): number {
 export function installDomFenceRenderer(
   ctx: Context,
   sendAction: (sessionId: SessionId, action: string, payload: Record<string, unknown>) => void,
+  fileLinkAvailability: FileLinkAvailability = NO_FILE_LINK_AVAILABILITY,
 ): () => void {
   if (typeof document === 'undefined') return () => {}
   driftWarned = false
@@ -689,6 +695,18 @@ export function installDomFenceRenderer(
   let activeChatSession: SessionId | undefined
   let unsubscribeChat: (() => void) | undefined
   const sourceLanguages = createSourceLanguageResolver(ctx)
+
+  /** Apply both plugin contexts to every actual GenUI root render. */
+  function wrapFenceNode(node: ReactNode, context: GenuiFenceContext, handler: GenuiActionHandler, streaming: boolean): ReactNode {
+    const actionTree = <GenuiActionContext.Provider value={handler}>{node}</GenuiActionContext.Provider>
+    return withFileLinkContext(
+      ctx as unknown as FileLinkCordisContext,
+      fileLinkAvailability,
+      context.sessionId,
+      streaming,
+      actionTree,
+    )
+  }
 
   const sessionIdOf = (): SessionId | undefined => sessionIdOfForSource(ctx)
   let lastAvailableSessionId = sessionIdOf()
@@ -896,7 +914,7 @@ export function installDomFenceRenderer(
     }
     try {
       const handler: GenuiActionHandler = (action, payload) => sendActionForBlock(block, action, payload)
-      root.render(<GenuiActionContext.Provider value={handler}>{payload}</GenuiActionContext.Provider>)
+      root.render(wrapFenceNode(payload, context, handler, !settled))
     } catch (error) {
       try {
         root.unmount()
@@ -1034,7 +1052,7 @@ export function installDomFenceRenderer(
           try {
             const freshRoot = domRootFactory(fresh)
             const handler: GenuiActionHandler = (action, payload) => sendActionForBlock(block, action, payload)
-            freshRoot.render(<GenuiActionContext.Provider value={handler}>{node}</GenuiActionContext.Provider>)
+            freshRoot.render(wrapFenceNode(node, context, handler, !settled))
             mount.root = freshRoot
             mount.container = fresh
           } catch (error) {
@@ -1049,7 +1067,8 @@ export function installDomFenceRenderer(
           }
         } else {
           try {
-            mount.root.render(<GenuiActionContext.Provider value={(action, payload) => sendActionForBlock(block, action, payload)}>{node}</GenuiActionContext.Provider>)
+            const handler: GenuiActionHandler = (action, payload) => sendActionForBlock(block, action, payload)
+            mount.root.render(wrapFenceNode(node, context, handler, !settled))
           } catch (error) {
             // Never leave the stock block hidden behind a broken root: restore
             // the raw code block and drop the mount (issue #19).
