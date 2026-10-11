@@ -1,4 +1,4 @@
-/** Synthetic real-renderer regression for #249. No host or model service. */
+/** Synthetic real-renderer regression for #249 and #280. No host or model service. */
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import { GenuiBlock } from '../../src/client/GenuiBlock.tsx'
@@ -10,6 +10,26 @@ const theme = document.createElement('style')
 theme.textContent = STANDALONE_THEME_CSS
 document.head.appendChild(theme)
 
+/** The desktop shell renders message bodies inside `.markdown`. Two of that
+ *  sheet's rules land on `dsh-ui` output, because the components render inside
+ *  the same subtree:
+ *    - `.markdown { overflow-wrap: anywhere }` is inherited by every cell, and
+ *    - `.markdown :not(pre) > code` turns each inline chip into an atomic
+ *      `inline-flex` box.
+ *  A fixture that renders the table outside that cascade cannot reproduce the
+ *  cross-column bleed at all, so the host context is part of the layout
+ *  contract being tested here. */
+const hostCascade = document.createElement('style')
+hostCascade.textContent = `
+.host-markdown { overflow-wrap: anywhere; min-width: 0; }
+.host-markdown :not(pre) > code {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 5px;
+}`
+document.head.appendChild(hostCascade)
+
 interface Case {
   name: string
   node: GenuiNode
@@ -18,6 +38,7 @@ interface Case {
   whiteSpace: string
   tableGeometry?: boolean
   detailWhitespace?: boolean
+  hostTableGeometry?: boolean
 }
 
 const cases: Case[] = []
@@ -86,13 +107,47 @@ cases.push({
   },
   selector: '', expected: '', whiteSpace: '', detailWhitespace: true,
 })
+/** #280 in the real host cascade. The chip is an atomic `inline-flex` box
+ *  whose automatic minimum size collapses while its own line is still painted
+ *  unbroken — so the column can be sized below its content and the text bleeds
+ *  over the next column. Cells whose ink leaves the column are the failure. */
+cases.push({
+  name: 'host markdown cascade keeps single-line table inside its columns',
+  node: {
+    type: 'table',
+    columns: ['层', '落点', '为什么'],
+    rows: [
+      [
+        '配置定义（实验级）',
+        '`connection_pool`：每个实例一行 —— `host`（A 列主机名）/ `port`（B 列端口号）/ `timeout`（C 列超时）/ `retries`（D 列重试次数）',
+        '字段顺序固定（E 列值数组固定），逐次解析结果必须完全一致才能跨版本对照',
+      ],
+      [
+        '运行值（实例×配置）',
+        '`runtime_value`：一格一条记录 —— `instance_id` / `key` / `value` / `updated_at`',
+        '值要与声明值对比，出现差异需要人工确认后才能入库，否则整批回滚',
+      ],
+      [
+        '整块快照（JSON）',
+        '`snapshot.payload` = 整个 `ParseResult` 的 JSON，逐次导入留存',
+        '重放、跨版本对照、审计举证 —— 只保留最后一次解析的完整 JSON',
+      ],
+    ],
+  },
+  selector: '', expected: '', whiteSpace: '', hostTableGeometry: true,
+})
 
 const root = createRoot(document.getElementById('root')!)
+
 flushSync(() => {
   root.render(
     <div id="fixtures">
       {cases.map((item, index) => (
-        <section className={`case${item.tableGeometry ? ' table-geometry' : ''}`} key={index} data-case={index}>
+        <section
+          className={`case${item.tableGeometry ? ' table-geometry' : ''}${item.hostTableGeometry ? ' host-table-geometry host-markdown' : ''}`}
+          key={index}
+          data-case={index}
+        >
           <header>{item.name}</header>
           <GenuiBlock spec={{ items: [item.node] }} />
         </section>
@@ -101,14 +156,73 @@ flushSync(() => {
   )
 })
 
-const mountedFixtures = document.querySelectorAll('#fixtures > .case').length
+const mountedFixtures =
+  document.querySelectorAll('#fixtures > .case').length
+
 if (mountedFixtures !== cases.length) {
-  throw new Error(`React fixture mount incomplete: expected ${cases.length}, got ${mountedFixtures}`)
+  throw new Error(
+    `React fixture mount incomplete: expected ${cases.length}, got ${mountedFixtures}`,
+  )
+}
+
+/** Painted ink extent of a cell, measured per character so chips and rich text
+ *  are judged by what is actually drawn rather than by their box. */
+function textRightOf(cell: Element): number {
+  let max = Number.NEGATIVE_INFINITY
+  const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
+  for (let text = walker.nextNode(); text !== null; text = walker.nextNode()) {
+    const content = text.textContent ?? ''
+    for (let position = 0; position < content.length; position++) {
+      if (/\s/.test(content[position]!)) continue
+      const range = document.createRange()
+      range.setStart(text, position)
+      range.setEnd(text, position + 1)
+      for (const rect of range.getClientRects()) max = Math.max(max, rect.right)
+    }
+  }
+  return max
 }
 
 /** Character ranges measure actual painted line boxes, including rich text. */
 function measure(phase: string) {
   return cases.flatMap((item, index) => {
+    if (item.hostTableGeometry) {
+      const fixture = document.querySelector<HTMLElement>(`[data-case="${index}"]`)
+      const table = fixture?.querySelector<HTMLTableElement>('table')
+      const rows = [...(table?.querySelectorAll<HTMLTableRowElement>('tbody tr') ?? [])]
+      if (fixture === null || table === null || rows.length === 0) {
+        return { name: item.name, phase, pass: false, error: 'Missing host cascade fixture' }
+      }
+      const overlaps: Array<{ row: number; col: number; overPx: number }> = []
+      const selfOverflows: Array<{ row: number; col: number; overPx: number }> = []
+      rows.forEach((row, rowIndex) => {
+        const cells = [...row.children]
+          .filter(cell => cell.tagName === 'TD' && (cell as HTMLTableCellElement).colSpan === 1) as HTMLElement[]
+        cells.forEach((cell, col) => {
+          const right = textRightOf(cell)
+          if (!Number.isFinite(right)) return
+          const rect = cell.getBoundingClientRect()
+          const contentRight = rect.right - parseFloat(getComputedStyle(cell).paddingRight)
+          if (right - contentRight > 1) {
+            selfOverflows.push({ row: rowIndex, col, overPx: Math.round(right - contentRight) })
+          }
+          const next = cells[col + 1]
+          if (next !== undefined && right - next.getBoundingClientRect().left > 1) {
+            overlaps.push({ row: rowIndex, col, overPx: Math.round(right - next.getBoundingClientRect().left) })
+          }
+        })
+      })
+      const chips = [...table.querySelectorAll<HTMLElement>('tbody td code')]
+      const chipWhiteSpaces = chips.map(chip => getComputedStyle(chip).whiteSpace)
+      return [
+        { name: `${item.name}: text crosses a column edge`, phase, overlaps, pass: overlaps.length === 0 },
+        { name: `${item.name}: text leaves its own cell`, phase, selfOverflows, pass: selfOverflows.length === 0 },
+        {
+          name: `${item.name}: inline code keeps single-line whitespace`, phase, chipWhiteSpaces,
+          pass: chipWhiteSpaces.length > 0 && chipWhiteSpaces.every(value => value === 'pre'),
+        },
+      ]
+    }
     if (item.detailWhitespace) {
       const fixture = document.querySelector<HTMLElement>(`[data-case="${index}"]`)
       const detailRow = fixture?.querySelector<HTMLElement>('[class*="detailRow"]')

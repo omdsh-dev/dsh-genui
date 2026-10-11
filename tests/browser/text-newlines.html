@@ -1,21 +1,44 @@
-<!doctype html><html><head><meta charset="UTF-8"><title>Issues 249 and 280 browser regressions</title><style>body{margin:24px;font-family:Arial,sans-serif}#fixtures{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.case{border:1px solid #bbb;padding:12px;min-width:0}.case.table-geometry{grid-column:1/-1;width:540px}.case>header{font-size:11px;color:#555;margin-bottom:6px}#results{display:none}</style></head><body><h1>Browser layout regressions</h1><div id="root"></div><pre id="results">pending</pre><pre id="browser-errors"></pre><script>
-  const browserErrors = document.getElementById('browser-errors')
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Issues 249 and 280 browser regressions</title>
+    <style>
+      body { margin: 24px; font-family: Arial, sans-serif; }
+      #fixtures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+      .case { border: 1px solid #bbb; padding: 12px; min-width: 0; }
+      .case.table-geometry { grid-column: 1 / -1; width: 540px; }
+      .case.host-table-geometry { grid-column: 1 / -1; width: 801px; }
+      .case > header { font-size: 11px; color: #555; margin-bottom: 6px; }
+      #results { display: none; }
+    </style>
+  </head>
+  <body>
+    <h1>Browser layout regressions</h1>
+    <div id="root"></div>
+    <pre id="results">pending</pre>
+    <pre id="browser-errors"></pre>
+    <script>
+      const browserErrors = document.getElementById('browser-errors')
 
-  /** 记录浏览器异常，方便从 CI 产物中查看页面错误。 */
-  function recordBrowserError(message) {
-    browserErrors.textContent += `${message}\n`
-  }
+      /** 记录浏览器异常，方便从 CI 产物中查看页面错误。 */
+      function recordBrowserError(message) {
+        browserErrors.textContent += `${message}\n`
+      }
 
-  window.addEventListener('error', event => {
-    recordBrowserError(`error: ${event.message} (${event.filename}:${event.lineno}:${event.colno})`)
-  })
-  window.addEventListener('unhandledrejection', event => {
-    recordBrowserError(`unhandledrejection: ${String(event.reason)}`)
-  })
+      window.addEventListener('error', event => {
+        recordBrowserError(`error: ${event.message} (${event.filename}:${event.lineno}:${event.colno})`)
+      })
+      window.addEventListener('unhandledrejection', event => {
+        recordBrowserError(`unhandledrejection: ${String(event.reason)}`)
+      })
 
-  const originalConsoleError = console.error.bind(console)
-  console.error = (...values) => {
-    recordBrowserError(`console.error: ${values.map(String).join(' ')}`)
-    originalConsoleError(...values)
-  }
-</script><script type="module" src="/tests/browser/text-newlines.tsx"></script></body></html>
+      const originalConsoleError = console.error.bind(console)
+      console.error = (...values) => {
+        recordBrowserError(`console.error: ${values.map(String).join(' ')}`)
+        originalConsoleError(...values)
+      }
+    </script>
+    <script type="module" src="/tests/browser/text-newlines.tsx"></script>
+  </body>
+</html>
