@@ -34,8 +34,18 @@ function emitAssistantReply(ctx: Context, session: object): void {
   } as never)
 }
 
+/** 写入 validate_dsh_ui 调用事件，触发本轮无交付修正路径。 */
+function emitValidationToolCall(ctx: Context, session: object): void {
+  ctx.emit('session/event', session as never, {
+    type: 'tool/call',
+    seq: 2,
+    time: 2,
+    data: { name: 'validate_dsh_ui' },
+  } as never)
+}
+
 /** 触发允许插件请求修正的回合结束事件。 */
-function emitTurnStopping(ctx: Context, session: object, steer: () => void): void {
+function emitTurnStopping(ctx: Context, session: object, steer: (message: { content: Array<{ text: string }> }) => void): void {
   ctx.emit('agent/turn-stopping', {
     agent: { session, steer },
     turn: 1,
@@ -66,7 +76,21 @@ describe('genui:fence section', () => {
     expect(text).toContain('LANGUAGE: reply+UI=conversation language')
     expect(text).toContain('NEVER infer it from prompt/skill/examples/tools')
     expect(text).toContain('never emit these placeholders literally')
+    expect(text).toContain('Tool channel: render_ui')
     expect(text).not.toContain('"title":"可选标题"')
+  })
+
+  it('omits render_ui guidance from the system prompt when the tool is disabled', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    const genui = await ctx.plugin(GenUI, { renderUiTool: false })
+    const assembly = await ctx.systemPrompt.assemble({})
+    const section = assembly.sections.find(item => item.name === 'genui:fence')
+    const text = typeof section?.text === 'string' ? section.text : ''
+
+    expect(text).toContain('validate_dsh_ui')
+    expect(text).not.toContain('render_ui')
+    await genui.dispose()
   })
 
   it('keeps the full type whitelist in the slim section within the token budget', async () => {
@@ -107,6 +131,31 @@ describe('genui:fence section', () => {
 
     expect(getSectionOrder).toHaveBeenCalledWith('STRUCTURED_OUTPUT')
     expect(names.indexOf('aaa:structured-output')).toBeLessThan(names.indexOf('genui:fence'))
+  })
+
+  it.each([
+    { name: 'default config', config: undefined, expected: ['render_ui', 'validate_dsh_ui'] },
+    { name: 'renderUiTool enabled', config: { renderUiTool: true }, expected: ['render_ui', 'validate_dsh_ui'] },
+    { name: 'renderUiTool disabled', config: { renderUiTool: false }, expected: ['validate_dsh_ui'] },
+    { name: 'renderUiTool and fenceFeedback disabled', config: { renderUiTool: false, fenceFeedback: false }, expected: ['validate_dsh_ui'] },
+  ])('registers the configured model tools with $name', async ({ config, expected }) => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    const registered = new Map<string, unknown>()
+    ctx.provide('tools', {
+      register: (tool: unknown) => {
+        const name = (tool as { name: string }).name
+        if (registered.has(name)) throw new Error(`duplicate tool: ${name}`)
+        registered.set(name, tool)
+        return () => { registered.delete(name) }
+      },
+    })
+
+    const genui = await ctx.plugin(GenUI, config)
+    expect([...registered.keys()].sort()).toEqual(expected)
+
+    await genui.dispose()
+    expect(registered.size).toBe(0)
   })
 
   it('owns model tools across plugin unload and reload when tools already exists', async () => {
@@ -167,6 +216,92 @@ describe('genui:fence section', () => {
 
     await genui.dispose()
     expect(replacementRegistry.size).toBe(0)
+  })
+
+  it('registers only validate_dsh_ui when tools becomes available later', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    const genui = await ctx.plugin(GenUI, { renderUiTool: false })
+    const registered = new Map<string, unknown>()
+    ctx.provide('tools', {
+      register: (tool: unknown) => {
+        const name = (tool as { name: string }).name
+        if (registered.has(name)) throw new Error(`duplicate tool: ${name}`)
+        registered.set(name, tool)
+        return () => { registered.delete(name) }
+      },
+    })
+
+    await vi.waitFor(() => {
+      expect([...registered.keys()]).toEqual(['validate_dsh_ui'])
+    })
+
+    await genui.dispose()
+    expect(registered.size).toBe(0)
+  })
+
+  it('keeps only validate_dsh_ui when the tools service is replaced', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    const genui = await ctx.plugin(GenUI, { renderUiTool: false })
+    const firstRegistry = new Map<string, unknown>()
+    const disposeFirstRegistry = ctx.provide('tools', {
+      register: (tool: unknown) => {
+        const name = (tool as { name: string }).name
+        firstRegistry.set(name, tool)
+        return () => { firstRegistry.delete(name) }
+      },
+    })
+    await vi.waitFor(() => {
+      expect([...firstRegistry.keys()]).toEqual(['validate_dsh_ui'])
+    })
+
+    await disposeFirstRegistry()
+    expect(firstRegistry.size).toBe(0)
+
+    const replacementRegistry = new Map<string, unknown>()
+    ctx.provide('tools', {
+      register: (tool: unknown) => {
+        const name = (tool as { name: string }).name
+        replacementRegistry.set(name, tool)
+        return () => { replacementRegistry.delete(name) }
+      },
+    })
+    await vi.waitFor(() => {
+      expect([...replacementRegistry.keys()]).toEqual(['validate_dsh_ui'])
+    })
+
+    await genui.dispose()
+    expect(replacementRegistry.size).toBe(0)
+  })
+
+  it('applies the current tool config across plugin unload and reloads', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    const registered = new Map<string, unknown>()
+    ctx.provide('tools', {
+      register: (tool: unknown) => {
+        const name = (tool as { name: string }).name
+        if (registered.has(name)) throw new Error(`duplicate tool: ${name}`)
+        registered.set(name, tool)
+        return () => { registered.delete(name) }
+      },
+    })
+
+    const disabled = await ctx.plugin(GenUI, { renderUiTool: false })
+    expect([...registered.keys()]).toEqual(['validate_dsh_ui'])
+    await disabled.dispose()
+    expect(registered.size).toBe(0)
+
+    const enabled = await ctx.plugin(GenUI)
+    expect([...registered.keys()].sort()).toEqual(['render_ui', 'validate_dsh_ui'])
+    await enabled.dispose()
+    expect(registered.size).toBe(0)
+
+    const disabledAgain = await ctx.plugin(GenUI, { renderUiTool: false })
+    expect([...registered.keys()]).toEqual(['validate_dsh_ui'])
+    await disabledAgain.dispose()
+    expect(registered.size).toBe(0)
   })
 
   it('registers genui through the real skill registry', async () => {
@@ -235,6 +370,47 @@ describe('genui:fence section', () => {
     emitAssistantReply(ctx, session)
     emitTurnStopping(ctx, session, steer)
     expect(steerCalls).toBe(1)
+    await genui.dispose()
+  })
+
+  it('keeps final fence feedback enabled when render_ui registration is disabled', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    const registered = new Map<string, unknown>()
+    ctx.provide('tools', {
+      register: (tool: unknown) => {
+        const name = (tool as { name: string }).name
+        registered.set(name, tool)
+        return () => { registered.delete(name) }
+      },
+    })
+    const genui = await ctx.plugin(GenUI, { renderUiTool: false })
+    const session = { id: 'render-ui-disabled-feedback', header: { id: 'render-ui-disabled-feedback' }, snapshotEvents: () => [] }
+    let steerCalls = 0
+    const steer = () => { steerCalls += 1 }
+    emitAssistantReply(ctx, session)
+    emitTurnStopping(ctx, session, steer)
+
+    expect([...registered.keys()]).toEqual(['validate_dsh_ui'])
+    expect(steerCalls).toBe(1)
+    await genui.dispose()
+    expect(registered.size).toBe(0)
+  })
+
+  it('steers a fence-only delivery correction when render_ui is disabled', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    const genui = await ctx.plugin(GenUI, { renderUiTool: false })
+    const session = { id: 'render-ui-disabled-delivery', header: { id: 'render-ui-disabled-delivery', version: 4 }, snapshotEvents: () => [] }
+    const steered: Array<{ content: Array<{ text: string }> }> = []
+    const steer = (message: { content: Array<{ text: string }> }) => { steered.push(message) }
+    emitValidationToolCall(ctx, session)
+    emitTurnStopping(ctx, session, steer)
+
+    expect(steered).toHaveLength(1)
+    expect(steered[0]!.content[0]!.text).toContain('status=nothing_delivered')
+    expect(steered[0]!.content[0]!.text).toContain('需要 UI 时，在回答正文输出你最终选定的 dsh-ui 围栏。')
+    expect(steered[0]!.content[0]!.text).not.toContain('render_ui')
     await genui.dispose()
   })
 
