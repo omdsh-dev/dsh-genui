@@ -509,13 +509,18 @@ export function sourceLanguageOf(ctx: Context, block: Element): string | null | 
 }
 
 /** Cache each row's Markdown parse for one sweep and retain confirmed opening-line languages per host block. */
-function createSourceLanguageResolver(ctx: Context): { beginSweep: () => void; get: (block: Element) => string | null | undefined } {
+function createSourceLanguageResolver(ctx: Context): {
+  beginSweep: () => void
+  get: (block: Element) => string | null | undefined
+  isSessionUnavailable: () => boolean
+} {
   const stableLanguages = new WeakMap<Element, { sessionId: SessionId; nodeKey: string; language: string | null }>()
   let sweepLanguages = new Map<Element, string | null | undefined>()
   let parsedNodes = new Map<string, ReturnType<typeof sourceFencesOfAssistant>>()
   let sessionId: SessionId | undefined
   let chat: ChatSnapshot | undefined
   let chatRead = false
+  let sessionUnavailable = false
 
   return {
     beginSweep() {
@@ -524,13 +529,23 @@ function createSourceLanguageResolver(ctx: Context): { beginSweep: () => void; g
       sessionId = undefined
       chat = undefined
       chatRead = false
+      sessionUnavailable = false
+    },
+    isSessionUnavailable() {
+      return sessionUnavailable
     },
     get(block) {
       if (sweepLanguages.has(block)) return sweepLanguages.get(block)
       const row = block.closest<HTMLElement>(`${ASSISTANT_FLOW_ROW}[data-chat-node-key]`)
       if (row === null || row.dataset.chatGroupPart === 'reasoning') return undefined
       const nodeKey = row.dataset.chatNodeKey
-      const activeSessionId = sessionIdOfForSource(ctx)
+      const sourceSession = sourceSessionOf(ctx)
+      if (!sourceSession.available) {
+        sessionUnavailable = true
+        sweepLanguages.set(block, undefined)
+        return undefined
+      }
+      const activeSessionId = sourceSession.sessionId
       if (!nodeKey || activeSessionId === undefined) return undefined
 
       const stable = stableLanguages.get(block)
@@ -575,9 +590,19 @@ export function hostFenceIndexOf(row: Element, block: Element): number {
   return hostFenceBlocksOf(row).indexOf(block as HTMLElement)
 }
 
+/** Read the viewed session and report when Cordis rejects access to its Context. */
+function sourceSessionOf(ctx: Context): { available: true; sessionId: SessionId | undefined } | { available: false } {
+  try {
+    return { available: true, sessionId: resolveViewedSessionId(ctx.sessions.list.getSnapshot()) }
+  } catch {
+    return { available: false }
+  }
+}
+
 /** Read the currently viewed session for source Markdown lookup. */
 function sessionIdOfForSource(ctx: Context): SessionId | undefined {
-  return resolveViewedSessionId(ctx.sessions.list.getSnapshot())
+  const sourceSession = sourceSessionOf(ctx)
+  return sourceSession.available ? sourceSession.sessionId : undefined
 }
 
 /** Read uiConversation as an optional service so Cordis does not require a hard inject. */
@@ -683,12 +708,15 @@ export function installDomFenceRenderer(
     )
   }
 
-  const sessionIdOf = (): SessionId | undefined => {
-    try {
-      return resolveViewedSessionId(ctx.sessions.list.getSnapshot())
-    } catch {
-      return undefined
-    }
+  const sessionIdOf = (): SessionId | undefined => sessionIdOfForSource(ctx)
+  let lastAvailableSessionId = sessionIdOf()
+
+  /** Keep a mounted fence's React identity stable while Cordis temporarily denies session access. */
+  function sessionIdForRender(preserveWhenUnavailable: boolean): SessionId | undefined {
+    const sourceSession = sourceSessionOf(ctx)
+    if (!sourceSession.available) return preserveWhenUnavailable ? lastAvailableSessionId : undefined
+    lastAvailableSessionId = sourceSession.sessionId
+    return sourceSession.sessionId
   }
 
   /** Retry ChatSnapshot subscription while the active session binding is unavailable. */
@@ -706,7 +734,7 @@ export function installDomFenceRenderer(
   /** Render context for a block: session always; the stable source identity
    * only once settled — streaming renders are identity-less (no panel
    * publish, no durable state), mirroring the registry channel. */
-  function contextOf(row: Element, block: Element, settled: boolean): { key: Key; context: GenuiFenceContext } {
+  function contextOf(row: Element, block: Element, settled: boolean, preserveSessionIdentity = false): { key: Key; context: GenuiFenceContext } {
     if (settled && row.getAttribute('data-chat-anchor-key') === null) {
       // Safari / fallback render path: the host omitted the row anchor (the
       // attribute is a React key that React drops when undefined). Fences
@@ -717,7 +745,7 @@ export function installDomFenceRenderer(
     const fenceIndex = fenceIndexOf(ctx, row, block, sourceLanguages.get)
     const anchorKey = row.getAttribute('data-chat-anchor-key') ?? 'unknown'
     const key = `dom:${anchorKey}:${fenceIndex}` as Key
-    const sessionId = sessionIdOf()
+    const sessionId = sessionIdForRender(preserveSessionIdentity)
     const context: GenuiFenceContext = {
       ...(sessionId === undefined ? {} : { sessionId }),
       ...(settled ? { source: { id: key as string, order: [anchorSeqOf(row), 0, fenceIndex] as const } } : {}),
@@ -959,7 +987,9 @@ export function installDomFenceRenderer(
   function sweep(): void {
     if (disposed) return
     sourceLanguages.beginSweep()
-    const sessionId = sessionIdOf()
+    const sourceSession = sourceSessionOf(ctx)
+    const sessionId = sourceSession.available ? sourceSession.sessionId : undefined
+    if (sourceSession.available) lastAvailableSessionId = sourceSession.sessionId
     syncChatSubscription(sessionId)
     for (const [block, mount] of mounts) {
       if (!block.isConnected) {
@@ -971,13 +1001,15 @@ export function installDomFenceRenderer(
       const domLanguage = tagTextBodyOf(block) !== null ? 'dsh-ui' : domLanguageOf(block)
       const sourceLanguage = domLanguage === null ? sourceLanguages.get(block) : undefined
       const language = domLanguage ?? sourceLanguage
+      const sourceUnavailable = domLanguage === null
+        && (!sourceSession.available || sourceLanguages.isSessionUnavailable())
       const validGenui = language === 'dsh-ui'
         || (language === undefined && settled && isGenericGenuiFence(block, raw))
       if (mount.language === 'svg' && language !== 'svg') {
         unmountBlock(block)
         continue
       }
-      if (mount.language === 'dsh-ui' && !validGenui) {
+      if (mount.language === 'dsh-ui' && !validGenui && !sourceUnavailable) {
         unmountBlock(block)
         continue
       }
@@ -988,7 +1020,7 @@ export function installDomFenceRenderer(
       const contentWiped = !isPanelRoot(mount.lastNode) && mount.container.childElementCount === 0
       if (mount.lastRaw !== raw || mount.lastSettled !== settled || contentWiped) {
         const anchor = rowOf(block)
-        const { key, context } = contextOf(anchor, block, settled)
+        const { key, context } = contextOf(anchor, block, settled, true)
         const node = mount.language === 'svg' ? renderSvgFence(raw, key) : renderResolvedFenceNode(raw, key, context)
         if (node === null) {
           if (mount.skeleton && !settled) {

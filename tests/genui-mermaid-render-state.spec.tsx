@@ -22,7 +22,7 @@ describe('Mermaid render state', () => {
       .mockResolvedValueOnce('<svg><text>valid diagram</text></svg>')
 
     const view = render(<MermaidNode node={node('bad')} />)
-    await screen.findByText('图语法有误，已降级显示源码')
+    await screen.findByText('图表渲染失败，已显示源码')
 
     view.rerender(<MermaidNode node={node('graph TD\nA --> B')} />)
     expect(screen.getByText('渲染中…')).toBeTruthy()
@@ -32,7 +32,7 @@ describe('Mermaid render state', () => {
       expect(rendered).not.toBeNull()
       expect(rendered!.innerHTML).toContain('valid diagram')
     })
-    expect(screen.queryByText('图语法有误，已降级显示源码')).toBeNull()
+    expect(screen.queryByText('图表渲染失败，已显示源码')).toBeNull()
   })
 
   it('clears an old rendered SVG while new code is loading', async () => {

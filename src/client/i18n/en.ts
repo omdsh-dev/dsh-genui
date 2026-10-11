@@ -307,7 +307,7 @@ export const EN = {
   'block.svgPreview': 'Preview',
   'block.svgSource': 'Source',
   'block.svgError': 'SVG could not be displayed — showing the source instead',
-  'block.mermaidError': 'Invalid diagram syntax — showing the source instead',
+  'block.mermaidError': 'Diagram rendering failed — showing the source instead',
   'block.mermaidLoading': 'Rendering…',
   'block.scene3dLoading': 'Loading 3D scene…',
   'block.scene3dError': '3D rendering failed',
