@@ -28,12 +28,16 @@ try {
   server = await createServer({
     root, configFile: false,
     server: { host: '127.0.0.1', port: 0, strictPort: true },
-    resolve: { alias: [
-      { find: /^(?:.*\/)?primitive-adapter\.ts$/, replacement: resolve(root, 'src/client/standalone/primitive-adapter.tsx') },
-      { find: /^react$/, replacement: resolve(root, 'node_modules/react/index.js') },
-      { find: /^react\/jsx-runtime$/, replacement: resolve(root, 'node_modules/react/jsx-runtime.js') },
-      { find: /^react-dom\/client$/, replacement: resolve(root, 'node_modules/react-dom/client.js') },
-    ] },
+    resolve: {
+      dedupe: ['react', 'react-dom'],
+      alias: [
+        { find: /^(?:.*\/)?primitive-adapter\.ts$/, replacement: resolve(root, 'src/client/standalone/primitive-adapter.tsx') },
+      ],
+    },
+    optimizeDeps: {
+      include: ['react', 'react/jsx-runtime', 'react/jsx-dev-runtime', 'react-dom', 'react-dom/client'],
+      force: true,
+    },
   })
   await server.listen()
   const address = server.httpServer.address()
@@ -49,8 +53,21 @@ try {
   await writeFile(join(out, 'page.html'), stdout)
   await writeFile(join(out, 'browser.log'), stderr)
   const raw = /<pre id="results">([^<]*)<\/pre>/.exec(stdout)?.[1]
-  if (raw === undefined || raw === 'pending') throw new Error('Browser fixture did not finish; inspect page.html and browser.log')
-  const results = JSON.parse(raw.replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&'))
+  const browserErrors = /<pre id="browser-errors">([\s\S]*?)<\/pre>/.exec(stdout)?.[1]
+  /** 解码 Chromium dump-dom 输出的 HTML 文本。 */
+  const decodeBrowserText = value => value
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', "'")
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&')
+  const errorSummary = browserErrors === undefined ? '' : decodeBrowserText(browserErrors).trim().slice(0, 2000)
+  if (raw === undefined || raw === 'pending') {
+    const detail = errorSummary === '' ? 'inspect page.html and browser.log' : `Browser errors:\n${errorSummary}`
+    throw new Error(`Browser fixture did not finish; ${detail}`)
+  }
+  if (errorSummary !== '') throw new Error(`Browser reported client errors:\n${errorSummary}`)
+  const results = JSON.parse(decodeBrowserText(raw))
   await writeFile(join(out, 'results.json'), JSON.stringify(results, null, 2) + '\n')
   if (results.length !== 118) throw new Error(`Expected 118 initial/repeated-control layout checks, got ${results.length}`)
   const failed = results.filter(result => !result.pass)
