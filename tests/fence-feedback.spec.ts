@@ -18,6 +18,7 @@ import {
   planFenceFeedback,
   FEEDBACK_PLUGIN_NAME,
   FEEDBACK_SOURCE_KIND,
+  MAX_CORRECTIONS_PER_TURN,
 } from '../src/plugin/fence-feedback.ts'
 
 /** A fence body that renders: one stat carrying a metric list (#172 case A). */
@@ -1039,6 +1040,19 @@ describe('persisted fence feedback lifecycle', () => {
     try {
       h.startTurn()
       h.validate()
+      // 第一次只有 reasoning：提醒尚可用，放行让 turn-stopping 去 steer。
+      const first = await collectChunks(h.ctx.waterfall('llm/stream', agentRequest({ sessionId: h.session.id }), () => streamChunks([
+        { type: 'block-start', index: 0, blockType: 'reasoning' },
+        { type: 'reasoning-delta', index: 0, text: 'private reasoning draft' },
+        { type: 'block-end', index: 0, block: { type: 'reasoning', text: 'private reasoning draft' } },
+        { type: 'finish', reason: { kind: 'stop' } },
+      ])))
+      expect((first.at(-1) as Extract<StreamChunk, { type: 'finish' }>).reason.kind).toBe('stop')
+
+      h.boundary()
+      expect(h.steer).toHaveBeenCalledTimes(1)
+
+      // reload 后提醒记录被恢复：再次只有 reasoning 时仍交给宿主重试兜底。
       let chunks: StreamChunk[] = []
       await h.reload(async () => {
         chunks = await collectChunks(h.ctx.waterfall('llm/stream', agentRequest({ sessionId: h.session.id }), () => streamChunks([
@@ -1102,6 +1116,106 @@ describe('persisted fence feedback lifecycle', () => {
         agent: { session: restored, steer } as never, turn: 7, signal: new AbortController().signal,
       })
       expect(steer).not.toHaveBeenCalled()
+    } finally {
+      await h.dispose()
+    }
+  })
+})
+
+// 端到端路径：只有 reasoning 的回合不再被当场判死，而是正常结束、在 turn-stopping
+// 边界 steer 一条交付提醒进会话；那条提醒就是 agent-loop 下一次请求的消息来源。
+// 第二次仍然只有 reasoning 时才退回 EMPTY_RESPONSE，交给宿主既有重试策略。
+describe('reasoning-only 交付提醒进入下一次模型请求', () => {
+  /** 只有 reasoning、没有任何正文与工具调用的流。 */
+  const reasoningOnlyStream: StreamChunk[] = [
+    { type: 'block-start', index: 0, blockType: 'reasoning' },
+    { type: 'reasoning-delta', index: 0, text: 'private reasoning draft' },
+    { type: 'block-end', index: 0, block: { type: 'reasoning', text: 'private reasoning draft' } },
+    { type: 'finish', reason: { kind: 'stop' } },
+  ]
+
+  it('lets the turn finish so turn-stopping can steer the reminder into the conversation', async () => {
+    const h = await persistedFeedbackHarness()
+    try {
+      h.startTurn()
+      h.validate()
+
+      // 提醒尚未发出：放行原始 stop，回合正常结束，而不是把已产生的整轮输出判死。
+      const chunks = await collectChunks(h.ctx.waterfall(
+        'llm/stream',
+        agentRequest({ sessionId: h.session.id }),
+        () => streamChunks(reasoningOnlyStream),
+      ))
+      expect((chunks.at(-1) as Extract<StreamChunk, { type: 'finish' }>).reason.kind).toBe('stop')
+
+      // 回合边界：交付提醒被 steer 进会话，成为下一次请求的消息来源。
+      h.boundary()
+      expect(h.steer).toHaveBeenCalledTimes(1)
+
+      const lastUserMessage = h.session.snapshotEvents()
+        .filter(event => event.type === 'user/message')
+        .at(-1)
+      const text = JSON.stringify(lastUserMessage)
+      expect(text).toContain('本轮尚未产生正式回答')
+      expect(text).toContain('next=emit_fence_in_body')
+    } finally {
+      await h.dispose()
+    }
+  })
+
+  it('falls back to EMPTY_RESPONSE only after the reminder was already sent', async () => {
+    const h = await persistedFeedbackHarness()
+    try {
+      h.startTurn()
+      h.validate()
+
+      const first = await collectChunks(h.ctx.waterfall(
+        'llm/stream',
+        agentRequest({ sessionId: h.session.id }),
+        () => streamChunks(reasoningOnlyStream),
+      ))
+      expect((first.at(-1) as Extract<StreamChunk, { type: 'finish' }>).reason.kind).toBe('stop')
+
+      h.boundary()
+      expect(h.steer).toHaveBeenCalledTimes(1)
+
+      // 提醒已发仍然只有 reasoning：才交给宿主重试兜底。
+      const second = await collectChunks(h.ctx.waterfall(
+        'llm/stream',
+        agentRequest({ sessionId: h.session.id }),
+        () => streamChunks(reasoningOnlyStream),
+      ))
+      expect(second.at(-1)).toMatchObject({
+        type: 'finish',
+        reason: { kind: 'error', failure: { code: 'EMPTY_RESPONSE' } },
+      })
+    } finally {
+      await h.dispose()
+    }
+  })
+
+  it('falls back to EMPTY_RESPONSE when the shared correction budget is exhausted', async () => {
+    const h = await persistedFeedbackHarness()
+    try {
+      h.startTurn()
+      h.validate()
+
+      h.assistant(BROKEN)
+      h.boundary()
+      h.assistant('{"items":[{"type":"table"}]}')
+      h.boundary()
+      expect(h.steer).toHaveBeenCalledTimes(MAX_CORRECTIONS_PER_TURN)
+
+      const chunks = await collectChunks(h.ctx.waterfall(
+        'llm/stream',
+        agentRequest({ sessionId: h.session.id }),
+        () => streamChunks(reasoningOnlyStream),
+      ))
+
+      expect(chunks.at(-1)).toMatchObject({
+        type: 'finish',
+        reason: { kind: 'error', failure: { code: 'EMPTY_RESPONSE' } },
+      })
     } finally {
       await h.dispose()
     }
