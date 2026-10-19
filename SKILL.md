@@ -52,13 +52,13 @@ description: "Render structured interactive UI inline through the dsh-ui fence. 
 - callout: `{"type":"callout","tone":"info|success|warning|error","title":"...","content":"..."}` — 用于单条强调、提醒或风险摘要；`content` 是文本字符串，可用 JSON `"\n"` 分行。多条独立事项用 `list` 的 `{title,desc}` 保留逐项层次
 - steps: `{"type":"steps","current":n,"steps":[{"title":"...","desc":"..."}]}`
 - arrow: `{"type":"arrow","dir":"down|right","length":16-96,"label":"..."}` — 图里两个块之间的**细线连接件**（1.4px 线宽 + V 形箭头，固定长度）。上下流程图一律用它，**不要用文字「↓」**：字符箭头跟着文字基线走，撑不开间距
-- icon: `{"type":"icon","name":"Nodes","tone":"info|success|warning|danger|muted|default","size":16|20|24|32,"tile":true,"label":"<user-language 无障碍名>"}` — 内置图标集（753 个；常用 62 个内联秒开，其余首次使用时载入，完整名单见 ICON-NAMES.md）。`tile:true` 画成**淡色圆角方底**，用于阶段卡/语义标记；不带 `tile` 是跟随文字色的行内图标。`label` 可省略（纯装饰），成对出现时只给一个加 label
+- icon: `{"type":"icon","name":"Nodes","tone":"info|success|warning|danger|muted|default","size":16|20|24|32,"tile":true,"label":"<user-language 无障碍名>"}` — 内置图标集（749 个可忠实渲染；64 个内联秒开，其余首次使用时载入，完整名单见 ICON-NAMES.md）。`tile:true` 画成**淡色圆角方底**，用于阶段卡/语义标记；不带 `tile` 是跟随文字色的行内图标。`label` 可省略（纯装饰），成对出现时只给一个加 label
 - blocks: `{"type":"blocks","title":"...","rows":[{"label":"初始","cells":["0","1","2"],"color":"#64748b"}],"columns":n?,"caption":"..."}` — **色块图解**：按行分组的格子。三种形态同一个结构：① 阶梯图（每行格子数不同，各行自己等分宽度，如 8→4→2→1）② 等分块（一行 4 块）③ 泳道图（`columns` 固定列数，`cells` 里写 `"—"` 或留空）。`color` 省略时用强调色淡底；文字颜色按亮度自动反转（深底白字/浅底黑字）。**有「分成几份、逐轮推进、分组对照」的结构就用它，不要手写 svg 坐标。** `caption` 必写：一句话说明每格代表什么
   - 行级 `"variant":"outline"`：细边框不填充，用于**矩阵**（每格都是一个框）；`"variant":"plain"`：连框都不画，用于**位串**（`1 0 1 0 0 0 0 0` 读起来是数字不是表格）——只有带 `tone`/`color` 的格子会画出底色
   - 格子可以写成对象：`{"text":"1","tone":"danger","sub":"SF"}` —— `tone`（accent/success/warning/danger/muted）给**单个格子**上语义色，`sub` 在格子下方挂一行小字（位名、序号、角色）。`color` 可显式指定十六进制，优先于 tone
   - 例：`{"columns":8,"rows":[{"variant":"outline","cells":[{"text":"1","tone":"danger","sub":"SF"},"0","1","1","0","0","1","0","0"]}],"caption":"最高位为 1，所以 SF=1。"}`
 
-内置图标名：以下 **62 个内联在包里、立即渲染**，优先从这里面选：
+内置图标名：以下 **64 个内联在包里、立即渲染**，优先从这里面选：
 
 Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown ArrowUp ArrowRight ArrowLeft ArrowCurvedRight Function Functions Operator Atom Nodes Connect Share Branch Grid GridAlt Stack Cube Storage Chart Trending Pulse Speed Timer Clock TableFilled Code SquareCode Terminal File FileCode Folder Link Paperclip Lightbulb Book BookOpen GraduationCap Flask Lab Brain Robot Sparkles ShieldCheck Lock Globe WebsiteNetwork Search MagnifyingGlassSearch PluginPuzzle Settings Bolt Compass
 
@@ -261,7 +261,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 适用：一个过程有 2–4 个阶段，或一份数据被分成若干块、逐轮合并。
 
 ```json dsh-ui
-{"items":[{"type":"text","size":"h2","content":"<user-language 过程名>"},{"type":"card","items":[{"type":"row","items":[{"type":"icon","name":"Function","tone":"info","tile":true},{"type":"col","gap":2,"items":[{"type":"text","size":"h3","content":"<user-language 阶段一：名称>"},{"type":"text","size":"muted","content":"<user-language 这一步做什么>"}]}]},{"type":"text","size":"caption","content":"↓","align":"center"},{"type":"row","items":[{"type":"icon","name":"Nodes","tone":"success","tile":true},{"type":"col","gap":2,"items":[{"type":"text","size":"h3","content":"<user-language 阶段二：名称>"},{"type":"text","size":"muted","content":"<user-language 这一步做什么>"}]}]}]},{"type":"blocks","rows":[{"cells":["<user-language 块 0>","<user-language 块 1>","<user-language 块 2>","<user-language 块 3>"],"color":"#3d7eb8"}],"caption":"<user-language 每块代表什么>"}]}
+{"items":[{"type":"text","size":"h2","content":"<user-language 过程名>"},{"type":"card","items":[{"type":"row","items":[{"type":"icon","name":"Function","tone":"info","tile":true},{"type":"col","gap":2,"items":[{"type":"text","size":"h3","content":"<user-language 阶段一：名称>"},{"type":"text","size":"muted","content":"<user-language 这一步做什么>"}]}]},{"type":"arrow","length":22},{"type":"row","items":[{"type":"icon","name":"Nodes","tone":"success","tile":true},{"type":"col","gap":2,"items":[{"type":"text","size":"h3","content":"<user-language 阶段二：名称>"},{"type":"text","size":"muted","content":"<user-language 这一步做什么>"}]}]}]},{"type":"blocks","rows":[{"cells":["<user-language 块 0>","<user-language 块 1>","<user-language 块 2>","<user-language 块 3>"],"color":"#3d7eb8"}],"caption":"<user-language 每块代表什么>"}]}
 ```
 
 何时不用：只有一步就别画阶段图；纯数值对比用 `chart`，别把数字塞进色块。

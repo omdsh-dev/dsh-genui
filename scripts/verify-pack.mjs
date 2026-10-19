@@ -43,7 +43,10 @@ for (const entry of Object.values(pkgJson.exports)) {
 // engine assets the node-half route serves to the browser on demand.
 const required = [
   'package.json', 'LICENSE', 'SKILL.md', 'README.md', 'CHANGELOG.md', 'demo-prompts.md', 'cordis.patch.yml',
-  'lib/assets/mermaid.js', 'lib/assets/three.js',
+  'lib/assets/mermaid.js', 'lib/assets/three.js', 'lib/assets/icons.js',
+  // 字形资产与它的两份说明文件：漏掉任何一个都意味着 npm 用户拿到坏包，
+  // 而主渲染路径在本地开发时照样是绿的。
+  'ICON-NAMES.md', 'THIRD_PARTY_NOTICES.md',
   // ECharts ships as two bundles: core (common presets) + full (the rest).
   'lib/assets/echarts-core.js', 'lib/assets/echarts-full.js',
   // plugin_check 发布规范（issue #15）：tarball 必须携带可复现构建所需的

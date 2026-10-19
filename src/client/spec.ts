@@ -296,8 +296,8 @@ export interface GenuiIcon {
   /** Accessible name. Omit when the icon is decorative beside a visible label. */
   label?: string
   tone?: 'default' | 'muted' | 'info' | 'success' | 'warning' | 'danger'
-  /** Optical size in px. Defaults to 20. */
-  size?: 16 | 20 | 24 | 32
+  /** Optical size in px; the renderer clamps to the nearest of 16/20/24/32. */
+  size?: number
   /** Tinted rounded-square plate (figure / stage-card use). */
   tile?: boolean
 }

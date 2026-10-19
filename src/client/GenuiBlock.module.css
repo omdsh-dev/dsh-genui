@@ -2496,9 +2496,12 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 }
 
 /* `text.mono`: hex / binary / identifiers without the inline-code pill. */
+/* `text.mono`: monospace run without the inline-code pill. It deliberately
+   does NOT set a font size — an unconditional `title` size here silently
+   overrode `size: "caption"` / `size: "h2"` and made every mono run the same
+   optical size. */
 .text.textMono {
   font-family: var(--dsl-g-font-mono);
-  font-size: var(--dsl-g-font-title);
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
 }

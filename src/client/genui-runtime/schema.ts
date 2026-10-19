@@ -98,6 +98,8 @@ export const ARROW_DIRS = ['down', 'right'] as const
 export const ROW_JUSTIFY = ['start', 'center', 'end', 'between'] as const
 /** Block-row paint modes: filled cells, or outlined cells for bit grids. */
 export const BLOCKS_VARIANTS = ['fill', 'outline', 'plain'] as const
+/** 单格强调的语义档位。 */
+export const BLOCK_CELL_TONES = ['accent', 'success', 'warning', 'danger', 'muted'] as const
 /** Icon tones: the four semantic roles plus neutral/muted text colours. */
 export const ICON_TONES = ['default', 'muted', 'info', 'success', 'warning', 'danger'] as const
 /** Hero cover tones. */
@@ -170,6 +172,10 @@ const stepsRecordSchema = recordSchema(['title'], { title: 'string', desc: 'stri
 const keyValueRecordSchema = recordSchema(['key', 'value'], { key: 'string', value: 'string' }, {}, {}, { label: 'key' })
 const timelineRecordSchema = recordSchema(['title'], { title: 'string', desc: 'string', time: 'string' })
 // One `blocks` row. `cells` entries are text-or-null; `null` means "gap".
+// `cells` is a UNION (string | null | record), so it cannot hang off
+// `nested` — that path assumes every array entry is a record and would demand
+// objects for the plain-string cells. The object arm is validated by
+// validateNode's `blocks` case instead; the row schema only declares kinds.
 const blocksRowSchema = recordSchema(['cells'], { label: 'string', cells: 'array', color: 'string', variant: 'string' }, {}, { variant: BLOCKS_VARIANTS }, { title: 'label' })
 const diffRecordSchema = recordSchema(['path', 'newText'], { path: 'string', oldText: 'string-or-null', newText: 'string' })
 const plotParamSchema = recordSchema(['name', 'value'], {

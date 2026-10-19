@@ -24,14 +24,29 @@ let full: Readonly<Record<string, BundledIcon>> | undefined
 let load: Promise<void> | undefined
 const listeners = new Set<() => void>()
 
-/** Is `name` a real catalogue entry (even if its paths are not downloaded)? */
-export function isKnownIcon(name: string): boolean {
-  return ICONS[name] !== undefined || known.has(name)
+/**
+ * 原型链安全的存在性判断。
+ *
+ * `icon.name` 是模型能任意填的字符串：若直接用 `ICONS[name]`，`constructor` /
+ * `toString` / `__proto__` 会命中原型链拿到 truthy 对象，随后渲染器读 `shapes`
+ * 抛 TypeError，整块围栏变成错误卡——与「未知名字降级为圆点」的承诺相反。
+ * `Object.hasOwn` 只认自身属性。
+ */
+function hasIcon(source: Record<string, unknown> | undefined, name: string): boolean {
+  return source !== undefined && Object.hasOwn(source, name)
 }
 
-/** Resolve a glyph if its paths are already available, synchronously. */
+/** Is `name` a real catalogue entry (even if its shapes are not downloaded)? */
+export function isKnownIcon(name: string): boolean {
+  return hasIcon(ICONS as unknown as Record<string, unknown>, name) || known.has(name)
+}
+
+/** Resolve a glyph if its shapes are already available, synchronously. */
 export function resolveIcon(name: string): BundledIcon | undefined {
-  return ICONS[name] ?? full?.[name]
+  const inline = hasIcon(ICONS as unknown as Record<string, unknown>, name) ? ICONS[name] : undefined
+  if (inline !== undefined && Array.isArray(inline.shapes)) return inline
+  const lazy = hasIcon(full as unknown as Record<string, unknown> | undefined, name) ? full?.[name] : undefined
+  return lazy !== undefined && Array.isArray(lazy.shapes) ? lazy : undefined
 }
 
 /**

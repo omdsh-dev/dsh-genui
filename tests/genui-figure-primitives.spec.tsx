@@ -7,8 +7,9 @@
 import { cleanup, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { GenuiBlock } from '../src/client/GenuiBlock.tsx'
-import { repairGenuiSpec } from '../src/client/guard.ts'
+import { repairGenuiSpec, validateGenuiSpec } from '../src/client/guard.ts'
 import { readableOn } from '../src/client/blocks/blocks.tsx'
+import { GENUI_LIMITS } from '../src/client/genui-runtime/index.ts'
 
 afterEach(cleanup)
 
@@ -188,5 +189,101 @@ describe('figure layout additions (v12.2)', () => {
     const { container } = render(<GenuiBlock spec={spec} />)
     expect(container.querySelectorAll('[class*="blocksCellPlain"]')).toHaveLength(4)
     expect(container.querySelectorAll('[data-tone="danger"]')).toHaveLength(1)
+  })
+})
+
+describe('icon robustness (review #1 #2)', () => {
+  const hostile = ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf', 'prototype']
+
+  it('never throws for prototype-chain names', () => {
+    for (const name of hostile) {
+      const spec = repairGenuiSpec({ items: [{ type: 'icon', name }] })!
+      const { container } = render(<GenuiBlock spec={spec} />)
+      // 退化成一个中性圆点，而不是 ErrorBoundary 兜住的错误卡。
+      expect(container.querySelector('svg')).toBeNull()
+      expect(container.querySelector('[data-tone="default"]')).not.toBeNull()
+      expect(container.textContent).toBe('')
+    }
+  })
+
+  it('rejects prototype names before the lazy loader is asked', () => {
+    document.querySelectorAll('script[src*="assets/icons.js"]').forEach(node => node.remove())
+    for (const name of hostile) {
+      render(<GenuiBlock spec={repairGenuiSpec({ items: [{ type: 'icon', name }] })!} />)
+    }
+    expect(document.querySelector('script[src*="assets/icons.js"]')).toBeNull()
+  })
+
+  it('keeps fill-rule and stroke glyphs faithful to upstream', () => {
+    // File 在上游是 fill-rule=evenodd + clip-rule=evenodd 的复合形状。
+    const spec = repairGenuiSpec({ items: [{ type: 'icon', name: 'File' }] })!
+    const { container } = render(<GenuiBlock spec={spec} />)
+    const path = container.querySelector('svg path')
+    expect(path).not.toBeNull()
+    expect(path?.getAttribute('fill-rule')).toBe('evenodd')
+    expect(path?.getAttribute('clip-rule')).toBe('evenodd')
+  })
+})
+
+describe('blocks sanitisation (review #5)', () => {
+  it('drops a non-literal colour instead of passing it to inline style', () => {
+    const spec = repairGenuiSpec({
+      items: [{ type: 'blocks', rows: [{ color: 'url(https://evil.example/x)', cells: ['A', 'B'] }] }],
+    })!
+    const { container } = render(<GenuiBlock spec={spec} />)
+    const filled = [...container.querySelectorAll('[data-genui-blocks] span')]
+      .filter(node => (node as HTMLElement).style.background !== '')
+    expect(filled).toHaveLength(0)
+    expect(container.textContent).toContain('A')
+  })
+
+  it('rejects a var() colour that is not a host token', () => {
+    const spec = repairGenuiSpec({
+      items: [{ type: 'blocks', rows: [{ color: 'var(--attacker)', cells: ['A'] }] }],
+    })!
+    const { container } = render(<GenuiBlock spec={spec} />)
+    const cell = container.querySelector('[data-genui-blocks] span[style*="background"]')
+    expect(cell).toBeNull()
+  })
+
+  it('keeps a host-token colour and truncates oversized strings', () => {
+    const spec = repairGenuiSpec({
+      items: [{
+        type: 'blocks',
+        rows: [{ color: 'var(--dsw-static-blue-450)', cells: [{ text: 'x'.repeat(9000), color: '#1f6f7a', tone: 'danger', sub: 'y'.repeat(500) }] }],
+      }],
+    })!
+    const row = spec.items[0]!.rows[0]!
+    expect(row.color).toBe('var(--dsw-static-blue-450)')
+    expect(row.cells[0]!.text!.length).toBe(2000)
+    expect((row.cells[0] as { sub?: string }).sub!.length).toBe(128)
+    const { container } = render(<GenuiBlock spec={spec} />)
+    expect(container.querySelector('[data-tone="danger"]')).not.toBeNull()
+  })
+
+  it('caps rows and cells by the limits', () => {
+    const rows = Array.from({ length: 40 }, () => ({ cells: Array.from({ length: 30 }, () => 'x') }))
+    const spec = repairGenuiSpec({ items: [{ type: 'blocks', rows }] })!
+    const node = spec.items[0] as Extract<GenuiNode, { type: 'blocks' }>
+    expect(node.rows).toHaveLength(GENUI_LIMITS.maxBlocksRows)
+    expect(node.rows[0]!.cells).toHaveLength(GENUI_LIMITS.maxBlocksCells)
+  })
+})
+
+describe('validateGenuiSpec sees the new nodes (review #4)', () => {
+  it('does not report the registered figure types as unknown', () => {
+    const spec = { items: [
+      { type: 'icon', name: 'Nodes' },
+      { type: 'blocks', rows: [{ cells: ['A', 'B'] }] },
+      { type: 'arrow' },
+    ] }
+    expect(validateGenuiSpec(spec)).toEqual({ ok: true, errors: [] })
+  })
+
+  it('still reports a genuinely unregistered type', () => {
+    const spec = { items: [{ type: 'totally-made-up' }] }
+    const result = validateGenuiSpec(spec)
+    expect(result.ok).toBe(false)
+    expect(result.errors.join(' ')).toContain('unknown type')
   })
 })
