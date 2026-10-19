@@ -15,11 +15,12 @@ export { assertSafeSvg, ensureFlowchartKind, repairMermaidSource } from './merma
 
 /** The engine surface registered by the mermaid asset bundle. */
 interface MermaidAssetApi {
-  renderMermaid: (code: string) => Promise<string>
+  renderMermaid: (code: string, options?: { target?: HTMLElement | undefined }) => Promise<string>
 }
 
 interface RenderJob {
   code: string
+  target: HTMLElement | undefined
   signal: AbortSignal | undefined
   resolve: (svg: string) => void
   reject: (error: unknown) => void
@@ -83,7 +84,7 @@ function pump(): void {
           jobs.unshift(job)
           return
         }
-        const svg = await api.renderMermaid(job.code)
+        const svg = await api.renderMermaid(job.code, { target: job.target })
         job.signal?.throwIfAborted()
         job.resolve(svg)
       } catch (error) {
@@ -106,11 +107,11 @@ function pump(): void {
  *   fails, or the output fails the sanitization check.
  */
 // Queue one diagram; cancellation discards stale source before engine work.
-export function renderMermaid(code: string, options: { signal?: AbortSignal } = {}): Promise<string> {
+export function renderMermaid(code: string, options: { signal?: AbortSignal; target?: HTMLElement | undefined } = {}): Promise<string> {
   return new Promise((resolve, reject) => {
     const signal = options.signal
     if (signal?.aborted) { reject(signal.reason); return }
-    const job: RenderJob = { code, signal, resolve, reject, abort: () => {
+    const job: RenderJob = { code, target: options.target, signal, resolve, reject, abort: () => {
       const index = jobs.indexOf(job)
       if (index !== -1) jobs.splice(index, 1)
       reject(signal?.reason)

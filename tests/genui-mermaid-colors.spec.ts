@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { readMermaidThemeColor } from '../src/client/mermaid-colors.ts'
+import { readMermaidThemeColor, withMermaidColorOpacity } from '../src/client/mermaid-colors.ts'
 
 const TOKEN = '--genui-test-color'
 const FALLBACK = '#123456'
@@ -11,6 +11,21 @@ afterEach(() => {
 })
 
 describe('Mermaid theme colors', () => {
+  it.each([
+    ['rgb(34, 85, 170)', 'rgba(34, 85, 170, 0.62)'],
+    ['#2c2c2e', 'rgba(44, 44, 46, 0.62)'],
+    ['#abc', 'rgba(170, 187, 204, 0.62)'],
+    ['#12345680', 'rgba(18, 52, 86, 0.311)'],
+    ['rgba(20, 40, 60, 0.4)', 'rgba(20, 40, 60, 0.248)'],
+    ['rgba(20, 40, 60, 0)', 'rgba(0, 0, 0, 0)'],
+  ])('applies translucent node fill to %s without changing RGB or increasing alpha', (color, expected) => {
+    expect(withMermaidColorOpacity(color, 0.62)).toBe(expected)
+  })
+
+  it('rejects invalid node colors', () => {
+    expect(() => withMermaidColorOpacity('not-a-color', 0.62)).toThrow('Invalid Mermaid node color or opacity')
+  })
+
   it.each([
     ['#2255aa', 'rgb(34, 85, 170)'],
     ['red', 'rgb(255, 0, 0)'],

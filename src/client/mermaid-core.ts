@@ -16,7 +16,7 @@
  * @module @changfenhuang/dsh-genui/client/mermaid-core
  */
 import { assertSafeSvg, ensureFlowchartKind, repairMermaidSource } from './mermaid-safe.ts'
-import { readMermaidThemeColor } from './mermaid-colors.ts'
+import { readMermaidThemeColor, withMermaidColorOpacity } from './mermaid-colors.ts'
 
 let mermaidPromise: Promise<typeof import('mermaid')> | null = null
 
@@ -42,6 +42,7 @@ async function loadMermaid(): Promise<typeof import('mermaid')> {
     colors.set(name, color)
     return color
   }
+  const nodeFill = withMermaidColorOpacity(token('--dsw-alias-bg-layer-2', '#2c2c2e'), 0.62)
   api.initialize({
     startOnLoad: false,
     // Strict default: mermaid escapes/sanitizes; we never enable htmlLabels.
@@ -51,16 +52,16 @@ async function loadMermaid(): Promise<typeof import('mermaid')> {
       background: 'transparent',
       fontFamily: 'inherit',
       fontSize: '13px',
-      primaryColor: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
+      primaryColor: nodeFill,
       primaryTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
       primaryBorderColor: token('--dsw-alias-border-l2', 'rgba(255,255,255,0.12)'),
-      secondaryColor: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
+      secondaryColor: nodeFill,
       secondaryTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
       secondaryBorderColor: token('--dsw-alias-border-l2', 'rgba(255,255,255,0.12)'),
-      tertiaryColor: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
+      tertiaryColor: nodeFill,
       tertiaryTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
       tertiaryBorderColor: token('--dsw-alias-border-l2', 'rgba(255,255,255,0.12)'),
-      mainBkg: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
+      mainBkg: nodeFill,
       nodeBorder: token('--dsw-alias-border-l2', 'rgba(255,255,255,0.12)'),
       nodeTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
       lineColor: token('--dsw-alias-label-tertiary', '#8a8a92'),
@@ -77,6 +78,9 @@ async function loadMermaid(): Promise<typeof import('mermaid')> {
       '.cluster rect { rx: 10px; ry: 10px; }',
       '.edgePath .path { stroke-width: 1.4px; }',
       '.label { color: inherit; }',
+      // Keep labels visible if Mermaid's measured node box is a little narrow,
+      // e.g. while a host custom font is still loading.
+      '.node foreignObject, .nodeLabel { overflow: visible; }',
     ].join(' '),
     // Fail loudly: with suppressErrorRendering false (the default) mermaid
     // renders an "error" diagram on parse/draw failure — the caller then
@@ -102,12 +106,12 @@ const ALLOWED_KINDS = [
  * The container is therefore mounted off-screen for the duration of the
  * render — NOT `display:none`, which zeroes label measurements and makes
  * dagre fail with "Could not find a suitable point" — and removed when done. */
-async function renderInto(m: typeof import('mermaid'), id: string, code: string, container: HTMLDivElement): Promise<string> {
+async function renderInto(m: typeof import('mermaid'), id: string, code: string, container: HTMLDivElement, target?: HTMLElement): Promise<string> {
   container.style.position = 'fixed'
   container.style.left = '-100000px'
   container.style.top = '0'
   container.style.margin = '0'
-  document.body?.appendChild(container)
+  ;(target?.isConnected ? target : document.body)?.appendChild(container)
   try {
     const { svg } = await m.default.render(id, code, container)
     assertSafeSvg(svg)
@@ -124,7 +128,7 @@ async function renderInto(m: typeof import('mermaid'), id: string, code: string,
  * @throws when the kind is not whitelisted, rendering fails, or the output
  *   fails the sanitization check.
  */
-export async function renderMermaid(code: string): Promise<string> {
+export async function renderMermaid(code: string, options: { target?: HTMLElement | undefined } = {}): Promise<string> {
   let trimmed = code.trim()
   const firstLine = trimmed.split('\n', 1)[0] ?? ''
   let kind = /^([A-Za-z]+)/.exec(firstLine)?.[1] ?? ''
@@ -147,13 +151,13 @@ export async function renderMermaid(code: string): Promise<string> {
   const container = document.createElement('div')
   try {
     try {
-      return await renderInto(m, `genui-mermaid-${renderSeq++}`, trimmed, container)
+      return await renderInto(m, `genui-mermaid-${renderSeq++}`, trimmed, container, options.target)
     } catch (error) {
       // Retry once with the label-repair pass; a repaired source rendering
       // successfully beats a syntax-error fallback for the same content.
       const repaired = repairMermaidSource(trimmed)
       if (repaired !== trimmed) {
-        return await renderInto(m, `genui-mermaid-${renderSeq++}`, repaired, container)
+        return await renderInto(m, `genui-mermaid-${renderSeq++}`, repaired, container, options.target)
       }
       throw error
     }

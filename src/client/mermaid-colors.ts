@@ -1,3 +1,5 @@
+import { color as parseColor } from 'd3-color'
+
 /** Resolve host CSS colors before passing them to Mermaid's limited parser. */
 export function readMermaidThemeColor(name: string, fallback: string): string {
   if (typeof document === 'undefined' || document.body === null) return fallback
@@ -36,4 +38,13 @@ export function readMermaidThemeColor(name: string, fallback: string): string {
   } catch {
     return fallback
   }
+}
+
+/** Keep the resolved node fill and its existing alpha while reducing opacity. */
+export function withMermaidColorOpacity(color: string, opacity: number): string {
+  const parsed = parseColor(color)
+  if (parsed === null || !Number.isFinite(opacity) || opacity < 0 || opacity > 1) throw new Error('Invalid Mermaid node color or opacity')
+  const rgb = parsed.rgb()
+  rgb.opacity = Math.round(rgb.opacity * opacity * 1000) / 1000
+  return rgb.formatRgb()
 }

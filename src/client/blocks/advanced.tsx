@@ -300,7 +300,7 @@ export const MermaidNode = memo(function MermaidNode({ node }: { node: GenuiMerm
       controller = current
       void (async () => {
         try {
-          const svg = await renderMermaid(code, { signal: current.signal })
+          const svg = await renderMermaid(code, { signal: current.signal, target: ref.current ?? undefined })
           if (alive && !current.signal.aborted) {
             finished = true
             setState({ status: 'ready', html: svg })
