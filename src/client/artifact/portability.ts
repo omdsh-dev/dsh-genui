@@ -1,10 +1,11 @@
 import { echartEngineFor } from '../echarts-engine.ts'
 import type { GenuiNode, GenuiSpec } from '../spec.ts'
 import { GENUI_NATIVE_TYPES } from '../genui-runtime/schema.ts'
+import { ICONS } from '../icons/icon-data.ts'
 import { safeMediaSrc } from '../genui-runtime/value-utils.ts'
 import type { GenuiPortabilityReport, GenuiStandaloneAsset } from './types.ts'
 
-const ASSET_ORDER: GenuiStandaloneAsset[] = ['mermaid', 'three', 'echarts-core', 'echarts-full']
+const ASSET_ORDER: GenuiStandaloneAsset[] = ['mermaid', 'three', 'echarts-core', 'echarts-full', 'icons']
 
 /** 递归收集当前节点树依赖的引擎和媒体信息。 */
 function scan(items: unknown[], report: GenuiPortabilityReport, assets: Set<GenuiStandaloneAsset>): void {
@@ -15,6 +16,10 @@ function scan(items: unknown[], report: GenuiPortabilityReport, assets: Set<Genu
     if (node.type === 'mermaid') assets.add('mermaid')
     if (node.type === 'scene3d') assets.add('three')
     if (node.type === 'echart') assets.add(echartEngineFor(node as Extract<GenuiNode, { type: 'echart' }>))
+    // An icon outside the inlined 62 needs the lazily-fetched catalogue; a
+    // standalone export must therefore embed `icons` too, or the glyph degrades
+    // to the fallback dot in the exported HTML.
+    if (node.type === 'icon' && typeof node.name === 'string' && ICONS[node.name] === undefined) assets.add('icons')
     if (typeof node.action === 'string' || node.type === 'submit' && (typeof node.action === 'string' || typeof node.resetAction === 'string')) report.hasModelActions = true
     if (node.type === 'image' || node.type === 'audio' || node.type === 'video') {
       const src = safeMediaSrc(node.src)

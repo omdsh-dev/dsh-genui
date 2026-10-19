@@ -216,7 +216,7 @@ const standaloneConfig: UserConfig = {
  * main client bundle never contains either engine, so the eager download
  * drops from ~9 MB to the small renderer core.
  */
-function assetConfig(name: 'mermaid' | 'three' | 'echarts', entry: string): UserConfig {
+function assetConfig(name: 'mermaid' | 'three' | 'echarts' | 'echarts-core' | 'echarts-full' | 'icons', entry: string): UserConfig {
   return {
     name: `${ID}/assets/${name}`,
     entry: { [`assets/${name}`]: entry },
@@ -268,4 +268,7 @@ export default [
   assetConfig('three', 'src/client/asset-three.ts'),
   assetConfig('echarts-core', 'src/client/asset-echarts-core.ts'),
   assetConfig('echarts-full', 'src/client/asset-echarts.ts'),
+  // Full 753-glyph icon catalogue (~870 KB of path data): fetched once, only
+  // when a spec names a glyph outside the 61 inlined in icon-data.ts.
+  assetConfig('icons', 'src/client/icons/asset-icons.ts'),
 ]

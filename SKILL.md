@@ -17,18 +17,18 @@ description: "Render structured interactive UI inline through the dsh-ui fence. 
 
 ## 组件词汇（只允许这些 type）
 
-布局：`text` `row` `col` `grid` `card` `divider` `spacer`
-展示：`stat` `badge` `progress` `list` `table` `keyvalue` `avatar` `image` `audio` `video` `timeline` `file-tree` `breadcrumb` `diff` `json` `code` `callout` `steps`
+布局：`text` `row` `col` `grid` `card` `divider` `spacer` `arrow` `hero`
+展示：`stat` `badge` `progress` `list` `table` `keyvalue` `avatar` `image` `audio` `video` `timeline` `file-tree` `breadcrumb` `diff` `json` `code` `callout` `steps` `icon` `blocks`
 图表：`chart`（bars/line/donut，可多序列）`plot`（数学函数图）`echart`（ECharts 全功能图表）
-交互：`button` `input` `select` `checkbox` `radio` `switch` `textarea` `tabs` `accordion` `copy`
+交互：`button` `input` `select` `checkbox` `radio` `switch` `slider` `textarea` `tabs` `accordion` `copy` `link` `submit`
 
 ### 布局
-- text: `{"type":"text","size":"display|h1|h2|h3|body|muted|caption","content":"...","align":"left|center|right"?}`（`size:"display"` 比标题大一档，作引言/开篇点题句，**一条回答 ≤1**；`center:true` 是旧写法，等价 `align:"center"`，新写一律用 `align`）
-- row / col: `{"type":"row"|"col","items":[...],"wrap":true?,"spacer":true?,"gap":n?}`
+- text: `{"type":"text","size":"display|h1|h2|h3|body|muted|caption","content":"...","align":"left|center|right"?}`（`tone:"danger|success|warning|info|muted"` 给整行文字上语义色，不用套 badge；`mono:true` 走等宽字体，用于十六进制/二进制/标识符，不带行内代码底色）（`size:"display"` 比标题大一档，作引言/开篇点题句，**一条回答 ≤1**；`center:true` 是旧写法，等价 `align:"center"`，新写一律用 `align`）
+- row / col: `{"type":"row"|"col","items":[...],"wrap":true?,"spacer":true?,"gap":n?}`；`row.justify:"center"` 主轴居中（图标+标题那种图头）；`col.width:n`（1-100）给这一列占行宽的百分比，不写就按内容宽
 - grid: `{"type":"grid","cols":n,"items":[...]}`
 - hero: `{"type":"hero","title":"<user-language title>","subtitle":"<user-language text>","value":"99.96%","label":"<user-language metric>","delta":"+0.02%","spark":[...],"tone":"accent|success|warning|danger"}` — **封面块**：eyebrow + 超大数字（52px，带入场计数）+ 标题 + 副标题 + tone 渐变底色。**一条回答最多用一个**，放在最前面当视觉锚点
 - span: 任意节点都可加 `"span":2`（grid 子节点占几列）——bento 排版的唯一原语：一张 `span:2` 宽卡配一张窄卡，比一列方块堆下去好看得多
-- card: `{"type":"card","title":"...","items":[...]}`；`"tone":"info|success|warning|danger"` 给卡片语义底色（用于结论卡/风险卡）；`"accent":"#f59e0b"` 指定强调色（边框 + 标题 + 极淡底色）；`"eyebrow":"<user-language 小引题>"` 在标题上方加一行 meta 小字（把多张卡分章时用——**连续同章的卡片不要每张都加**，一段回答 ≤3 个）
+- card: `{"type":"card","title":"...","items":[...]}`；`"tone":"info|success|warning|danger"` 给卡片语义底色（用于结论卡/风险卡）；`"accent":"#f59e0b"` 指定强调色（边框 + 标题 + 极淡底色）；`"flat":true` 去掉阴影、换成极淡中性底——**图里的面板必须用 flat**，否则每层都像浮起的卡片，叠两层就脏了；`"eyebrow":"<user-language 小引题>"` 在标题上方加一行 meta 小字（把多张卡分章时用——**连续同章的卡片不要每张都加**，一段回答 ≤3 个）
 - palette: `chart` / `echart` 都支持 `"palette":["#ff8800","#3ecf8e"]` 覆盖分类色板（默认跟随宿主主题）。**只有语义上需要指定颜色时才写**（成本=红、收益=绿），否则跟随主题更稳
 - divider: `{"type":"divider"}`；**带章节名** `{"type":"divider","label":"<user-language 章节名>"}`（线 + 小标签居中，作章节切换：报告从摘要切入数据、图表册开新章时用一段；卡片/列表内部、连续同主题内容之间**不要用**，一条回答 ≤3 个）; spacer: `{"type":"spacer"}`
 
@@ -51,7 +51,18 @@ description: "Render structured interactive UI inline through the dsh-ui fence. 
 - code: `{"type":"code","lang":"ts","code":"..."}`
 - callout: `{"type":"callout","tone":"info|success|warning|error","title":"...","content":"..."}` — 用于单条强调、提醒或风险摘要；`content` 是文本字符串，可用 JSON `"\n"` 分行。多条独立事项用 `list` 的 `{title,desc}` 保留逐项层次
 - steps: `{"type":"steps","current":n,"steps":[{"title":"...","desc":"..."}]}`
+- arrow: `{"type":"arrow","dir":"down|right","length":16-96,"label":"..."}` — 图里两个块之间的**细线连接件**（1.4px 线宽 + V 形箭头，固定长度）。上下流程图一律用它，**不要用文字「↓」**：字符箭头跟着文字基线走，撑不开间距
+- icon: `{"type":"icon","name":"Nodes","tone":"info|success|warning|danger|muted|default","size":16|20|24|32,"tile":true,"label":"<user-language 无障碍名>"}` — 内置图标集（753 个；常用 62 个内联秒开，其余首次使用时载入，完整名单见 ICON-NAMES.md）。`tile:true` 画成**淡色圆角方底**，用于阶段卡/语义标记；不带 `tile` 是跟随文字色的行内图标。`label` 可省略（纯装饰），成对出现时只给一个加 label
+- blocks: `{"type":"blocks","title":"...","rows":[{"label":"初始","cells":["0","1","2"],"color":"#64748b"}],"columns":n?,"caption":"..."}` — **色块图解**：按行分组的格子。三种形态同一个结构：① 阶梯图（每行格子数不同，各行自己等分宽度，如 8→4→2→1）② 等分块（一行 4 块）③ 泳道图（`columns` 固定列数，`cells` 里写 `"—"` 或留空）。`color` 省略时用强调色淡底；文字颜色按亮度自动反转（深底白字/浅底黑字）。**有「分成几份、逐轮推进、分组对照」的结构就用它，不要手写 svg 坐标。** `caption` 必写：一句话说明每格代表什么
+  - 行级 `"variant":"outline"`：细边框不填充，用于**矩阵**（每格都是一个框）；`"variant":"plain"`：连框都不画，用于**位串**（`1 0 1 0 0 0 0 0` 读起来是数字不是表格）——只有带 `tone`/`color` 的格子会画出底色
+  - 格子可以写成对象：`{"text":"1","tone":"danger","sub":"SF"}` —— `tone`（accent/success/warning/danger/muted）给**单个格子**上语义色，`sub` 在格子下方挂一行小字（位名、序号、角色）。`color` 可显式指定十六进制，优先于 tone
+  - 例：`{"columns":8,"rows":[{"variant":"outline","cells":[{"text":"1","tone":"danger","sub":"SF"},"0","1","1","0","0","1","0","0"]}],"caption":"最高位为 1，所以 SF=1。"}`
 
+内置图标名：以下 **62 个内联在包里、立即渲染**，优先从这里面选：
+
+Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown ArrowUp ArrowRight ArrowLeft ArrowCurvedRight Function Functions Operator Atom Nodes Connect Share Branch Grid GridAlt Stack Cube Storage Chart Trending Pulse Speed Timer Clock TableFilled Code SquareCode Terminal File FileCode Folder Link Paperclip Lightbulb Book BookOpen GraduationCap Flask Lab Brain Robot Sparkles ShieldCheck Lock Globe WebsiteNetwork Search MagnifyingGlassSearch PluginPuzzle Settings Bolt Compass
+
+其余 **692 个按需载入**（首次用到时拉取约 900 KB，此后本页全部可用）。完整名单在本 SKILL 同目录的 `ICON-NAMES.md`——需要猜名字时读它或 grep 它，不要在对话里穷举。
 ### 图表
 - chart: `{"type":"chart","kind":"bars|line|donut","data":[{"label":"...","value":n,"color":"#hex?"}],"series":[{"label":"...","data":[...]}]?,"horizontal":true?}` — bars 默认；line 趋势；donut 占比；**series：bars 是分组柱，line 是多序列折线**；**`horizontal:true` 画横向柱**（排行/长标签首选）；**`stacked:true` 把 series 堆叠**（构成/占比随时间）；堆叠段够高时数值直接印在段内，鼠标悬停任意柱/段/点/扇区都会弹出即时 tooltip（堆叠显示该段数值 + 合计）。v3 渲染：宽度自适应、Y 轴 1/2/5 刻度、单序列负值在零线以下真实绘制、line 带面积渐变与抽稀 X 标签、donut 图例显示数值与百分比。**≤8 个点的快速对比用 chart；多序列、需要缩放/交互或数据量大时用 echart**
 - plot: `{"type":"plot","series":[{"expr":"a*sin(b*x)","label":"...","color":"#hex?","params":[{"name":"a","value":1,"min":0,"max":5,"animateTo":3,"durationMs":4000,"loop":true},{"name":"b","value":1,"min":0.5,"max":5}]}],"xMin":-6.28,"xMax":6.28,"title":"..."}` — SVG 函数图；**series 可带 `"kind":"line|area|scatter"`**（缺省 line；area 填色到基线；scatter 散点）；**params 渲染成实时滑块**（拖动即时重绘，**y 轴锁定**=只变曲线不变数轴）；**animateTo 参数会显示播放按钮**（自动动画演示）；SVG 可拖拽平移、滚轮缩放；表达式支持 sin/cos/tan/asin/acos/atan/sqrt/cbrt/exp/log/ln/abs/floor/ceil/round/min/max/pow，常量 pi/e/tau，变量 x（其他字母=参数）
@@ -244,6 +255,16 @@ description: "Render structured interactive UI inline through the dsh-ui fence. 
 ## 编排范式：高频场景的默认起点
 
 范式是**验证过的起点，不是模板**：判断永远优先（上一节的「不要照抄」同样适用于范式）。六个范式各管一类高频场景——**数据问答**用「主表明细」、**分析收尾**用「结论卡」、**报告开篇**用「封面页」、**方案权衡**用「对比页」、**过程复盘**用「时间线叙事」、**教学自测**用「测验页」。从成套结构出发、按需增删；范式之外的场景自由组合。
+
+### 阶段图（讲清「分几步 / 怎么变」的默认结构）
+
+适用：一个过程有 2–4 个阶段，或一份数据被分成若干块、逐轮合并。
+
+```json dsh-ui
+{"items":[{"type":"text","size":"h2","content":"<user-language 过程名>"},{"type":"card","items":[{"type":"row","items":[{"type":"icon","name":"Function","tone":"info","tile":true},{"type":"col","gap":2,"items":[{"type":"text","size":"h3","content":"<user-language 阶段一：名称>"},{"type":"text","size":"muted","content":"<user-language 这一步做什么>"}]}]},{"type":"text","size":"caption","content":"↓","align":"center"},{"type":"row","items":[{"type":"icon","name":"Nodes","tone":"success","tile":true},{"type":"col","gap":2,"items":[{"type":"text","size":"h3","content":"<user-language 阶段二：名称>"},{"type":"text","size":"muted","content":"<user-language 这一步做什么>"}]}]}]},{"type":"blocks","rows":[{"cells":["<user-language 块 0>","<user-language 块 1>","<user-language 块 2>","<user-language 块 3>"],"color":"#3d7eb8"}],"caption":"<user-language 每块代表什么>"}]}
+```
+
+何时不用：只有一步就别画阶段图；纯数值对比用 `chart`，别把数字塞进色块。
 
 ### 主表明细（数据问答的默认结构）
 

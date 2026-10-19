@@ -62,10 +62,10 @@ const pending = new Map<string, Promise<Record<string, unknown>>>()
  * file: repeated requests (several mermaid nodes, re-renders) share one
  * script load; a failed load stays failed for the page (the component shows
  * its fallback).
- * @param name - 'mermaid', 'three', 'echarts-core', or 'echarts-full'.
+ * @param name - 'mermaid', 'three', 'echarts-core', 'echarts-full', or 'icons'.
  * @returns the registered engine surface.
  */
-export function loadGenuiAsset<T>(name: 'mermaid' | 'three' | 'echarts-core' | 'echarts-full'): Promise<T> {
+export function loadGenuiAsset<T>(name: 'mermaid' | 'three' | 'echarts-core' | 'echarts-full' | 'icons'): Promise<T> {
   const preloaded = preloadedAsset(name)
   if (preloaded !== undefined) return Promise.resolve(preloaded as T)
   const file = `${name}.js`

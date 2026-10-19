@@ -26,6 +26,8 @@ import {
 import { DiagramNode } from './diagram/index.tsx'
 import { ImageNode } from './image.tsx'
 import { SvgNode } from './svg.tsx'
+import { IconNode } from './icon.tsx'
+import { BlocksNode } from './blocks.tsx'
 
 import { EChartNode } from '../EChartNode.tsx'
 
@@ -188,14 +190,22 @@ export function renderNode(
       // `align` is canonical; legacy `center: true` maps to the center class.
       const alignClass = node.align === undefined ? (node.center ? ` ${css.center}` : '') : ` ${css[node.align] ?? ''}`
       return (
-        <div key={key} className={`${css.text} ${css[size]}${alignClass}`}>
+        <div
+          key={key}
+          className={`${css.text} ${css[size]}${alignClass}${node.mono === true ? ` ${css.textMono}` : ''}`}
+          data-tone={node.tone}
+        >
           {renderInline(node.content)}
         </div>
       )
     }
     case 'row': {
       return (
-        <div key={key} className={css.row + (node.wrap ? ` ${css.wrap}` : '')}>
+        <div
+          key={key}
+          className={css.row + (node.wrap ? ` ${css.wrap}` : '')
+            + (node.justify === undefined || node.justify === 'start' ? '' : ` ${css[`justify${node.justify[0]!.toUpperCase()}${node.justify.slice(1)}`] ?? ''}`)}
+        >
           {node.items.map((c, i) => renderNode(c, i, onAction, depth + 1, answers))}
           {node.spacer && <div className={css.spacer} />}
         </div>
@@ -203,7 +213,14 @@ export function renderNode(
     }
     case 'col': {
       return (
-        <div key={key} className={css.col} style={node.gap !== undefined ? { gap: `${node.gap}px` } : undefined}>
+        <div
+          key={key}
+          className={css.col}
+          style={{
+            ...(node.gap !== undefined ? { gap: `${node.gap}px` } : {}),
+            ...(node.width !== undefined ? { flex: `0 0 ${node.width}%`, width: `${node.width}%` } : {}),
+          }}
+        >
           {node.items.map((c, i) => renderNode(c, i, onAction, depth + 1, answers))}
         </div>
       )
@@ -237,7 +254,11 @@ export function renderNode(
         '--dsl-card-accent': node.accent,
       } as CSSProperties
       return (
-        <div key={key} className={`${css.card}${toneClass}`} style={accentStyle}>
+        <div
+          key={key}
+          className={`${css.card}${toneClass}${node.flat === true ? ` ${css.cardFlat}` : ''}`}
+          style={accentStyle}
+        >
           {node.eyebrow !== undefined && <div className={css.cardEyebrow}>{renderInline(node.eyebrow)}</div>}
           {node.title !== undefined && <div className={css.cardTitle}>{renderInline(node.title)}</div>}
           {node.items.map((c, i) => renderNode(c, i, onAction, depth + 1, answers))}
@@ -440,6 +461,40 @@ export function renderNode(
       )
     }
     case 'spacer': return <div key={key} className={css.spacer} />
+    case 'icon': return <IconNode key={key} node={node} />
+    case 'blocks': return <BlocksNode key={key} node={node} />
+    case 'arrow': {
+      const down = (node.dir ?? 'down') === 'down'
+      const len = node.length ?? (down ? 26 : 32)
+      return (
+        <div
+          key={key}
+          className={css.arrow}
+          data-dir={down ? 'down' : 'right'}
+          data-genui-arrow
+        >
+          <svg
+            width={down ? 14 : len}
+            height={down ? len : 14}
+            viewBox={down ? `0 0 14 ${len}` : `0 0 ${len} 14`}
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path
+              d={down
+                ? `M7 1 V ${len - 7} M2.5 ${len - 8} L7 ${len - 2} L11.5 ${len - 8}`
+                : `M1 7 H ${len - 7} M${len - 8} 2.5 L${len - 2} 7 L${len - 8} 11.5`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {node.label !== undefined && <span className={css.arrowLabel}>{renderInline(node.label)}</span>}
+        </div>
+      )
+    }
     case 'plot': return <PlotNode key={key} plot={node} />
     case 'callout': return <CalloutNode key={key} node={node} />
     case 'steps': return <StepsNode key={key} steps={node} />

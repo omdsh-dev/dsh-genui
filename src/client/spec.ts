@@ -64,6 +64,9 @@ export type GenuiNode = (
   | GenuiBreadcrumb
   | GenuiQuiz
   | GenuiDiagram
+  | GenuiIcon
+  | GenuiBlocks
+  | GenuiArrow
 ) & GenuiLayoutHints
 
   | GenuiEChart
@@ -97,6 +100,10 @@ export interface GenuiText {
   content: string
   /** Legacy boolean shorthand; `align: 'center'` is the canonical form. */
   center?: boolean
+  /** Semantic colour for the run (danger renders red without a badge). */
+  tone?: 'danger' | 'success' | 'warning' | 'info' | 'muted'
+  /** Monospace run — hex, binary, identifiers — without the inline-code pill. */
+  mono?: boolean
   /** Horizontal alignment; `center?: true` normalizes to `align: 'center'`. */
   align?: 'left' | 'center' | 'right'
 }
@@ -262,6 +269,96 @@ export interface GenuiSpacer {
   type: 'spacer'
 }
 
+/* ---------------- v12: figure primitives ---------------- */
+
+/**
+ * `arrow`: a thin connector between two blocks of a figure.
+ *
+ * The text glyph `↓` was the only way to draw a flow before this: it sits on
+ * the text baseline, inherits body size, and cannot hold a fixed gap. This node
+ * draws a hairline with a chevron head at a fixed length, so a vertical flow
+ * reads as a diagram instead of a paragraph.
+ */
+export interface GenuiArrow {
+  type: 'arrow'
+  dir?: 'down' | 'right'
+  /** Shaft length in px (16-96). Defaults to 26 (down) / 32 (right). */
+  length?: number
+  /** Optional caption beside/under the arrow. */
+  label?: string
+}
+
+/** One glyph from the bundled (curated) icon catalogue. */
+export interface GenuiIcon {
+  type: 'icon'
+  /** Canonical catalogue name, e.g. `Nodes`. See ICON_NAMES / SKILL.md. */
+  name: string
+  /** Accessible name. Omit when the icon is decorative beside a visible label. */
+  label?: string
+  tone?: 'default' | 'muted' | 'info' | 'success' | 'warning' | 'danger'
+  /** Optical size in px. Defaults to 20. */
+  size?: 16 | 20 | 24 | 32
+  /** Tinted rounded-square plate (figure / stage-card use). */
+  tile?: boolean
+}
+
+/**
+ * One cell of a `blocks` row.
+ *
+ * A bare string is the common case (a label in a filled cell). The object form
+ * exists for figures that mark ONE cell out of many — a bit grid where the
+ * sign bit is highlighted, a lane where the current step is active — and for
+ * the small caption that hangs under a cell (`1` with `SF` beneath it).
+ */
+export type GenuiBlockCell = string | null | {
+  text: string
+  /** Per-cell fill (hex); overrides the row colour. */
+  color?: string
+  /** Per-cell semantic emphasis when no explicit hex is wanted. */
+  tone?: 'accent' | 'success' | 'warning' | 'danger' | 'muted'
+  /** Small caption under the cell (bit name, index, role…). */
+  sub?: string
+}
+
+/** One row of a `blocks` figure: a label plus its cells. */
+export interface GenuiBlocksRow {
+  /** Row label rendered to the left of the cells. */
+  label?: string
+  /** Cells, left to right. `null` renders a blank (unpainted) slot; use the
+   *  string `"—"` when a visible dash is wanted. */
+  cells: GenuiBlockCell[]
+  /** Fill for this row's cells (hex). Falls back to the accent wash. */
+  color?: string
+  /**
+   * `fill` (default) paints every cell with the row colour.
+   * `outline` leaves cells unfilled with a hairline border — matrices where
+   * every cell is a box. `plain` removes the box entirely (a bit string like
+   * `1 0 1 0 0 0 0 0` reads as digits, not as a table), so only a cell with an
+   * explicit `tone`/`color` draws a surface.
+   */
+  variant?: 'fill' | 'outline' | 'plain'
+}
+
+/**
+ * `blocks`: the declarative replacement for hand-written SVG block diagrams —
+ * a grid of filled cells grouped into labelled rows.
+ *
+ * Covers the three shapes models kept reaching for SVG to draw: a recursion /
+ * hierarchy ladder (each row divides its own width, 8 → 4 → 2 → 1), an equal
+ * row of parts (4 × "块 0"), and a lane/timeline grid (`columns` fixes the
+ * shared column count, `null` cells leave gaps).
+ */
+export interface GenuiBlocks {
+  type: 'blocks'
+  rows: GenuiBlocksRow[]
+  /** Fixed column count shared by every row. Omit to let each row divide its
+   *  own width equally. */
+  columns?: number
+  /** Figure caption rendered under the cells (the "每格代表…" line). */
+  caption?: string
+  title?: string
+}
+
 /* ---------------- container nodes ---------------- */
 
 export interface GenuiRow {
@@ -269,12 +366,17 @@ export interface GenuiRow {
   items: GenuiNode[]
   wrap?: boolean
   spacer?: boolean
+  /** Main-axis alignment. `center` is what figure headers need (icon + title
+   *  stacked over a caption); the default stays `start`. */
+  justify?: 'start' | 'center' | 'end' | 'between'
 }
 
 export interface GenuiCol {
   type: 'col'
   items: GenuiNode[]
   gap?: number
+  /** Width as a percentage of the row (1-100). Omit to size by content. */
+  width?: number
 }
 
 export interface GenuiGrid {
@@ -292,6 +394,9 @@ export interface GenuiCard {
   tone?: 'info' | 'success' | 'warning' | 'danger'
   /** Explicit accent (hex) driving the border, title and wash. */
   accent?: string
+  /** Drop the elevation and use a faint neutral fill: figure panels read as
+   *  printed blocks instead of floating cards. */
+  flat?: boolean
   items: GenuiNode[]
 }
 

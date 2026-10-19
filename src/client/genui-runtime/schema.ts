@@ -90,6 +90,16 @@ export const STAT_SIZES = ['hero'] as const
 export const PROGRESS_VARIANTS = ['bar', 'ring'] as const
 /** Semantic card surfaces. */
 export const CARD_TONES = ['info', 'success', 'warning', 'danger'] as const
+/** Text run tones (semantic colour without a badge). */
+export const TEXT_TONES = ['danger', 'success', 'warning', 'info', 'muted'] as const
+/** Arrow directions. */
+export const ARROW_DIRS = ['down', 'right'] as const
+/** Row main-axis alignment values. */
+export const ROW_JUSTIFY = ['start', 'center', 'end', 'between'] as const
+/** Block-row paint modes: filled cells, or outlined cells for bit grids. */
+export const BLOCKS_VARIANTS = ['fill', 'outline', 'plain'] as const
+/** Icon tones: the four semantic roles plus neutral/muted text colours. */
+export const ICON_TONES = ['default', 'muted', 'info', 'success', 'warning', 'danger'] as const
 /** Hero cover tones. */
 export const HERO_TONES = ['accent', 'success', 'warning', 'danger'] as const
 /** Table cell renderers (`table.types`, one entry per column). */
@@ -159,6 +169,8 @@ const stepsRecordSchema = recordSchema(['title'], { title: 'string', desc: 'stri
 // record otherwise fails "requires key" and the whole keyvalue drops.
 const keyValueRecordSchema = recordSchema(['key', 'value'], { key: 'string', value: 'string' }, {}, {}, { label: 'key' })
 const timelineRecordSchema = recordSchema(['title'], { title: 'string', desc: 'string', time: 'string' })
+// One `blocks` row. `cells` entries are text-or-null; `null` means "gap".
+const blocksRowSchema = recordSchema(['cells'], { label: 'string', cells: 'array', color: 'string', variant: 'string' }, {}, { variant: BLOCKS_VARIANTS }, { title: 'label' })
 const diffRecordSchema = recordSchema(['path', 'newText'], { path: 'string', oldText: 'string-or-null', newText: 'string' })
 const plotParamSchema = recordSchema(['name', 'value'], {
   name: 'string', value: 'number', min: 'number', max: 'number', step: 'number', animateTo: 'number', durationMs: 'number', loop: 'boolean',
@@ -255,6 +267,8 @@ export const SPEC_SCHEMA = GENUI_SPEC_SCHEMA
  * diagnostics, where erased interfaces are unavailable.
  */
 export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
+  // Thin connector for figures; the `↓` text glyph was the only option before.
+  arrow: schema([], { ...nodeFields, dir: 'string', length: 'number', label: 'string' }, { direction: 'dir' }, { enums: { dir: ARROW_DIRS } }),
   accordion: schema(['items'], { ...nodeFields, items: 'array' }, {}, { nested: { items: accordionHolderSchema } }),
   audio: schema(['src'], { ...nodeFields, src: 'string', alt: 'string', loop: 'boolean' }, { url: 'src', link: 'src' }),
   avatar: schema(['name'], { ...nodeFields, name: 'string', color: 'string' }),
@@ -268,7 +282,9 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   // badge uses `warn`), so models cross-write them onto callout — map them
   // onto the closest canonical tone instead of failing the enum (issue #186).
   callout: schema(['content'], { ...nodeFields, title: 'string', content: 'string', tone: 'string' }, { kind: 'tone', text: 'content', body: 'content', desc: 'content' }, { enums: { tone: CALLOUT_TONES }, valueAliases: { tone: { danger: 'error', warn: 'warning' } } }),
-  card: schema(['items'], { ...nodeFields, title: 'string', eyebrow: 'string', items: 'nodes', tone: 'string', accent: 'string' }, { label: 'title', content: 'items' }, { enums: { tone: CARD_TONES } }),
+  // `flat` drops the elevation/shadow: figure panels must read as printed
+  // blocks, not as floating cards (the reference diagrams are drawn flat).
+  card: schema(['items'], { ...nodeFields, title: 'string', eyebrow: 'string', items: 'nodes', tone: 'string', accent: 'string', flat: 'boolean' }, { label: 'title', content: 'items' }, { enums: { tone: CARD_TONES } }),
   chart: schema([], {
     ...nodeFields,
     kind: 'string',
@@ -291,7 +307,7 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   }),
   checkbox: schema(['label'], { ...nodeFields, label: 'string', checked: 'boolean', action: 'string', group: 'string' }),
   code: schema(['code'], { ...nodeFields, lang: 'string', code: 'string' }, { content: 'code', text: 'code' }),
-  col: schema(['items'], { ...nodeFields, items: 'nodes', gap: 'number' }),
+  col: schema(['items'], { ...nodeFields, items: 'nodes', gap: 'number', width: 'number' }),
   copy: schema(['text'], { ...nodeFields, label: 'string', text: 'string' }, { content: 'text', code: 'text', value: 'text' }),
   diagram: schema(['kind', 'nodes'], { ...nodeFields, kind: 'string', variant: 'string', title: 'string', nodes: 'array', edges: 'array', zones: 'array', theme: 'object' }, {}, {
     nested: { nodes: diagramNodeSchema, edges: diagramEdgeSchema, zones: diagramZoneSchema, theme: diagramThemeSchema },
@@ -310,6 +326,13 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   }),
   'file-tree': schema(['items'], { ...nodeFields, items: 'array' }, { nodes: 'items' }, { nested: { items: fileTreeNodeSchema } }),
   grid: schema(['items'], { ...nodeFields, cols: 'number', items: 'nodes' }),
+  // Figure primitives (v12). `blocks` exists so models stop hand-writing SVG
+  // coordinates for block diagrams; `icon` gives them the bundled glyph set
+  // instead of reaching for emoji. Both accept the field names models guess
+  // (`items`/`data` for rows, `icon` for name) so a near-miss never takes the
+  // whole fence down.
+  blocks: schema(['rows'], { ...nodeFields, rows: 'array', columns: 'number', caption: 'string', title: 'string' }, { items: 'rows', data: 'rows' }, { nested: { rows: blocksRowSchema } }),
+  icon: schema(['name'], { ...nodeFields, name: 'string', label: 'string', tone: 'string', size: 'number', tile: 'boolean' }, { icon: 'name' }, { enums: { tone: ICON_TONES } }),
   image: schema(['src'], { ...nodeFields, src: 'string', alt: 'string', caption: 'string' }, { url: 'src', link: 'src' }),
   input: schema([], { ...nodeFields, label: 'string', placeholder: 'string', value: 'string', inputType: 'string', action: 'string', id: 'string' }, {}, { enums: { inputType: INPUT_TYPES } }),
   json: schema(['value'], { ...nodeFields, value: 'unknown' }),
@@ -325,7 +348,7 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   // the whole fence) is dropped.
   quiz: schema(['question', 'options'], { ...nodeFields, question: 'string', options: 'array', explanation: 'string', id: 'string', action: 'string' }, { title: 'question', text: 'question', choices: 'options', items: 'options' }),
   radio: schema(['options'], { ...nodeFields, label: 'string', options: 'array', selected: 'number', action: 'string', group: 'string', answer: 'unknown', explanation: 'string' }, { items: 'options' }),
-  row: schema(['items'], { ...nodeFields, items: 'nodes', wrap: 'boolean', spacer: 'boolean' }),
+  row: schema(['items'], { ...nodeFields, items: 'nodes', wrap: 'boolean', spacer: 'boolean', justify: 'string' }, {}, { enums: { justify: ROW_JUSTIFY } }),
   scene3d: schema(['meshes'], { ...nodeFields, title: 'string', meshes: 'array', ambient: 'number', background: 'string' }, {}, { nested: { meshes: sceneMeshSchema } }),
   select: schema(['options'], { ...nodeFields, label: 'string', options: 'array', action: 'string', selected: 'number', id: 'string' }, { items: 'options' }),
   slider: schema([], { ...nodeFields, label: 'string', min: 'number', max: 'number', step: 'number', value: 'number', action: 'string', id: 'string' }),
@@ -346,7 +369,7 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   switch: schema(['label'], { ...nodeFields, label: 'string', checked: 'boolean', action: 'string' }),
   table: schema(['columns', 'rows'], { ...nodeFields, columns: 'array', rows: 'array', types: 'array', total: 'boolean', details: 'array', filter: 'string', filterColumn: 'number', sortField: 'string', export: 'boolean' }, { headers: 'columns', data: 'rows', items: 'rows' }),
   tabs: schema(['tabs'], { ...nodeFields, tabs: 'array' }, {}, { nested: { tabs: tabHolderSchema } }),
-  text: schema(['content'], { ...nodeFields, content: 'string', size: 'string', center: 'boolean', align: 'string' }, { text: 'content' }, { enums: { size: TEXT_SIZES, align: TEXT_ALIGNS } }),
+  text: schema(['content'], { ...nodeFields, content: 'string', size: 'string', center: 'boolean', align: 'string', tone: 'string', mono: 'boolean' }, { text: 'content' }, { enums: { size: TEXT_SIZES, align: TEXT_ALIGNS, tone: TEXT_TONES } }),
   textarea: schema([], { ...nodeFields, label: 'string', placeholder: 'string', rows: 'number', value: 'string', action: 'string', id: 'string' }),
   timeline: schema(['items'], { ...nodeFields, items: 'array' }, {}, { nested: { items: timelineRecordSchema } }),
   video: schema(['src'], { ...nodeFields, src: 'string', alt: 'string', poster: 'string', loop: 'boolean', muted: 'boolean', aspectRatio: 'string' }, { url: 'src', link: 'src' }, { enums: { aspectRatio: MEDIA_ASPECT_RATIOS } }),

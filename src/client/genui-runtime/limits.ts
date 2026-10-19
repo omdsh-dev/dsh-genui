@@ -39,6 +39,10 @@ export const GENUI_LIMITS = {
   maxKeyValuePairs: 24,
   /** Maximum `file-tree` nesting. */
   maxTreeDepth: 6,
+  /** Maximum `blocks` figure rows / cells per row. Cells are data, not nodes,
+   *  so a wide figure still costs one node against `maxNodes`. */
+  maxBlocksRows: 14,
+  maxBlocksCells: 16,
   /** Maximum `diagram` nodes / edges / zones / focal accents. */
   maxDiagramNodes: 9,
   maxDiagramEdges: 12,

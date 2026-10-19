@@ -24,7 +24,7 @@ import {
   BADGE_TONES, BUTTON_TONES, CALLOUT_TONES, CARD_TONES, CHART_KINDS, COMPONENT_SCHEMAS, HERO_TONES,
   DIAGRAM_EDGE_KINDS, DIAGRAM_KINDS, DIAGRAM_NODE_TYPES, DIAGRAM_ROUTES, DIAGRAM_VARIANTS,
   ECHART_PRESETS, FILE_TYPES, GENUI_NATIVE_TYPES, GENUI_SPEC_SCHEMA, INPUT_TYPES,
-  MEDIA_ASPECT_RATIOS, MESH_SHAPES, PLOT_KINDS, PROGRESS_VARIANTS, TABLE_CELL_TYPES, TEXT_ALIGNS, TEXT_SIZES,
+  ARROW_DIRS, MEDIA_ASPECT_RATIOS, MESH_SHAPES, PLOT_KINDS, PROGRESS_VARIANTS, ROW_JUSTIFY, TABLE_CELL_TYPES, TEXT_ALIGNS, TEXT_SIZES, TEXT_TONES,
 } from './genui-runtime/schema.ts'
 import type { ComponentFieldKind, ComponentRecordSchema, ComponentSchema } from './genui-runtime/schema.ts'
 import { normalizeGenuiSpec } from './genui-runtime/normalize.ts'
@@ -276,14 +276,38 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
         type: 'text', content,
         ...opt('size', enu(v.size, TEXT_SIZES)),
         ...opt('align', enu(v.align, TEXT_ALIGNS)),
+        ...opt('tone', enu(v.tone, TEXT_TONES)),
+        ...opt('mono', v.mono === true ? true : undefined),
         ...opt('center', v.center === true ? true : undefined),
       }
     }
+    case 'arrow': {
+      return {
+        type: 'arrow',
+        ...opt('dir', enu(v.dir, ARROW_DIRS)),
+        ...opt('length', int(v.length, 16, 96)),
+        ...opt('label', str(v.label, 200)),
+      }
+    }
     case 'row': {
-      return { type: 'row', items: repairItems(v.items, ctx, depth + 1), ...opt('wrap', v.wrap === true ? true : undefined), ...opt('spacer', v.spacer === true ? true : undefined) }
+      return {
+        type: 'row',
+        items: repairItems(v.items, ctx, depth + 1),
+        ...opt('wrap', v.wrap === true ? true : undefined),
+        ...opt('spacer', v.spacer === true ? true : undefined),
+        // Repair rebuilds every node from a hand-written field list, so a
+        // schema-only addition is silently dropped here. Keep the two in sync:
+        // figure headers need `justify: "center"` (icon + title over a caption).
+        ...opt('justify', enu(v.justify, ROW_JUSTIFY)),
+      }
     }
     case 'col': {
-      return { type: 'col', items: repairItems(v.items, ctx, depth + 1), ...opt('gap', num(v.gap, 0, 96)) }
+      return {
+        type: 'col',
+        items: repairItems(v.items, ctx, depth + 1),
+        ...opt('gap', num(v.gap, 0, 96)),
+        ...opt('width', num(v.width, 1, 100)),
+      }
     }
     case 'grid': {
       return { type: 'grid', cols: int(v.cols, 1, GENUI_LIMITS.maxGridCols) ?? 1, items: repairItems(v.items, ctx, depth + 1) }
@@ -296,6 +320,7 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
         ...opt('title', str(v.title, GENUI_LIMITS.maxString)),
         ...opt('tone', enu(v.tone, CARD_TONES)),
         ...opt('accent', color(v.accent)),
+        ...opt('flat', v.flat === true ? true : undefined),
       }
     }
     case 'button': {
