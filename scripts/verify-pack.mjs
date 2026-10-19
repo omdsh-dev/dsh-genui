@@ -19,8 +19,12 @@ const { values: options } = parseArgs({
   strict: true,
 })
 
-const MAX_TARBALL = Number(process.env.GENUI_PACK_MAX_TARBALL ?? 3 * 1024 * 1024)
-const MAX_UNPACKED = Number(process.env.GENUI_PACK_MAX_UNPACKED ?? 10 * 1024 * 1024)
+// 2026-10-19: 字形目录（753 个 apps-sdk-ui glyph，MIT）把包体推过原上限：
+// +0.29 MB tarball / +1.80 MB unpacked，其中 lib/assets/icons.js 是运行时
+// 懒加载资源、src/client/icons/icon-data-full.ts 是它的可复现构建输入（issue #15）。
+// 两者都不可裁掉，因此把上限显式抬一档；若上游决定缩减字形集，同步回落这两个值。
+const MAX_TARBALL = Number(process.env.GENUI_PACK_MAX_TARBALL ?? 4 * 1024 * 1024)
+const MAX_UNPACKED = Number(process.env.GENUI_PACK_MAX_UNPACKED ?? 12 * 1024 * 1024)
 
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
