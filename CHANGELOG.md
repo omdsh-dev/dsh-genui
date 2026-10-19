@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### 新增
+
+- 新增 `icon` 节点：内置 OpenAI Apps SDK UI 全量 753 个字形（MIT，见 `THIRD_PARTY_NOTICES.md`），常用 62 个随客户端内联渲染，其余首次使用时经 `lib/assets/icons.js` 一次性载入；未知名字降级为中性圆点，不触发下载。
+- 新增 `blocks` 节点：按行分组的色块图，覆盖阶梯（8→4→2→1）、等分块与泳道三种形态。支持 `columns` 固定列数、行级 `variant`（`fill` / `outline` / `plain`）、单元格 `tone` / `color` / `sub`；格子是数据而非节点，64 格仍只占 1 个节点预算。
+- 新增 `arrow` 节点：细线连接件（`dir` / `length` / `label`），替代此前只能用文字「↓」表达流程的做法。
+- 新增排版字段：`card.flat`（去阴影的图内面板）、`text.tone`（语义色文字）、`text.mono`（等宽文字，无行内代码底色）、`col.width`（按百分比占行宽）、`row.justify`（主轴对齐）。
+- `SKILL.md` 新增「阶段图」编排范式；图标名清单拆到 `ICON-NAMES.md`，按需 grep，不再随 SKILL 全量加载。
+
+### 变更
+
+- 语义底纹浓度由 8% 调整为 12%（深色主题 18%）：8% 在白色画布上的明度差不足 3%，badge、callout、card tone 与新图标底板都会退化为纯白。新增 `--dsl-g-tint-quiet` 保留旧的 8% 档位。
+
+### 修复
+
+- 修复 `repairGenuiSpec` 重建节点时丢弃 `row.justify` 的问题：repair 维护着第二份手写字段表，新增字段必须在 `src/client/guard.ts` 同步登记。
+- 独立导出（artifact / standalone）的资源枚举补上 `icons`，避免离线 HTML 中的非内联字形退化为圆点。
+
 ## [0.13.0] - 2026-10-17
 
 ### 新增
