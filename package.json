@@ -2,6 +2,7 @@
   "name": "@changfenhuang/dsh-genui",
   "description": "GenUI for DeepSeek Harness: interactive UI components rendered inline in assistant replies via the ```dsh-ui fence — layout, charts, plots, forms, quizzes, mermaid, 3D scenes, and an action event loop back to the model. Ships the fence-teaching host plugin, the browser renderer (client half), and the genui skill.",
   "version": "0.13.0",
+  "icon": "./assets/genui-icon.svg",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/plugin/index.d.ts",
@@ -15,6 +16,7 @@
       "default": "./lib/client.js"
     },
     "./package.json": "./package.json",
+    "./icon": "./assets/genui-icon.svg",
     "./embed": "./src/client/embed.ts",
     "./assets/mermaid": "./src/client/asset-mermaid.ts",
     "./assets/three": "./src/client/asset-three.ts",
@@ -24,6 +26,8 @@
     "./skill": "./SKILL.md"
   },
   "files": [
+    "assets/genui-icon.svg",
+    "assets/genui-logo.svg",
     "lib/index.js",
     "lib/client.js",
     "lib/assets/mermaid.js",
@@ -63,7 +67,6 @@
     "ui"
   ],
   "dependencies": {
-    "d3-color": "3.1.0",
     "katex": "0.16.47",
     "mdast-util-from-markdown": "2.0.3",
     "react": "^18.3.1"
@@ -149,7 +152,6 @@
     "@shikijs/langs": "4.5.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.0.0",
-    "@types/d3-color": "3.1.3",
     "@types/katex": "0.16.8",
     "@types/node": "^22.19.0",
     "@types/react": "^18.0.0",

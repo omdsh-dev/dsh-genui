@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      d3-color:
-        specifier: 3.1.0
-        version: 3.1.0
       katex:
         specifier: 0.16.47
         version: 0.16.47
@@ -195,9 +192,6 @@ importers:
       '@testing-library/react':
         specifier: ^16.0.0
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@types/d3-color':
-        specifier: 3.1.3
-        version: 3.1.3
       '@types/katex':
         specifier: 0.16.8
         version: 0.16.8

@@ -295,12 +295,13 @@ export const MermaidNode = memo(function MermaidNode({ node }: { node: GenuiMerm
     let controller: AbortController | undefined
     setState({ status: 'loading' })
     const start = (): void => {
-      if (!alive || !visible || finished || controller !== undefined) return
+      const target = ref.current
+      if (target === null || !alive || !visible || finished || controller !== undefined) return
       const current = new AbortController()
       controller = current
       void (async () => {
         try {
-          const svg = await renderMermaid(code, { signal: current.signal, target: ref.current ?? undefined })
+          const svg = await renderMermaid(code, { signal: current.signal, target })
           if (alive && !current.signal.aborted) {
             finished = true
             setState({ status: 'ready', html: svg })
@@ -326,11 +327,12 @@ export const MermaidNode = memo(function MermaidNode({ node }: { node: GenuiMerm
     // Host themes may live on either root. No SVG cache: a theme change
     // invalidates the mounted diagram and re-reads tokens at render time.
     const themeKey = (): string => {
-      const style = getComputedStyle(document.body)
+      const style = getComputedStyle(ref.current ?? document.body)
+      const bodyStyle = getComputedStyle(document.body)
       return [
         '--dsw-alias-label-primary', '--dsw-alias-bg-layer-2',
         '--dsw-alias-border-l2', '--dsw-alias-label-tertiary',
-      ].map(token => style.getPropertyValue(token))
+      ].flatMap(token => [style.getPropertyValue(token), bodyStyle.getPropertyValue(token)])
         .concat(style.fontFamily, style.color, style.colorScheme,
           String(window.matchMedia?.('(prefers-color-scheme: dark)').matches))
         .join('\n')
@@ -349,11 +351,19 @@ export const MermaidNode = memo(function MermaidNode({ node }: { node: GenuiMerm
       start()
     }
     const theme = new MutationObserver(onTheme)
-    for (const target of [document.documentElement, document.body]) {
+    for (let target: HTMLElement | null = ref.current; target !== null; target = target.parentElement) {
       theme.observe(target, {
         attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-ds-dark-theme'],
       })
     }
+    // Appearance plugins can replace a stylesheet without touching the card
+    // or body attributes. Recheck the palette only when those styles change;
+    // unrelated changes still stop at the themeKey equality gate.
+    theme.observe(document.head, {
+      childList: true, characterData: true, subtree: true,
+      attributes: true, attributeFilter: ['href', 'rel', 'media', 'disabled'],
+    })
+    document.head.addEventListener('load', onTheme, true)
     const scheme = window.matchMedia?.('(prefers-color-scheme: dark)')
     scheme?.addEventListener('change', onTheme)
     start()
@@ -362,6 +372,7 @@ export const MermaidNode = memo(function MermaidNode({ node }: { node: GenuiMerm
       controller?.abort()
       observer?.disconnect()
       theme.disconnect()
+      document.head.removeEventListener('load', onTheme, true)
       scheme?.removeEventListener('change', onTheme)
     }
   }, [code])

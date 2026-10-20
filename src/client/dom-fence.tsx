@@ -120,6 +120,17 @@ const SURFACE_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-genui
 /** Same for tag-text spans: the host renders these rows outside the
  * transcript (reasoning, tool output, sidebars, plugin panels). */
 const TAG_TEXT_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-chat-group-part="reasoning"], [data-tool], [data-sidebar-chat], [data-sidebar-right-session], [data-sidebar-right-panel], [data-panel-conversation], [data-plugin-panel]`
+/**
+ * Subtrees whose mutations cannot change a fence.
+ *
+ * The observer has to watch the whole body (a history load or a session switch
+ * replaces the transcript wholesale), but the composer types into a subtree no
+ * fence can live in, and this plugin's own containers are React's to mutate.
+ * Without this gate every keystroke and every panel interaction ran
+ * `repairSurgery` and scheduled a sweep, which on a long transcript is a frame
+ * of work per key.
+ */
+const IGNORED_MUTATION_SCOPE = `${SURFACE_EXCLUDES}, [data-composer-seat], [data-composer-input]`
 /** Slow sweep interval: the observer catches everything, this is the 1s
  * belt-and-braces pass (history loads, missed attribute batches). */
 const SWEEP_MS = 1000
@@ -1457,6 +1468,9 @@ export function installDomFenceRenderer(
     : undefined
 
   const observer = new MutationObserver(records => {
+    // A container the host emptied is repair work wherever it sits, and the
+    // removal is the only record that carries it: mark those first.
+    let relevant = false
     // Restore detached roots before paint, retaining input and pending actions.
     // The latest removal owns the current tree if several commits were batched.
     for (const record of [...records].reverse()) {
@@ -1464,6 +1478,7 @@ export function installDomFenceRenderer(
       const target = record.target
       const mount = [...mounts.values()].find(candidate => candidate.container === target)
       if (mount !== undefined) {
+        relevant = true
         if (!mount.block.isConnected || isPanelRoot(mount.lastNode)) continue
         mount.container.append(...record.removedNodes)
         continue
@@ -1471,8 +1486,24 @@ export function installDomFenceRenderer(
       // The same surgery for a visible diagnostic the host emptied: re-append
       // its own nodes instead of leaving the author without an explanation.
       const diagnostic = [...diagnostics.values()].find(candidate => candidate.container === target)
-      if (diagnostic !== undefined) diagnostic.container.append(...record.removedNodes)
+      if (diagnostic !== undefined) {
+        relevant = true
+        diagnostic.container.append(...record.removedNodes)
+      }
     }
+    // Everything else can only change a fence where a fence can live: the
+    // composer and plugin-owned trees cannot hold a host fence. Sidebars can
+    // contain assistant replies, so they retain normal incremental discovery.
+    if (!relevant) {
+      for (const record of records) {
+        const node = record.target instanceof Element ? record.target : record.target.parentElement
+        if (node === null || node.closest(IGNORED_MUTATION_SCOPE) === null) {
+          relevant = true
+          break
+        }
+      }
+    }
+    if (!relevant) return
     for (const record of records) {
       // Structure, and the streaming→settled flip, can unlock a whole subtree
       // (a history load, a session switch, a row that stopped streaming): those

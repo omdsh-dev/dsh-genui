@@ -1,9 +1,8 @@
-import { color as parseColor } from 'd3-color'
-
 /** Resolve host CSS colors before passing them to Mermaid's limited parser. */
-export function readMermaidThemeColor(name: string, fallback: string): string {
+export function readMermaidThemeColor(name: string, fallback: string, target?: HTMLElement): string {
   if (typeof document === 'undefined' || document.body === null) return fallback
-  const value = getComputedStyle(document.body).getPropertyValue(name).trim()
+  const source = target ?? document.body
+  const value = getComputedStyle(source).getPropertyValue(name).trim()
   if (value === '') return fallback
 
   // Computed custom properties still contain calc(), unlike computed color.
@@ -12,7 +11,7 @@ export function readMermaidThemeColor(name: string, fallback: string): string {
   probe.style.setProperty('color', value, 'important')
   if (probe.style.color === '') return fallback
   probe.style.setProperty('display', 'none', 'important')
-  document.body.appendChild(probe)
+  source.appendChild(probe)
   let color: string
   try {
     color = getComputedStyle(probe).color
@@ -38,13 +37,4 @@ export function readMermaidThemeColor(name: string, fallback: string): string {
   } catch {
     return fallback
   }
-}
-
-/** Keep the resolved node fill and its existing alpha while reducing opacity. */
-export function withMermaidColorOpacity(color: string, opacity: number): string {
-  const parsed = parseColor(color)
-  if (parsed === null || !Number.isFinite(opacity) || opacity < 0 || opacity > 1) throw new Error('Invalid Mermaid node color or opacity')
-  const rgb = parsed.rgb()
-  rgb.opacity = Math.round(rgb.opacity * opacity * 1000) / 1000
-  return rgb.formatRgb()
 }

@@ -16,14 +16,14 @@
  * @module @changfenhuang/dsh-genui/client/mermaid-core
  */
 import { assertSafeSvg, ensureFlowchartKind, repairMermaidSource } from './mermaid-safe.ts'
-import { readMermaidThemeColor, withMermaidColorOpacity } from './mermaid-colors.ts'
+import { readMermaidThemeColor } from './mermaid-colors.ts'
 
 let mermaidPromise: Promise<typeof import('mermaid')> | null = null
 
 /** Monotonic render id (replaces Math.random): no collisions, no entropy. */
 let renderSeq = 0
 
-async function loadMermaid(): Promise<typeof import('mermaid')> {
+async function loadMermaid(target?: HTMLElement): Promise<typeof import('mermaid')> {
   mermaidPromise ??= import('mermaid')
   const m = await mermaidPromise
   // Called inside the client queue: initialize for each job so host theme
@@ -38,11 +38,10 @@ async function loadMermaid(): Promise<typeof import('mermaid')> {
   const token = (name: string, fallback: string): string => {
     const cached = colors.get(name)
     if (cached !== undefined) return cached
-    const color = readMermaidThemeColor(name, fallback)
+    const color = readMermaidThemeColor(name, fallback, target)
     colors.set(name, color)
     return color
   }
-  const nodeFill = withMermaidColorOpacity(token('--dsw-alias-bg-layer-2', '#2c2c2e'), 0.62)
   api.initialize({
     startOnLoad: false,
     // Strict default: mermaid escapes/sanitizes; we never enable htmlLabels.
@@ -50,18 +49,20 @@ async function loadMermaid(): Promise<typeof import('mermaid')> {
     theme: 'base',
     themeVariables: {
       background: 'transparent',
-      fontFamily: 'inherit',
+      // Freeze the same font into measurement and the returned SVG: inheriting
+      // from body while measuring and from a card while displaying clips labels.
+      fontFamily: getComputedStyle(target ?? document.body).fontFamily,
       fontSize: '13px',
-      primaryColor: nodeFill,
+      primaryColor: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
       primaryTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
       primaryBorderColor: token('--dsw-alias-border-l2', 'rgba(255,255,255,0.12)'),
-      secondaryColor: nodeFill,
+      secondaryColor: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
       secondaryTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
       secondaryBorderColor: token('--dsw-alias-border-l2', 'rgba(255,255,255,0.12)'),
-      tertiaryColor: nodeFill,
+      tertiaryColor: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
       tertiaryTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
       tertiaryBorderColor: token('--dsw-alias-border-l2', 'rgba(255,255,255,0.12)'),
-      mainBkg: nodeFill,
+      mainBkg: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
       nodeBorder: token('--dsw-alias-border-l2', 'rgba(255,255,255,0.12)'),
       nodeTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
       lineColor: token('--dsw-alias-label-tertiary', '#8a8a92'),
@@ -78,9 +79,6 @@ async function loadMermaid(): Promise<typeof import('mermaid')> {
       '.cluster rect { rx: 10px; ry: 10px; }',
       '.edgePath .path { stroke-width: 1.4px; }',
       '.label { color: inherit; }',
-      // Keep labels visible if Mermaid's measured node box is a little narrow,
-      // e.g. while a host custom font is still loading.
-      '.node foreignObject, .nodeLabel { overflow: visible; }',
     ].join(' '),
     // Fail loudly: with suppressErrorRendering false (the default) mermaid
     // renders an "error" diagram on parse/draw failure — the caller then
@@ -106,12 +104,12 @@ const ALLOWED_KINDS = [
  * The container is therefore mounted off-screen for the duration of the
  * render — NOT `display:none`, which zeroes label measurements and makes
  * dagre fail with "Could not find a suitable point" — and removed when done. */
-async function renderInto(m: typeof import('mermaid'), id: string, code: string, container: HTMLDivElement, target?: HTMLElement): Promise<string> {
+async function renderInto(m: typeof import('mermaid'), id: string, code: string, container: HTMLDivElement): Promise<string> {
   container.style.position = 'fixed'
   container.style.left = '-100000px'
   container.style.top = '0'
   container.style.margin = '0'
-  ;(target?.isConnected ? target : document.body)?.appendChild(container)
+  document.body?.appendChild(container)
   try {
     const { svg } = await m.default.render(id, code, container)
     assertSafeSvg(svg)
@@ -124,11 +122,12 @@ async function renderInto(m: typeof import('mermaid'), id: string, code: string,
 /**
  * Render mermaid source to an SVG string.
  * @param code - the mermaid diagram source.
+ * @param target - final diagram element whose inherited font is used for layout.
  * @returns the rendered SVG markup (verified free of script/event handlers).
  * @throws when the kind is not whitelisted, rendering fails, or the output
  *   fails the sanitization check.
  */
-export async function renderMermaid(code: string, options: { target?: HTMLElement | undefined } = {}): Promise<string> {
+export async function renderMermaid(code: string, target?: HTMLElement): Promise<string> {
   let trimmed = code.trim()
   const firstLine = trimmed.split('\n', 1)[0] ?? ''
   let kind = /^([A-Za-z]+)/.exec(firstLine)?.[1] ?? ''
@@ -147,17 +146,17 @@ export async function renderMermaid(code: string, options: { target?: HTMLElemen
   if (!ALLOWED_KINDS.includes(kind)) {
     throw new Error(`mermaid kind '${kind}' is not allowed`)
   }
-  const m = await loadMermaid()
+  const m = await loadMermaid(target)
   const container = document.createElement('div')
   try {
     try {
-      return await renderInto(m, `genui-mermaid-${renderSeq++}`, trimmed, container, options.target)
+      return await renderInto(m, `genui-mermaid-${renderSeq++}`, trimmed, container)
     } catch (error) {
       // Retry once with the label-repair pass; a repaired source rendering
       // successfully beats a syntax-error fallback for the same content.
       const repaired = repairMermaidSource(trimmed)
       if (repaired !== trimmed) {
-        return await renderInto(m, `genui-mermaid-${renderSeq++}`, repaired, container, options.target)
+        return await renderInto(m, `genui-mermaid-${renderSeq++}`, repaired, container)
       }
       throw error
     }
