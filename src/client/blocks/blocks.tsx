@@ -21,24 +21,39 @@ import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import type { GenuiBlocks } from '../spec.ts'
 
 /**
- * Text colour that stays legible on an arbitrary fill.
+ * Contrast-aware ink for opaque literal fills; theme ink for contextual fills.
  *
  * Uses WCAG relative luminance, not a naive RGB average: the average reads
  * mid-tone blues (#339cff) as "dark" and prints white on a surface that
  * actually needs ink on it.
  */
 export function readableOn(color: string | undefined): string {
-  const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec((color ?? '').trim())
-  if (match === null) return 'var(--dsw-alias-label-primary)'
-  let hex = match[1]!
-  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('')
-  const channel = (raw: string): number => {
-    const v = parseInt(raw, 16) / 255
+  const fill = (color ?? '').trim()
+  const hexMatch = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(fill)
+  let channels: number[]
+  if (hexMatch !== null) {
+    let hex = hexMatch[1]!
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('')
+    channels = [0, 2, 4].map(offset => parseInt(hex.slice(offset, offset + 2), 16))
+  } else {
+    // Let the browser's CSS parser normalize RGB/HSL and their modern syntax.
+    // This detached style needs no layout or global theme mutation. Host
+    // tokens and translucent fills retain the host ink because their final
+    // contrast depends on the surrounding theme/backdrop.
+    if (typeof document === 'undefined') return 'var(--dsw-alias-label-primary)'
+    const style = document.createElement('span').style
+    style.color = fill
+    const rgb = /^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)$/.exec(style.color)
+    if (rgb === null || (rgb[4] !== undefined && Number(rgb[4]) !== 1)) return 'var(--dsw-alias-label-primary)'
+    channels = rgb.slice(1, 4).map(Number)
+  }
+  const channel = (value: number): number => {
+    const v = value / 255
     return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
   }
-  const luminance = 0.2126 * channel(hex.slice(0, 2))
-    + 0.7152 * channel(hex.slice(2, 4))
-    + 0.0722 * channel(hex.slice(4, 6))
+  const luminance = 0.2126 * channel(channels[0]!)
+    + 0.7152 * channel(channels[1]!)
+    + 0.0722 * channel(channels[2]!)
   // 0.179 is the exact crossover where white and near-black score the same
   // contrast ratio, so anything above it is better with ink than with white.
   return luminance > 0.179 ? '#0d0d0d' : '#ffffff'

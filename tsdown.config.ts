@@ -268,7 +268,7 @@ export default [
   assetConfig('three', 'src/client/asset-three.ts'),
   assetConfig('echarts-core', 'src/client/asset-echarts-core.ts'),
   assetConfig('echarts-full', 'src/client/asset-echarts.ts'),
-  // Full 753-glyph icon catalogue (~870 KB of path data): fetched once, only
-  // when a spec names a glyph outside the 61 inlined in icon-data.ts.
+  // Full 749-glyph icon catalogue (~1 MB of path data): fetched once, only
+  // when a spec names a glyph outside the 64 inlined in icon-data.ts.
   assetConfig('icons', 'src/client/icons/asset-icons.ts'),
 ]

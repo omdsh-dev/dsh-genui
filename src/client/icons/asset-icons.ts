@@ -4,8 +4,8 @@
  *
  * Built as a standalone IIFE into `lib/assets/icons.js` and served by the
  * plugin's node-half route; `icon-lazy` fetches it the first time a spec uses
- * an `icon` name that is not in the 61-glyph inline set. Keeping it here (and
- * not in the client bundle) is what stops ~870 KB of path data from riding
+ * an `icon` name that is not in the 64-glyph inline set. Keeping it here (and
+ * not in the client bundle) is what stops ~1 MB of path data from riding
  * along on every conversation load.
  * @module @changfenhuang/dsh-genui/client/icons/asset-icons
  */

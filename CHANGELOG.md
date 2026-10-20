@@ -4,7 +4,7 @@
 
 ### 新增
 
-- 新增 `icon` 节点：内置 OpenAI Apps SDK UI 的 749 个可忠实渲染字形（MIT，见 `THIRD_PARTY_NOTICES.md`），其中 64 个随客户端内联，其余 685 个首次使用时经 `lib/assets/icons.js` 一次性载入；未知名字降级为中性圆点，不触发下载。生成器按元素保留 `fill-rule` / `stroke` 等属性，无法忠实渲染的 6 个字形（分组 / clipPath）被明确剔除并在生成日志中列出，不再静默过滤。
+- 新增 `icon` 节点：内置 OpenAI Apps SDK UI 的 749 个可忠实渲染字形（MIT，见 `THIRD_PARTY_NOTICES.md`），其中 64 个随客户端内联，其余 685 个首次使用时经 `lib/assets/icons.js` 一次性载入；未知名字降级为中性圆点，不触发下载。生成器直接解析固定上游 TSX，保留真实几何、显式填色与根级描边继承；无法忠实渲染的 6 个字形（分组 / clipPath）被明确剔除并在生成日志中列出，不再静默过滤。
 - 新增 `blocks` 节点：按行分组的色块图，覆盖阶梯（8→4→2→1）、等分块与泳道三种形态。支持 `columns` 固定列数、行级 `variant`（`fill` / `outline` / `plain`）、单元格 `tone` / `color` / `sub`；格子是数据而非节点，64 格仍只占 1 个节点预算。
 - 新增 `arrow` 节点：细线连接件（`dir` / `length` / `label`），替代此前只能用文字「↓」表达流程的做法。
 - 新增排版字段：`card.flat`（去阴影的图内面板）、`text.tone`（语义色文字）、`text.mono`（等宽文字，无行内代码底色）、`col.width`（按百分比占行宽）、`row.justify`（主轴对齐）。
@@ -18,6 +18,7 @@
 
 - 修复 `repairGenuiSpec` 重建节点时丢弃 `row.justify` 的问题：repair 维护着第二份手写字段表，新增字段必须在 `src/client/guard.ts` 同步登记。
 - 独立导出（artifact / standalone）的资源枚举补上 `icons`，避免离线 HTML 中的非内联字形退化为圆点。
+- 色块图中的 RGB/HSL 等不透明底色使用对比度合适的文字颜色，避免深色主题下白底白字。
 
 ## [0.13.0] - 2026-10-17
 

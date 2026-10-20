@@ -6,6 +6,14 @@
 `icon` 节点接受下列任意名字（区分大小写）。未知名字渲染为中性圆点，
 不会丢块，也不会触发下载。
 
+不支持的嵌套 SVG 结构按整图排除（6 个）：
+- Document: unsupported nested SVG structure
+- DownloadGifWatermark: unsupported nested SVG structure
+- Linear: unsupported nested SVG structure
+- OpenaiLogoBold: unsupported nested SVG structure
+- OpenaiLogoRegular: unsupported nested SVG structure
+- Zendesk: unsupported nested SVG structure
+
 ## 内联（64 个，无需下载）
 
 ```text
@@ -14,7 +22,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus ArrowDown ArrowUp A
 
 ## 按需载入（685 个）
 
-首次用到非内联名字时，会一次性拉取 `lib/assets/icons.js`（约 900 kB），
+首次用到非内联名字时，会一次性拉取 `lib/assets/icons.js`（约 1 MB），
 此后本页全部可用。
 
 ```text

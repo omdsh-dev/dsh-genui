@@ -7,7 +7,7 @@
 import { cleanup, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { GenuiBlock } from '../src/client/GenuiBlock.tsx'
-import { repairGenuiSpec, validateGenuiSpec } from '../src/client/guard.ts'
+import { processGenuiSpec, repairGenuiSpec, validateGenuiSpec } from '../src/client/guard.ts'
 import { readableOn } from '../src/client/blocks/blocks.tsx'
 import { GENUI_LIMITS } from '../src/client/genui-runtime/index.ts'
 
@@ -83,6 +83,16 @@ describe('blocks node', () => {
     expect((cells[0] as HTMLElement).style.color).toBe('rgb(13, 13, 13)')
     expect((cells[3] as HTMLElement).style.color).toBe('rgb(255, 255, 255)')
     expect(container.textContent).toContain('每格代表一个小组')
+  })
+
+  it.each(['rgb(255, 255, 255)', 'rgb(255 255 255)', 'rgba(255,255,255,1)', 'hsl(0, 0%, 100%)', 'hsl(0deg 0% 100%)', '#ffffffff'])('keeps text readable on the accepted literal fill %s', fill => {
+    const processed = processGenuiSpec({ items: [{ type: 'blocks', rows: [{ color: fill, cells: ['正文', { text: '单格', color: fill }] }] }] })
+    expect(processed.errors).toEqual([])
+    const { container } = render(<GenuiBlock spec={processed.repaired!} />)
+    const cells = [...container.querySelectorAll('[data-genui-blocks] span')]
+      .filter(element => (element as HTMLElement).style.background !== '') as HTMLElement[]
+    expect(cells).toHaveLength(2)
+    expect(cells.map(cell => cell.style.color)).toEqual(['rgb(13, 13, 13)', 'rgb(13, 13, 13)'])
   })
 
   it('keeps `columns` lanes aligned and null cells as gaps', () => {

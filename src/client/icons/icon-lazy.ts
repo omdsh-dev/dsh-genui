@@ -1,13 +1,13 @@
 /**
  * Two-tier icon lookup.
  *
- * Tier 1 (`ICONS`, inlined 61 glyphs) answers synchronously for the names a
+ * Tier 1 (`ICONS`, inlined 64 glyphs) answers synchronously for the names a
  * conversation reaches for most: states, arrows, and the compute primitives
- * figures are built from. Tier 2 is the FULL 753-glyph catalogue, shipped as
- * `lib/assets/icons.js` (~870 KB of path data) and fetched once, on demand,
+ * figures are built from. Tier 2 is the FULL 749-glyph catalogue, shipped as
+ * `lib/assets/icons.js` (~1 MB of path data) and fetched once, on demand,
  * the first time a spec names something outside tier 1.
  *
- * Why a tier at all: one unknown glyph must not cost every reader 870 KB, and
+ * Why a tier at all: one unknown glyph must not cost every reader 1 MB, and
  * one mis-typed glyph must not cost anything — `ICON_NAMES_FULL` is inlined as
  * names only, so "typo" degrades to the fallback dot without a network round
  * trip, while "not downloaded yet" triggers exactly one load and then

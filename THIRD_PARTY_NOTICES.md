@@ -8,7 +8,7 @@ OpenAI Apps SDK UI icon set:
 - Source: <https://github.com/openai/apps-sdk-ui>
 - Pinned commit: `0f00143c7a639906f1621fe58e1b6be7b5bea46d`
 - Upstream path: `src/components/Icon/svg`
-- Vendored as: path data only (no upstream component code), curated to 753 glyphs (61 inlined, 692 lazy-loaded)
+- Vendored as: literal SVG geometry and attributes (no upstream component code), curated to 749 glyphs (64 inlined, 685 lazy-loaded); six glyphs with unsupported nested structures are excluded in full and listed in `ICON-NAMES.md`
 
 ```
 Copyright 2025 OpenAI
