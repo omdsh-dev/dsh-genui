@@ -466,6 +466,8 @@ try {
     browser,
     [
       '--headless',
+      '--password-store=basic',
+      '--use-mock-keychain',
       '--no-sandbox',
       '--disable-gpu',
       '--no-first-run',

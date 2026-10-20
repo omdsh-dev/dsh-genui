@@ -37,6 +37,30 @@ describe('Mermaid render state', () => {
     await waitFor(() => expect(renderMermaidMock).toHaveBeenCalledTimes(2))
   })
 
+  it('refreshes when the diagram card overrides its palette', async () => {
+    renderMermaidMock.mockResolvedValue('<svg/>')
+    const view = render(<MermaidNode node={node('graph TD\nA --> B')} />)
+    await waitFor(() => expect(renderMermaidMock).toHaveBeenCalledTimes(1))
+    const target = view.container.firstElementChild as HTMLElement
+    await act(async () => { target.style.setProperty('--dsw-alias-bg-layer-2', 'rgba(44,44,46,.4)') })
+    await waitFor(() => expect(renderMermaidMock).toHaveBeenCalledTimes(2))
+  })
+
+  it('refreshes when a theme stylesheet changes without a body attribute change', async () => {
+    renderMermaidMock.mockResolvedValue('<svg/>')
+    const sheet = document.createElement('style')
+    sheet.textContent = 'body { --dsw-alias-bg-layer-2: #2c2c2e; }'
+    document.head.append(sheet)
+    try {
+      render(<MermaidNode node={node('graph TD\nA --> B')} />)
+      await waitFor(() => expect(renderMermaidMock).toHaveBeenCalledTimes(1))
+      await act(async () => { sheet.textContent = 'body { --dsw-alias-bg-layer-2: rgba(44,44,46,.4); }' })
+      await waitFor(() => expect(renderMermaidMock).toHaveBeenCalledTimes(2))
+      await act(async () => { sheet.textContent += ' body { --unrelated: 1; }' })
+      expect(renderMermaidMock).toHaveBeenCalledTimes(2)
+    } finally { sheet.remove() }
+  })
+
   it('recovers from an error when code changes to a valid diagram', async () => {
     renderMermaidMock
       .mockRejectedValueOnce(new Error('bad syntax'))

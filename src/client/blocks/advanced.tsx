@@ -327,13 +327,13 @@ export const MermaidNode = memo(function MermaidNode({ node }: { node: GenuiMerm
     // Host themes may live on either root. No SVG cache: a theme change
     // invalidates the mounted diagram and re-reads tokens at render time.
     const themeKey = (): string => {
-      const style = getComputedStyle(document.body)
-      const fontFamily = getComputedStyle(ref.current ?? document.body).fontFamily
+      const style = getComputedStyle(ref.current ?? document.body)
+      const bodyStyle = getComputedStyle(document.body)
       return [
         '--dsw-alias-label-primary', '--dsw-alias-bg-layer-2',
         '--dsw-alias-border-l2', '--dsw-alias-label-tertiary',
-      ].map(token => style.getPropertyValue(token))
-        .concat(style.fontFamily, fontFamily, style.color, style.colorScheme,
+      ].flatMap(token => [style.getPropertyValue(token), bodyStyle.getPropertyValue(token)])
+        .concat(style.fontFamily, style.color, style.colorScheme,
           String(window.matchMedia?.('(prefers-color-scheme: dark)').matches))
         .join('\n')
     }
@@ -356,6 +356,14 @@ export const MermaidNode = memo(function MermaidNode({ node }: { node: GenuiMerm
         attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-ds-dark-theme'],
       })
     }
+    // Appearance plugins can replace a stylesheet without touching the card
+    // or body attributes. Recheck the palette only when those styles change;
+    // unrelated changes still stop at the themeKey equality gate.
+    theme.observe(document.head, {
+      childList: true, characterData: true, subtree: true,
+      attributes: true, attributeFilter: ['href', 'rel', 'media', 'disabled'],
+    })
+    document.head.addEventListener('load', onTheme, true)
     const scheme = window.matchMedia?.('(prefers-color-scheme: dark)')
     scheme?.addEventListener('change', onTheme)
     start()
@@ -364,6 +372,7 @@ export const MermaidNode = memo(function MermaidNode({ node }: { node: GenuiMerm
       controller?.abort()
       observer?.disconnect()
       theme.disconnect()
+      document.head.removeEventListener('load', onTheme, true)
       scheme?.removeEventListener('change', onTheme)
     }
   }, [code])

@@ -28,4 +28,3 @@ export function normalizeFenceLanguage(lang: string): string {
 export function isGenuiFenceLanguage(lang: string | null | undefined): boolean {
   return typeof lang === 'string' && normalizeFenceLanguage(lang) === 'dsh-ui'
 }
-

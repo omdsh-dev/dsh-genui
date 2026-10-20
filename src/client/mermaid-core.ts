@@ -38,7 +38,7 @@ async function loadMermaid(target?: HTMLElement): Promise<typeof import('mermaid
   const token = (name: string, fallback: string): string => {
     const cached = colors.get(name)
     if (cached !== undefined) return cached
-    const color = readMermaidThemeColor(name, fallback)
+    const color = readMermaidThemeColor(name, fallback, target)
     colors.set(name, color)
     return color
   }

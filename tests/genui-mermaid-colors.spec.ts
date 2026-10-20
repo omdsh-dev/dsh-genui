@@ -22,6 +22,20 @@ describe('Mermaid theme colors', () => {
     expect(readMermaidThemeColor(TOKEN, FALLBACK)).toBe(expected)
   })
 
+  it('reads the local diagram token and resolves currentColor in that context', () => {
+    document.body.style.setProperty(TOKEN, '#112233')
+    const card = document.createElement('section')
+    card.style.setProperty(TOKEN, 'rgba(44, 44, 46, .4)')
+    document.body.append(card)
+    try {
+      expect(readMermaidThemeColor(TOKEN, FALLBACK, card)).toBe('rgba(44, 44, 46, 0.4)')
+      card.style.color = 'rgb(40, 80, 120)'
+      card.style.setProperty(TOKEN, 'currentColor')
+      expect(readMermaidThemeColor(TOKEN, FALLBACK, card)).toBe('rgb(40, 80, 120)')
+      expect(readMermaidThemeColor(TOKEN, FALLBACK)).toBe('rgb(17, 34, 51)')
+    } finally { card.remove() }
+  })
+
   it('resolves calc() in a skin token instead of passing the raw custom property to Mermaid', () => {
     const value = 'rgba(235, 242, 250, calc(.4 + .75 * .4))'
     document.body.style.setProperty(TOKEN, value)
