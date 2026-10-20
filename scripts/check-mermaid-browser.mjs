@@ -37,9 +37,9 @@ window.run = async (mode) => {
   }
   window.__GenuiAssets__ = {
     mermaid: {
-      renderMermaid: async (code) => {
+      renderMermaid: async (code, target) => {
         const start = performance.now()
-        const svg = await render(code)
+        const svg = await render(code, target)
         assertSafeSvg(svg)
         calls.push({ ms: performance.now() - start, code })
         return svg
@@ -118,7 +118,7 @@ window.run = async (mode) => {
   )
   check('isolation text color', hostFont.color === frameFont.color)
   const isolated = await frame.contentWindow.eval(
-    'import("/src/client/mermaid-core.ts")',
+    'import("/src/client/mermaid-core' + (mode === 'baseline' ? '-baseline' : '') + '.ts")',
   )
   await isolated.renderMermaid(source)
   await render(source)
@@ -178,9 +178,9 @@ window.run = async (mode) => {
       await new Promise((r) => setTimeout(r, 25))
     }
   }
-  await wait(() =>
-    mode === 'baseline' ? calls.length === 9 : calls.length >= 1,
-  )
+  // A selected baseline can already have viewport gating. Wait for visible
+  // work rather than assuming every historical version starts all nine.
+  await wait(() => calls.length >= 1)
   await new Promise((r) => setTimeout(r, 200))
   const initial = {
     renders: calls.length,
@@ -289,6 +289,33 @@ window.run = async (mode) => {
       mount.textContent.includes('history') &&
         mount.textContent.includes('Current'),
     )
+  }
+  if (mode === 'current') {
+    // #328: layout and visible labels must use the same inherited card font.
+    // Measuring against body then inheriting from monospace clips CJK suffixes.
+    const card = document.createElement('div')
+    Object.assign(card.style, { position: 'fixed', top: '0', left: '0', width: '1000px' })
+    document.body.append(card)
+    const fontApp = createRoot(card)
+    try {
+      for (const font of ['sans-serif', 'monospace', 'serif']) {
+        card.style.fontFamily = font
+        const before = calls.length
+        flushSync(() => fontApp.render(React.createElement(Node, {
+          node: { type: 'mermaid', code: 'flowchart LR\\nA["dsh-ui 围栏"] --> B["表格 / 图表"]' },
+        })))
+        await wait(() => calls.length > before && card.querySelector('[data-genui-mermaid] svg') !== null
+          && getComputedStyle(card.querySelector('svg')).fontFamily === font)
+        const labels = [...card.querySelectorAll('foreignObject')].filter(label => label.textContent.trim())
+        check('CJK labels present in ' + font, labels.length === 2)
+        for (const label of labels) {
+          const range = document.createRange()
+          range.selectNodeContents(label.querySelector('.nodeLabel') ?? label)
+          check('CJK label fits in ' + font + ': ' + label.textContent,
+            range.getBoundingClientRect().right <= label.getBoundingClientRect().right + 1)
+        }
+      }
+    } finally { fontApp.unmount(); card.remove() }
   }
   const kinds = [
     'sequenceDiagram\\nAlice->>Bob: Hello',
@@ -615,12 +642,10 @@ try {
         2,
       ),
     )
-  if (
-    JSON.stringify(results[0].viewBoxes) !==
-      JSON.stringify(results[1].viewBoxes) ||
-    JSON.stringify(results[0].labels) !== JSON.stringify(results[1].labels)
-  )
-    throw new Error('Baseline/current geometry or label mismatch')
+  // Font measurement fixes can legitimately change layout dimensions. The
+  // labels must stay identical, and current CJK geometry is checked above.
+  if (JSON.stringify(results[0].labels) !== JSON.stringify(results[1].labels))
+    throw new Error('Baseline/current label mismatch')
   if (results.some((r) => r.diagrams !== 9 || r.unsafe))
     throw new Error('Diagram count/security regression')
 } finally {

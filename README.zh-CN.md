@@ -1,4 +1,4 @@
-# 🎨 dsh-genui
+<h1><img src="./assets/genui-logo.svg" width="355" height="80" alt="GenUI"></h1>
 
 <div align="center">
 

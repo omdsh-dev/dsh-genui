@@ -11,9 +11,35 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined
 }
 
-function isNode(value: unknown): value is Record<string, unknown> {
+/**
+ * Resolve an explicit component type or a type uniquely identified by fields.
+ *
+ * @param value - Value to inspect without changing it.
+ * @returns The explicit or inferred component type when available.
+ */
+function nodeTypeOf(value: unknown): string | undefined {
   const candidate = record(value)
-  return candidate !== undefined && typeof candidate.type === 'string'
+  if (candidate === undefined) return undefined
+  if (typeof candidate.type === 'string') return candidate.type
+  if ('type' in candidate) return undefined
+  const matches: string[] = []
+  if (Array.isArray(candidate.columns) && Array.isArray(candidate.rows)) matches.push('table')
+  if (Array.isArray(candidate.pairs)) matches.push('keyvalue')
+  if (Array.isArray(candidate.steps)) matches.push('steps')
+  if (Array.isArray(candidate.diffs)) matches.push('diff')
+  if (Array.isArray(candidate.meshes)) matches.push('scene3d')
+  if (Array.isArray(candidate.tabs)) matches.push('tabs')
+  return matches.length === 1 ? matches[0] : undefined
+}
+
+/**
+ * Check whether a value can be treated as a component node.
+ *
+ * @param value - Value to inspect without changing it.
+ * @returns Whether the value has an explicit or uniquely inferred type.
+ */
+function isNode(value: unknown): value is Record<string, unknown> {
+  return nodeTypeOf(value) !== undefined
 }
 
 /** Fields a `stat` keeps when a metric record is folded into its own node. */
@@ -144,13 +170,23 @@ function defaultFileTreeDirectories(value: unknown): unknown {
   return out
 }
 
+/**
+ * Normalize one component node and its renderer-reachable children.
+ *
+ * @param value - Raw component or other value.
+ * @param path - Stable diagnostic path for this node.
+ * @param warnings - Alias and structural normalization diagnostics.
+ * @returns The normalized component, or the original value when it is not a node.
+ */
 function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[]): unknown {
-  if (!isNode(value)) return value
-  const type = value.type as string
+  const type = nodeTypeOf(value)
+  const candidate = record(value)
+  if (type === undefined || candidate === undefined) return value
+  const node = typeof candidate.type === 'string' ? candidate : { ...candidate, type }
   const definition = COMPONENT_SCHEMAS[type]
   // Custom nodes are opaque by contract: don't inspect or rewrite their data.
-  if (definition === undefined) return value
-  const out = normalizeAliasFields(value, path, type, warnings)
+  if (definition === undefined) return node
+  const out = normalizeAliasFields(node, path, type, warnings)
   // Nested data records (keyvalue pairs, file-tree items, …) carry their own
   // field aliases — apply them before validation/repair see the records.
   for (const [field, nested] of Object.entries(definition.nested)) {

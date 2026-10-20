@@ -2,6 +2,7 @@
   "name": "@changfenhuang/dsh-genui",
   "description": "GenUI for DeepSeek Harness: interactive UI components rendered inline in assistant replies via the ```dsh-ui fence — layout, charts, plots, forms, quizzes, mermaid, 3D scenes, and an action event loop back to the model. Ships the fence-teaching host plugin, the browser renderer (client half), and the genui skill.",
   "version": "0.13.0",
+  "icon": "./assets/genui-icon.svg",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/plugin/index.d.ts",
@@ -15,6 +16,7 @@
       "default": "./lib/client.js"
     },
     "./package.json": "./package.json",
+    "./icon": "./assets/genui-icon.svg",
     "./embed": "./src/client/embed.ts",
     "./assets/mermaid": "./src/client/asset-mermaid.ts",
     "./assets/three": "./src/client/asset-three.ts",
@@ -24,6 +26,8 @@
     "./skill": "./SKILL.md"
   },
   "files": [
+    "assets/genui-icon.svg",
+    "assets/genui-logo.svg",
     "lib/index.js",
     "lib/client.js",
     "lib/assets/mermaid.js",
@@ -72,6 +76,7 @@
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-agent": "^0.2.0-rc.1 || ^0.2.1-rc.1",
+    "@deepseek-ai/dsh-agent-loop": "^0.2.0-rc.1 || ^0.2.1-rc.1",
     "@deepseek-ai/dsh-api-session-controller": "^0.2.0-rc.1 || ^0.2.1-rc.1",
     "@deepseek-ai/dsh-client-store": "^0.2.0-rc.1 || ^0.2.1-rc.1",
     "@deepseek-ai/dsh-client-ui-chat": "^0.2.0-rc.1 || ^0.2.1-rc.1",
@@ -96,6 +101,7 @@
     "@deepseek-ai/cordis-plugin-loader": "1.0.3",
     "@deepseek-ai/dsh-agent": "0.2.1-rc.1",
     "@deepseek-ai/dsh-agent-default-model": "0.2.1-rc.1",
+    "@deepseek-ai/dsh-agent-loop": "0.2.1-rc.1",
     "@deepseek-ai/dsh-api-gateway": "0.2.1-rc.1",
     "@deepseek-ai/dsh-api-session-controller": "0.2.1-rc.1",
     "@deepseek-ai/dsh-atomic-write": "0.2.1-rc.1",

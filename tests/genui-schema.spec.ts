@@ -35,6 +35,87 @@ describe('GenUI runtime schema normalization', () => {
     expect(validateGenuiSpec({ type: 'text', content: 'bare component' })).toEqual({ ok: true, errors: [] })
   })
 
+  it('infers the six uniquely identified component types without changing the input', () => {
+    const spec = {
+      gap: 12,
+      items: [
+        { columns: ['Name'], rows: [['AGENTS.md']] },
+        { pairs: [{ key: 'status', value: 'active' }] },
+        { steps: [{ title: 'Review' }] },
+        { diffs: [{ path: 'a.ts', newText: 'updated' }] },
+        { meshes: [{ shape: 'box' }] },
+        { tabs: [{ label: 'Details', items: [{ columns: ['Name'], rows: [['README.md']] }] }] },
+      ],
+    }
+    const original = structuredClone(spec)
+    const normalized = normalizeGenuiSpec(spec)
+
+    expect(normalized.value).toEqual({
+      gap: 12,
+      items: [
+        { type: 'table', columns: ['Name'], rows: [['AGENTS.md']] },
+        { type: 'keyvalue', pairs: [{ key: 'status', value: 'active' }] },
+        { type: 'steps', steps: [{ title: 'Review' }] },
+        { type: 'diff', diffs: [{ path: 'a.ts', newText: 'updated' }] },
+        { type: 'scene3d', meshes: [{ shape: 'box' }] },
+        { type: 'tabs', tabs: [{ label: 'Details', items: [{ type: 'table', columns: ['Name'], rows: [['README.md']] }] }] },
+      ],
+    })
+    expect(processGenuiSpec(spec).errors).toEqual([])
+    expect(spec).toEqual(original)
+  })
+
+  it('processes the issue #325 table example with its original row data', () => {
+    const spec = {
+      gap: 12,
+      items: [{
+        columns: ['文件', '要点', '状态'],
+        rows: [
+          ['AGENTS.md', '全局基线', '在用'],
+          ['SOUL.md', '人格设定', '备份'],
+        ],
+      }],
+    }
+    const original = structuredClone(spec)
+    const normalized = normalizeGenuiSpec(spec)
+
+    expect(normalized.value).toEqual({
+      gap: 12,
+      items: [{ type: 'table', columns: spec.items[0]!.columns, rows: spec.items[0]!.rows }],
+    })
+    expect(processGenuiSpec(spec).errors).toEqual([])
+    expect(spec).toEqual(original)
+  })
+
+  it('infers uniquely shaped components nested in containers and list entries', () => {
+    const spec = {
+      items: [
+        ...['row', 'col', 'grid', 'card'].map(type => ({ type, items: [{ columns: ['Name'], rows: [['one']] }] })),
+        { type: 'list', items: [{ pairs: [{ key: 'status', value: 'ready' }] }] },
+      ],
+    }
+    const result = processGenuiSpec(spec)
+
+    expect(result.errors).toEqual([])
+    expect(result.normalized.items.slice(0, 4).map(container => container.items[0]?.type))
+      .toEqual(['table', 'table', 'table', 'table'])
+    expect(result.normalized.items[4]?.items[0]?.type).toBe('keyvalue')
+  })
+
+  it('does not infer ambiguous shapes or objects with an explicit invalid type', () => {
+    const nodes = [
+      { columns: ['Name'], rows: [['one']], tabs: [] },
+      { type: null, columns: ['Name'], rows: [['one']] },
+      { type: 123, columns: ['Name'], rows: [['one']] },
+    ]
+
+    for (const node of nodes) {
+      const raw = { items: [node] }
+      expect(normalizeGenuiSpec(raw).value).toEqual(raw)
+      expect(processGenuiSpec(raw).errors).toContain("items[0]: missing string 'type'")
+    }
+  })
+
   it('exposes runtime required, optional, rule, and validator metadata', () => {
     expect(COMPONENT_SCHEMAS.card.fields.title).toBe('string')
     expect(COMPONENT_SCHEMAS.card.optional.title).toBe('string')

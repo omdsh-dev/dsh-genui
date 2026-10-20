@@ -319,13 +319,22 @@ export function missingBodyCorrectionText(turn: number, attempt = 1, renderUiToo
 /**
  * 将 GenUI 回合中仅含 reasoning 的完整响应转换为宿主已有的可重试空响应错误。
  *
+ * 只有回合边界确实还能发送交付提醒时，才放行原始 stop，
+ * 让回合正常结束并走到 `agent/turn-stopping` 边界——那里会 steer 一条交付提醒，
+ * 回合因此继续到下一个 step，模型有机会在同一回合把内容补进正文。
+ * 提醒发过仍然只有 reasoning，才用 EMPTY_RESPONSE 交给宿主重试兜底。
+ *
  * @param options - LLM stream waterfall 拦截的请求。
  * @param source - 本次请求的 provider stream。
- * @returns 原始 stream；仅符合条件的终止 stop 会被改写。
+ * @param state - 当前回合状态；缺省时没有可用提醒，保留宿主重试。
+ * @param feedbackEnabled - 同回合修正是否启用。关闭时没有提醒可用，保持原有改写行为。
+ * @returns 原始 stream；仅在提醒已发出、或提醒不可用时改写 reasoning-only 终止。
  */
 async function* retryReasoningOnlyGenuiStream(
   options: GenerateOptions,
   source: AsyncIterable<StreamChunk>,
+  state?: SessionFeedback,
+  feedbackEnabled = true,
 ): AsyncGenerator<StreamChunk> {
   const { EMPTY_RESPONSE_CODE, isAgentLoopRequest } = await import('@deepseek-ai/dsh-llm')
   if (!isAgentLoopRequest(options)) {
@@ -341,6 +350,29 @@ async function* retryReasoningOnlyGenuiStream(
       else hasOtherBlock = true
     }
     if (chunk.type === 'finish' && chunk.reason.kind === 'stop' && hasReasoningBlock && !hasOtherBlock) {
+      // Reuse the boundary's decision: an unused reminder is not necessarily
+      // available (for example, a previous broken fence counts as body delivery).
+      // This response has no body, so its assistant/message will clear text;
+      // do not plan against the previous step's fence before that event arrives.
+      const reminderAvailable = feedbackEnabled
+        && state !== undefined
+        && state.currentTurn !== undefined
+        && state.pendingRenders.size === 0
+        && planFenceFeedback({
+          text: '',
+          turn: state.currentTurn,
+          correctedSpec: state.correctedSpec,
+          deliveryRemindedTurns: state.deliveryRemindedTurns,
+          validatedThisTurn: state.validatedThisTurn,
+          deliveredThisTurn: state.deliveredThisTurn,
+          aborted: options.signal?.aborted ?? false,
+          correctionsThisTurn: state.correctionsThisTurn,
+          correctionsTurn: state.correctionsTurn,
+        })?.kind === 'delivery'
+      if (reminderAvailable) {
+        yield chunk
+        continue
+      }
       yield {
         type: 'finish',
         reason: {
@@ -622,7 +654,7 @@ export function installFenceFeedback(ctx: Context, enabled: boolean, renderUiToo
     if (options.sessionId === undefined || options.purpose !== undefined) return next()
     const state = sessions.get(String(options.sessionId))
     if (state?.validatedThisTurn !== true || state.isSubagent) return next()
-    return retryReasoningOnlyGenuiStream(options, next())
+    return retryReasoningOnlyGenuiStream(options, next(), state, enabled)
   }, { global: true })
 
   ctx.on('agent/turn-stopping', ({ agent, turn, signal }): void => {

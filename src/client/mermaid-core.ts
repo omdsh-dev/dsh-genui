@@ -23,7 +23,7 @@ let mermaidPromise: Promise<typeof import('mermaid')> | null = null
 /** Monotonic render id (replaces Math.random): no collisions, no entropy. */
 let renderSeq = 0
 
-async function loadMermaid(): Promise<typeof import('mermaid')> {
+async function loadMermaid(target?: HTMLElement): Promise<typeof import('mermaid')> {
   mermaidPromise ??= import('mermaid')
   const m = await mermaidPromise
   // Called inside the client queue: initialize for each job so host theme
@@ -49,7 +49,9 @@ async function loadMermaid(): Promise<typeof import('mermaid')> {
     theme: 'base',
     themeVariables: {
       background: 'transparent',
-      fontFamily: 'inherit',
+      // Freeze the same font into measurement and the returned SVG: inheriting
+      // from body while measuring and from a card while displaying clips labels.
+      fontFamily: getComputedStyle(target ?? document.body).fontFamily,
       fontSize: '13px',
       primaryColor: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
       primaryTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
@@ -120,11 +122,12 @@ async function renderInto(m: typeof import('mermaid'), id: string, code: string,
 /**
  * Render mermaid source to an SVG string.
  * @param code - the mermaid diagram source.
+ * @param target - final diagram element whose inherited font is used for layout.
  * @returns the rendered SVG markup (verified free of script/event handlers).
  * @throws when the kind is not whitelisted, rendering fails, or the output
  *   fails the sanitization check.
  */
-export async function renderMermaid(code: string): Promise<string> {
+export async function renderMermaid(code: string, target?: HTMLElement): Promise<string> {
   let trimmed = code.trim()
   const firstLine = trimmed.split('\n', 1)[0] ?? ''
   let kind = /^([A-Za-z]+)/.exec(firstLine)?.[1] ?? ''
@@ -143,7 +146,7 @@ export async function renderMermaid(code: string): Promise<string> {
   if (!ALLOWED_KINDS.includes(kind)) {
     throw new Error(`mermaid kind '${kind}' is not allowed`)
   }
-  const m = await loadMermaid()
+  const m = await loadMermaid(target)
   const container = document.createElement('div')
   try {
     try {

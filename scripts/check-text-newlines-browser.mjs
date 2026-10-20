@@ -69,7 +69,7 @@ try {
   if (errorSummary !== '') throw new Error(`Browser reported client errors:\n${errorSummary}`)
   const results = JSON.parse(decodeBrowserText(raw))
   await writeFile(join(out, 'results.json'), JSON.stringify(results, null, 2) + '\n')
-  if (results.length !== 128) throw new Error(`Expected 128 browser layout checks, got ${results.length}`)
+  if (results.length !== 136) throw new Error(`Expected 136 browser layout checks, got ${results.length}`)
   const failed = results.filter(result => !result.pass)
   if (failed.length > 0) throw new Error(`Browser newline regression failed:\n${JSON.stringify(failed, null, 2)}`)
   await readFile(join(out, 'layout.png'))

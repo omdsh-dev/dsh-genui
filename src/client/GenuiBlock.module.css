@@ -686,7 +686,7 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   max-width: 100%;
   min-width: 0;
 }
-.table { width: 100%; border-collapse: collapse; font-size: var(--dsl-g-font-title); }
+.table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: var(--dsl-g-font-title); }
 .table th {
   text-align: left;
   padding: 9px var(--dsl-g-gap-md);

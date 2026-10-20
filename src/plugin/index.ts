@@ -89,7 +89,7 @@ const RENDER_UI_TOOL_GUIDANCE = '- Tool channel: render_ui 工具把同一 spec 
  *  Deliberately slim: the `genui` skill carries the full component→field
  *  mapping; this section keeps only the contract that must always be
  *  present (fence syntax, type whitelist, and critical behavioral rules). */
-export const GENUI_SECTION_TEXT = `You can render interactive UI components INSIDE your reply — between paragraphs — by emitting a fenced block with the language tag \`dsh-ui\` containing a JSON spec:
+export const GENUI_SECTION_TEXT = `Render UI inside your reply with a fenced \`dsh-ui\` JSON block:
 
 \`\`\`dsh-ui
 {"title":"<user-language text>","gap":14,"items":[...]}
@@ -113,7 +113,8 @@ Allowed \`type\` values; the \`genui\` skill, when available, carries the full c
 - 趋势/占比 → \`chart\`（≤8 点）或 \`echart\`；配色跟随主题，语义需要时才用 \`palette\`/\`card.accent\`；grid 子节点用 \`"span":2\` 做宽窄混排；数据多时给 \`table\`/\`list\` 配 \`input\`(id)+\`filter\` 就地筛选。
 - 多组件回答先套 skill「编排范式」，别一行一个往下堆；章节分隔 \`divider\` 带 \`label\`。
 
-**字段速查**（完整见 genui skill）：\`stat\` \`{"label","value","delta"?}\` · \`table\` \`{"columns":[...],"rows":[[...]],"types"?,"details"?,"filter"?,"export"?}\` · \`progress\` \`{"value":0-100,"label"?,"variant"?,"target"?}\` · \`keyvalue\` \`{"pairs":[{"key","value"}]}\` · \`steps\` \`{"steps":[{"title","desc"?}]}\` · \`file-tree\` \`{"items":[{"name","type":"file|dir","children"?}]}\` · \`callout\` \`{"content","tone"?,"title"?}\`
+**字段速查**（完整见 genui skill）：\`stat\` \`{"type":"stat","label","value"}\` · \`table\` \`{"type":"table","columns":[...],"rows":[[...]]}\` · \`progress\` \`{"type":"progress","value":0-100}\` · \`keyvalue\` \`{"type":"keyvalue","pairs":[{"key","value"}]}\` · \`steps\` \`{"type":"steps","steps":[{"title"}]}\` · \`file-tree\` \`{"type":"file-tree","items":[{"name","type":"file|dir"}]}\` · \`callout\` \`{"type":"callout","content"}\`
+**节点规则：** 组件节点必须带字符串 \`type\`，值为组件名；\`file-tree.items[].type\` 表示 \`file\` 或 \`dir\`。
 
 **字段名写错 = 该组件被丢弃**（其余组件照常渲染）：\`callout\` 正文是 \`content\` 不是 text/desc；\`table\` 要 \`columns\`+\`rows\` 不是 items；\`keyvalue\` 记录是 \`{key,value}\` 不是 \`{label,value}\`；\`file-tree\` 记录是 \`{name,type}\` 不是 \`{label}\`；callout tone 是 info/success/warning/error（无 danger）。不确定就调 \`validate_dsh_ui\`。
 

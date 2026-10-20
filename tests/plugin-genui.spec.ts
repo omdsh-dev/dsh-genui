@@ -80,6 +80,12 @@ describe('genui:fence section', () => {
     expect(text).toContain('never emit these placeholders literally')
     expect(text).toContain('Tool channel: render_ui')
     expect(text).not.toContain('"title":"可选标题"')
+    for (const type of ['stat', 'table', 'progress', 'keyvalue', 'steps', 'file-tree', 'callout']) {
+      expect(text).toContain(`{"type":"${type}"`)
+    }
+    expect(text).toContain('组件节点必须带字符串')
+    expect(text).toContain('file-tree')
+    expect(text).toContain('file-tree.items[].type` 表示 `file` 或 `dir`')
   })
 
   it('omits render_ui guidance from the system prompt when the tool is disabled', async () => {
