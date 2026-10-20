@@ -27,7 +27,7 @@
  * to a tokenizing parser.
  */
 import { isGenuiSpec, type GenuiSpec } from './spec.ts'
-import { wrapSingleComponentRoot } from './spec.ts'
+import { adoptSingleItemEnvelope, wrapSingleComponentRoot } from './spec.ts'
 
 /** Default repair-candidate budget (adjustable; see the design doc). */
 export const MAX_PARTIAL_REPAIR_ATTEMPTS = 32
@@ -143,6 +143,11 @@ function trySpec(candidate: string, allowSingleComponentRoot: boolean): GenuiSpe
       }
     }
     if (isGenuiSpec(value)) return value
+    // The envelope with ONE component where the list belongs. Same intent as the
+    // bare-component root handled below, written one level down; without this the
+    // two spellings disagreed and only the bare one rendered.
+    const envelope = adoptSingleItemEnvelope(value)
+    if (envelope !== null) return envelope
     // A root-level component list is the envelope minus its braces (issue
     // #186): adopt it as `items` instead of rejecting the body.
     if (Array.isArray(value) && value.length > 0) return { items: value }
