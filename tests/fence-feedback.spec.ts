@@ -187,6 +187,13 @@ async function persistedFeedbackHarness() {
 }
 
 describe('exact fence matching', () => {
+  it.each(['dsh-ui>', 'DSH-UI', 'DSH-UI>'])('uses the renderer language rule for %s feedback', label => {
+    const text = `\`\`\`${label}\n${BROKEN}\n\`\`\``
+    expect(extractDshUiFences(text)).toEqual([{ raw: BROKEN, closed: true, index: 1 }])
+    expect(fenceFailures(text)).toHaveLength(1)
+    expect(fenceFailures(`\`\`\`${label}\n${STAT_GROUP}\n\`\`\``)).toEqual([])
+  })
+
   it('extracts only a fence whose info string is exactly dsh-ui', () => {
     const text = [
       '```dsh-ui',

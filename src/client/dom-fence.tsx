@@ -68,6 +68,7 @@ import { validateCanonicalGenuiSpec } from './guard.ts'
 import { diagnoseUnknownGenuiFields } from './genui-runtime/diagnostics.ts'
 import { normalizeGenuiSpec } from './genui-runtime/normalize.ts'
 import { sourceFencesOfAssistant, sourceLanguageAt } from './source-fence.ts'
+import { normalizeFenceLanguage } from '../shared/fence-language.ts'
 
 /** 优先用宿主代码块内容的语义标记定位包装节点；隐藏语言或改变类名不能阻断
  * 原始消息的围栏识别。类名也用于仍以这些表面呈现的代码块。 */
@@ -259,7 +260,7 @@ function infostringOf(block: Element): 'dsh-ui' | 'svg' | null {
   const pre = block.querySelector('pre')
   for (const el of block.querySelectorAll('*')) {
     if (el.childElementCount !== 0) continue
-    const lang = el.textContent?.trim()
+    const lang = normalizeFenceLanguage(el.textContent?.trim() ?? '')
     if (lang !== 'dsh-ui' && lang !== 'svg') continue
     if (pre !== null && pre.contains(el)) continue
     // A leaf label that belongs to a NESTED known code surface is that
@@ -299,13 +300,38 @@ const KNOWN_LANGUAGE_LABELS = new Set([
 /**
  * Read a language that the host still exposes in its CodeBlock banner.
  *
- * 只有标签命中 {@link KNOWN_LANGUAGE_LABELS} 才返回语言；空标签与本地化通用词
+ * 先规范化 GenUI 标签，再识别已知语言与明确的 `dsh-ui-*` 变体；空标签与本地化通用词
  * （«Код» / Código / 代码块 …）是宿主的**呈现文案**、不是语义，一律返回 null——
  * 此前它们会被当成真语言，连 ChatSnapshot 来源都被短路（issue #258）。
  */
 function domLanguageOf(block: Element): string | null {
-  const label = labelTextOf(block)
-  return label !== '' && KNOWN_LANGUAGE_LABELS.has(label.toLowerCase()) ? label : null
+  const label = normalizeFenceLanguage(labelTextOf(block))
+  // An explicit GenUI-like language that normalization did not accept is not
+  // a localized generic banner; never recover it from JSON-shaped content.
+  return label.toLowerCase().startsWith('dsh-ui') || KNOWN_LANGUAGE_LABELS.has(label.toLowerCase()) ? label : null
+}
+
+/**
+ * 解析一条宿主代码块的围栏语言，并吸收标签书写噪音。
+ *
+ * 宿主把 `dsh-ui` 写进快照时可能带上尾部标点（```dsh-ui> 这类手滑），mdast 会
+ * 原样保留在 `lang` 上。四处判定都要走同一个规范化，否则同一条围栏在「发现」
+ * 与「接管」两步得到相反结论，表现就是静默停在代码块上。
+ *
+ * `null`（围栏确实没有语言）与 `undefined`（来源不可用）必须保持区分：接管判定
+ * 只在后者才走内容识别兜底。
+ *
+ * @param block - 宿主代码块元素。
+ * @param sourceLanguage - 读取 ChatSnapshot 侧语言的回调（DOM 无语言时使用）。
+ * @returns 规范化后的语言、`null` 或 `undefined`。
+ */
+function resolveFenceLanguage(
+  block: Element,
+  sourceLanguage: (block: Element) => string | null | undefined,
+): string | null | undefined {
+  const domLanguage = tagTextBodyOf(block) !== null ? 'dsh-ui' : domLanguageOf(block)
+  const language = domLanguage ?? sourceLanguage(block)
+  return typeof language === 'string' ? normalizeFenceLanguage(language) : language
 }
 
 /** The banner label's raw text (empty while streaming — the host renders the
@@ -576,7 +602,7 @@ function fenceIndexOf(ctx: Context, row: Element, block: Element, sourceLanguage
     let fallbackIndex = 0
     for (const candidate of findFenceCandidates(scope)) {
       if (candidate.closest(STREAMING) !== null) continue
-      const language = tagTextBodyOf(candidate) !== null ? 'dsh-ui' : domLanguageOf(candidate) ?? sourceLanguage(candidate)
+      const language = resolveFenceLanguage(candidate, sourceLanguage)
       if (language !== 'dsh-ui' && !(language === undefined && isGenericGenuiFence(candidate, rawOf(candidate)))) continue
       fallbackIndex += 1
       if (candidate === block) return fallbackIndex
@@ -588,7 +614,7 @@ function fenceIndexOf(ctx: Context, row: Element, block: Element, sourceLanguage
     if (candidate.closest(STREAMING) !== null) continue
     if (candidate.closest(ASSISTANT_FLOW_ROW) !== row) continue
     if (candidate.closest('[data-chat-group-part="reasoning"]') !== null) continue
-    const language = tagTextBodyOf(candidate) !== null ? 'dsh-ui' : domLanguageOf(candidate) ?? sourceLanguage(candidate)
+    const language = resolveFenceLanguage(candidate, sourceLanguage)
     if (language !== 'dsh-ui' && !(language === undefined && isGenericGenuiFence(candidate, rawOf(candidate)))) continue
     index += 1
     if (candidate === block) return index
@@ -1015,9 +1041,7 @@ export function installDomFenceRenderer(
     if (block.hasAttribute(PROCESSED)) return
     const row = rowOf(block)
     const settled = isSettled(block)
-    const domLanguage = tagTextBodyOf(block) !== null ? 'dsh-ui' : domLanguageOf(block)
-    const sourceLanguage = domLanguage === null ? sourceLanguages.get(block) : undefined
-    const language = domLanguage ?? sourceLanguage
+    const language = resolveFenceLanguage(block, candidate => sourceLanguages.get(candidate))
     const raw = rawOf(block)
     // DSH 可能在最终 DOM 隐去不支持高亮的语言；公开 ChatSnapshot 的原始 Markdown 是 language 来源。
     // 内容识别只在 source 暂不可用且 assistant 已结束时兜底，不覆盖已确认的 language 或无 language fence。
@@ -1336,8 +1360,10 @@ export function installDomFenceRenderer(
       const raw = rawOf(block)
       const settled = isSettled(block)
       const domLanguage = tagTextBodyOf(block) !== null ? 'dsh-ui' : domLanguageOf(block)
-      const sourceLanguage = domLanguage === null ? sourceLanguages.get(block) : undefined
-      const language = domLanguage ?? sourceLanguage
+      // 宿主把围栏标签写成 `dsh-ui>` 这类带尾部标点的形态时，严格相等会让这条围栏
+      // 永远停在代码块上（真实会话：一条消息内 182 处）。快照侧已在解析时规范化，
+      // 这里再兜一层，覆盖 DOM 语言与历史缓存值两条路径。
+      const language = resolveFenceLanguage(block, () => sourceLanguages.get(block))
       const sourceUnavailable = domLanguage === null
         && (!sourceSession.available || sourceLanguages.isSessionUnavailable())
       const validGenui = language === 'dsh-ui'
@@ -1433,9 +1459,8 @@ export function installDomFenceRenderer(
       // label is no longer dsh-ui is somebody else's fence, so our explanation
       // would be about the wrong block.
       if (isSettled(block)) {
-        const domLanguage = tagTextBodyOf(block) !== null ? 'dsh-ui' : domLanguageOf(block)
-        const sourceLanguage = domLanguage === null ? sourceLanguages.get(block) : undefined
-        if ((domLanguage ?? sourceLanguage) !== 'dsh-ui') {
+        const language = resolveFenceLanguage(block, candidate => sourceLanguages.get(candidate))
+        if (language !== 'dsh-ui') {
           clearDiagnostic(block)
           continue
         }

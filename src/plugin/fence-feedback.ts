@@ -13,9 +13,9 @@
  * - **仅含 reasoning 的恢复。** 已验证的 GenUI 回合若只以 reasoning block 结束，使用宿主的
  *   `EMPTY_RESPONSE` retry policy。
  * - **Never for subagents.** A child session's fence belongs to a parent reply.
- * - **Exact fence matching.** Only an info string of exactly `dsh-ui` opens a
- *   fence, so ` ```dsh-ui-dark `, indented prose, or a mention of the name is
- *   never rewritten.
+ * - **Shared fence matching.** GenUI labels use the renderer's case/punctuation
+ *   normalization. Unrelated labels such as ` ```dsh-ui-dark `, indented prose,
+ *   and mentions of the name are never rewritten.
  * - **Accounted before sending.** The fingerprint is recorded before `steer`,
  *   so a re-entrant boundary cannot deliver the same correction twice.
  * - **Cancellation-aware.** An aborted turn or a missing session is left alone.
@@ -32,6 +32,7 @@ import type { Session, SessionEvent, SessionStore, UserMessage } from '@deepseek
 import { createHash, randomUUID } from 'node:crypto'
 import { droppedNodeFailure } from './genui-diagnostic.ts'
 import { resolveFence } from '../shared/fence-resolve.ts'
+import { isGenuiFenceLanguage } from '../shared/fence-language.ts'
 
 /** Plugin name recorded on every message this loop steers. */
 export const FEEDBACK_PLUGIN_NAME = '@changfenhuang/dsh-genui'
@@ -49,8 +50,8 @@ export const MAX_CORRECTIONS_PER_TURN = 2
 /** Marker prefix written by older plugin versions. */
 const LEGACY_MARKER_PREFIX = '[genui 自修 #'
 
-/** A fence opener is an info string of exactly `dsh-ui` (≤3 spaces indent). */
-const FENCE_OPEN = /^ {0,3}```[ \t]*dsh-ui[ \t]*$/u
+/** Read one language token (≤3 spaces indent); backticks are invalid in a backtick info string. */
+const FENCE_OPEN = /^ {0,3}```[ \t]*([^` \t]+)[ \t]*$/u
 /** Any fence closer (the renderer never nests fences in one body). */
 const FENCE_CLOSE = /^ {0,3}```[ \t]*$/u
 /** Upper bound on fences inspected per reply — a reply is text, not a corpus. */
@@ -79,7 +80,8 @@ export function extractDshUiFences(text: string): ExtractedFence[] {
   for (let line = 0; line < lines.length; line++) {
     const current = lines[line] ?? ''
     if (open === null) {
-      if (FENCE_OPEN.test(current)) open = { start: line + 1, index: fences.length + 1 }
+      const label = FENCE_OPEN.exec(current)?.[1]
+      if (isGenuiFenceLanguage(label)) open = { start: line + 1, index: fences.length + 1 }
       continue
     }
     if (!FENCE_CLOSE.test(current)) continue

@@ -188,6 +188,46 @@ describe('installDomFenceRenderer', () => {
     } finally { dispose() }
   })
 
+  it.each([
+    ['uppercase banner with canonical source', 'DSH-UI', 'dsh-ui', false, false],
+    ['noisy banner without source while streaming', 'dsh-ui>', undefined, false, true],
+    ['noisy unknown surface with source', 'dsh-ui>', 'dsh-ui>', true, false],
+  ] as const)('normalizes %s before discovery and first takeover', async (_name, label, sourceLabel, unknownSurface, streaming) => {
+    const row = assistantRow('normalized-label', streaming)
+    const block = stockCodeBlock(VALID_SPEC, label)
+    if (unknownSurface) block.className = 'unlisted-host-code-surface'
+    row.appendChild(block)
+    document.body.appendChild(row)
+    const ctx = sourceLabel === undefined ? makeModernCtx('normalized-session') : makeSourceCtx('normalized-session', () => ({
+      nodes: new Map([['normalized-label', {
+        kind: 'assistant-step',
+        data: { blocks: [{ kind: 'text', text: `\`\`\`${sourceLabel}\n${VALID_SPEC}\n\`\`\`` }] },
+      }]]),
+    }), () => () => {})
+    const dispose = installDomFenceRenderer(ctx, () => {})
+    try {
+      expect(await waitFor(() => block.hasAttribute('data-genui-rendered'))).toBe(true)
+      expect(await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('你好，世界') === true)).toBe(true)
+      row.removeAttribute('data-streaming')
+      block.querySelector('div > div')!.textContent = 'DSH-UI>'
+      await tick()
+      expect(block.hasAttribute('data-genui-rendered')).toBe(true)
+    } finally { dispose() }
+  })
+
+  it.each(['dsh-ui-special', 'dsh-ui-dark', 'json', 'typescript'])('does not take over an explicit %s banner without source', async label => {
+    const row = assistantRow('other-language')
+    const block = genericCodeBlock(VALID_SPEC, label)
+    row.appendChild(block)
+    document.body.appendChild(row)
+    const dispose = installDomFenceRenderer(makeModernCtx('other-language-session'), () => {})
+    try {
+      await tick()
+      expect(block.hasAttribute('data-genui-rendered')).toBe(false)
+      expect(row.querySelector('.genui-dom-fence')).toBeNull()
+    } finally { dispose() }
+  })
+
   it('renders a Desktop tag-text fence and restores the original text on disposal', async () => {
     const row = assistantRow('desktop-tag')
     const prose = document.createElement('span')
