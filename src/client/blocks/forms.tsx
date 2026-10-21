@@ -268,7 +268,7 @@ export function SliderNode({ node, onAction, answers }: {
           send(v)
         }}
       />
-      <span className={css.sliderValue}>{Math.round(value * 100) / 100}</span>
+      <span className={css.sliderValue}>{value}</span>
     </label>
   )
 }
