@@ -315,6 +315,14 @@ node scripts/verify-pack.mjs --keep  # 生成并打包校验 tarball
 
 ---
 
+### BetterSidebar 侧聊接入（可选）
+
+GenUI 可通过 BetterSidebar 显式提供的侧聊 surface 渲染已结算的 `dsh-ui` 围栏。该能力要求 BetterSidebar 的 `registerSidechatSurfaceAdapter` 服务接口；旧版或未安装时保留原 Markdown，不跨插件导入包，也不伪造主会话 DOM 属性。
+
+动作仅通过所属子线程现有 prompt 路由发送，不回落主会话。交互状态按来源、线程、事件、原文本块索引和围栏索引隔离。流式期间保持 Markdown，结算后接管；`panel:true`、SVG、无语言围栏，以及无效或源码与 DOM 不匹配的内容仍显示原代码，不新增侧聊面板 dock。
+
+详见[窄 surface 契约与验收清单](docs/sidechat-surfaces.md)。这是需两插件配合的能力增量，不代表已发布的 BetterSidebar 0.28.0 已支持。
+
 ## ❓ 常见问题排查 (FAQ)
 
 <details>
