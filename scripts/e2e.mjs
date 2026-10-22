@@ -17,7 +17,8 @@
  *   --install npm     从公开 npm 包安装
  *   --install tarball 必须给 --tarball 绝对路径与 --tarball-sha256（防假安装）
  *   --smoke           不要求模型 Key：安装 → 启动 → 首页/client.js 200 →
- *                     无页面异常 → 插件 boot → Diff/Code/JSON 渲染与复制；不跑模型链路
+ *                     无页面异常 → 插件 boot → Diff/Code/JSON 渲染与复制；
+ *                     rc.2 Gallery 使用官方本地 replay 验证真实会话动作，不访问真实模型。
  * 退出码 0 = PASS，1 = FAIL。
  */
 
@@ -31,6 +32,8 @@ import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { createServer } from 'node:net'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { checkGalleryBrowser, createGallerySpec, runGalleryBrowserChecks, startGalleryImageServer } from './gallery-browser-checks.mjs'
+import { gallerySmokeEnvironment, prepareGalleryConversation } from './e2e-gallery-host.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DSH_ROOT = process.env.DSH_ROOT ?? resolve(process.env.HOME ?? '', '.dsh/source/current')
@@ -82,10 +85,16 @@ log(`pnpm: ${spawnSync('pnpm', ['--version'], { encoding: 'utf8' }).stdout.trim(
 
 // ── 临时环境 ──────────────────────────────────────────────────────────────
 const DSH_HOME = await mkdtemp(join(tmpdir(), 'dsh-genui-e2e-host-'))
-const env = { ...process.env, DSH_HOME }
+const env = SMOKE
+  ? { ...gallerySmokeEnvironment(process.env, DSH_HOME), HOME: join(DSH_HOME, 'tool-home') }
+  : { ...process.env, DSH_HOME }
+const smokeCwd = join(DSH_HOME, 'smoke-workspace')
 const webLog = join(DSH_HOME, 'dsh-web.log')
 const artifactsDir = process.cwd()
 let webChild = null
+let browser = null
+let galleryAssets = null
+let galleryConversation = null
 
 const killWeb = () => {
   if (webChild === null) return
@@ -102,9 +111,23 @@ process.on('exit', () => {
 })
 
 const cleanup = async () => {
+  const errors = []
+  for (const [name, close] of [
+    ['browser', async () => { const owned = browser; browser = null; await owned?.close() }],
+    ['gallery images', async () => { const owned = galleryAssets; galleryAssets = null; await owned?.close() }],
+  ]) {
+    let timer
+    try {
+      await Promise.race([close(), new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Closing ${name} timed out`)), 8000)
+      })])
+    } catch (error) { errors.push(error) }
+    finally { clearTimeout(timer) }
+  }
   killWeb()
   if (!KEEP) await rm(DSH_HOME, { recursive: true, force: true })
   else log(`保留临时环境: ${DSH_HOME}（日志: ${webLog}）`)
+  if (errors.length) throw new AggregateError(errors, 'Owned smoke resources did not close normally')
 }
 
 const logTail = async (n = 30) => {
@@ -117,19 +140,37 @@ const logTail = async (n = 30) => {
 }
 
 try {
+  // The official launcher reads cwd/.env. A no-key run must not load a real
+  // project environment, even after inherited credential variables are removed.
+  if (SMOKE) {
+    await mkdir(smokeCwd, { recursive: true })
+    await mkdir(env.HOME, { recursive: true })
+  }
+  const installCwd = SMOKE ? smokeCwd : undefined
   // ── 安装插件 ────────────────────────────────────────────────────────────
   if (INSTALL === 'npm') {
     log('安装插件（npm 公开包）...')
-    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', '@changfenhuang/dsh-genui'], { env, stdio: 'inherit' })
+    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', '@changfenhuang/dsh-genui'], { env, cwd: installCwd, stdio: 'inherit' })
     if (r.status !== 0) fail('npm 安装失败（见上方输出）')
   } else if (INSTALL === 'tarball') {
     log(`安装插件（tarball ${TARBALL}）...`)
-    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', TARBALL], { env, stdio: 'inherit' })
+    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', TARBALL], { env, cwd: installCwd, stdio: 'inherit' })
     if (r.status !== 0) fail('tarball 安装失败（见上方输出）')
   } else {
     log('安装插件（link 当前工作区）...')
-    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', `link:${REPO_ROOT}`], { env, stdio: 'inherit' })
+    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', `link:${REPO_ROOT}`], { env, cwd: installCwd, stdio: 'inherit' })
     if (r.status !== 0) fail('link 安装失败（见上方输出）')
+  }
+
+  if (SMOKE) {
+    galleryAssets = await startGalleryImageServer()
+    galleryConversation = await prepareGalleryConversation({
+      dshRoot: DSH_ROOT, dshHome: DSH_HOME, spec: createGallerySpec(galleryAssets.origin),
+    })
+    if (galleryConversation === null) {
+      await galleryAssets.close()
+      galleryAssets = null
+    }
   }
 
   // ── 启动 dsh web（stdout/stderr 真写进 webLog）──────────────────────────
@@ -140,7 +181,7 @@ try {
     unit: { name: 'workspace', version: 2 },
     global: { initialized: true, workspaceIds: [workspaceId], archivedSessionIds: [] },
     tables: { workspaces: { [workspaceId]: {
-      path: REPO_ROOT, title: 'dsh-genui-e2e', sessionIds: [], createdAt: now, updatedAt: now,
+      path: SMOKE ? smokeCwd : REPO_ROOT, title: 'dsh-genui-e2e', sessionIds: [], createdAt: now, updatedAt: now,
     } } },
   }
   await mkdir(join(DSH_HOME, 'storages'), { recursive: true })
@@ -156,8 +197,10 @@ try {
 
   log(`启动 dsh web (port ${PORT}, DSH_HOME=${DSH_HOME})...`)
   const logStream = createWriteStream(webLog, { flags: 'a' })
-  webChild = spawn(DSH_BIN, ['web', '--no-open', '--port', String(PORT)], {
-    env, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
+  // Launcher --patch flags precede web-app flags; both are official CLI paths.
+  webChild = spawn(DSH_BIN, ['web', ...(galleryConversation?.webArgs ?? []), '--no-open', '--port', String(PORT)], {
+    env, cwd: SMOKE ? galleryConversation?.cwd ?? smokeCwd : undefined,
+    detached: true, stdio: ['ignore', 'pipe', 'pipe'],
   })
   let webOutput = ''
   const captureWebOutput = (chunk) => {
@@ -181,7 +224,7 @@ try {
 
   // ── 浏览器链路 ──────────────────────────────────────────────────────────
   const { chromium } = await import(pathToFileURL(join(DSH_ROOT, 'apps/web/node_modules/playwright/index.mjs')).href)
-  const browser = await chromium.launch({
+  browser = await chromium.launch({
     ...(process.env.E2E_CHROMIUM ? { executablePath: process.env.E2E_CHROMIUM } : { channel: 'chrome' }),
     headless: true,
     args: ['--password-store=basic', '--use-mock-keychain'],
@@ -242,6 +285,30 @@ try {
     await page.getByRole('button', { name: '继续', exact: true }).click()
     await page.waitForTimeout(500)
     await dismissCredentialsOverlay()
+    if (galleryConversation !== null) {
+      const report = { fixture: 'Official rc.2 real conversation with deterministic local replay',
+        assetRequests: galleryAssets.requests, hostActionPassed: false }
+      try {
+        const renderedRoot = await galleryConversation.openConversation({ page, dismissCredentialsOverlay })
+        await checkGalleryBrowser({ page, renderedRoot, artifactsDir, dismissCredentialsOverlay, report })
+        report.beforeChoose = await galleryConversation.assertNoActions()
+        report.choice = await galleryConversation.verifyChoose({ page, renderedRoot, dismissCredentialsOverlay })
+        for (const path of ['/wide.svg', '/tall.svg', '/missing.svg']) {
+          assert.ok(galleryAssets.requests.some(request => request.path === path), `Browser must request ${path}`)
+        }
+        report.hostActionPassed = true
+        log('✓ Gallery: real rc.2 rendering, browser interactions, and one session-routed Choose with local replay')
+      } catch (error) {
+        report.passed = false
+        report.error = String(error)
+        await page.screenshot({ path: join(artifactsDir, 'gallery-failure.png'), timeout: 8000 }).catch(() => {})
+        throw error
+      } finally {
+        await writeFile(join(artifactsDir, 'gallery-browser-results.json'), `${JSON.stringify(report, null, 2)}\n`)
+      }
+    } else {
+      await runGalleryBrowserChecks({ page, artifactsDir, dismissCredentialsOverlay, log })
+    }
     // Percentage columns divide the space remaining after the row gap. Exercise
     // the installed renderer, including min-content pressure from a long code line.
     for (const width of [500, 280]) {

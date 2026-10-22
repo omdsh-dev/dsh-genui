@@ -72,6 +72,16 @@ jobs:
           DSH_ROOT: ${{ github.workspace }}/../../.dsh/source/current
           DSH_BIN: ${{ github.workspace }}/../../.dsh/source/current/apps/cli/lib/bin.js
 
+      - name: Archive gallery browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-${{ matrix.node }}-${{ matrix.role }}
+          path: |
+            gallery-*.png
+            gallery-*.json
+          if-no-files-found: ignore
+
       - name: Archive e2e artifacts
         if: failure()
         uses: actions/upload-artifact@v4
