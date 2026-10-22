@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, writeFile, access } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, access, copyFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -48,7 +48,17 @@ export async function prepareGalleryConversation({ dshRoot, dshHome, spec }) {
     replayChunks(`\`\`\`dsh-ui\n${JSON.stringify(spec)}\n\`\`\``), replayChunks(ACK),
   ]))
   const patchFile = join(root, 'cordis.patch.yml')
-  const plugin = fileURLToPath(new URL('./fixtures/gallery-host.mjs', import.meta.url))
+  // Loader discovers client packages through the nearest package.json. Mounting
+  // scripts/fixtures directly would make this a second GenUI client source next
+  // to the installed tarball. Give the unchanged host-only fixture its own
+  // disposable package boundary; do not symlink back into the repository.
+  const fixtureRoot = join(root, 'host-fixture')
+  await mkdir(fixtureRoot, { recursive: true })
+  await writeFile(join(fixtureRoot, 'package.json'), JSON.stringify({
+    name: 'dsh-genui-gallery-e2e-host-fixture', version: '0.0.0', private: true, type: 'module',
+  }))
+  const plugin = join(fixtureRoot, 'index.mjs')
+  await copyFile(fileURLToPath(new URL('./fixtures/gallery-host.mjs', import.meta.url)), plugin)
   // JSON is YAML-compatible; the official --patch loader owns application.
   await writeFile(patchFile, JSON.stringify([
     { id: 'agent-default-model', config: { provider: config.provider, model: config.model } },
