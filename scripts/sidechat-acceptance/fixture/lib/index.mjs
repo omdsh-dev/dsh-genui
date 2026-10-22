@@ -10,6 +10,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // Exact reviewed built paths are resolved and version checked by the runner.
 // No dependency installation or NODE_PATH escape is needed by this host-only package.
+import { snapshotTrace, readSnapshotSession } from './snapshot-diagnostics.mjs'
 import { validateUiAway, verifyUiAwayOwnership } from './ui-away.mjs'
 import { PARENT_ID, CHILD_IDS, PROVIDER, MODEL, CONTENT, chunksFor } from './spec.mjs'
 
@@ -266,39 +267,50 @@ export async function apply(ctx, config) {
     try { request = JSON.parse(readFileSync(requestFile, 'utf8')) } catch { return }
     if (typeof request.requestId !== 'string' || request.requestId === lastRequest) return
     lastRequest = request.requestId; snapshotBusy = true
+    const trace = snapshotTrace()
     snapshotTask = (async () => {
-      if (request.uiAway !== undefined) {
-        const next = validateUiAway(request.uiAway, [...ALL_IDS, config.awayId])
-        if (uiAway) assert.deepEqual(next, uiAway, 'UI away binding cannot change')
-        else uiAway = next
-      } else assert.equal(uiAway, undefined, 'A bound UI away cannot be omitted')
-      await ctx.sessionPersistence.flush()
+      await trace.run('binding', 'all', () => {
+        if (request.uiAway !== undefined) {
+          const next = validateUiAway(request.uiAway, [...ALL_IDS, config.awayId])
+          if (uiAway) assert.deepEqual(next, uiAway, 'UI away binding cannot change')
+          else uiAway = next
+        } else assert.equal(uiAway, undefined, 'A bound UI away cannot be omitted')
+      })
+      await trace.run('flush', 'all', () => ctx.sessionPersistence.flush())
       const sessions = {}
       let uiAwayOwnership
       for (const id of [...ALL_IDS, config.awayId, ...(uiAway ? [uiAway.sessionId] : [])]) {
-        const stored = await readPersisted(id)
-        if (id === uiAway?.sessionId) uiAwayOwnership = verifyUiAwayOwnership(uiAway, stored.header,
-          ctx.workspaceRegistry.get(uiAway.workspaceId), join(allowed, 'workspace'), [...ALL_IDS, config.awayId])
-        sessions[id] = stored.events.filter(event => relevant.has(event.type) && event.type !== 'agent/inbox/spliced').map(event => {
-          const result = { type: event.type, seq: event.seq, data: event.data }
-          // Runtime context may include paths. Retain only kind and a strict
-          // action-marker flag for non-user context; never export that text.
-          if (event.type === 'user/message' && event.data.source?.kind !== 'user') {
-            const containsAction = JSON.stringify(event.data.content).includes('[genui-action]')
-            result.data = { id: event.data.id, source: { kind: event.data.source?.kind }, content: [], containsAction }
-          }
-          return result
+        const owner = id === PARENT_ID ? 'parent' : id === CHILD_IDS[0] ? 'child-a' : id === CHILD_IDS[1] ? 'child-b'
+          : id === config.awayId ? 'seeded-away' : 'ui-away'
+        const stored = await readSnapshotSession(ctx.sessionPersistence, id, owner, trace)
+        if (id === uiAway?.sessionId) uiAwayOwnership = await trace.run('ownership', owner, () => verifyUiAwayOwnership(uiAway, stored.header,
+          ctx.workspaceRegistry.get(uiAway.workspaceId), join(allowed, 'workspace'), [...ALL_IDS, config.awayId]))
+        sessions[id] = await trace.run('projection', owner, () => {
+          const events = stored.events.filter(event => relevant.has(event.type) && event.type !== 'agent/inbox/spliced').map(event => {
+            const result = { type: event.type, seq: event.seq, data: event.data }
+            // Runtime context may include paths. Retain only kind and a strict
+            // action-marker flag for non-user context; never export that text.
+            if (event.type === 'user/message' && event.data.source?.kind !== 'user') {
+              const containsAction = JSON.stringify(event.data.content).includes('[genui-action]')
+              result.data = { id: event.data.id, source: { kind: event.data.source?.kind }, content: [], containsAction }
+            }
+            return result
+          })
+          if (events.length > 256) throw new Error('Bounded session event capacity exceeded')
+          return events
         })
-        if (sessions[id].length > 256) throw new Error('Bounded session event capacity exceeded')
       }
       const data = { requestId: request.requestId, phase, sessions, audit, replayConsumed, fatal, createdUiSessionIds, uiAwayOwnership }
       const destination = join(output, 'snapshot-response.json')
-      writeFileSync(destination + '.tmp', JSON.stringify(data) + '\n')
-      renameSync(destination + '.tmp', destination)
-    })().catch(() => {
-      fatal = 'Durable snapshot failed'; save({ type: 'fixture-failed', reason: fatal })
+      await trace.run('write', 'all', () => {
+        writeFileSync(destination + '.tmp', JSON.stringify(data) + '\n')
+        renameSync(destination + '.tmp', destination)
+      })
+    })().catch(error => {
+      const snapshotFailure = trace.failure(error, fatal)
+      fatal ??= 'Durable snapshot failed'; save({ type: 'fixture-failed', reason: fatal })
       const destination = join(output, 'snapshot-response.json')
-      writeFileSync(destination + '.tmp', JSON.stringify({ requestId: request.requestId, fatal, audit }) + '\n')
+      writeFileSync(destination + '.tmp', JSON.stringify({ requestId: request.requestId, fatal, audit, snapshotFailure }) + '\n')
       renameSync(destination + '.tmp', destination)
     }).finally(() => { snapshotBusy = false })
   }, 50)

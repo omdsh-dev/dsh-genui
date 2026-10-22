@@ -242,3 +242,27 @@ test('onboarding writer rejects unknown enums, wrong types and unbounded diagnos
   assert.deepEqual(Object.keys(result.onboarding).sort(), ['actions', 'lastDialog'])
   assert.ok(!JSON.stringify(result).includes('arbitrary'))
 })
+
+test('acceptance failure retains bounded snapshot diagnostics and excludes arbitrary error material', async t => {
+  const { options } = await fixture(t), commands = commandRecorder(), secret = 'synthetic-secret-shaped-token-path-url-sentinel'
+  await assert.rejects(runSidechatCI(options, { ...commands, acceptance: async ({ snapshotReport }) => {
+    Object.assign(snapshotReport, { phase: 'read', owner: 'child-a', errorKinds: ['SessionPersistenceCorruptionError', 'SyntaxError'],
+      priorFailure: 'agent-loop', error: secret, message: secret, stack: secret, events: secret, path: secret, url: secret, token: secret })
+    throw Error('Synthetic snapshot failure')
+  } }), /Synthetic snapshot failure/)
+  const result = await verdict(options)
+  assert.equal(result.status, 'failed'); assert.equal(result.failureStage, 'real-dual-plugin-acceptance')
+  assert.deepEqual(result.snapshotFailure, { phase: 'read', owner: 'child-a',
+    errorKinds: ['SessionPersistenceCorruptionError', 'SyntaxError'], priorFailure: 'agent-loop' })
+  assert.ok(!JSON.stringify(result).includes(secret)); await assertRemoved(commands.roots)
+})
+test('final snapshot writer rejects unknown enums and limits aggregate categories', async t => {
+  const { options } = await fixture(t), commands = commandRecorder(), secret = 'synthetic-secret-sentinel'
+  await assert.rejects(runSidechatCI(options, { ...commands, acceptance: async ({ snapshotReport }) => {
+    Object.assign(snapshotReport, { phase: secret, owner: secret, errorKinds: Array(1000).fill(secret), priorFailure: secret, nested: { secret } })
+    throw Error('Synthetic failure')
+  } }), /Synthetic failure/)
+  const result = await verdict(options)
+  assert.deepEqual(result.snapshotFailure, { phase: 'unknown', owner: 'unknown', errorKinds: Array(5).fill('unknown'), priorFailure: 'unknown' })
+  assert.ok(!JSON.stringify(result).includes(secret)); await assertRemoved(commands.roots)
+})

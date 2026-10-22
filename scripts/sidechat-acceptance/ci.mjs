@@ -8,6 +8,7 @@ import { inspectPack } from './scripts/exact-pack.mjs'
 import { spawnOwned } from './scripts/owned-process.mjs'
 import { runSidechatAcceptance } from './scripts/run-sidechat-acceptance.mjs'
 import { checkSidechatBrowser } from './scripts/sidechat-browser-checks.mjs'
+import { projectSnapshotFailure } from './fixture/lib/snapshot-diagnostics.mjs'
 import { projectOnboardingReport } from './scripts/sidechat-onboarding.mjs'
 import { HOST_VERSION, isChildPath, sidechatSmokeEnvironment, verifyTarball, withOwnedResources } from './scripts/sidechat-host-contract.mjs'
 
@@ -89,6 +90,7 @@ export async function runSidechatCI(options, { executeCommand = execute, accepta
   let report = { kind: 'real-dual-plugin-sidechat-acceptance', status: 'incomplete', browserAcceptance: false }
   const save = () => {
     if (report.onboarding) report.onboarding = projectOnboardingReport(report.onboarding)
+    if (report.snapshotFailure) report.snapshotFailure = projectSnapshotFailure(report.snapshotFailure)
     return writeFile(join(options.artifactDir, VERDICT), JSON.stringify(report, null, 2) + '\n')
   }
   await save()
@@ -112,11 +114,12 @@ export async function runSidechatCI(options, { executeCommand = execute, accepta
       stage = 'pinned-sidebar-build'
       const sidebar = await buildPinnedSidebar(root, { executeCommand, own })
       stage = 'real-dual-plugin-acceptance'
-      const onboardingReport = {}
+      const onboardingReport = {}, snapshotReport = {}
       report.onboarding = onboardingReport
+      report.snapshotFailure = snapshotReport
       const verdict = await acceptance({ browser: options.browser, hostLayout: 'source', dshRoot: options.dshRoot,
         dshBin: options.dshBin, genuiTarball: options.genuiTarball, genuiTarballSha256: options.genuiTarballSha256,
-        ...sidebar, checkBrowser: checkSidechatBrowser, artifactDir: options.artifactDir, onboardingReport })
+        ...sidebar, checkBrowser: checkSidechatBrowser, artifactDir: options.artifactDir, onboardingReport, snapshotReport })
       assert.equal(verdict?.kind, report.kind)
       assert.equal(verdict?.status, 'passed', 'Required dual-plugin gate must not skip or return incomplete')
       assert.equal(verdict.hostVersion, HOST_VERSION)

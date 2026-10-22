@@ -3,6 +3,7 @@
  * rehearsal installs nothing. Browser launching remains caller-owned.
  */
 import assert from 'node:assert/strict'
+import { projectSnapshotFailure } from '../fixture/lib/snapshot-diagnostics.mjs'
 import { validateUiAway } from '../fixture/lib/ui-away.mjs'
 import { randomUUID } from 'node:crypto'
 import { mkdtemp, mkdir, writeFile, readFile, rename, cp, rm, realpath } from 'node:fs/promises'
@@ -92,7 +93,7 @@ async function installCandidates(options, host, env, cwd, own) {
   for (const pack of packs) installed.push(await verifyInstalledPack(pack, join(env.DSH_HOME, 'profiles/web'), dirname(env.DSH_HOME)))
   return { plugins: PLUGINS, officialNormalAdd: true, installed }
 }
-async function lifecycle({ root, host, env, own }) {
+async function lifecycle({ root, host, env, own, snapshotReport }) {
   const cwd = join(root, 'workspace')
   const fixture = await prepareFixture(root, host)
   const launch = async (phase, patchFile) => {
@@ -136,6 +137,7 @@ async function lifecycle({ root, host, env, own }) {
       await atomicJSON(join(fixture.output, 'snapshot-request.json'), { requestId, ...(uiAway ? { uiAway } : {}) })
       const record = await poll(() => maybeJSON(join(fixture.output, 'snapshot-response.json')), value => value?.requestId === requestId,
         'Fresh flush/open/read/close response', resume.process.alive, 15000)
+      if (record.snapshotFailure && snapshotReport) Object.assign(snapshotReport, projectSnapshotFailure(record.snapshotFailure))
       assert.equal(record.fatal, undefined, 'Host fixture reported an error')
       return record
     } finally { inRead = false }
@@ -201,7 +203,9 @@ export async function runSidechatAcceptance(options) {
     const result = await withOwnedResources(async ({ own }) => {
       const { root, env } = await setupRoot(own)
       report.install = await installCandidates(options, host, env, join(root, 'workspace'), own)
-      const run = await lifecycle({ root, host, env, own })
+      const snapshotReport = options.snapshotReport ?? {}
+      report.snapshotFailure = snapshotReport
+      const run = await lifecycle({ root, host, env, own, snapshotReport })
       const context = await options.browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: 'en-US' })
       own(() => timeout(() => context.close(), 10000, 'Owned browser context cleanup'))
       const page = await context.newPage(), pageErrors = []
@@ -233,6 +237,7 @@ export async function runSidechatAcceptance(options) {
   } catch (error) { report.status = 'failed'; report.failure = 'Required host, browser, durable oracle or cleanup gate failed'; throw error }
   finally {
     if (report.onboarding) report.onboarding = projectOnboardingReport(report.onboarding)
+    if (report.snapshotFailure) report.snapshotFailure = projectSnapshotFailure(report.snapshotFailure)
     await atomicJSON(join(options.artifactDir, 'dsh354-host-verdict.json'), report)
   }
 }
@@ -246,7 +251,9 @@ export async function runBackendRehearsal(options) {
   try {
     const result = await withOwnedResources(async ({ own }) => {
       const { root, env } = await setupRoot(own)
-      const run = await lifecycle({ root, host, env, own })
+      const snapshotReport = options.snapshotReport ?? {}
+      report.snapshotFailure = snapshotReport
+      const run = await lifecycle({ root, host, env, own, snapshotReport })
       const first = await run.readBackendSnapshot({ expected: initialExpected() })
       await delay(1000)
       assert.deepEqual(await run.readBackendSnapshot({ expected: initialExpected() }), first)
@@ -258,5 +265,8 @@ export async function runBackendRehearsal(options) {
     Object.assign(report, result, { status: 'passed-backend-rehearsal-only', cleanupCompleted: true })
     return report
   } catch (error) { report.status = 'failed-backend-rehearsal'; report.failure = 'Lifecycle, durable oracle, host or cleanup failed'; throw error }
-  finally { await atomicJSON(join(options.artifactDir, 'dsh354-backend-rehearsal.json'), report) }
+  finally {
+    if (report.snapshotFailure) report.snapshotFailure = projectSnapshotFailure(report.snapshotFailure)
+    await atomicJSON(join(options.artifactDir, 'dsh354-backend-rehearsal.json'), report)
+  }
 }
