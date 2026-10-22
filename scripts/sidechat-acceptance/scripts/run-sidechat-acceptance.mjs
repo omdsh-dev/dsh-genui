@@ -13,6 +13,7 @@ import { verifyHostAndArtifacts, resolveExactHost, sidechatSmokeEnvironment, IDS
 import { AWAY_ID, initialExpected, finalExpected, durableSnapshot, PendingSettlement } from './sidechat-backend-oracle.mjs'
 import { spawnOwned, delay, timeout } from './owned-process.mjs'
 import { inspectPack, verifyInstalledPack } from './exact-pack.mjs'
+import { completeSyntheticOnboarding, projectOnboardingReport } from './sidechat-onboarding.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const PLUGINS = ['@changfenhuang/dsh-genui', 'dsh-better-sidebar']
@@ -201,6 +202,8 @@ export async function runSidechatAcceptance(options) {
       report.browserBootPlugins = await verifyBrowserBoot(page)
       const workspaceRow = page.locator(`[data-row-key="workspace:${run.workspaceId}"]`)
       await workspaceRow.waitFor({ state: 'visible', timeout: 20000 })
+      report.onboarding = options.onboardingReport ?? {}
+      await completeSyntheticOnboarding(page, workspaceRow, report.onboarding)
       if (await workspaceRow.getAttribute('aria-expanded') === 'false') await workspaceRow.click({ timeout: 15000 })
       const browserReport = await timeout(() => invokeBrowserCheck(options.checkBrowser, { page, artifactsDir: options.artifactDir,
         parentId: IDS[0], childIds: IDS.slice(1), awaySessionId: AWAY_ID, seed: run.seed,
@@ -218,7 +221,10 @@ export async function runSidechatAcceptance(options) {
     Object.assign(report, result, { status: 'passed', browserAcceptance: true, cleanupCompleted: true })
     return report
   } catch (error) { report.status = 'failed'; report.failure = 'Required host, browser, durable oracle or cleanup gate failed'; throw error }
-  finally { await atomicJSON(join(options.artifactDir, 'dsh354-host-verdict.json'), report) }
+  finally {
+    if (report.onboarding) report.onboarding = projectOnboardingReport(report.onboarding)
+    await atomicJSON(join(options.artifactDir, 'dsh354-host-verdict.json'), report)
+  }
 }
 /** Explicitly backend-only: no candidates installed, browser, actions or UI claim. */
 export async function runBackendRehearsal(options) {

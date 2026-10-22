@@ -204,3 +204,41 @@ test('same CI job runs pure contracts and uploads only bounded synthetic evidenc
   ])
   assert.ok(workflow.indexOf('Archive dual-plugin sidechat evidence') < workflow.indexOf('\n  browser-text-newlines:'))
 })
+
+test('acceptance failure retains only bounded allowlisted onboarding diagnostics', async t => {
+  const { options } = await fixture(t), commands = commandRecorder()
+  const sensitive = 'synthetic-private-title-url-value-sentinel'
+  await assert.rejects(runSidechatCI(options, { ...commands, acceptance: async ({ onboardingReport }) => {
+    Object.assign(onboardingReport, { status: 'failed', reason: 'unrecognized-dialog',
+      rawTitle: sensitive, body: sensitive, url: sensitive, credentialValue: sensitive,
+      actions: [{ kind: 'preview-notice', locale: 'en', action: 'Continue', disappeared: true, raw: sensitive }],
+      pendingAction: { kind: 'optional-model-setup', locale: 'en', action: 'Sign in', secret: sensitive },
+      lastDialog: { titleKind: 'unknown', locale: null, visibleDialogs: 1, controls: 3, extraControls: 1,
+        alerts: 0, busy: false, exactShape: false, title: sensitive, href: sensitive } })
+    throw Error('Synthetic acceptance failure')
+  } }), /Synthetic acceptance failure/)
+  const result = await verdict(options)
+  assert.equal(result.status, 'failed'); assert.equal(result.failureStage, 'real-dual-plugin-acceptance')
+  assert.deepEqual(result.onboarding, { status: 'failed', reason: 'unrecognized-dialog',
+    actions: [{ kind: 'preview-notice', locale: 'en', action: 'Continue', disappeared: true }],
+    lastDialog: { titleKind: 'unknown', locale: null, visibleDialogs: 1, controls: 3, extraControls: 1,
+      alerts: 0, exactShape: false, busy: false } })
+  assert.ok(!JSON.stringify(result).includes(sensitive))
+  await assertRemoved(commands.roots)
+})
+test('onboarding writer rejects unknown enums, wrong types and unbounded diagnostics', async t => {
+  const { options } = await fixture(t), commands = commandRecorder()
+  await assert.rejects(runSidechatCI(options, { ...commands, acceptance: async ({ onboardingReport }) => {
+    Object.assign(onboardingReport, { status: 'arbitrary-text', reason: 'arbitrary-error',
+      actions: Array(1000).fill({ kind: 'preview-notice', locale: 'en', action: 'Continue', disappeared: true }),
+      workspaceActionabilityChecked: 'arbitrary',
+      lastDialog: { titleKind: 'arbitrary-title', locale: 'arbitrary', visibleDialogs: 123456,
+        controls: -1, extraControls: 'arbitrary', alerts: Infinity, busy: 'arbitrary', exactShape: 'arbitrary' } })
+    throw Error('Synthetic failure')
+  } }), /Synthetic failure/)
+  const result = await verdict(options)
+  assert.equal(result.onboarding.actions.length, 2)
+  assert.deepEqual(result.onboarding.lastDialog, { visibleDialogs: 100 })
+  assert.deepEqual(Object.keys(result.onboarding).sort(), ['actions', 'lastDialog'])
+  assert.ok(!JSON.stringify(result).includes('arbitrary'))
+})

@@ -8,6 +8,7 @@ import { inspectPack } from './scripts/exact-pack.mjs'
 import { spawnOwned } from './scripts/owned-process.mjs'
 import { runSidechatAcceptance } from './scripts/run-sidechat-acceptance.mjs'
 import { checkSidechatBrowser } from './scripts/sidechat-browser-checks.mjs'
+import { projectOnboardingReport } from './scripts/sidechat-onboarding.mjs'
 import { HOST_VERSION, isChildPath, sidechatSmokeEnvironment, verifyTarball, withOwnedResources } from './scripts/sidechat-host-contract.mjs'
 
 export const SIDEBAR_REPOSITORY = 'https://github.com/sunxiuguo/DSH-better-sidebar.git'
@@ -86,7 +87,10 @@ export async function runSidechatCI(options, { executeCommand = execute, accepta
   }
   let stage = 'source-host-preflight'
   let report = { kind: 'real-dual-plugin-sidechat-acceptance', status: 'incomplete', browserAcceptance: false }
-  const save = () => writeFile(join(options.artifactDir, VERDICT), JSON.stringify(report, null, 2) + '\n')
+  const save = () => {
+    if (report.onboarding) report.onboarding = projectOnboardingReport(report.onboarding)
+    return writeFile(join(options.artifactDir, VERDICT), JSON.stringify(report, null, 2) + '\n')
+  }
   await save()
   try {
     const version = await sourceHostVersion(options.dshRoot, options.dshBin)
@@ -108,9 +112,11 @@ export async function runSidechatCI(options, { executeCommand = execute, accepta
       stage = 'pinned-sidebar-build'
       const sidebar = await buildPinnedSidebar(root, { executeCommand, own })
       stage = 'real-dual-plugin-acceptance'
+      const onboardingReport = {}
+      report.onboarding = onboardingReport
       const verdict = await acceptance({ browser: options.browser, hostLayout: 'source', dshRoot: options.dshRoot,
         dshBin: options.dshBin, genuiTarball: options.genuiTarball, genuiTarballSha256: options.genuiTarballSha256,
-        ...sidebar, checkBrowser: checkSidechatBrowser, artifactDir: options.artifactDir })
+        ...sidebar, checkBrowser: checkSidechatBrowser, artifactDir: options.artifactDir, onboardingReport })
       assert.equal(verdict?.kind, report.kind)
       assert.equal(verdict?.status, 'passed', 'Required dual-plugin gate must not skip or return incomplete')
       assert.equal(verdict.hostVersion, HOST_VERSION)
