@@ -12,7 +12,7 @@ import { projectOnboardingReport } from './scripts/sidechat-onboarding.mjs'
 import { HOST_VERSION, isChildPath, sidechatSmokeEnvironment, verifyTarball, withOwnedResources } from './scripts/sidechat-host-contract.mjs'
 
 export const SIDEBAR_REPOSITORY = 'https://github.com/sunxiuguo/DSH-better-sidebar.git'
-export const SIDEBAR_COMMIT = '9a11166c92e42166e19cba6f22a11eead29f51e7'
+export const SIDEBAR_COMMIT = '34fbad8a75ca4e80af0375800378bcf7c4119d1d'
 const MINIMUM_HOST_VERSION = '0.2.0-rc.1'
 const VERDICT = 'dsh354-host-verdict.json'
 
