@@ -1403,7 +1403,7 @@ export const GENUI_NODE_TYPES: ReadonlySet<string> = GENUI_NATIVE_TYPES
  *
  * With `familyCaps` (default) the traversal applies the same per-family
  * policy caps repair enforces (tabs ≤ maxTabs, accordion items ≤
- * maxAccordionItems): nodes beyond a cap are policy-truncated, not defects,
+ * maxAccordionItems, carousel items ≤ maxCarouselItems): nodes beyond a cap are policy-truncated, not defects,
  * so the declared-vs-rendered ledger must not count them as vanished (#298).
  */
 function visitDeclaredGenuiNodes(
@@ -1607,7 +1607,8 @@ export function processGenuiSpec(value: unknown): GenuiProcessResult {
   const repaired = repairCanonicalGenuiSpec(normalized.value)
   const validation = validateCanonicalGenuiSpec(normalized.value)
   // Policy-aware ledger (#298): nodes beyond a per-family cap (tabs ≤
-  // maxTabs, accordion items ≤ maxAccordionItems) are truncated BY DESIGN, so
+  // maxTabs, accordion items ≤ maxAccordionItems, carousel items ≤
+  // maxCarouselItems) are truncated BY DESIGN, so
   // they are not counted as "declared but vanished" — otherwise the fence
   // below would always degrade to a code block and the truncation in repair
   // could never take effect. The uncapped pass measures the truncation for
@@ -1631,7 +1632,7 @@ export function processGenuiSpec(value: unknown): GenuiProcessResult {
     warnings.push({
       kind: 'truncated',
       path: 'spec',
-      message: `策略上限截断:${uncappedDeclaredCount - declaredNativeCount} 个声明节点超出 tabs ≤ ${GENUI_LIMITS.maxTabs} / accordion ≤ ${GENUI_LIMITS.maxAccordionItems} 的上限,未渲染;围栏照常渲染,重发时可拆分为多个组件`,
+      message: `策略上限截断:${uncappedDeclaredCount - declaredNativeCount} 个声明节点超出 tabs ≤ ${GENUI_LIMITS.maxTabs} / accordion ≤ ${GENUI_LIMITS.maxAccordionItems} / carousel ≤ ${GENUI_LIMITS.maxCarouselItems} 的上限,未渲染;围栏照常渲染,重发时可拆分为多个组件`,
     })
   }
   return {
