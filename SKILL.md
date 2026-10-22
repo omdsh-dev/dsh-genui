@@ -169,7 +169,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 | `[文字](https://…)` | 行内链接（http/https/mailto；围栏会话中的本地文件链接支持右侧栏打开与行号定位；无效目标及独立 HTML artifact 中的本地文件链接显示为普通文字） |
 | JSON `"\n"`（真实换行符） | 换行——**多段文字写同一个字段**，不要为换行拆成多个节点 |
 
-不嵌套、不解析 HTML（每个标记生成 React 元素，不走 innerHTML；`<br>` 字面显示，换行用 `"\n"`）；标记没闭合时原样显示。表格文本、`badge`、`delta` 单元格只识别本地文件链接，外部链接与无效目标显示为普通文字；`bar`、`spark`、`ring`、`index` 等专用数值单元格保持原有展示。
+不嵌套、不解析 HTML（每个标记生成 React 元素，不走 innerHTML；`<br>` 字面显示，换行用 `"\n"`）；标记没闭合时原样显示。表格文本、`badge`、`delta` 单元格、分组标题和明细首格支持现有 http/https/mailto 外链与本地文件链接，可直接用于日报的来源列；无效目标仍显示为普通文字。点击链接不会同时折叠分组或展开明细。表头不解析链接，`bar`、`spark`、`ring`、`index` 等专用数值单元格保持原有展示。
 
 文字字段只支持行内富文本。`text.content`、`callout.content`、`list` 项、`keyvalue` 值、`table` 单元格等字段中不要嵌入 Markdown 表格或连续三个及以上反引号、波浪号组成的代码围栏；表格使用 `table`，代码使用 `code`，代码改动使用 `diff`，结构化 JSON 使用 `json`。误写入文字字段的代码围栏连同内部标记保持原文，未闭合时从围栏标记开始保持原文。`validate_dsh_ui` 返回 `warning=block_markdown` 时，按照 `replacement` 改写结构节点并重新验证。
 

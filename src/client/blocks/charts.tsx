@@ -348,7 +348,7 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
           .join(' ') || undefined}
       >
         {type === 'badge'
-          ? <span className={css.cellBadge}>{renderInline(String(cell), 'file')}</span>
+          ? <span className={css.cellBadge}>{renderInline(String(cell), true)}</span>
           : type === 'bar'
             ? <CellBar cell={cell} />
             : type === 'spark'
@@ -359,8 +359,8 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                   ? <span className={css.cellIndex}>{rowIndex + 1}</span>
                   : tone === null
                     // Format displayed text without changing sorting or exported data.
-                    ? renderInline(String(cell), 'file')
-                    : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{renderInline(String(cell), 'file')}</span>}
+                    ? renderInline(String(cell), true)
+                    : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{renderInline(String(cell), true)}</span>}
       </td>
     )
   }
@@ -408,10 +408,10 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                         <span className={css.groupChevron} aria-hidden>{isCollapsed ? '▸' : '▾'}</span>
                       </button>
                       <span className={css.groupLabel} onClick={event => {
-                        if (event.target instanceof Element && event.target.closest('button')) return
+                        if (event.target instanceof Element && event.target.closest('a, button')) return
                         toggleSection(headerIndex)
                       }}>
-                        {renderInline(String(section.header.row[0]), 'file')}
+                        {renderInline(String(section.header.row[0]), true)}
                         <span className={css.groupCount}>{section.children.length}</span>
                       </span>
                     </td>
@@ -439,10 +439,10 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                                   <span className={css.detailChevron} data-open={open} aria-hidden>▸</span>
                                 </button>
                                 <span className={css.detailContent} onClick={event => {
-                                  if (event.target instanceof Element && event.target.closest('button')) return
+                                  if (event.target instanceof Element && event.target.closest('a, button')) return
                                   toggleDetail(child.index)
                                 }}>
-                                  {renderInline(String(cell), 'file')}
+                                  {renderInline(String(cell), true)}
                                 </span>
                               </td>
                             )
