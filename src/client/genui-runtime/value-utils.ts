@@ -34,6 +34,9 @@ export function safeHref(value: unknown): string | undefined {
 /** Keep browser-reachable http(s) or same-origin relative media paths. */
 export function safeMediaSrc(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
+  // Browsers strip ASCII controls while parsing URLs; do not let a split
+  // scheme or authority pass as a harmless relative image path.
+  if (/[\u0000-\u001f\u007f]/.test(value)) return undefined
   const normalized = value.trim()
   if (normalized === '' || normalized.length > 2048) return undefined
   if (/^https?:\/\//i.test(normalized)) return normalized

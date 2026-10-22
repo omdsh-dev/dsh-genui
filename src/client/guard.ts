@@ -351,6 +351,25 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
         ...opt('justify', enu(v.justify, ROW_JUSTIFY)),
       }
     }
+    case 'carousel': {
+      const source = Array.isArray(v.items) ? v.items.slice(0, GENUI_LIMITS.maxCarouselItems) : []
+      return {
+        type: 'carousel', items: repairItems(source, ctx, depth + 1),
+        ...opt('title', str(v.title, GENUI_LIMITS.maxString)),
+        ...opt('itemWidth', num(v.itemWidth, 80, 640)),
+        ...opt('gap', num(v.gap, 0, 96)),
+      }
+    }
+    case 'image-group': {
+      const source = Array.isArray(v.items) ? v.items.slice(0, GENUI_LIMITS.maxImageGroupItems) : []
+      const items = source.flatMap(value => {
+        const item = obj(value)
+        const src = safeMediaSrc(item?.src)
+        if (item === undefined || src === undefined) return []
+        return [{ src, ...opt('alt', str(item.alt, GENUI_LIMITS.maxString)), ...opt('caption', str(item.caption, GENUI_LIMITS.maxString)) }]
+      })
+      return { type: 'image-group', items, ...opt('title', str(v.title, GENUI_LIMITS.maxString)) }
+    }
     case 'col': {
       return {
         type: 'col',
@@ -1342,7 +1361,7 @@ export function countGenuiNodes(value: unknown, cap = Number.POSITIVE_INFINITY):
           const io = obj(it)
           if (io !== undefined) walk(io.items)
         }
-      } else if ((v.type === 'row' || v.type === 'col' || v.type === 'grid' || v.type === 'card') && Array.isArray(v.items)) {
+      } else if ((v.type === 'row' || v.type === 'col' || v.type === 'grid' || v.type === 'card' || v.type === 'carousel') && Array.isArray(v.items)) {
         // Layout containers hold real children; skipping them undercounted
         // the tree and hid silent drops from validate_dsh_ui (issue #42).
         walk(v.items)
@@ -1422,8 +1441,9 @@ function visitDeclaredGenuiNodes(
       for (let row = 0; row < rowCount; row++) {
         walkItemsOf(v.items[row], `${at}.items[${row}]`)
       }
-    } else if ((v.type === 'row' || v.type === 'col' || v.type === 'grid' || v.type === 'card') && Array.isArray(v.items)) {
-      walk(v.items, `${at}.items`)
+    } else if ((v.type === 'row' || v.type === 'col' || v.type === 'grid' || v.type === 'card' || v.type === 'carousel') && Array.isArray(v.items)) {
+      const items = v.type === 'carousel' && familyCaps ? v.items.slice(0, GENUI_LIMITS.maxCarouselItems) : v.items
+      walk(items, `${at}.items`)
     } else if (v.type === 'list' && Array.isArray(v.items)) {
       for (let row = 0; row < v.items.length; row++) {
         walkNode(v.items[row], `${at}.items[${row}]`)
@@ -1883,7 +1903,7 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       isStr('content')
       isStr('text')
       break
-    case 'row': case 'col': case 'card': case 'grid':
+    case 'row': case 'col': case 'card': case 'grid': case 'carousel':
       if (!Array.isArray(v.items)) errors.push(`${at}: type '${type}' requires items (array)`)
       walk(v.items, depth + 1, `${at}.items`)
       if (type === 'grid') isNum('cols')
@@ -1891,6 +1911,15 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
     case 'button': case 'checkbox': case 'link': case 'switch':
       if (typeof v.label !== 'string') errors.push(`${at}: type '${type}' requires label (string)`)
       isStr('label')
+      break
+    case 'image-group':
+      if (!Array.isArray(v.items)) errors.push(`${at}: type 'image-group' requires items (array)`)
+      else v.items.slice(0, GENUI_LIMITS.maxImageGroupItems).forEach((item, index) => {
+        const image = obj(item)
+        if (image !== undefined && typeof image.src === 'string' && safeMediaSrc(image.src) === undefined) {
+          errors.push(`${at}.items[${index}].src must be an http(s) or relative media URL`)
+        }
+      })
       break
     case 'image': case 'audio': case 'video':
       if (typeof v.src !== 'string') errors.push(`${at}: type '${type}' requires src (string)`)

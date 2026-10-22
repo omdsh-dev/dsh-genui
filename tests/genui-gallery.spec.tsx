@@ -3,7 +3,7 @@
 // path (parse → repair → GenuiBlock) and every component family appears.
 // Regression net: if a future vocabulary addition breaks rendering of any
 // existing type, this file catches it.
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MarkdownText } from './genui-markdown.tsx'
 import { gallerySpec } from '../src/client/gallery.ts'
@@ -54,6 +54,8 @@ describe('gallery spec', () => {
     expect(document.querySelector('input[type="radio"]')).not.toBeNull()
     expect(body).toContain('复制令牌')
     expect(document.querySelector('img[src="/demo-image.png"]')).not.toBeNull()
+    expect(screen.getByRole('group', { name: '横向浏览 · 本地切换，不发送消息' })).toBeDefined()
+    expect(document.querySelector('button[aria-haspopup="dialog"]')).not.toBeNull()
     expect(document.querySelector('audio[controls][preload="metadata"]')).not.toBeNull()
     expect(document.querySelector('video[controls][preload="metadata"]')).not.toBeNull()
     // Advanced

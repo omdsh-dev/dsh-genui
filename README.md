@@ -153,6 +153,7 @@ dsh-genui Capabilities
   - Multi-series plotting with expressions (trig, log, exp, power);
   - **Live Parameter Sliders**: Drag sliders to redraw curves instantly at 60 FPS; supports auto-animation loops.
 - **Mermaid & 3D Visuals**: Flowcharts, sequence diagrams, and lightweight 3D models with on-demand asset loading.
+- **Native Galleries**: `carousel` composes existing cards and forms in a responsive, keyboard-navigable horizontal track; `image-group` opens images in a local lightbox with focus restoration. Navigation does not invoke model actions. [Examples and verification](docs/gallery.md).
 - **Native Media**: Inline playback for accessible audio and video URLs, with poster images, aspect ratios, and controls.
 - **KaTeX Math Rendering**: Inline math (`$...$`) and display blocks (`$$...$$`), supporting matrices and multi-line equations.
 

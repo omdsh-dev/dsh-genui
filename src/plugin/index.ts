@@ -97,8 +97,8 @@ export const GENUI_SECTION_TEXT = `Render UI inside your reply with a fenced \`d
 
 Allowed \`type\` values; the \`genui\` skill, when available, carries the full content→component mapping and per-component field details:
 
-- 布局: text · row · col · grid · card · divider · spacer · hero（封面块，一条回答最多一个）
-- 展示: badge · stat · progress · list · table · keyvalue · timeline · file-tree · breadcrumb · callout · steps · diff · json · code · copy · avatar · image · audio · video · icon · blocks · arrow
+- 布局: text · row · col · grid · card · carousel · divider · spacer · hero（封面块，一条回答最多一个）
+- 展示: badge · stat · progress · list · table · keyvalue · timeline · file-tree · breadcrumb · callout · steps · diff · json · code · copy · avatar · image · image-group · audio · video · icon · blocks · arrow
 - 图表: chart {"kind":"bars|line|donut","data":[{"label":"...","value":n}]}（series：bars 分组/堆叠 / line 多序列） · echart (preset 名或 option 直通，清单见 skill) · plot (函数图) · svg (单图预览)
 - 交互: button · input · textarea · select · checkbox · switch · slider · radio · submit · quiz · link · tabs · accordion（row.justify / col.width / card.flat 见图元）
 - 高级: mermaid (流程图/时序/甘特/ER 等，关键字见 skill) · diagram (架构/流程图) · scene3d (3D WebGL)

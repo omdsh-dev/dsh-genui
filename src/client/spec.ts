@@ -29,6 +29,8 @@ export type GenuiNode = (
   | GenuiCheckbox
   | GenuiLink
   | GenuiImage
+  | GenuiImageGroup
+  | GenuiCarousel
   | GenuiAudio
   | GenuiVideo
   | GenuiBadge
@@ -186,6 +188,30 @@ export interface GenuiImage {
   alt?: string
   /** Caption line below the image (source, reading, credit). */
   caption?: string
+}
+
+/** A bounded, local image gallery; sources use the same policy as image. */
+export interface GenuiImageGroupItem {
+  src: string
+  alt?: string
+  caption?: string
+}
+
+export interface GenuiImageGroup {
+  type: 'image-group'
+  items: GenuiImageGroupItem[]
+  title?: string
+}
+
+/** Horizontally scrollable native nodes, retaining normal state/action scope. */
+export interface GenuiCarousel {
+  type: 'carousel'
+  items: GenuiNode[]
+  title?: string
+  /** Preferred slide width in pixels, clamped to 80–640 and the viewport. */
+  itemWidth?: number
+  /** Gap between slides in pixels, clamped to 0–96. */
+  gap?: number
 }
 
 /** User-controlled audio from a browser-reachable URL. */

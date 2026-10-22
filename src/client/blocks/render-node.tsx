@@ -25,6 +25,8 @@ import {
 } from './advanced.tsx'
 import { DiagramNode } from './diagram/index.tsx'
 import { ImageNode } from './image.tsx'
+import { CarouselNode } from './carousel.tsx'
+import { ImageGroupNode } from './image-group.tsx'
 import { SvgNode } from './svg.tsx'
 import { IconNode } from './icon.tsx'
 import { BlocksNode } from './blocks.tsx'
@@ -301,6 +303,11 @@ export function renderNode(
       }
       return <span key={key} className={css.linkText}>{renderInline(node.label, false)}</span>
     }
+    case 'carousel': return <CarouselNode key={key} node={node}>{
+      node.items.slice(0, GENUI_LIMITS.maxCarouselItems).map((child, index) =>
+        renderNode(child, index, onAction, depth + 1, answers, `${path}.items[${index}]`))
+    }</CarouselNode>
+    case 'image-group': return <ImageGroupNode key={key} node={node} />
     case 'image': return <ImageNode key={`${key}:${node.src}`} node={node} />
     case 'audio': return <AudioNode key={`${key}:${node.src}`} node={node} />
     case 'video': return <VideoNode key={`${key}:${node.src}`} node={node} />

@@ -2,6 +2,7 @@ import { echartEngineFor } from '../echarts-engine.ts'
 import type { GenuiNode, GenuiSpec } from '../spec.ts'
 import { GENUI_NATIVE_TYPES } from '../genui-runtime/schema.ts'
 import { ICONS } from '../icons/icon-data.ts'
+import { GENUI_LIMITS } from '../genui-runtime/limits.ts'
 import { safeMediaSrc } from '../genui-runtime/value-utils.ts'
 import type { GenuiPortabilityReport, GenuiStandaloneAsset } from './types.ts'
 
@@ -29,8 +30,15 @@ function scan(items: unknown[], report: GenuiPortabilityReport, assets: Set<Genu
         if (poster !== undefined) report.externalMedia.push(poster)
       }
     }
-    if (Array.isArray(node.items)) {
-      if (node.type === 'list') scan(node.items.filter(child => typeof child === 'object' && child !== null && 'type' in child) as unknown[], report, assets)
+    if (node.type === 'image-group') {
+      for (const image of node.items.slice(0, GENUI_LIMITS.maxImageGroupItems)) {
+        const src = safeMediaSrc(image.src)
+        if (src !== undefined) report.externalMedia.push(src)
+      }
+    }
+    if (Array.isArray(node.items) && node.type !== 'image-group') {
+      if (node.type === 'carousel') scan(node.items.slice(0, GENUI_LIMITS.maxCarouselItems), report, assets)
+      else if (node.type === 'list') scan(node.items.filter(child => typeof child === 'object' && child !== null && 'type' in child) as unknown[], report, assets)
       else if (node.type === 'accordion') {
         for (const section of node.items) if (typeof section === 'object' && section !== null && 'items' in section && Array.isArray(section.items)) scan(section.items, report, assets)
       } else scan(node.items, report, assets)

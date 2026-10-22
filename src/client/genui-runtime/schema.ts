@@ -202,6 +202,10 @@ function fileTreeRecordSchema(depth: number): ComponentRecordSchema {
 
 const fileTreeNodeSchema = fileTreeRecordSchema(6)
 
+const imageGroupItemSchema = recordSchema(['src'], {
+  src: 'string', alt: 'string', caption: 'string',
+}, {}, {}, { url: 'src', link: 'src' })
+
 const tabHolderSchema = recordSchema(['label', 'items'], {
   label: 'string',
   items: 'nodes',
@@ -291,6 +295,8 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   // `flat` drops the elevation/shadow: figure panels must read as printed
   // blocks, not as floating cards (the reference diagrams are drawn flat).
   card: schema(['items'], { ...nodeFields, title: 'string', eyebrow: 'string', items: 'nodes', tone: 'string', accent: 'string', flat: 'boolean' }, { label: 'title', content: 'items' }, { enums: { tone: CARD_TONES } }),
+  carousel: schema(['items'], { ...nodeFields, items: 'nodes', title: 'string', itemWidth: 'number', gap: 'number' }, { children: 'items' }),
+  'image-group': schema(['items'], { ...nodeFields, items: 'array', title: 'string' }, {}, { nested: { items: imageGroupItemSchema } }),
   chart: schema([], {
     ...nodeFields,
     kind: 'string',

@@ -32,7 +32,7 @@ function visitNativeNodes(value: unknown, path: string, visit: (node: Record<str
   if (definition === undefined) return
   visit(value, path, definition)
   const children = (child: unknown, childPath: string): void => visitNativeNodes(child, childPath, visit)
-  if ((type === 'row' || type === 'col' || type === 'grid' || type === 'card') && Array.isArray(value.items)) {
+  if ((type === 'row' || type === 'col' || type === 'grid' || type === 'card' || type === 'carousel') && Array.isArray(value.items)) {
     value.items.forEach((child, index) => children(child, `${path}.items[${index}]`))
   } else if (type === 'list' && Array.isArray(value.items)) {
     value.items.forEach((child, index) => children(child, `${path}.items[${index}]`))

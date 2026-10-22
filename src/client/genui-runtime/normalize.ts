@@ -222,7 +222,7 @@ function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[]
     }
   }
 
-  if (type === 'row' || type === 'col' || type === 'grid' || type === 'card' || type === 'file-tree' || type === 'timeline' || type === 'breadcrumb') {
+  if (type === 'row' || type === 'col' || type === 'grid' || type === 'card' || type === 'carousel' || type === 'file-tree' || type === 'timeline' || type === 'breadcrumb') {
     if (type !== 'file-tree' && type !== 'timeline' && type !== 'breadcrumb') out.items = normalizeNodeArray(out.items, `${path}.items`)
   } else if (type === 'list' && Array.isArray(out.items)) {
     // List records and nested nodes share items; aliases only belong to records.
