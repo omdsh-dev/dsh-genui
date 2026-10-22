@@ -47,7 +47,7 @@ export async function resolveExactHost({ dshRoot, dshBin, hostLayout = 'source' 
   assert.equal(bin, await realpath(join(dirname(cliPackage), 'lib/bin.js')), 'Use exact official built bin.js, not an unrelated executable/shim')
   const require = createRequire(cliPackage)
   const modules = {}
-  for (const [key, name] of Object.entries({ agentModule: '@deepseek-ai/dsh-agent', subagentModule: '@deepseek-ai/dsh-subagent', replayModule: '@deepseek-ai/dsh-llm-replay' })) {
+  for (const [key, name] of Object.entries({ agentModule: '@deepseek-ai/dsh-agent', subagentModule: '@deepseek-ai/dsh-subagent', llmModule: '@deepseek-ai/dsh-llm', replayModule: '@deepseek-ai/dsh-llm-replay' })) {
     let entry
     try { entry = require.resolve(name) } catch (error) {
       if (key !== 'replayModule' || hostLayout !== 'source' || error.code !== 'MODULE_NOT_FOUND') throw error

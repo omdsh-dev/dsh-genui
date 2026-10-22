@@ -21,6 +21,7 @@ const MAX_POLLS = 1200
 const POLL_MS = 250
 
 export async function apply(ctx, config) {
+  const { createSystemMessage } = await import(pathToFileURL(config.llmModule).href)
   const { installModelSelection } = await import(pathToFileURL(config.agentModule).href)
   const { snapshotSubagentDescriptor } = await import(pathToFileURL(config.subagentModule).href)
   const { installLlmReplay } = await import(pathToFileURL(config.replayModule).href)
@@ -209,6 +210,9 @@ export async function apply(ctx, config) {
       agent.session.append('model/selection', route)
       agent.session.append('turn/start', { turn: 1 })
       agent.session.append('step/start', { turn: 1, step: 1 })
+      // Mirror AgentLoop's initial empty system head before any user surface.
+      // The real first action may replace it; late insertion is invalid in v4.
+      agent.session.append('system/message', { turn: 1, step: 1, message: createSystemMessage('') }, { surfaceOp: 'append' })
       agent.session.append('user/message', {
         id: `fixture-user-${agent.session.id}`, role: 'user', source: { kind: 'user' },
         content: [{ type: 'text', text: 'Synthetic DSH354 fixture. Display the isolation form.' }],
