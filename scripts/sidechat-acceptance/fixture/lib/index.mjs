@@ -10,10 +10,11 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // Exact reviewed built paths are resolved and version checked by the runner.
 // No dependency installation or NODE_PATH escape is needed by this host-only package.
+import { validateUiAway, verifyUiAwayOwnership } from './ui-away.mjs'
 import { PARENT_ID, CHILD_IDS, PROVIDER, MODEL, CONTENT, chunksFor } from './spec.mjs'
 
 export const name = 'fixture-dsh354-dual'
-export const inject = ['agents', 'agentLoop', 'agentDefaultModel', 'llm', 'sessionTitle', 'sessionController', 'sessionPersistence']
+export const inject = ['agents', 'agentLoop', 'agentDefaultModel', 'llm', 'sessionTitle', 'sessionController', 'sessionPersistence', 'workspaceRegistry']
 const ALL_IDS = [PARENT_ID, ...CHILD_IDS]
 const MAX_POLLS = 1200
 const POLL_MS = 250
@@ -34,7 +35,13 @@ export async function apply(ctx, config) {
   }
   mkdirSync(output, { recursive: true })
   const audit = [], calls = new Map(), requests = new Map()
-  let fatal, replayConsumed = false
+  let fatal, replayConsumed = false, uiAway
+  const createdUiSessionIds = []
+  ctx.on('session/created', session => {
+    if (phase !== 'resume' || [...ALL_IDS, config.awayId].includes(session.id)) return
+    if (createdUiSessionIds.length < 2) createdUiSessionIds.push(session.id)
+    if (createdUiSessionIds.length !== 1) fatal = 'More than one extra synthetic root was created'
+  }, { global: true })
   const save = record => {
     if (audit.length >= 512) { fatal = 'Bounded audit capacity exceeded'; return }
     audit.push(record)
@@ -260,10 +267,18 @@ export async function apply(ctx, config) {
     if (typeof request.requestId !== 'string' || request.requestId === lastRequest) return
     lastRequest = request.requestId; snapshotBusy = true
     snapshotTask = (async () => {
+      if (request.uiAway !== undefined) {
+        const next = validateUiAway(request.uiAway, [...ALL_IDS, config.awayId])
+        if (uiAway) assert.deepEqual(next, uiAway, 'UI away binding cannot change')
+        else uiAway = next
+      } else assert.equal(uiAway, undefined, 'A bound UI away cannot be omitted')
       await ctx.sessionPersistence.flush()
       const sessions = {}
-      for (const id of [...ALL_IDS, config.awayId]) {
+      let uiAwayOwnership
+      for (const id of [...ALL_IDS, config.awayId, ...(uiAway ? [uiAway.sessionId] : [])]) {
         const stored = await readPersisted(id)
+        if (id === uiAway?.sessionId) uiAwayOwnership = verifyUiAwayOwnership(uiAway, stored.header,
+          ctx.workspaceRegistry.get(uiAway.workspaceId), join(allowed, 'workspace'), [...ALL_IDS, config.awayId])
         sessions[id] = stored.events.filter(event => relevant.has(event.type) && event.type !== 'agent/inbox/spliced').map(event => {
           const result = { type: event.type, seq: event.seq, data: event.data }
           // Runtime context may include paths. Retain only kind and a strict
@@ -276,7 +291,7 @@ export async function apply(ctx, config) {
         })
         if (sessions[id].length > 256) throw new Error('Bounded session event capacity exceeded')
       }
-      const data = { requestId: request.requestId, phase, sessions, audit, replayConsumed, fatal }
+      const data = { requestId: request.requestId, phase, sessions, audit, replayConsumed, fatal, createdUiSessionIds, uiAwayOwnership }
       const destination = join(output, 'snapshot-response.json')
       writeFileSync(destination + '.tmp', JSON.stringify(data) + '\n')
       renameSync(destination + '.tmp', destination)

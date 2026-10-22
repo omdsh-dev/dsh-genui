@@ -27,10 +27,11 @@ export function actionPlan(childIds) {
 }
 
 export function validateInputs(options) {
-  for (const key of ['readBackendSnapshot', 'waitForBackendAction']) {
+  for (const key of ['readBackendSnapshot', 'waitForBackendAction', 'bindUiAwaySession']) {
     assert.equal(typeof options[key], 'function', `Required awaited backend oracle missing: ${key}`)
   }
   const { parentId, childIds, awaySessionId, seed } = options
+  assert.match(options.workspaceId, /^[0-9a-f-]{36}$/, 'Exact synthetic workspace ID required')
   assert.ok(Array.isArray(childIds) && childIds.length === 2, 'Exactly two child IDs required; no skipped A/B')
   for (const id of [parentId, ...childIds, awaySessionId]) {
     assert.equal(typeof id, 'string', 'All synthetic session IDs are required')

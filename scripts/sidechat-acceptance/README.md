@@ -43,6 +43,16 @@ action requires a positive transport response and fresh durable replay receipts;
 parent/away actions, duplicates, foreign routes and missing completed turns fail.
 PASS requires the final durable quiet reread and owned cleanup.
 
+The seed contains parent, A, B and one untouched empty root. Official rc.2 hides
+non-current empty session rows, so the away/return scenario uses one normal
+workspace **New session** click, not a lookup of the hidden seeded root. The
+helper passively observes the correlated successful create response, verifies
+that exact fresh ID is visibly selected, and binds it once to the durable oracle.
+All subsequent reads include both empty roots. Both must retain zero relevant
+messages, model calls, actions and turns; root/cwd/workspace ownership and the
+exactly-one creation receipt are checked independently. No backend selection or
+extra model action is used, and the original four child actions are unchanged.
+
 Pure Node contracts cover these guards and negative controls. They do not prove
 that a real browser or host invocation passed. Each actual CI run must establish
 its own browser verdict; uploading evidence alone never counts as acceptance.

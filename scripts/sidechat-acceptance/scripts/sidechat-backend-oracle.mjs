@@ -1,9 +1,10 @@
 /** Strict oracle over fresh sessionPersistence handle reads, not live projections. */
 import assert from 'node:assert/strict'
 import { IDS, ACK, PROVIDER, MODEL, assertOwnedAuditRow, childActionText } from './sidechat-host-contract.mjs'
+import { validateUiAway } from '../fixture/lib/ui-away.mjs'
 import { CONTENT } from '../fixture/lib/spec.mjs'
 export const AWAY_ID = 'session-e2e-dsh354-away'
-const all = [...IDS, AWAY_ID]
+const originalIds = [...IDS, AWAY_ID]
 export const INITIAL_TEXT = 'Synthetic DSH354 fixture. Display the isolation form.'
 export const textOf = message => (message?.content ?? []).filter(block => block.type === 'text').map(block => block.text).join('')
 export function initialExpected() { return Object.fromEntries(IDS.map(id => [id, { actions: [], completedTurns: [1] }])) }
@@ -23,11 +24,15 @@ export function assertAudit(audit) {
 }
 /** A pending result may be polled; an invalid result must immediately fail. */
 export class PendingSettlement extends Error {}
-export function durableSnapshot(record, { expected, assistantEventSeq, allowPending = false }) {
+export function durableSnapshot(record, { expected, assistantEventSeq, allowPending = false, uiAway }) {
   assert.equal(record.fatal, undefined, 'Fixture failure invalidates durable snapshot')
   assert.equal(record.phase, 'resume', 'Only separately resumed persisted data qualifies')
   assert.ok(record.requestId && typeof record.requestId === 'string', 'Fresh read receipt required')
   assertAudit(record.audit)
+  if (uiAway) validateUiAway(uiAway, originalIds)
+  const all = [...originalIds, ...(uiAway ? [uiAway.sessionId] : [])]
+  assert.deepEqual(record.createdUiSessionIds, uiAway ? [uiAway.sessionId] : [], 'Exactly the bound UI-created root, or none before binding, is allowed')
+  assert.deepEqual(record.uiAwayOwnership, uiAway ? { ...uiAway, root: true, cwdOwned: true, workspaceMember: true } : undefined, 'Exact independently verified UI-away ownership is required')
   assert.deepEqual(Object.keys(record.sessions).sort(), [...all].sort(), 'All owned and away sessions must be read')
   assert.deepEqual(Object.keys(expected).sort(), [...IDS].sort(), 'Exact oracle ownership required')
   const result = { sessions: {} }, seenMessages = new Set(), pending = []
@@ -99,7 +104,7 @@ export function durableSnapshot(record, { expected, assistantEventSeq, allowPend
         completedTurns.push(turn); turn = undefined; current = undefined
       } else assert.fail(`Unexpected exported durable event: ${event.type}`)
     }
-    if (id === AWAY_ID) { assert.equal(events.length, 0, 'Away session must have no user input, model or turn events'); continue }
+    if (id === AWAY_ID || id === uiAway?.sessionId) { assert.equal(events.length, 0, 'Away session must have no user input, model or turn events'); continue }
     assert.equal(seedUser, 1); assert.equal(seedAssistant, 1)
     const want = expected[id]
     assert.ok(actions.length <= want.actions.length && completedTurns.length <= want.completedTurns.length, 'Unexpected additional action/turn')

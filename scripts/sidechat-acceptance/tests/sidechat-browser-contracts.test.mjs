@@ -7,8 +7,8 @@ import { actionPlan, initialExpected, appendExpected, validateSnapshot, validate
 
 const ids = ['session-parent', 'session-a', 'session-b']
 const seed = { assistantEventSeq: 11, textBlockIndexes: [0, 2], fenceCountPerTextBlock: 2, expectedFormsPerSession: 4 }
-const inputs = () => ({ parentId: ids[0], childIds: ids.slice(1), awaySessionId: 'session-away', seed,
-  readBackendSnapshot: async () => {}, waitForBackendAction: async () => {} })
+const inputs = () => ({ parentId: ids[0], childIds: ids.slice(1), awaySessionId: 'session-away', workspaceId: '00000000-0000-4000-8000-000000000000', seed,
+  readBackendSnapshot: async () => {}, waitForBackendAction: async () => {}, bindUiAwaySession: async () => {} })
 const evidence = expected => ({ sessions: Object.fromEntries(Object.entries(expected).map(([id, value]) => [id, {
   actions: value.actions.map((action, index) => ({ ...structuredClone(action), messageId: `${id}-real-${index}`,
     eventSeq: 20 + index * 10, endSeq: 25 + index * 10 })), completedTurns: [...value.completedTurns],
@@ -18,7 +18,7 @@ const step = actionPlan(ids.slice(1))[0]
 const next = appendExpected(initial, step)
 const fixture = () => evidence(next)
 
-for (const missing of ['readBackendSnapshot', 'waitForBackendAction']) {
+for (const missing of ['readBackendSnapshot', 'waitForBackendAction', 'bindUiAwaySession']) {
   test(`fails closed when ${missing} is missing`, () => {
     const options = inputs(); delete options[missing]
     assert.throws(() => validateInputs(options), /oracle missing/)
@@ -113,6 +113,7 @@ test('fresh post-read must preserve exact durable ID', async () => {
 test('no fake UI, protocol interception, browser startup or external APIs in helper source', async () => {
   const source = await readFile(new URL('../scripts/sidechat-browser-checks.mjs', import.meta.url), 'utf8')
   assert.doesNotMatch(source, /page\.evaluate\s*\(|\.route\s*\(|\.dispatchEvent\s*\(|\.setContent\s*\(|\.launch\s*\(|page\.request|createElement|localStorage|__DSH/)
-  assert.match(source, /await selectSession\(awaySessionId\)/)
+  assert.match(source, /await click\(newSessionControl\)/)
+  assert.match(source, /await selectSession\(parentId\)/)
   assert.match(source, /await executeOwnedAction/)
 })

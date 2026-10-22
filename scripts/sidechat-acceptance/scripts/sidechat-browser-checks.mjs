@@ -4,6 +4,7 @@
  * DOM construction, request interception, browser launch or API action sending.
  */
 import assert from 'node:assert/strict'
+import { observeUiAwayCreate, verifyUiAwaySelection } from './sidechat-away-navigation.mjs'
 import { nativeThreadTab } from './sidechat-browser-locators.mjs'
 import { isSidechatActionRequest, verifyActionResponse } from './sidechat-browser-transport.mjs'
 import { writeFile } from 'node:fs/promises'
@@ -20,7 +21,7 @@ const STEP_MS = 15000
 
 export async function checkSidechatBrowser(options) {
   const ids = validateInputs(options) // All required callbacks validated before touching UI.
-  const { page, artifactsDir, parentId, childIds, awaySessionId, seed,
+  const { page, artifactsDir, parentId, childIds, awaySessionId, workspaceId, bindUiAwaySession, seed,
     readBackendSnapshot, waitForBackendAction, report = {} } = options
   assert.ok(page && typeof page.locator === 'function', 'An actual Playwright page is required')
   assert.equal(typeof artifactsDir, 'string')
@@ -178,6 +179,7 @@ export async function checkSidechatBrowser(options) {
   report.scenarios = []
   report.actionTransport = []
   report.identity = { parentId, childIds: [...childIds], awaySessionId, seed: structuredClone(seed) }
+  const uiAwayCreate = observeUiAwayCreate(page, location.origin, workspaceId, [...ids, awaySessionId])
   page.on('pageerror', onPageError)
   page.on('request', onRequest)
   page.on('requestfailed', onRequestFailed)
@@ -213,7 +215,23 @@ export async function checkSidechatBrowser(options) {
     await assertSide(fixtureValues('B'))
     report.scenarios.push('Real Files ↔ Sidechat native tab round trip retains all four B values')
 
-    await selectSession(awaySessionId)
+    // Official rc.2 hides non-current blank rows. The workspace header creates
+    // a fresh blank, not the pre-seeded away. Observe and bind that exact ID.
+    const workspaceRow = page.locator(`[data-row-key="workspace:${workspaceId}"]`)
+    await count(workspaceRow, 1, 'Exact owned workspace must be unique')
+    await workspaceRow.hover({ timeout: remaining() }) // Native row actions are visible on hover.
+    const newSession = workspaceRow.getByRole('button', { name: /^(New session in workspace|在“workspace”中新建会话)$/u })
+    const newSessionControl = await uniqueOnScreen(newSession)
+    uiAwayCreate.arm()
+    await click(newSessionControl)
+    const uiAway = await uiAwayCreate.finish(remaining())
+    const uiAwayRow = page.locator(`[data-row-key="session:${uiAway.sessionId}"]`)
+    await count(uiAwayRow, 1, 'Returned UI-created session must resolve uniquely')
+    await poll(() => attr(uiAwayRow, 'aria-selected'), value => value === 'true', 'Returned UI-created session must actually be selected')
+    verifyUiAwaySelection(uiAway, { rowKey: await attr(uiAwayRow, 'data-row-key'),
+      selected: await attr(uiAwayRow, 'aria-selected'), onScreen: await onScreen(uiAwayRow) })
+    report.uiAway = await run(() => bindUiAwaySession(uiAway.sessionId), 'Bind exact UI away to durable zero-event oracle')
+    assert.deepEqual(report.uiAway, { ...uiAway, durableRelevantEvents: 0, actions: 0, completedTurns: [] })
     await poll(async () => !(await onScreen(parentOwner)), Boolean, 'Actual away conversation hides parent owner')
     await selectSession(parentId)
     await assertMain(fixtureValues('main'))
@@ -258,6 +276,7 @@ export async function checkSidechatBrowser(options) {
     assert.equal(observedActionRequests, 4, 'No duplicate, missing or late sidechat prompt')
     assert.equal(actionRequestFailed, false, 'No owning sidechat action may fail transport')
     assert.equal(report.actionTransport.length, 4, 'Every action response must have awaited positive evidence')
+    uiAwayCreate.assertOnce()
     assert.equal(pageErrors.length, 0, 'Real page emitted uncaught errors')
     report.backend = lastSnapshot
     report.status = 'passed-real-host-checks'
@@ -268,6 +287,7 @@ export async function checkSidechatBrowser(options) {
     report.failure = 'A required UI, state-isolation or backend ownership assertion failed; inspect the thrown assertion locally.'
     throw error
   } finally {
+    uiAwayCreate.dispose()
     page.off('pageerror', onPageError)
     page.off('request', onRequest)
     page.off('requestfailed', onRequestFailed)

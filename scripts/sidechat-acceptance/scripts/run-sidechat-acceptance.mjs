@@ -3,6 +3,7 @@
  * rehearsal installs nothing. Browser launching remains caller-owned.
  */
 import assert from 'node:assert/strict'
+import { validateUiAway } from '../fixture/lib/ui-away.mjs'
 import { randomUUID } from 'node:crypto'
 import { mkdtemp, mkdir, writeFile, readFile, rename, cp, rm, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -126,13 +127,13 @@ async function lifecycle({ root, host, env, own }) {
   assert.equal(resumed.assistantEventSeq, seed.assistantEventSeq)
   const origin = cleanOrigin(resume.url)
   const unauthenticated = await http(origin); assert.equal(unauthenticated.status, 401); await unauthenticated.arrayBuffer()
-  let inRead = false, lastSnapshot
+  let inRead = false, lastSnapshot, uiAway
   async function readRaw() {
     assert.equal(inRead, false, 'Durable reads must be serialized'); inRead = true
     try {
       resume.process.alive()
       const requestId = randomUUID()
-      await atomicJSON(join(fixture.output, 'snapshot-request.json'), { requestId })
+      await atomicJSON(join(fixture.output, 'snapshot-request.json'), { requestId, ...(uiAway ? { uiAway } : {}) })
       const record = await poll(() => maybeJSON(join(fixture.output, 'snapshot-response.json')), value => value?.requestId === requestId,
         'Fresh flush/open/read/close response', resume.process.alive, 15000)
       assert.equal(record.fatal, undefined, 'Host fixture reported an error')
@@ -140,7 +141,7 @@ async function lifecycle({ root, host, env, own }) {
     } finally { inRead = false }
   }
   const readBackendSnapshot = async ({ expected }) => {
-    const snapshot = durableSnapshot(await readRaw(), { expected, assistantEventSeq: seed.assistantEventSeq })
+    const snapshot = durableSnapshot(await readRaw(), { expected, assistantEventSeq: seed.assistantEventSeq, uiAway })
     // Prior real receipts cannot be rewritten by a subsequent snapshot.
     if (lastSnapshot) for (const id of IDS) assert.deepEqual(snapshot.sessions[id].actions.slice(0, lastSnapshot.sessions[id].actions.length), lastSnapshot.sessions[id].actions)
     lastSnapshot = snapshot; return snapshot
@@ -152,13 +153,20 @@ async function lifecycle({ root, host, env, own }) {
     const deadline = Date.now() + Math.min(30000, timeoutMs)
     do {
       const raw = await readRaw()
-      try { durableSnapshot(raw, { expected, assistantEventSeq: seed.assistantEventSeq, allowPending: true }); return await readBackendSnapshot({ expected }) }
+      try { durableSnapshot(raw, { expected, assistantEventSeq: seed.assistantEventSeq, allowPending: true, uiAway }); return await readBackendSnapshot({ expected }) }
       catch (error) { if (!(error instanceof PendingSettlement)) throw error }
       await delay(50)
     } while (Date.now() < deadline)
     throw new Error('Owning action did not reach a durable completed replay turn')
   }
-  return { ...resume, origin, seed, workspaceId: workspace.workspaceId, seedExit, readBackendSnapshot, waitForBackendAction }
+  const bindUiAwaySession = async sessionId => {
+    assert.equal(uiAway, undefined, 'Only one UI away session can be bound')
+    uiAway = validateUiAway({ sessionId, workspaceId: workspace.workspaceId }, [...IDS, AWAY_ID])
+    await readBackendSnapshot({ expected: initialExpected() })
+    return { ...uiAway, durableRelevantEvents: 0, actions: 0, completedTurns: [] }
+  }
+  return { ...resume, origin, seed, workspaceId: workspace.workspaceId, seedExit, readBackendSnapshot, waitForBackendAction,
+    bindUiAwaySession, uiAway: () => uiAway }
 }
 async function setupRoot(own) {
   const root = await mkdtemp(join(tmpdir(), 'dsh354-owned-'))
@@ -206,9 +214,10 @@ export async function runSidechatAcceptance(options) {
       await completeSyntheticOnboarding(page, workspaceRow, report.onboarding)
       if (await workspaceRow.getAttribute('aria-expanded') === 'false') await workspaceRow.click({ timeout: 15000 })
       const browserReport = await timeout(() => invokeBrowserCheck(options.checkBrowser, { page, artifactsDir: options.artifactDir,
-        parentId: IDS[0], childIds: IDS.slice(1), awaySessionId: AWAY_ID, seed: run.seed,
+        parentId: IDS[0], childIds: IDS.slice(1), awaySessionId: AWAY_ID, workspaceId: run.workspaceId, seed: run.seed, bindUiAwaySession: run.bindUiAwaySession,
         readBackendSnapshot: run.readBackendSnapshot, waitForBackendAction: run.waitForBackendAction, report: {} }), 300000, 'Mandatory browser acceptance callback')
       assert.equal(browserReport?.status, 'passed-real-host-checks', 'Mandatory browser callback must attest all checks')
+      assert.ok(run.uiAway(), 'Actual native UI-created away must be durably bound')
       const final = await run.readBackendSnapshot({ stage: 'host-final', expected: finalExpected() })
       await delay(1000) // Bounded trailing debounce/duplicate observation window.
       assert.deepEqual(await run.readBackendSnapshot({ stage: 'host-quiet-reread', expected: finalExpected() }), final)
@@ -216,7 +225,8 @@ export async function runSidechatAcceptance(options) {
       run.process.alive()
       return { backend: final, seededAssistantSeq: run.seed.assistantEventSeq, seedGracefulExit: run.seedExit.code,
         quietWindowMs: 1000, replayCalls: 4, replayScriptsConsumed: 2,
-        away: { sessionId: AWAY_ID, durableRelevantEvents: 0, actions: 0, completedTurns: [] } }
+        away: { sessionId: AWAY_ID, durableRelevantEvents: 0, actions: 0, completedTurns: [] },
+        uiAway: { ...run.uiAway(), durableRelevantEvents: 0, actions: 0, completedTurns: [] } }
     })
     Object.assign(report, result, { status: 'passed', browserAcceptance: true, cleanupCompleted: true })
     return report
