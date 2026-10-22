@@ -1,13 +1,14 @@
 /**
  * Real Chromium layout/input checks against the installed renderer and host CSS.
- * The smoke adapter uses the existing DOM fence channel, NOT a conversation.
- * No action/session-routing, touch, drag, or swipe coverage is claimed here.
+ * The minimum-host adapter uses the DOM fence; the current host passes a real conversation root.
+ * Touch scrolling uses native Chromium input; no physical-device, mouse-drag, or lightbox-swipe claim.
  * checkGalleryBrowser accepts a rendered-root locator for real-session reuse.
  */
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { checkGalleryTouch } from './gallery-touch-checks.mjs'
 
 const TITLE = 'Gallery browser regression'
 const CAROUSEL = 'Gallery browser cards'
@@ -69,7 +70,7 @@ async function bounded(promise, ms, label) {
  * The smoke adapter runs before e2e.mjs changes media, hence restores null.
  */
 export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
-  dismissCredentialsOverlay, restoreColorScheme = null, report = {} }) {
+  dismissCredentialsOverlay, restoreColorScheme = null, assertNoActions, report = {} }) {
   const remaining = budget()
   const read = (locator, fn, arg) => bounded(locator.evaluate(fn, arg), remaining(), 'gallery DOM read')
   const attribute = (locator, name) => locator.getAttribute(name, { timeout: remaining() })
@@ -97,7 +98,7 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
   const probeId = `gallery-background-${Date.now()}`
   const probe = page.locator(`[data-gallery-background="${probeId}"]`)
   const errors = []
-  report.visualScope = 'Installed renderer CSS, real images, native modal, keyboard, pointer, and wheel only; not action routing, touch, drag, or swipe'
+  report.visualScope = 'Installed renderer CSS, images, native modal, keyboard, pointer, wheel and native Chromium touch scrolling; not physical-device, mouse-drag, or lightbox-swipe validation'
   report.scenarios = []
   try {
     await bounded(page.evaluate(id => {
@@ -208,6 +209,12 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
         assert.ok(await active(track))
         await key('Home')
         await settle(value => value.left <= 1, 'Return track to start after wheel')
+      }
+      if (state.name === 'narrow-light') {
+        await dismiss()
+        report.touch = await checkGalleryTouch({ page, track, assertNoActions, timeout: remaining() })
+        await track.screenshot({ path: join(artifactsDir, 'gallery-narrow-touch.png'), timeout: remaining() })
+        report.screenshots.push({ file: 'gallery-narrow-touch.png', state: state.name, target: 'carousel after native touch scroll' })
       }
       await gallery.scrollIntoViewIfNeeded({ timeout: remaining() })
       await decoded(gallery.locator('img[alt="Gallery wide"]').first(), [480, 240])

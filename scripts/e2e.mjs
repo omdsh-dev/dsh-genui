@@ -229,7 +229,7 @@ try {
     headless: true,
     args: ['--password-store=basic', '--use-mock-keychain'],
   })
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1200 }, locale: 'zh-CN', permissions: ['clipboard-read', 'clipboard-write'] })
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1200 }, locale: 'zh-CN', hasTouch: SMOKE, permissions: ['clipboard-read', 'clipboard-write'] })
   const pageErrors = []
   const pageMessages = []
   page.on('console', message => pageMessages.push(message.text()))
@@ -290,7 +290,8 @@ try {
         assetRequests: galleryAssets.requests, hostActionPassed: false }
       try {
         const renderedRoot = await galleryConversation.openConversation({ page, dismissCredentialsOverlay })
-        await checkGalleryBrowser({ page, renderedRoot, artifactsDir, dismissCredentialsOverlay, report })
+        await checkGalleryBrowser({ page, renderedRoot, artifactsDir, dismissCredentialsOverlay,
+          assertNoActions: galleryConversation.assertNoActions, report })
         report.beforeChoose = await galleryConversation.assertNoActions()
         report.choice = await galleryConversation.verifyChoose({ page, renderedRoot, dismissCredentialsOverlay })
         for (const path of ['/wide.svg', '/tall.svg', '/missing.svg']) {
