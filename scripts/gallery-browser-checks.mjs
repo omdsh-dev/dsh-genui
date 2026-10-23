@@ -104,6 +104,46 @@ export async function settleGalleryCarousel(readPosition, predicate, label, time
   assert.fail(`${label}: scroll/snap and edge DOM did not settle; actual=${JSON.stringify(actual)}; expected=${JSON.stringify(expected)}; matchingReadySamples=${lastReady ? 1 : 0}`)
 }
 
+/** Read-only modal geometry/hit targets; never reposition, focus, or click a control. */
+export function readGalleryDialogControls(dialog) {
+  const document = dialog.ownerDocument
+  const view = document.defaultView
+  return [...dialog.querySelectorAll('button')].map(button => {
+    const box = button.getBoundingClientRect()
+    const style = view.getComputedStyle(button)
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+    return { label: button.getAttribute('aria-label'), position: style.position,
+      display: style.display, visibility: style.visibility,
+      left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height,
+      inViewport: box.left >= 0 && box.top >= 0 && box.right <= view.innerWidth && box.bottom <= view.innerHeight,
+      ownsCenterHit: hit !== null && button.contains(hit) }
+  })
+}
+
+export function assertGalleryDialogControls(controls, label) {
+  assert.equal(controls.length, 3, `${label}: Close/Previous/Next must all be present`)
+  for (const control of controls) {
+    const detail = `${label}: ${JSON.stringify(control)}`
+    assert.ok(['left', 'top', 'right', 'bottom', 'width', 'height'].every(key => Number.isFinite(control[key])),
+      `Modal control geometry is finite: ${detail}`)
+    assert.ok(control.width > 0 && control.height > 0 && control.inViewport,
+      `Modal control must have a visible viewport box: ${detail}`)
+    assert.ok(control.position !== 'absolute' && control.position !== 'fixed',
+      `Modal controls stay in normal flow, not carousel overlay positioning: ${detail}`)
+    assert.ok(control.display !== 'none' && control.visibility === 'visible',
+      `Modal controls remain visible for this input profile: ${detail}`)
+    assert.ok(control.ownsCenterHit, `Modal control must own its center hit target: ${detail}`)
+  }
+  for (let index = 0; index < controls.length; index++) {
+    for (const other of controls.slice(index + 1)) {
+      const current = controls[index]
+      const overlap = Math.min(current.right, other.right) > Math.max(current.left, other.left)
+        && Math.min(current.bottom, other.bottom) > Math.max(current.top, other.top)
+      assert.ok(!overlap, `${label}: Modal controls must not overlap: ${JSON.stringify([current, other])}`)
+    }
+  }
+}
+
 /** Reusable visual/input checks. Caller owns rendering and removing renderedRoot.
  * restoreColorScheme is the caller's previous Playwright override (null = system).
  * The smoke adapter runs before e2e.mjs changes media, hence restores null.
@@ -347,6 +387,10 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
       assert.equal(modal.background, theme.expected.background)
       assert.equal(modal.color, theme.expected.color)
       assert.equal(modal.fit, 'contain')
+      const modalControls = await read(dialog, readGalleryDialogControls)
+      report.modalControlChecks ??= []
+      report.modalControlChecks.push({ state: state.name, controls: modalControls })
+      assertGalleryDialogControls(modalControls, `${inputProfile}/${state.name}`)
       if (state.interactions) {
         await key('Shift+Tab')
         assert.ok(await active(imageNext), 'Shift+Tab wraps to last modal control')
@@ -400,7 +444,7 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
       }
       const inputAfter = await checkInput(`after:${state.name}`)
       assert.deepEqual(inputAfter, initialInput)
-      report.scenarios.push({ inputBefore, input, inputAfter, name: state.name, geometry, images, theme, modal,
+      report.scenarios.push({ inputBefore, input, inputAfter, name: state.name, geometry, images, theme, modal, modalControls,
         interactions: Boolean(state.interactions), sameMountedRoot: true,
         focus: { closeOnOpen: true, openerAfterEscape: true, tabCycleTrapped: state.interactions ? true : null,
           backgroundClickBlocked: state.interactions ? true : null, openerAfterCloseClick: state.interactions ? true : null } })

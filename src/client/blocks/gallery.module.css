@@ -25,6 +25,13 @@
 }
 
 .controls {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--dsl-g-gap-xs, 4px);
+}
+
+/* Overlay placement and touch hiding belong only to carousel navigation. */
+.carouselControls {
   position: absolute;
   z-index: 2;
   inset: 0;
@@ -38,10 +45,6 @@
 
 .control {
   display: inline-flex;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: auto;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
@@ -56,6 +59,13 @@
   font-size: var(--dsl-g-font-h3, 16px);
   cursor: pointer;
   transition: background var(--dsl-g-dur-fast, 0.15s) var(--dsl-g-ease-out, ease-out);
+}
+
+.carouselControl {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: auto;
 }
 
 .control:hover:not([aria-disabled="true"]) { background: var(--dsl-g-hover-strong); }
@@ -92,7 +102,7 @@
 .slide > * { max-width: 100%; }
 
 @media (hover: none) {
-  .controls { display: none; }
+  .carouselControls { display: none; }
 }
 
 .empty,

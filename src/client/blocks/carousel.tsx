@@ -82,11 +82,11 @@ export function CarouselNode({ node, children }: { node: GenuiCarousel; children
       {slides.length === 0
         ? <p className={css.empty}>{t('block.galleryEmpty')}</p>
         : <div className={css.trackWrap}>
-          {hasOverflow && <div className={css.controls}>
+          {hasOverflow && <div className={css.carouselControls}>
           {edges.previous && <button
             ref={previousRef}
             type="button"
-            className={`${css.control} ${css.previous}`}
+            className={`${css.control} ${css.carouselControl} ${css.previous}`}
             aria-label={t('block.carouselPrevious')}
             aria-controls={`${id}-track`}
             onClick={() => page(-1)}
@@ -95,7 +95,7 @@ export function CarouselNode({ node, children }: { node: GenuiCarousel; children
           {edges.next && <button
             ref={nextRef}
             type="button"
-            className={`${css.control} ${css.next}`}
+            className={`${css.control} ${css.carouselControl} ${css.next}`}
             aria-label={t('block.carouselNext')}
             aria-controls={`${id}-track`}
             onClick={() => page(1)}
