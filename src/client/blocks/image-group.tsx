@@ -36,6 +36,7 @@ function GalleryImage({ entry, expanded = false, onRatio }: {
     <img
       className={expanded ? css.expandedImage : css.thumbnailImage}
       src={entry.src}
+      referrerPolicy="no-referrer"
       alt={entry.item.alt ?? t('block.image')}
       loading={expanded ? 'eager' : 'lazy'}
       decoding="async"

@@ -12,14 +12,17 @@ export function CarouselNode({ node, children }: { node: GenuiCarousel; children
   const id = useId()
   const trackRef = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ previous: false, next: false })
+  const [hasOverflow, setHasOverflow] = useState(false)
   const slides = children.slice(0, GENUI_LIMITS.maxCarouselItems)
-  const itemWidth = num(node.itemWidth, 80, 640) ?? 320
-  const gap = num(node.gap, 0, 96) ?? 12
+  const itemWidth = num(node.itemWidth, 80, 640) ?? 240
+  const rawGap = num(node.gap, 0, Number.MAX_SAFE_INTEGER / 4)
+  const gap = rawGap === undefined ? 12 : rawGap * 4
 
   const measure = useCallback(() => {
     const track = trackRef.current
     if (track === null) return
     const maximum = Math.max(0, track.scrollWidth - track.clientWidth)
+    setHasOverflow(current => current === (maximum > 1) ? current : maximum > 1)
     const next = { previous: track.scrollLeft > 1, next: track.scrollLeft < maximum - 1 }
     setEdges(current => current.previous === next.previous && current.next === next.next ? current : next)
   }, [])
@@ -58,32 +61,40 @@ export function CarouselNode({ node, children }: { node: GenuiCarousel; children
     scrollTo(track.scrollLeft + direction * step)
   }
 
+  /** 让导航按钮按可视轨道宽度的比例切换内容。 */
+  const page = (direction: -1 | 1): void => {
+    const track = trackRef.current
+    if (track === null) return
+    scrollTo(track.scrollLeft + direction * track.clientWidth * 0.85)
+  }
+
   return (
     <section className={css.gallery} aria-labelledby={`${id}-title`}>
       <div className={css.header}>
         <h3 className={css.title} id={`${id}-title`}>{renderInline(node.title ?? t('block.carousel'))}</h3>
-        {slides.length > 1 && <div className={css.controls}>
-          <button
-            type="button"
-            className={css.control}
-            aria-label={t('block.carouselPrevious')}
-            aria-controls={`${id}-track`}
-            aria-disabled={!edges.previous}
-            onClick={() => { if (edges.previous) move(-1) }}
-          ><span aria-hidden="true">←</span></button>
-          <button
-            type="button"
-            className={css.control}
-            aria-label={t('block.carouselNext')}
-            aria-controls={`${id}-track`}
-            aria-disabled={!edges.next}
-            onClick={() => { if (edges.next) move(1) }}
-          ><span aria-hidden="true">→</span></button>
-        </div>}
       </div>
       {slides.length === 0
         ? <p className={css.empty}>{t('block.galleryEmpty')}</p>
-        : <div
+        : <div className={css.trackWrap}>
+          {hasOverflow && <div className={css.controls}>
+          {edges.previous && <button
+            type="button"
+            className={`${css.control} ${css.previous}`}
+            aria-label={t('block.carouselPrevious')}
+            aria-controls={`${id}-track`}
+            onClick={() => page(-1)}
+          ><span aria-hidden="true">←</span></button>
+          }
+          {edges.next && <button
+            type="button"
+            className={`${css.control} ${css.next}`}
+            aria-label={t('block.carouselNext')}
+            aria-controls={`${id}-track`}
+            onClick={() => page(1)}
+          ><span aria-hidden="true">→</span></button>
+          }
+          </div>}
+          <div
             ref={trackRef}
             id={`${id}-track`}
             className={css.track}
@@ -110,7 +121,8 @@ export function CarouselNode({ node, children }: { node: GenuiCarousel; children
                 {child}
               </div>
             ))}
-          </div>}
+          </div>
+        </div>}
     </section>
   )
 }

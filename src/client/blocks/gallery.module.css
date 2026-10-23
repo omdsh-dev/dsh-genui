@@ -25,13 +25,23 @@
 }
 
 .controls {
-  display: flex;
-  flex-shrink: 0;
-  gap: var(--dsl-g-gap-xs, 4px);
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+}
+
+.trackWrap {
+  position: relative;
+  min-width: 0;
 }
 
 .control {
   display: inline-flex;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: auto;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
@@ -49,7 +59,8 @@
 }
 
 .control:hover:not([aria-disabled="true"]) { background: var(--dsl-g-hover-strong); }
-.control[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+.previous { left: 8px; }
+.next { right: 8px; }
 
 .control:focus-visible,
 .thumbnail:focus-visible,
@@ -72,13 +83,17 @@
 }
 
 .slide {
-  flex: 0 0 min(var(--gallery-item-width, 320px), 100%);
+  flex: 0 0 min(var(--gallery-item-width, 240px), 85%);
   min-width: 0;
   scroll-snap-align: start;
   overflow-wrap: anywhere;
 }
 
 .slide > * { max-width: 100%; }
+
+@media (hover: none) {
+  .controls { display: none; }
+}
 
 .empty,
 .position {

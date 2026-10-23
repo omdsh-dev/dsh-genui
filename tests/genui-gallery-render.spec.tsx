@@ -46,19 +46,15 @@ describe('carousel full component workflow', () => {
     const result = render(<GenuiActionContext.Provider value={action}><GenuiBlock spec={{ items: [carousel] }} /></GenuiActionContext.Provider>)
     const track = result.getByRole('group', { name: 'Synthetic choices' })
     const scroll = scrollable(track)
+    expect(result.queryByRole('button', { name: '上一组卡片' })).toBeNull()
     const next = result.getByRole('button', { name: '下一组卡片' })
-    const previous = result.getByRole('button', { name: '上一组卡片' })
-    expect(previous.getAttribute('aria-disabled')).toBe('true')
-    expect(next.getAttribute('aria-disabled')).toBe('false')
     next.focus()
     fireEvent.click(next)
-    expect(track.scrollLeft).toBe(292)
+    expect(track.scrollLeft).toBe(255)
     expect(document.activeElement).toBe(next)
     fireEvent.keyDown(track, { key: 'End' })
     expect(track.scrollLeft).toBe(600)
-    expect(next.getAttribute('aria-disabled')).toBe('true')
-    fireEvent.click(next)
-    expect(track.scrollLeft).toBe(600)
+    expect(result.queryByRole('button', { name: '下一组卡片' })).toBeNull()
     fireEvent.keyDown(track, { key: 'Home' })
     expect(track.scrollLeft).toBe(0)
     const calls = scroll.mock.calls.length
@@ -66,6 +62,19 @@ describe('carousel full component workflow', () => {
     fireEvent.keyDown(track, { key: 'ArrowRight', ctrlKey: true })
     expect(scroll).toHaveBeenCalledTimes(calls)
     expect(action).not.toHaveBeenCalled()
+  })
+
+  it('uses Open Intelligent UI sizing and page navigation semantics', () => {
+    const view = render(<GenuiBlock spec={{ items: [{ ...carousel, gap: 3 }] }} />)
+    const track = view.getByRole('group', { name: 'Synthetic choices' })
+    expect(track.style.getPropertyValue('--gallery-item-width')).toBe('240px')
+    expect(track.style.getPropertyValue('--gallery-gap')).toBe('12px')
+    const scroll = scrollable(track)
+    fireEvent.click(view.getByRole('button', { name: '下一组卡片' }))
+    expect(scroll).toHaveBeenCalledWith({ left: 255, behavior: 'smooth' })
+    view.rerender(<GenuiBlock spec={{ items: [{ ...carousel, gap: Number.MAX_VALUE }] }} />)
+    const maximumGapTrack = view.getByRole('group', { name: 'Synthetic choices' })
+    expect(maximumGapTrack.style.getPropertyValue('--gallery-gap')).toBe(`${Number.MAX_SAFE_INTEGER}px`)
   })
 
   it('honors reduced motion and preserves scroll position on append', () => {
@@ -95,16 +104,52 @@ describe('carousel full component workflow', () => {
     expect(result.queryByRole('button', { name: 'Next cards' })).toBeNull()
     expect(result.getByRole('group', { name: 'Card 1 of 1' })).toBeDefined()
   })
+
+  it('hides navigation when every slide fits in the visible track', () => {
+    const result = render(<GenuiBlock spec={{ items: [{ type: 'carousel', title: 'Fit carousel', itemWidth: 80, gap: 0, items: [
+      { type: 'text', content: 'One' }, { type: 'text', content: 'Two' },
+    ] }] }} />)
+    const track = result.getByRole('group', { name: 'Fit carousel' })
+    scrollable(track, 300, 300)
+    expect(result.queryByRole('button', { name: '下一组卡片' })).toBeNull()
+    expect(result.queryByRole('button', { name: '上一组卡片' })).toBeNull()
+  })
+
+  it('renders the first 24 carousel slides when the 25th slide has an invalid field', () => {
+    const items = [
+      ...Array.from({ length: 24 }, (_, index) => ({ type: 'text', content: `Slide ${index + 1}` })),
+      { type: 'text', content: 123 },
+    ]
+    const result = render(<GenuiBlock spec={{ items: [{ type: 'carousel', title: 'Capped carousel', items }] } as unknown as GenuiSpec} />)
+
+    expect(result.getByText('Slide 24')).toBeDefined()
+    expect(result.queryByText('123')).toBeNull()
+    expect(result.getByRole('group', { name: 'Capped carousel' })).toBeDefined()
+  })
 })
 
 describe('image group local viewing workflow', () => {
+  it('renders the first 24 images when the 25th image has an invalid field', () => {
+    const items = [
+      ...Array.from({ length: 24 }, (_, index) => ({ src: `/image-${index + 1}.png`, alt: `Image ${index + 1}` })),
+      { src: '/hidden.png', alt: 'Hidden image', caption: 123 },
+    ]
+    const result = render(<GenuiBlock spec={{ items: [{ type: 'image-group', title: 'Capped gallery', items }] } as unknown as GenuiSpec} />)
+
+    expect(result.getByRole('button', { name: '放大 Image 24' })).toBeDefined()
+    expect(result.queryByRole('button', { name: '放大 Hidden image' })).toBeNull()
+    expect(result.getAllByRole('button', { name: /^放大 Image / })).toHaveLength(24)
+  })
+
   it('opens, switches with keys/buttons, closes and restores focus without actions', () => {
     const action = vi.fn()
     const result = render(<GenuiActionContext.Provider value={action}><GenuiBlock spec={{ items: [group] }} /></GenuiActionContext.Provider>)
     const opener = result.getByRole('button', { name: '放大 Alpha' })
+    expect(opener.querySelector('img')?.getAttribute('referrerpolicy')).toBe('no-referrer')
     opener.focus(); fireEvent.click(opener)
     const dialog = result.getByRole('dialog')
     expect(within(dialog).getByRole('img').getAttribute('src')).toBe('/synthetic-a.png')
+    expect(within(dialog).getByRole('img').getAttribute('referrerpolicy')).toBe('no-referrer')
     expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: '关闭图片查看器' }))
     fireEvent.keyDown(dialog, { key: 'ArrowRight' })
     expect(within(dialog).getByRole('img').getAttribute('src')).toBe('/synthetic-b.png')

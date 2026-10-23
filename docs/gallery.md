@@ -18,7 +18,7 @@ For authored responses, prefer a small set of 3–8 visually consistent cards, s
 
 ## Shape and limits
 
-- `carousel`: `items` contains native GenUI nodes; optional `title`, `itemWidth` (80–640 pixels, default 320), and `gap` (0–96 pixels, default 12). A slide never exceeds the available container width. At most 24 slides survive repair; nested nodes still consume the existing depth and total-node budgets. There is no autoplay.
+- `carousel`: `items` contains native GenUI nodes; optional `title`, `itemWidth` (80–640 pixels, default 240, capped at 85% of the track), and `gap` (a non-negative scale multiplied by 4 pixels; omitted means 12 pixels). Navigation buttons move 85% of the visible track and appear only when scrolling is possible. Touch devices use the scroll track directly. At most 24 slides render; nested nodes still consume the existing depth and total-node budgets. There is no autoplay.
 - `image-group`: `items` contains `{src, alt?, caption?}` records, not arbitrary GenUI nodes; optional `title`. At most 24 images survive repair. Images wrap using their loaded aspect ratios and remain uncropped in the viewer. Supply meaningful `alt` text.
 - Media uses the same HTTP(S) or relative URL policy as `image`. `file:`, `data:`, `javascript:` and protocol-relative URLs are not accepted. Captions use the existing safe inline renderer; caption links are not nested inside the thumbnail's button.
 - Empty collections display an empty state. Failed images display an error placeholder rather than starting a model request.

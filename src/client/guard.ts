@@ -150,7 +150,10 @@ function validateNestedRecordSchemas(
     const nestedValue = value[field]
     if (nestedValue === undefined) continue
     if (Array.isArray(nestedValue)) {
-      nestedValue.forEach((item, index) => validateRecordSchema(item, `${at}.${field}[${index}]`, nested, errors))
+      const items = value.type === 'image-group' && field === 'items'
+        ? nestedValue.slice(0, GENUI_LIMITS.maxImageGroupItems)
+        : nestedValue
+      items.forEach((item, index) => validateRecordSchema(item, `${at}.${field}[${index}]`, nested, errors))
     } else {
       validateRecordSchema(nestedValue, `${at}.${field}`, nested, errors)
     }
@@ -357,7 +360,7 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
         type: 'carousel', items: repairItems(source, ctx, depth + 1),
         ...opt('title', str(v.title, GENUI_LIMITS.maxString)),
         ...opt('itemWidth', num(v.itemWidth, 80, 640)),
-        ...opt('gap', num(v.gap, 0, 96)),
+        ...opt('gap', num(v.gap, 0, Number.MAX_SAFE_INTEGER / 4)),
       }
     }
     case 'image-group': {
@@ -1410,9 +1413,10 @@ function visitDeclaredGenuiNodes(
   value: unknown,
   cap: number,
   visit: (node: Record<string, unknown>, at: string) => void,
-  options: { familyCaps?: boolean } = {},
+  options: { familyCaps?: boolean; carouselCaps?: boolean } = {},
 ): number {
   const familyCaps = options.familyCaps !== false
+  const carouselCaps = options.carouselCaps ?? familyCaps
   let count = 0
   const declared = (candidate: unknown): boolean => {
     const o = obj(candidate)
@@ -1442,7 +1446,7 @@ function visitDeclaredGenuiNodes(
         walkItemsOf(v.items[row], `${at}.items[${row}]`)
       }
     } else if ((v.type === 'row' || v.type === 'col' || v.type === 'grid' || v.type === 'card' || v.type === 'carousel') && Array.isArray(v.items)) {
-      const items = v.type === 'carousel' && familyCaps ? v.items.slice(0, GENUI_LIMITS.maxCarouselItems) : v.items
+      const items = v.type === 'carousel' && carouselCaps ? v.items.slice(0, GENUI_LIMITS.maxCarouselItems) : v.items
       walk(items, `${at}.items`)
     } else if (v.type === 'list' && Array.isArray(v.items)) {
       for (let row = 0; row < v.items.length; row++) {
@@ -1475,10 +1479,10 @@ function visitDeclaredGenuiNodes(
  * Count white-listed nodes declared by a raw spec before repair drops invalid entries.
  * @param value - raw GenUI spec.
  * @param cap - traversal ceiling.
- * @param options - `familyCaps: false` counts beyond per-family policy caps too.
+ * @param options - `familyCaps: false` counts beyond per-family policy caps; `carouselCaps: true` keeps the carousel item cap.
  * @returns declared node count up to the ceiling.
  */
-export function countDeclaredGenuiNodes(value: unknown, cap = Number.POSITIVE_INFINITY, options: { familyCaps?: boolean } = {}): number {
+export function countDeclaredGenuiNodes(value: unknown, cap = Number.POSITIVE_INFINITY, options: { familyCaps?: boolean; carouselCaps?: boolean } = {}): number {
   return visitDeclaredGenuiNodes(value, cap, () => {}, options)
 }
 
@@ -1614,7 +1618,7 @@ export function processGenuiSpec(value: unknown): GenuiProcessResult {
   // could never take effect. The uncapped pass measures the truncation for
   // the teaching warning instead.
   const declaredNativeCount = countDeclaredGenuiNodes(normalized.value, GENUI_LIMITS.maxNodes + 1)
-  const uncappedDeclaredCount = countDeclaredGenuiNodes(normalized.value, GENUI_LIMITS.maxNodes + 1, { familyCaps: false })
+  const uncappedPolicyNodeCount = countDeclaredGenuiNodes(normalized.value, GENUI_LIMITS.maxNodes + 1, { familyCaps: false, carouselCaps: true })
   const renderedNativeCount = repaired === null ? 0 : countRenderedNativeGenuiNodes(repaired)
   const renderedTotalCount = repaired === null ? 0 : countGenuiNodes(repaired)
   // The shared public validator preserves its historical diagnostic for an
@@ -1628,11 +1632,30 @@ export function processGenuiSpec(value: unknown): GenuiProcessResult {
     errors.push(`repair dropped ${declaredNativeCount - renderedNativeCount} declared native node(s): declared ${declaredNativeCount}, rendered ${renderedNativeCount}`)
   }
   const warnings: GenuiDiagnostic[] = [...normalized.warnings, ...diagnoseUnknownGenuiFields(normalized.value)]
-  if (uncappedDeclaredCount > declaredNativeCount) {
+  let carouselItemOverflow = 0
+  let imageGroupOverflow = 0
+  visitDeclaredGenuiNodes(normalized.value, GENUI_LIMITS.maxNodes + 1, node => {
+    if (node.type === 'carousel' && Array.isArray(node.items)) {
+      carouselItemOverflow += Math.max(0, node.items.length - GENUI_LIMITS.maxCarouselItems)
+    } else if (node.type === 'image-group' && Array.isArray(node.items)) {
+      imageGroupOverflow += Math.max(0, node.items.length - GENUI_LIMITS.maxImageGroupItems)
+    }
+  })
+  const truncationReasons: string[] = []
+  if (uncappedPolicyNodeCount > declaredNativeCount) {
+    truncationReasons.push(`${uncappedPolicyNodeCount - declaredNativeCount} 个声明节点超出 tabs ≤ ${GENUI_LIMITS.maxTabs} / accordion ≤ ${GENUI_LIMITS.maxAccordionItems} 的上限`)
+  }
+  if (carouselItemOverflow > 0) {
+    truncationReasons.push(`${carouselItemOverflow} 个 carousel 项超出 carousel ≤ ${GENUI_LIMITS.maxCarouselItems} 的上限`)
+  }
+  if (imageGroupOverflow > 0) {
+    truncationReasons.push(`${imageGroupOverflow} 张图片超出 image-group ≤ ${GENUI_LIMITS.maxImageGroupItems} 的上限`)
+  }
+  if (truncationReasons.length > 0) {
     warnings.push({
       kind: 'truncated',
       path: 'spec',
-      message: `策略上限截断:${uncappedDeclaredCount - declaredNativeCount} 个声明节点超出 tabs ≤ ${GENUI_LIMITS.maxTabs} / accordion ≤ ${GENUI_LIMITS.maxAccordionItems} / carousel ≤ ${GENUI_LIMITS.maxCarouselItems} 的上限,未渲染;围栏照常渲染,重发时可拆分为多个组件`,
+      message: `策略上限截断:${truncationReasons.join('；')},未渲染;策略限制包括 tabs ≤ ${GENUI_LIMITS.maxTabs} / accordion ≤ ${GENUI_LIMITS.maxAccordionItems} / carousel ≤ ${GENUI_LIMITS.maxCarouselItems} / image-group ≤ ${GENUI_LIMITS.maxImageGroupItems};围栏照常渲染,重发时可拆分为多个组件`,
     })
   }
   return {
@@ -1906,7 +1929,7 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       break
     case 'row': case 'col': case 'card': case 'grid': case 'carousel':
       if (!Array.isArray(v.items)) errors.push(`${at}: type '${type}' requires items (array)`)
-      walk(v.items, depth + 1, `${at}.items`)
+      walk(type === 'carousel' && Array.isArray(v.items) ? v.items.slice(0, GENUI_LIMITS.maxCarouselItems) : v.items, depth + 1, `${at}.items`)
       if (type === 'grid') isNum('cols')
       break
     case 'button': case 'checkbox': case 'link': case 'switch':

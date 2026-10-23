@@ -208,9 +208,9 @@ export interface GenuiCarousel {
   type: 'carousel'
   items: GenuiNode[]
   title?: string
-  /** Preferred slide width in pixels, clamped to 80–640 and the viewport. */
+  /** Preferred slide width in pixels, clamped to 80–640 and 85% of the track. */
   itemWidth?: number
-  /** Gap between slides in pixels, clamped to 0–96. */
+  /** Gap scale multiplied by 4 pixels; negative values become zero. */
   gap?: number
 }
 

@@ -42,6 +42,29 @@ describe('gallery repair and state boundaries', () => {
     expect(JSON.stringify(raw)).toBe(original)
   })
 
+  it.each(['url', 'link'])('ignores the %s alias when canonical src is present', alias => {
+    const raw = { items: [{ type: 'image-group', items: [{ src: '/canonical.png', [alias]: '/legacy.png' }] }] }
+    const result = processGenuiSpec(raw)
+    expect(result.errors).toEqual([])
+    expect(result.value).toEqual({ items: [{ type: 'image-group', items: [{ src: '/canonical.png' }] }] })
+    expect(result.repaired).toEqual({ items: [{ type: 'image-group', items: [{ src: '/canonical.png' }] }] })
+    expect(result.warnings).toContainEqual(expect.objectContaining({
+      kind: 'alias', path: `items[0].items[0].${alias}`, field: alias, canonical: 'src',
+      message: expect.stringContaining("is ignored because canonical field 'src' is present"),
+    }))
+  })
+
+  it.each(['url', 'link'])('normalizes the %s alias when canonical src is missing', alias => {
+    const result = processGenuiSpec({ items: [{ type: 'image-group', items: [{ [alias]: '/legacy.png' }] }] })
+    expect(result.errors).toEqual([])
+    expect(result.value).toEqual({ items: [{ type: 'image-group', items: [{ src: '/legacy.png' }] }] })
+    expect(result.repaired).toEqual({ items: [{ type: 'image-group', items: [{ src: '/legacy.png' }] }] })
+    expect(result.warnings).toContainEqual(expect.objectContaining({
+      kind: 'alias', path: `items[0].items[0].${alias}`, field: alias, canonical: 'src',
+      message: expect.stringContaining('normalized/adopted as'),
+    }))
+  })
+
   it.each(['file:///tmp/a.png', 'data:image/svg+xml,<svg/>', 'javascript:alert(1)', '//example.test/a.png', 'mailto:a@example.test'])('rejects unsafe gallery source %s', src => {
     const raw = { items: [{ type: 'image-group', items: [{ src }, { src: '/safe.png' }] }] }
     expect(validateGenuiSpec(raw).ok).toBe(false)
@@ -83,7 +106,8 @@ describe('gallery repair and state boundaries', () => {
     if (group.type !== 'image-group') throw new Error('Wrong type')
     expect(group.items).toHaveLength(GENUI_LIMITS.maxImageGroupItems)
     expect(group.items[0]?.caption).toHaveLength(GENUI_LIMITS.maxString)
-    expect(repairGenuiSpec({ type: 'carousel', items: [], itemWidth: -20, gap: 500 })?.items[0]).toMatchObject({ itemWidth: 80, gap: 96 })
+    expect(repairGenuiSpec({ type: 'carousel', items: [], itemWidth: -20, gap: 500 })?.items[0]).toMatchObject({ itemWidth: 80, gap: 500 })
+    expect(repairGenuiSpec({ type: 'carousel', items: [], gap: Number.MAX_VALUE })?.items[0]).toMatchObject({ gap: Number.MAX_SAFE_INTEGER / 4 })
   })
 
   it('keeps declared/rendered accounting aligned at the carousel cap', () => {
@@ -96,6 +120,44 @@ describe('gallery repair and state boundaries', () => {
     expect(result.declaredNativeCount).toBe(25)
     expect(result.renderedNativeCount).toBe(25)
     expect(result.warnings.some(w => w.kind === 'truncated')).toBe(true)
+  })
+
+  it('validates and diagnoses only the 24 rendered carousel slides', () => {
+    const items = [
+      ...Array.from({ length: GENUI_LIMITS.maxCarouselItems }, (_, index) => ({ type: 'text', content: `Slide ${index}` })),
+      { type: 'text', content: 123, typo: true },
+    ]
+    const result = processGenuiSpec({ items: [{ type: 'carousel', items }] })
+    expect(result.errors).toEqual([])
+    expect((result.repaired?.items[0] as { items: unknown[] }).items).toHaveLength(GENUI_LIMITS.maxCarouselItems)
+    expect(result.warnings.some(warning => warning.path.includes('.items[24]'))).toBe(false)
+    expect(result.warnings.some(warning => warning.kind === 'truncated')).toBe(true)
+    expect(result.warnings.find(warning => warning.kind === 'truncated')?.message).not.toContain('声明节点超出 tabs')
+  })
+
+  it.each([{ type: 'custom-widget' }, { content: 'untyped item' }, null])('warns from the raw Carousel item count when a capped entry is not a native node', hiddenItem => {
+    const items = [
+      ...Array.from({ length: GENUI_LIMITS.maxCarouselItems }, (_, index) => ({ type: 'text', content: `Slide ${index}` })),
+      hiddenItem,
+    ]
+    const result = processGenuiSpec({ items: [{ type: 'carousel', items }] })
+    expect(result.errors).toEqual([])
+    expect(result.warnings).toContainEqual(expect.objectContaining({
+      kind: 'truncated',
+      message: expect.stringContaining('1 个 carousel 项超出'),
+    }))
+  })
+
+  it('validates and diagnoses only the 24 rendered image records', () => {
+    const items = [
+      ...Array.from({ length: GENUI_LIMITS.maxImageGroupItems }, (_, index) => ({ src: `/image-${index}.png` })),
+      { src: '/hidden.png', caption: 123, url: '/legacy.png', typo: true },
+    ]
+    const result = processGenuiSpec({ items: [{ type: 'image-group', items }] })
+    expect(result.errors).toEqual([])
+    expect((result.repaired?.items[0] as { items: unknown[] }).items).toHaveLength(GENUI_LIMITS.maxImageGroupItems)
+    expect(result.warnings.some(warning => warning.path.includes('.items[24]'))).toBe(false)
+    expect(result.warnings.some(warning => warning.kind === 'truncated' && warning.message.includes('1 张图片'))).toBe(true)
   })
 
   it('discovers nested fields at their renderer paths, never capped ghost fields', () => {
