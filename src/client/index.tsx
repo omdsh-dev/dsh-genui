@@ -28,7 +28,7 @@ import { createPanelSlashSource } from './panel-command.ts'
 import { GenuiPanel, type GenuiPanelInjected } from './panel.tsx'
 import { GenuiToolView } from './toolview.tsx'
 import { mountAchievementToasts } from './achievement-toast.tsx'
-import { bridgeHostLocale } from './i18n/index.ts'
+import { bridgeHostLocale, t } from './i18n/index.ts'
 import type { InputTriggerServiceContract } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { assetUrl } from './asset-loader.ts'
 
@@ -60,8 +60,8 @@ function panelActionSend(ctx: Context, sessionId: SessionId): GenuiPanelInjected
       if (conversation === undefined) return
       const payloadText = Object.keys(payload).length === 0
         ? ''
-        : ` 组件数据: ${JSON.stringify(payload)}`
-      void conversation.send(`[genui-action] ${action}。用户刚刚在面板中触发了动作 "${action}"，请根据组件数据执行相应操作，只输出一个 panel:true 的 dsh-ui 围栏来更新面板，回复文本至多一行 10 字以内的确认（如"已刷新"），不要解释、不要普通围栏。${payloadText}`).catch((err: unknown) => {
+        : t('action.payload', { json: JSON.stringify(payload) })
+      void conversation.send(t('action.panel', { action, payload: payloadText })).catch((err: unknown) => {
         // A failed prompt (session gone, agent busy) drops the action; the
         // panel stays interactive — the component is not disabled. Log the
         // failure WITHOUT the action payload or any secret values (the
@@ -106,8 +106,8 @@ function sendInlineGenuiAction(ctx: Context, sessionId: SessionId, action: strin
   if (conversation === undefined) return
   const payloadText = Object.keys(payload).length === 0
     ? ''
-    : ` 组件数据: ${JSON.stringify(payload)}`
-  void conversation.send(`[genui-action] ${action}。用户刚刚在界面中触发了动作 "${action}"，请根据组件数据执行相应操作，并用 dsh-ui 输出更新后的界面。${payloadText}`).catch(() => {
+    : t('action.payload', { json: JSON.stringify(payload) })
+  void conversation.send(t('action.inline', { action, payload: payloadText })).catch(() => {
     // A failed prompt (session gone, agent busy) drops the action;
     // the UI stays interactive — the component is not disabled.
   })

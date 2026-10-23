@@ -105,6 +105,22 @@ describe('locale resolution', () => {
   })
 })
 
+describe('action prompt', () => {
+  // The relay prompt becomes a visible user message, so it must follow the
+  // interface language instead of always shipping Chinese.
+  it('is written in the active locale and keeps the wire marker', () => {
+    setLocale('en')
+    const english = t('action.inline', { action: 'ping', payload: '' })
+    expect(english).toMatch(/^\[genui-action\] ping\. /)
+    expect(english).not.toMatch(/[\u4e00-\u9fff]/)
+    expect(t('action.payload', { json: '{"a":1}' })).not.toMatch(/[\u4e00-\u9fff]/)
+
+    setLocale('zh')
+    expect(t('action.inline', { action: 'ping', payload: '' }))
+      .toMatch(/^\[genui-action\] ping。/)
+  })
+})
+
 describe('t() lookup chain', () => {
   it('returns the active language', () => {
     setLocale('en')
