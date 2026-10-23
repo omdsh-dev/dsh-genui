@@ -412,6 +412,9 @@ export function InputNode({ node, onAction, answers }: {
   const registeredFieldId = useRef(id)
   const setField = answers?.setField
   const setNumericFieldValidity = answers?.setNumericFieldValidity
+  useEffect(() => () => {
+    if (id !== undefined) setNumericFieldValidity?.(id, true)
+  }, [id, setNumericFieldValidity])
   const send = (submit: boolean): void => {
     if (numeric && value.trim() !== '' && parseDecimalNumber(value) === undefined) return
     if (action !== undefined && onAction !== undefined) {

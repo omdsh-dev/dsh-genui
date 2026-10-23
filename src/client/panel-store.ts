@@ -22,6 +22,7 @@
  */
 import type { GenuiSpec, GenuiTab } from './spec.ts'
 import { countGenuiNodes } from './guard.ts'
+import { GENUI_LIMITS } from './genui-runtime/index.ts'
 
 /** Panel scale limits — adjustable defaults (design doc: scale limits are
  *  configurable, not law). Folds read the CURRENT limits, so tuning applies
@@ -212,7 +213,7 @@ function fold(state: SessionPanelState, extra: PanelOperation | null): FoldResul
   let start = 0
   for (let i = 0; i < ops.length; i++) {
     const op = ops[i]!
-    if (op.mode === 'replace' && countGenuiNodes(op.spec, limits.maxNodes + 1) <= limits.maxNodes) start = i
+    if (op.mode === 'replace' && !exceedsPanelBudget(op.spec)) start = i
   }
   let snapshot: GenuiSpec | null = state.local
   let overflow: PanelOperation | null = null
@@ -223,7 +224,7 @@ function fold(state: SessionPanelState, extra: PanelOperation | null): FoldResul
     const op = ops[i]!
     if (op.order[0] > maxSeenSeq) maxSeenSeq = op.order[0]
     if (op.mode === 'replace') {
-      if (countGenuiNodes(op.spec, limits.maxNodes + 1) > limits.maxNodes) {
+      if (exceedsPanelBudget(op.spec)) {
         // Pathological replace beyond the node budget: rejected like any
         // over-budget op (remembered as the overflow barrier, fold kept).
         if (overflow === null || compareOrder(op.order, overflow.order) < 0) overflow = op
@@ -240,7 +241,7 @@ function fold(state: SessionPanelState, extra: PanelOperation | null): FoldResul
     // rejection never retroactively drops ops that already fit.
     const merged = mergePanelSpecs(snapshot, op.spec)
     if (appendCount >= limits.maxAppends
-      || countGenuiNodes(merged, limits.maxNodes + 1) > limits.maxNodes) {
+      || exceedsPanelBudget(merged)) {
       if (overflow === null || compareOrder(op.order, overflow.order) < 0) overflow = op
       continue
     }
@@ -361,7 +362,7 @@ export function diagnosePanelBudget(sessionId: string, sourceId: string): void {
   if (diagnosedOverflow.has(key)) return
   diagnosedOverflow.add(key)
   console.warn(
-    `[genui] 面板已到节点/操作上限（${limits.maxNodes} 节点、${limits.maxAppends} 条追加），本次 append 被拒绝；请让模型发送 replace 更新面板。`,
+    `[genui] 面板已到内容/操作上限（${limits.maxNodes} 节点、${GENUI_LIMITS.maxComputedFields} 个计算字段、${limits.maxAppends} 条追加），本次 append 被拒绝；请让模型发送 replace 更新面板。`,
   )
 }
 
@@ -405,6 +406,12 @@ export function subscribePanel(listener: () => void): () => void {
 
 /* ---------------- incremental append (pure merge) ---------------- */
 
+/** 合并后的面板仍须遵守单份规格的节点和计算字段预算。 */
+function exceedsPanelBudget(spec: GenuiSpec): boolean {
+  return countGenuiNodes(spec, limits.maxNodes + 1) > limits.maxNodes
+    || (spec.computed?.length ?? 0) > GENUI_LIMITS.maxComputedFields
+}
+
 /** If `spec` is a single root `tabs` node, its tabs; otherwise null. */
 function asTabs(spec: GenuiSpec): GenuiTab[] | null {
   if (spec.items.length !== 1) return null
@@ -422,9 +429,10 @@ function asTabs(spec: GenuiSpec): GenuiTab[] | null {
  * there is nothing to merge into. Export for tests.
  */
 export function mergePanelSpecs(prev: GenuiSpec | null, next: GenuiSpec): GenuiSpec {
-  if (prev === null || prev.items.length === 0) return next
+  if (prev === null || prev.items.length === 0 && (prev.computed?.length ?? 0) === 0) return next
   const title = prev.title ?? next.title
-  const base = { ...prev, ...(title === undefined ? {} : { title }) }
+  const computed = [...(prev.computed ?? []), ...(next.computed ?? [])]
+  const base = { ...prev, ...(title === undefined ? {} : { title }), ...(computed.length === 0 ? {} : { computed }) }
   const prevTabs = asTabs(prev)
   const nextTabs = asTabs(next)
   if (prevTabs !== null && nextTabs !== null) {

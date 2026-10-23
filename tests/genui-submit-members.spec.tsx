@@ -31,6 +31,42 @@ afterEach(() => {
 })
 
 describe('submit submission members', () => {
+  it('uses computed radio labels and explanations in the final local grade', () => {
+    const { container } = mount({
+      computed: [{ id: 'answer', expr: '42' }],
+      items: [
+        { type: 'radio', group: 'q', label: 'Question {{answer}}', options: ['A', 'B'], answer: 0, explanation: 'Explanation {{answer}}' },
+        { type: 'submit', label: 'Grade', groups: ['q'] },
+      ],
+    }, [])
+    fireEvent.click(container.querySelector('input[type="radio"]')!)
+    fireEvent.click(submitUi(container).button)
+    const grade = container.querySelector('[data-genui-grade]')!
+    expect(grade.textContent).toContain('Question 42')
+    expect(grade.textContent).toContain('Explanation 42')
+    expect(grade.textContent).not.toContain('{{')
+  })
+
+  it('clears invalid numeric drafts when streaming replaces an input with another control', () => {
+    const actions: Action[] = []
+    const spec: GenuiSpec = { items: [
+      { type: 'input', id: 'amount', inputType: 'number', label: '金额', value: '2' },
+      { type: 'submit', label: 'Send', action: 'send', groups: ['amount'] },
+    ] }
+    const view = mount(spec, actions)
+    fireEvent.change(view.container.querySelector('input')!, { target: { value: '-' } })
+    expect(submitUi(view.container).button.disabled).toBe(true)
+    view.rerender(<GenuiActionContext.Provider value={(action, payload) => actions.push([action, payload])}>
+      <GenuiBlock spec={{ items: [
+        { type: 'select', id: 'amount', label: '金额', options: ['3'], selected: 0 },
+        spec.items[1]!,
+      ] }} />
+    </GenuiActionContext.Provider>)
+    expect(submitUi(view.container).button.disabled).toBe(false)
+    fireEvent.click(submitUi(view.container).button)
+    expect(actions).toEqual([['send', { type: 'submit', answers: {}, fields: { amount: '3' }, total: 1, answered: 1 }]])
+  })
+
   it('submits Issue #228 input groups at 0/2, 1/2, and 2/2', () => {
     const actions: Action[] = []
     const spec: GenuiSpec = { items: [

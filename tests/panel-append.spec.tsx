@@ -5,6 +5,9 @@ import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { renderGenuiFence } from '../src/client/fence-render.tsx'
 import { applyPanelOperation, clearSessionPanel, getPanelSpec, mergePanelSpecs } from '../src/client/panel-store.ts'
+import { evaluateComputed } from '../src/client/computed.ts'
+import { GENUI_LIMITS } from '../src/client/genui-runtime/index.ts'
+import type { GenuiSpec } from '../src/client/spec.ts'
 
 afterEach(() => {
   cleanup()
@@ -28,6 +31,29 @@ const ctx = (seq: number, block = 0, fence = 0) => ({
 })
 
 describe('mergePanelSpecs', () => {
+  it('keeps appended computations and dependencies on earlier panel fields', () => {
+    const prev: GenuiSpec = {
+      computed: [{ id: 'base', expr: 'amount*2' }],
+      items: [{ type: 'input', id: 'amount', inputType: 'number', value: '3' }],
+    }
+    const next: GenuiSpec = {
+      computed: [{ id: 'answer', expr: 'base+1' }],
+      items: [{ type: 'text', content: '{{answer}}' }],
+    }
+    const merged = mergePanelSpecs(prev, next)
+    expect(evaluateComputed(merged, {}).values).toEqual({ base: 6, answer: 7 })
+    expect(evaluateComputed(mergePanelSpecs({ computed: [{ id: 'base', expr: '6' }], items: [] }, next), {}).values)
+      .toEqual({ base: 6, answer: 7 })
+  })
+
+  it('keeps duplicate computed IDs visible to the existing graph validation', () => {
+    const merged = mergePanelSpecs({ computed: [{ id: 'answer', expr: '1' }], items: [text('seed')] }, {
+      computed: [{ id: 'answer', expr: '2' }], items: [text('{{answer}}')],
+    })
+    expect(evaluateComputed(merged, {}).errors.answer).toContain('计算字段 ID 重复')
+    expect(evaluateComputed(merged, {}).values).not.toHaveProperty('answer')
+  })
+
   it('merges tabs by label, appending items to same-labelled tabs', () => {
     const prev = tabsSpec([{ label: 'A', items: [text('a1')] }, { label: 'B', items: [text('b1')] }])
     const next = tabsSpec([{ label: 'B', items: [text('b2')] }, { label: 'C', items: [text('c1')] }])
@@ -53,6 +79,23 @@ describe('mergePanelSpecs', () => {
 })
 
 describe('panel append fence (settled source)', () => {
+  it('rejects an append exceeding the shared computed-field budget without truncating the panel', () => {
+    const seed: GenuiSpec = {
+      computed: Array.from({ length: GENUI_LIMITS.maxComputedFields - 1 }, (_, index) => ({ id: `field${index}`, expr: '1' })),
+      items: [text('seed')],
+    }
+    expect(applyPanelOperation('p1', { sourceId: 'seed', order: [0, 0, 0], mode: 'replace', spec: seed })).toBe('accepted')
+    expect(applyPanelOperation('p1', { sourceId: 'fit', order: [1, 0, 0], mode: 'append', spec: {
+      computed: [{ id: 'last', expr: '2' }], items: [text('{{last}}')],
+    } })).toBe('accepted')
+    expect(applyPanelOperation('p1', { sourceId: 'overflow', order: [2, 0, 0], mode: 'append', spec: {
+      computed: [{ id: 'excess', expr: '3' }], items: [text('{{excess}}')],
+    } })).toBe('overflow')
+    expect(getPanelSpec('p1')?.computed).toHaveLength(GENUI_LIMITS.maxComputedFields)
+    expect(getPanelSpec('p1')?.items).toHaveLength(2)
+    expect(evaluateComputed(getPanelSpec('p1')!, {}).values.last).toBe(2)
+  })
+
   it('merges a complete append fence into the existing panel', () => {
     applyPanelOperation('p1', { sourceId: 'seed', order: [0, -1, 0], mode: 'replace', spec: tabsSpec([{ label: 'A', items: [text('a1')] }]) })
     render(renderGenuiFence(JSON.stringify({ panel: true, append: true, title: 'X', items: [{ type: 'tabs', tabs: [{ label: 'A', items: [text('a2')] }, { label: 'B', items: [text('b1')] }] }] }), 'k1', ctx(1)) as never)

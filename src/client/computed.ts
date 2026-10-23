@@ -55,6 +55,17 @@ export function isComputedTemplateField(type: unknown, key: string): boolean {
 }
 
 export type ComputedTemplateScope = boolean | 'blocks-row' | 'blocks-cell'
+export type ComputedNodeScope = boolean | 'nested-items'
+
+/** 只有组件容器的子节点字段允许再次识别组件；原始数据中的 type 没有组件含义。 */
+export function getComputedChildNodeScope(type: unknown, key: string, parentScope: ComputedNodeScope): ComputedNodeScope {
+  if (parentScope === 'nested-items') return key === 'items'
+  if (parentScope !== true) return false
+  if (type === 'tabs') return key === 'tabs' ? 'nested-items' : false
+  if (type === 'accordion') return key === 'items' ? 'nested-items' : false
+  if (type === 'table') return key === 'details'
+  return key === 'items' && ['row', 'col', 'grid', 'card', 'carousel', 'list'].includes(String(type))
+}
 
 /** 为嵌套展示数据选择模板范围，并在组件边界重置继承范围。 */
 export function getComputedTemplateScope(type: unknown, key: string, parentScope: ComputedTemplateScope): ComputedTemplateScope {
@@ -282,14 +293,17 @@ function resolveComputedValue(
   chartReference = false,
   tableCellReference = false,
   templateAllowed: ComputedTemplateScope = false,
+  nodeScope: ComputedNodeScope = false,
 ): unknown {
   if (typeof value === 'string') {
     if (!templateAllowed || key === 'id' || key === 'type' || key === 'expr' || key === 'action' || key === 'href' || key === 'src' || key === 'poster') return value
     return value.replace(COMPUTED_REFERENCE_PATTERN, (_match, id: string) => result.formatted[id] ?? '无效输入')
   }
-  if (Array.isArray(value)) return value.map(item => resolveComputedValue(item, undefined, result, referenceAllowed, chartReference, tableCellReference, templateAllowed))
+  if (nodeScope === false && !referenceAllowed && !templateAllowed) return value
+  if (Array.isArray(value)) return value.map(item => resolveComputedValue(item, undefined, result, referenceAllowed, chartReference, tableCellReference, templateAllowed, nodeScope))
   if (value === null || typeof value !== 'object') return value
   const record = value as Record<string, unknown>
+  const nodeType = nodeScope === true ? record.type : undefined
   if (referenceAllowed && Object.keys(record).length === 1 && typeof record.$computed === 'string') {
     if (!Object.hasOwn(result.values, record.$computed)) return chartReference ? null : '无效输入'
     const computedValue = result.values[record.$computed]!
@@ -303,33 +317,24 @@ function resolveComputedValue(
     }
     return chartReference && Math.abs(computedValue) > 1e12 ? null : computedValue
   }
-  return Object.fromEntries(Object.entries(record).map(([entryKey, entryValue]) => [
+  const resolved = Object.fromEntries(Object.entries(record).map(([entryKey, entryValue]) => [
     entryKey,
     resolveComputedValue(entryValue, entryKey, result,
-      record.type === 'table' && entryKey === 'rows'
-        || (record.type === 'chart' || record.type === 'echart') && (entryKey === 'data' || entryKey === 'series')
-        || record.type === 'echart' && entryKey === 'option'
+      nodeType === 'table' && entryKey === 'rows'
+        || (nodeType === 'chart' || nodeType === 'echart') && (entryKey === 'data' || entryKey === 'series')
+        || nodeType === 'echart' && entryKey === 'option'
         || referenceAllowed,
-      (record.type === 'chart' || record.type === 'echart') && (entryKey === 'data' || entryKey === 'series' || entryKey === 'option')
+      (nodeType === 'chart' || nodeType === 'echart') && (entryKey === 'data' || entryKey === 'series' || entryKey === 'option')
         || chartReference,
-      record.type === 'table' && entryKey === 'rows' || tableCellReference,
-      getComputedTemplateScope(record.type, entryKey, templateAllowed)),
+      nodeType === 'table' && entryKey === 'rows' || tableCellReference,
+      getComputedTemplateScope(nodeType, entryKey, templateAllowed),
+      getComputedChildNodeScope(nodeType, entryKey, nodeScope)),
   ]))
-}
-
-/** 移除没有有效数值的图表点，保证图表只收到可绘制数据。 */
-function filterInvalidChartData(value: unknown): void {
-  if (value === null || typeof value !== 'object') return
-  if (Array.isArray(value)) {
-    value.forEach(filterInvalidChartData)
-    return
-  }
-  const record = value as Record<string, unknown>
-  if ((record.type === 'chart' || record.type === 'echart') && Array.isArray(record.data)) {
-    record.data = record.data.filter(point => point !== null && typeof point === 'object'
+  if ((nodeType === 'chart' || nodeType === 'echart') && Array.isArray(resolved.data)) {
+    resolved.data = resolved.data.filter(point => point !== null && typeof point === 'object'
       && (point as Record<string, unknown>).value !== null)
   }
-  Object.values(record).forEach(filterInvalidChartData)
+  return resolved
 }
 
 /**
@@ -340,8 +345,7 @@ function filterInvalidChartData(value: unknown): void {
  * @returns 已替换引用的规格副本。
  */
 export function resolveComputedSpec(spec: GenuiSpec, result: ComputedEvaluation): GenuiSpec {
-  const items = resolveComputedValue(spec.items, undefined, result) as GenuiNode[]
+  const items = resolveComputedValue(spec.items, undefined, result, false, false, false, false, true) as GenuiNode[]
   const title = spec.title === undefined ? undefined : resolveComputedValue(spec.title, undefined, result, false, false, false, true) as string
-  filterInvalidChartData(items)
   return { ...spec, ...(title === undefined ? {} : { title }), items }
 }

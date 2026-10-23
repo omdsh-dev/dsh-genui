@@ -100,8 +100,8 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
   const [answers, setAnswers] = useState<Record<string, string>>(persisted?.answers ?? {})
   const [multiAnswers, setMultiAnswers] = useState<Record<string, string[]>>(persisted?.multiAnswers ?? {})
   const [fields, setFields] = useState<Record<string, string>>(persisted?.fields ?? {})
-  const submissionRegistry = useMemo(() => compileSubmissionRegistry(spec), [spec])
   const computedSpec = useMemo(() => resolveComputedSpec(spec, evaluateComputed(spec, fields)), [spec, fields])
+  const submissionRegistry = useMemo(() => compileSubmissionRegistry(computedSpec), [computedSpec])
   const [locked, setLocked] = useState(persisted?.locked === true)
   const [round, setRound] = useState(0)
   // Secret (password) field ids: their values never persist and never join

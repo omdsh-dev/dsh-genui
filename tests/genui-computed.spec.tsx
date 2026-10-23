@@ -2,12 +2,43 @@ import { cleanup, fireEvent, render, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { GenuiBlock } from '../src/client/GenuiBlock.tsx'
 import { buildComputedGraph, evaluateComputed, resolveComputedSpec } from '../src/client/computed.ts'
-import { processGenuiSpec, validateGenuiSpec } from '../src/client/guard.ts'
+import { processGenuiSpec, repairGenuiSpec, validateGenuiSpec } from '../src/client/guard.ts'
 import type { GenuiSpec } from '../src/client/spec.ts'
 
 afterEach(cleanup)
 
 describe('Computed evaluation', () => {
+  it('preserves JSON data that happens to contain component-shaped objects', () => {
+    const value = {
+      type: 'chart',
+      data: [{ label: 'a', value: null }, { label: 'b', value: { $computed: 'answer' } }],
+      child: { type: 'text', content: 'raw {{missing}}' },
+    }
+    const spec = repairGenuiSpec({
+      computed: [{ id: 'answer', expr: '42' }],
+      items: [{ type: 'json', value }],
+    })!
+    expect(validateGenuiSpec(spec).ok).toBe(true)
+    expect(resolveComputedSpec(spec, evaluateComputed(spec, {})).items[0]).toEqual({ type: 'json', value })
+    const noComputed: GenuiSpec = { items: [{ type: 'json', value }] }
+    expect(resolveComputedSpec(noComputed, evaluateComputed(noComputed, {})).items[0]).toEqual({ type: 'json', value })
+  })
+
+  it('treats objects inside ECharts options as chart data rather than GenUI nodes', () => {
+    const spec: GenuiSpec = {
+      computed: [{ id: 'answer', expr: '42' }],
+      items: [{ type: 'echart', option: {
+        graphic: [{ type: 'text', style: { text: 'raw {{missing}}' } }],
+        metadata: { type: 'chart', data: [{ value: null }, { value: { $computed: 'answer' } }] },
+      } }],
+    }
+    expect(validateGenuiSpec(spec).ok).toBe(true)
+    expect(resolveComputedSpec(spec, evaluateComputed(spec, {})).items[0]).toMatchObject({ option: {
+      graphic: [{ type: 'text', style: { text: 'raw {{missing}}' } }],
+      metadata: { type: 'chart', data: [{ value: null }, { value: 42 }] },
+    } })
+  })
+
   it('updates dependent formulas and applies locale-aware formatting', () => {
     const spec: GenuiSpec = {
       computed: [
