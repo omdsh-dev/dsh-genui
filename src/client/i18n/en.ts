@@ -343,6 +343,11 @@ export const EN = {
   'block.chart.donutSummary': 'Donut chart, {count} slices, total {total}',
   'block.chart.node': 'Point',
 
+  // ------------------------------------------------------ action prompt
+  'action.inline': '[genui-action] {action}. The user just triggered this action "{action}" in the interface. Carry it out using the component data, then reply with an updated dsh-ui fence.{payload}',
+  'action.panel': '[genui-action] {action}. The user just triggered this action "{action}" in the panel. Carry it out using the component data and emit a single panel:true dsh-ui fence that updates the panel, with at most a one-line confirmation in the reply (for example "Refreshed"). Do not explain, and do not emit an ordinary fence.{payload}',
+  'action.payload': ' Component data: {json}',
+
   // -------------------------------------------------------- error text
   'err.boundary.generic': 'this interface',
   'err.boundary.fence': 'this interface',
