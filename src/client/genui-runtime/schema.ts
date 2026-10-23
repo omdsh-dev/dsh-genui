@@ -63,7 +63,7 @@ export const TEXT_SIZES = ['display', 'h1', 'h2', 'h3', 'body', 'muted', 'captio
 export const TEXT_ALIGNS = ['left', 'center', 'right'] as const
 export const BUTTON_TONES = ['primary', 'danger', 'success', 'ghost'] as const
 export const BADGE_TONES = ['success', 'warn', 'danger', 'accent'] as const
-export const INPUT_TYPES = ['text', 'email', 'password', 'color'] as const
+export const INPUT_TYPES = ['text', 'email', 'password', 'color', 'number'] as const
 export const CALLOUT_TONES = ['info', 'success', 'warning', 'error'] as const
 export const CHART_KINDS = ['bars', 'line', 'donut'] as const
 export const PLOT_KINDS = ['line', 'area', 'scatter'] as const
@@ -156,9 +156,23 @@ const nodeFields = { type: 'string', span: 'number' } as const
 
 const chartDatumSchema = recordSchema(['label', 'value'], {
   label: 'string',
-  value: 'number',
+  value: 'unknown',
   color: 'string',
 })
+
+const computedFormatSchema = recordSchema([], {
+  locale: 'string',
+  style: 'string',
+  currency: 'string',
+  minimumFractionDigits: 'number',
+  maximumFractionDigits: 'number',
+}, {}, { style: ['decimal', 'currency', 'percent'] })
+
+const computedFieldSchema = recordSchema(['id', 'expr'], {
+  id: 'string',
+  expr: 'string',
+  format: 'object',
+}, { format: computedFormatSchema })
 
 const chartSeriesSchema = recordSchema(['label', 'data'], {
   label: 'string',
@@ -259,8 +273,9 @@ export const GENUI_SPEC_SCHEMA = schema(['items'], {
   gap: 'number',
   panel: 'boolean',
   append: 'boolean',
+  computed: 'array',
   items: 'nodes',
-})
+}, {}, { nested: { computed: computedFieldSchema } })
 
 /** Backwards-friendly short alias for the root specification schema. */
 export const SPEC_SCHEMA = GENUI_SPEC_SCHEMA

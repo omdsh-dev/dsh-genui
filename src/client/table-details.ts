@@ -1,4 +1,5 @@
 import { GENUI_LIMITS } from './genui-runtime/index.ts'
+import type { GenuiComputedRef } from './spec.ts'
 
 /** 保存 repair 所需的原始 table 字段。 */
 export interface TableDetailSource {
@@ -11,7 +12,7 @@ export interface TableDetailSource {
 /** 保存 repair 后的 table 列和行。 */
 export interface PreparedTableRows {
   columns: string[]
-  rows: Array<Array<string | number>>
+  rows: Array<Array<string | number | GenuiComputedRef>>
 }
 
 /** 使用 table repair 相同的转换规则处理列和行。 */
@@ -91,17 +92,22 @@ function repairColumnValues(value: unknown): string[] {
 }
 
 /** 按照 table repair 的单元格规则裁剪并清理行。 */
-function repairRows(value: unknown): Array<Array<string | number>> {
+function repairRows(value: unknown): Array<Array<string | number | GenuiComputedRef>> {
   if (!Array.isArray(value)) return []
-  const rows: Array<Array<string | number>> = []
+  const rows: Array<Array<string | number | GenuiComputedRef>> = []
   for (const row of value) {
     if (rows.length >= GENUI_LIMITS.maxTableRows) break
     if (!Array.isArray(row)) continue
-    const cells: Array<string | number> = []
+    const cells: Array<string | number | GenuiComputedRef> = []
     for (const cell of row) {
       if (cells.length >= GENUI_LIMITS.maxTableCols) break
       if (typeof cell === 'string') cells.push(cell.slice(0, 256))
       else if (typeof cell === 'number' && Number.isFinite(cell)) cells.push(cell)
+      else if (cell !== null && typeof cell === 'object' && !Array.isArray(cell)
+        && Object.keys(cell).length === 1 && typeof (cell as Record<string, unknown>).$computed === 'string'
+        && /^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test((cell as Record<string, unknown>).$computed as string)) {
+        cells.push({ $computed: (cell as Record<string, unknown>).$computed as string })
+      }
     }
     if (cells.length > 0) rows.push(cells)
   }
@@ -109,7 +115,7 @@ function repairRows(value: unknown): Array<Array<string | number>> {
 }
 
 /** 从有效的首行表头生成 table 列。 */
-function deriveTableColumns(rows: Array<Array<string | number>>): PreparedTableRows | null {
+function deriveTableColumns(rows: Array<Array<string | number | GenuiComputedRef>>): PreparedTableRows | null {
   const header = rows[0]
   if (header === undefined || header.length === 0) return null
   const body = rows.slice(1)
@@ -134,9 +140,14 @@ function columnKeyOf(value: unknown): string | undefined {
 }
 
 /** 将 object row 中的值转换为 table 单元格，并保留列位置。 */
-function cellText(value: unknown): string | number {
+function cellText(value: unknown): string | number | GenuiComputedRef {
   if (typeof value === 'string') return value
   if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).length === 1 && typeof (value as Record<string, unknown>).$computed === 'string'
+    && /^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test((value as Record<string, unknown>).$computed as string)) {
+    return { $computed: (value as Record<string, unknown>).$computed as string }
+  }
   if (value === null || value === undefined) return ''
   return JSON.stringify(value)
 }

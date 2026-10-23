@@ -167,6 +167,7 @@ function listItemText(item: GenuiList['items'][number]): string {
 
 function boundField(answers: AnswersState | undefined, id: string | undefined): string | undefined {
   if (id === undefined) return undefined
+  if (answers?.fields === undefined || !Object.hasOwn(answers.fields, id)) return undefined
   const value = answers?.fields[id]
   return value === undefined || value === '' ? undefined : value
 }

@@ -91,7 +91,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 **本地优先（v2.6）**：UI 自己能做的状态变化——判卷、判题、重置、展开、选中——一律本地即时完成，**零模型往返**。action 只用于必须模型参与的事（生成新内容、执行工具、下一步建议）。**交互组件必须带 action：不带 action 的按钮渲染为禁用态，用户点不了；带 action 的按钮点击后有「已触发」本地反馈。**
 - button: `{"type":"button","label":"...","tone":"primary|danger|success|ghost","full":true?,"small":true?,"icon":"emoji?","action":"refresh"?}`
 - **秘密禁令**：不得索取或生成密码、API Key、访问令牌、恢复码等秘密输入；遇到此类需求直接拒绝并解释
-- input: `{"type":"input","label":"...","placeholder":"...","inputType":"text|email|color","value":"...","action":"name"?,"id":"field-id"?}` — `color` 使用浏览器原生取色器，值使用 `#RRGGBB`；action 在失焦**和回车**时触发（回车带 `submit:true`）；**blur 仅值有变化才发送**（聚焦又离开不产生空往返）；payload 带 `id` 帮模型定位字段；带 `id` 的值刷新后保留、并被 submit 收集进 `fields`
+- input: `{"type":"input","label":"...","placeholder":"...","inputType":"text|email|color|number","value":"...","action":"name"?,"id":"field-id"?}` — `color` 使用浏览器原生取色器，值使用 `#RRGGBB`；`number` 可作为 Computed 数值输入；action 在失焦**和回车**时触发（回车带 `submit:true`）；**blur 仅值有变化才发送**（聚焦又离开不产生空往返）；payload 带 `id` 帮模型定位字段；带 `id` 的值刷新后保留、并被 submit 收集进 `fields`
 - select: `{"type":"select","label":"...","options":["...","..."],"selected":下标?,"action":"pick"?,"id":"field-id"?}` — `selected` 预选某选项（缺省显示「请选择…」占位，不静默预选第一项）；带 `id` 的选择跨刷新保留并进 submit 的 `fields`
 - checkbox: `{"type":"checkbox","label":"<user-language option>","checked":true?,"action":"toggle"?,"group":"group-id"?}` — 默认保持逐次 `action` 行为；**加 `group` 进入多选聚合模式**：同组 checkbox 可反复勾选/取消，变化只在本地记录、不发逐次 action，兄弟 `submit` 一次性把该组已选 label 作为字符串数组放进 `answers`（例如 `{"styles":["<user-language option>","<user-language option>"]}`）
 - slider: `{"type":"slider","label":"...","min":0,"max":100,"step":1,"value":n?,"action":"name"?,"id":"field-id"?}` — 数值表单滑块：实时显示数值；带 `id` 跨刷新保留并进 submit 的 `fields`（拖拽经防抖合并成一次 action）
@@ -342,6 +342,15 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 ```
 
 何时不用：单一知识点用单个 `radio`（自带本地判卷）或 `quiz` 组件，不需要 submit 组卷；题目多于 5 个拆成多条回答分批发。
+
+### Computed（输入驱动计算）
+在规格根部用 `computed` 声明有序无关的计算字段。表达式只支持数字、字段 ID、括号、`+ - * / % ^` 和 `sin cos tan asin acos atan sqrt cbrt exp log ln abs floor ceil round min max pow` 白名单函数，以及 `pi/e/tau` 常量；不执行 JavaScript。字段 ID 以字母或下划线开头，后续可含数字，最多 64 个字符。表达式最多 512 个字符、嵌套最多 32 层、每份规格最多 50 个计算字段；未声明字段、循环依赖和无效数值会显示为无效输入，图表会跳过无效点。
+
+`{{fieldId}}` 可放在显示文字与规格标题中；`chart`、`echart` 的数据点和 `table` 单元格使用 `{"$computed":"fieldId"}` 引用数值。完整 ECharts `option` 中的数据值也可使用该引用。`format` 可设置 `locale`、`style`（`decimal|currency|percent`）、`currency` 和小数位范围。
+
+```dsh-ui
+{"computed":[{"id":"annual","expr":"monthly*12","format":{"locale":"zh-CN","style":"currency","currency":"CNY","maximumFractionDigits":0}},{"id":"tax","expr":"annual*rate","format":{"locale":"zh-CN","style":"currency","currency":"CNY","maximumFractionDigits":0}}],"items":[{"type":"input","id":"monthly","label":"月收入","inputType":"number","value":"10000"},{"type":"input","id":"rate","label":"税率","inputType":"number","value":"0.1"},{"type":"stat","label":"年度收入","value":"{{annual}}"},{"type":"stat","label":"预估税额","value":"{{tax}}"},{"type":"chart","kind":"bars","data":[{"label":"收入","value":{"$computed":"annual"}},{"label":"税额","value":{"$computed":"tax"}}]},{"type":"table","columns":["项目","金额"],"rows":[["年度收入",{"$computed":"annual"}],["预估税额",{"$computed":"tax"}]]}]}
+```
 
 ## 使用规则
 

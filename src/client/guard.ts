@@ -18,7 +18,7 @@
  * - The whole spec carries a node budget; once exhausted, remaining siblings
  *   are elided.
  */
-import type { GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSeries, GenuiScene3D, GenuiSpec, GenuiDiagram, GenuiDiagramTheme, GenuiDiagramKind } from './spec.ts'
+import type { GenuiComputed, GenuiComputedFormat, GenuiComputedRef, GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSeries, GenuiScene3D, GenuiSpec, GenuiDiagram, GenuiDiagramTheme, GenuiDiagramKind } from './spec.ts'
 import { isComponentRoot, wrapSingleComponentRoot } from './spec.ts'
 import {
   BADGE_TONES, BUTTON_TONES, CALLOUT_TONES, CARD_TONES, CHART_KINDS, COMPONENT_SCHEMAS, HERO_TONES,
@@ -35,6 +35,8 @@ import { analyzeSubmissionRegistry } from './submission-registry.ts'
 import { isTableDetailReachable, prepareTableRows, tableRowsForDetails } from './table-details.ts'
 import { color, enu, int, num, obj, opt, safeMediaSrc, str } from './genui-runtime/value-utils.ts'
 import { classifyLinkTarget } from './file-link.ts'
+import { buildComputedGraph, getComputedInputIds } from './computed.ts'
+import { SAFE_MATH_LIMITS } from './safe-math.ts'
 
 /** Result of `validateGenuiSpec`. */
 export interface GenuiValidation {
@@ -150,7 +152,8 @@ function validateNestedRecordSchemas(
     const nestedValue = value[field]
     if (nestedValue === undefined) continue
     if (Array.isArray(nestedValue)) {
-      nestedValue.forEach((item, index) => validateRecordSchema(item, `${at}.${field}[${index}]`, nested, errors))
+      const records = field === 'computed' ? nestedValue.slice(0, GENUI_LIMITS.maxComputedFields) : nestedValue
+      records.forEach((item, index) => validateRecordSchema(item, `${at}.${field}[${index}]`, nested, errors))
     } else {
       validateRecordSchema(nestedValue, `${at}.${field}`, nested, errors)
     }
@@ -838,23 +841,24 @@ function repairListItems(
   return out
 }
 
-function repairChartData(v: unknown, cap: number): Array<{ label: string; value: number; color?: string }> | undefined {
+function repairChartData(v: unknown, cap: number): Array<{ label: string; value: number | GenuiComputedRef; color?: string }> | undefined {
   if (!Array.isArray(v)) return undefined
-  const out: Array<{ label: string; value: number; color?: string }> = []
+  const out: Array<{ label: string; value: number | GenuiComputedRef; color?: string }> = []
   for (const datum of v) {
     if (out.length >= cap) break
     const o = obj(datum)
     const label = o === undefined ? undefined : str(o.label, 128)
     const value = o === undefined ? undefined : num(o.value, -1e12, 1e12)
-    if (label === undefined || value === undefined) continue
-    out.push({ label, value, ...opt('color', o === undefined ? undefined : color(o.color)) })
+    const reference = o === undefined ? undefined : repairComputedRef(o.value)
+    if (label === undefined || (value === undefined && reference === undefined)) continue
+    out.push({ label, value: value ?? reference!, ...opt('color', o === undefined ? undefined : color(o.color)) })
   }
   return out
 }
 
-function repairSeries(v: unknown, cap: number, pointCap: number): Array<{ label: string; color?: string; data: Array<{ label: string; value: number; color?: string }> }> | undefined {
+function repairSeries(v: unknown, cap: number, pointCap: number): Array<{ label: string; color?: string; data: Array<{ label: string; value: number | GenuiComputedRef; color?: string }> }> | undefined {
   if (!Array.isArray(v)) return undefined
-  const out: Array<{ label: string; color?: string; data: Array<{ label: string; value: number; color?: string }> }> = []
+  const out: Array<{ label: string; color?: string; data: Array<{ label: string; value: number | GenuiComputedRef; color?: string }> }> = []
   for (const s of v) {
     if (out.length >= cap) break
     const o = obj(s)
@@ -1266,6 +1270,62 @@ function sanitizeEChartOption(v: unknown, depth: number, budget: EChartSanitizeB
   return Object.keys(out).length > 0 || Object.keys(o).length === 0 ? out : undefined
 }
 
+function repairComputedFields(value: unknown): GenuiComputed[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const output: GenuiComputed[] = []
+  for (const entry of value.slice(0, GENUI_LIMITS.maxComputedFields)) {
+    const item = obj(entry)
+    const id = item !== undefined && typeof item.id === 'string' && /^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(item.id)
+      ? item.id
+      : undefined
+    const expr = item === undefined ? undefined : str(item.expr, SAFE_MATH_LIMITS.maxExpressionLength)
+    if (id === undefined || expr === undefined || item === undefined
+      || typeof item.expr !== 'string' || item.expr.length > SAFE_MATH_LIMITS.maxExpressionLength) continue
+    const rawFormat = obj(item.format)
+    let format: GenuiComputedFormat | undefined
+    if (rawFormat !== undefined) {
+      const style = enu(rawFormat.style, ['decimal', 'currency', 'percent'] as const) ?? 'decimal'
+      const currency = typeof rawFormat.currency === 'string' && /^[A-Z]{3}$/.test(rawFormat.currency)
+        ? rawFormat.currency
+        : undefined
+      const locale = typeof rawFormat.locale === 'string' && isValidComputedLocale(rawFormat.locale)
+        ? rawFormat.locale.slice(0, 35)
+        : undefined
+      const minimumFractionDigits = int(rawFormat.minimumFractionDigits, 0, 12)
+      const maximumFractionDigits = int(rawFormat.maximumFractionDigits, 0, 12)
+      if ((style !== 'currency' || currency !== undefined)
+        && (minimumFractionDigits === undefined || maximumFractionDigits === undefined || minimumFractionDigits <= maximumFractionDigits)) {
+        format = {
+          style,
+          ...opt('currency', currency),
+          ...opt('locale', locale),
+          ...opt('minimumFractionDigits', minimumFractionDigits),
+          ...opt('maximumFractionDigits', maximumFractionDigits),
+        }
+      }
+    }
+    output.push({ id, expr, ...opt('format', format) })
+  }
+  return output
+}
+
+/** 检查 locale 标签是否符合 Intl 的语言标签规则。 */
+function isValidComputedLocale(locale: string): boolean {
+  if (locale.length > 35) return false
+  try {
+    return Intl.getCanonicalLocales(locale).length === 1
+  } catch {
+    return false
+  }
+}
+
+function repairComputedRef(value: unknown): GenuiComputedRef | undefined {
+  const reference = obj(value)
+  if (reference === undefined || Object.keys(reference).length !== 1) return undefined
+  const id = reference.$computed
+  return typeof id === 'string' && /^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(id) ? { $computed: id } : undefined
+}
+
 /**
  * Deterministically repair a raw spec value into a renderable GenuiSpec.
  * Returns null only when the root is not an object with an `items` array
@@ -1292,6 +1352,7 @@ function repairCanonicalGenuiSpec(value: unknown): GenuiSpec | null {
     ...opt('gap', num(v.gap, 0, 96)),
     ...opt('panel', v.panel === true ? true : undefined),
     ...opt('append', v.append === true ? true : undefined),
+    ...opt('computed', repairComputedFields(v.computed)),
     items: repairItems(v.items, ctx, 0),
   }
 }
@@ -1504,6 +1565,52 @@ export function validateCanonicalGenuiSpec(value: unknown): GenuiValidation {
   }
   if (!Array.isArray(v.items)) return { ok: false, errors: ['spec.items must be an array'] }
   validateSchemaFieldKinds(v, 'spec', GENUI_SPEC_SCHEMA, errors, ['items'])
+  validateNestedRecordSchemas(v, 'spec', GENUI_SPEC_SCHEMA, errors)
+  if (Array.isArray(v.computed)) {
+    if (v.computed.length > GENUI_LIMITS.maxComputedFields) {
+      errors.push(`spec.computed exceeds ${GENUI_LIMITS.maxComputedFields} fields`)
+    }
+    for (const [index, entry] of v.computed.slice(0, GENUI_LIMITS.maxComputedFields).entries()) {
+      const formula = obj(entry)
+      if (formula === undefined) continue
+      const at = `spec.computed[${index}]`
+      if (typeof formula.id === 'string' && !/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(formula.id)) {
+        errors.push(`${at}.id must be a field name of at most 64 characters`)
+      }
+      if (typeof formula.expr === 'string' && formula.expr.length > SAFE_MATH_LIMITS.maxExpressionLength) {
+        errors.push(`${at}.expr exceeds ${SAFE_MATH_LIMITS.maxExpressionLength} characters`)
+      }
+      const format = obj(formula.format)
+      if (format !== undefined) {
+        const style = format.style
+        if (style !== undefined && !['decimal', 'currency', 'percent'].includes(String(style))) {
+          errors.push(`${at}.format.style must be decimal, currency, or percent`)
+        }
+        if (style === 'currency' && (typeof format.currency !== 'string' || !/^[A-Z]{3}$/.test(format.currency))) {
+          errors.push(`${at}.format.currency must be a three-letter uppercase currency code`)
+        }
+        if (format.locale !== undefined && (typeof format.locale !== 'string' || !isValidComputedLocale(format.locale))) {
+          errors.push(`${at}.format.locale is invalid`)
+        }
+        for (const field of ['minimumFractionDigits', 'maximumFractionDigits']) {
+          const value = format[field]
+          if (value !== undefined && (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 12)) {
+            errors.push(`${at}.format.${field} must be an integer from 0 to 12`)
+          }
+        }
+        if (typeof format.minimumFractionDigits === 'number' && typeof format.maximumFractionDigits === 'number'
+          && format.minimumFractionDigits > format.maximumFractionDigits) {
+          errors.push(`${at}.format.minimumFractionDigits cannot exceed maximumFractionDigits`)
+        }
+      }
+    }
+  }
+  const repaired = repairCanonicalGenuiSpec(v)
+  if (repaired !== null) {
+    const graph = buildComputedGraph(repaired.computed ?? [], getComputedInputIds(repaired))
+    for (const [id, error] of Object.entries(graph.errors)) errors.push(`spec.computed.${id}: ${error}`)
+    validateComputedReferences(repaired.items, new Set((repaired.computed ?? []).map(field => field.id)), errors)
+  }
   let count = 0
   let capped = false
   const walk = (list: unknown, depth: number, path: string): void => {
@@ -1761,6 +1868,36 @@ export function partialRepairGenuiSpec(processed: GenuiProcessResult): GenuiSpec
 
 type Walker = (list: unknown, depth: number, path: string) => void
 
+/** 校验图表与表格中的数值引用是否指向已声明字段。 */
+function validateComputedReferences(items: unknown, computedIds: ReadonlySet<string>, errors: string[]): void {
+  const visited = new WeakSet<object>()
+  let visitedCount = 0
+  const visit = (value: unknown, path: string, referenceAllowed: boolean, depth: number): void => {
+    if (depth > GENUI_LIMITS.maxDepth * 2 || visitedCount >= GENUI_LIMITS.maxNodes * 8) return
+    if (value === null || typeof value !== 'object') return
+    if (visited.has(value)) return
+    visited.add(value)
+    visitedCount += 1
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => visit(item, `${path}[${index}]`, referenceAllowed, depth + 1))
+      return
+    }
+    const record = value as Record<string, unknown>
+    if (referenceAllowed && Object.keys(record).length === 1 && typeof record.$computed === 'string') {
+      if (!computedIds.has(record.$computed)) errors.push(`${path} references unknown computed field '${record.$computed}'`)
+      return
+    }
+    for (const [key, child] of Object.entries(record)) {
+      const childAllowsReference = referenceAllowed
+        || record.type === 'table' && key === 'rows'
+        || (record.type === 'chart' || record.type === 'echart') && (key === 'data' || key === 'series')
+        || record.type === 'echart' && key === 'option'
+      visit(child, `${path}.${key}`, childAllowsReference, depth + 1)
+    }
+  }
+  visit(items, 'spec.items', false, 0)
+}
+
 function validateChartData(value: unknown, at: string, errors: string[]): void {
   if (!Array.isArray(value)) return
   for (let index = 0; index < value.length; index++) {
@@ -1771,7 +1908,8 @@ function validateChartData(value: unknown, at: string, errors: string[]): void {
       continue
     }
     if (typeof datum.label !== 'string') errors.push(`${path}.label must be a string`)
-    if (typeof datum.value !== 'number' || !Number.isFinite(datum.value)) {
+    if ((typeof datum.value !== 'number' || !Number.isFinite(datum.value))
+      && repairComputedRef(datum.value) === undefined) {
       errors.push(`${path}.value must be a finite number`)
     }
     if (datum.color !== undefined && typeof datum.color !== 'string') {
@@ -1851,7 +1989,8 @@ function validateTableRows(value: unknown, at: string, errors: string[]): void {
     }
     for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
       const cell = row[cellIndex]
-      if (typeof cell !== 'string' && (typeof cell !== 'number' || !Number.isFinite(cell))) {
+      if (typeof cell !== 'string' && (typeof cell !== 'number' || !Number.isFinite(cell))
+        && repairComputedRef(cell) === undefined) {
         errors.push(`${at}[${rowIndex}][${cellIndex}] must be a string or finite number`)
       }
     }

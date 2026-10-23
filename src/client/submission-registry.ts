@@ -118,6 +118,7 @@ export function isSubmissionMemberAnswered(member: SubmissionMember, state: Subm
     case 'checkbox': return (state.multiAnswers[member.key]?.length ?? 0) > 0
     case 'field': {
       if (member.secret) return false
+      if (!Object.hasOwn(state.fields, member.key)) return false
       const value = state.fields[member.key]
       return value !== undefined && value.trim() !== ''
     }

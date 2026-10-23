@@ -88,8 +88,29 @@ export interface GenuiSpec {
    * Applies only when the fence body is fully complete, so a streaming
    * partial parse never double-merges. */
   append?: boolean
+  /** 根据输入字段及其他 Computed 字段计算的公式列表。 */
+  computed?: GenuiComputed[]
   /** Root component list. */
   items: GenuiNode[]
+}
+
+export interface GenuiComputedFormat {
+  locale?: string
+  style?: 'decimal' | 'currency' | 'percent'
+  currency?: string
+  minimumFractionDigits?: number
+  maximumFractionDigits?: number
+}
+
+export interface GenuiComputed {
+  id: string
+  expr: string
+  format?: GenuiComputedFormat
+}
+
+/** 数值组件数据中的 Computed 字段引用。 */
+export interface GenuiComputedRef {
+  $computed: string
 }
 
 /* ---------------- leaf nodes ---------------- */
@@ -124,7 +145,7 @@ export interface GenuiInput {
   label?: string
   placeholder?: string
   value?: string
-  inputType?: 'text' | 'email' | 'password' | 'color'
+  inputType?: 'text' | 'email' | 'password' | 'color' | 'number'
   /** v2: when set, interaction sends this action back to the model. */
   action?: string
   /**
@@ -410,7 +431,7 @@ export interface GenuiList {
 export interface GenuiTable {
   type: 'table'
   columns: string[]
-  rows: Array<Array<string | number>>
+  rows: Array<Array<string | number | GenuiComputedRef>>
   /** Per-column cell type; missing = auto (numeric right-align, signed delta). */
   types?: TableCellType[]
   /** Append a 合计 footer row (numeric columns are summed). */
@@ -438,7 +459,7 @@ export type TableCellType = 'text' | 'num' | 'delta' | 'bar' | 'badge' | 'spark'
 
 export interface GenuiChartDatum {
   label: string
-  value: number
+  value: number | GenuiComputedRef
   color?: string
 }
 

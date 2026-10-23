@@ -17,6 +17,7 @@ import { renderNode } from './blocks/render-node.tsx'
 import type { AnswersState, GenuiBlockProps } from './blocks/state.ts'
 import type { GenuiSpec } from './spec.ts'
 import { compileSubmissionRegistry } from './submission-registry.ts'
+import { evaluateComputed, resolveComputedSpec } from './computed.ts'
 
 export const GENUI_ACTION_DEBOUNCE_MS = 300
 
@@ -100,6 +101,7 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
   const [multiAnswers, setMultiAnswers] = useState<Record<string, string[]>>(persisted?.multiAnswers ?? {})
   const [fields, setFields] = useState<Record<string, string>>(persisted?.fields ?? {})
   const submissionRegistry = useMemo(() => compileSubmissionRegistry(spec), [spec])
+  const computedSpec = useMemo(() => resolveComputedSpec(spec, evaluateComputed(spec, fields)), [spec, fields])
   const [locked, setLocked] = useState(persisted?.locked === true)
   const [round, setRound] = useState(0)
   // Secret (password) field ids: their values never persist and never join
@@ -132,7 +134,7 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
     // next mount. Blank values are still excluded from submit collection by
     // SubmitNode's filledFields filter (and from persistence for secrets), so
     // this does not change what the model receives.
-    setFields(prev => (prev[id] === value ? prev : { ...prev, [id]: value }))
+    setFields(prev => (Object.hasOwn(prev, id) && prev[id] === value ? prev : { ...prev, [id]: value }))
   }, [])
   const registerSecretField = useCallback((id: string) => {
     setSecretFields(prev => (prev.has(id) ? prev : new Set(prev).add(id)))
@@ -190,9 +192,9 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
   return (
     <CopyPreviewContext.Provider value={copyPreviews}>
       <div className={css.block} data-genui>
-        {spec.title !== undefined && <div className={css.banner}>{renderInline(spec.title)}</div>}
+        {computedSpec.title !== undefined && <div className={css.banner}>{renderInline(computedSpec.title)}</div>}
         <div className={css.col} style={{ gap: `${gap}px` }}>
-          {spec.items.map((c, i) => (
+          {computedSpec.items.map((c, i) => (
             // Staggered reveal: each root item fades/slides in after its
             // predecessors, so the block assembles piece by piece instead of
             // popping in as one slab. Delay capped so long specs still settle

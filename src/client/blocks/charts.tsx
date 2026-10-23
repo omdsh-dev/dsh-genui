@@ -22,6 +22,8 @@ import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import type { GenuiChart, GenuiTable } from '../spec.ts'
 import { isTableGroupHeaderRow, tableRowsForDetails } from '../table-details.ts'
 
+type TableCell = GenuiTable['rows'][number][number]
+
 export const CHART_COLORS = [
   'var(--dsw-static-deepseek-400)',
   'var(--dsw-static-green-400)',
@@ -93,7 +95,7 @@ function numericColumns(rows: GenuiTable['rows'], nCols: number): boolean[] {
  * contain a line break get `pre-line` (see `.tdMultiline`), so the line
  * structure survives and the text still copies back as multiple lines.
  */
-function hasLineBreak(value: string | number): boolean {
+function hasLineBreak(value: TableCell): boolean {
   return typeof value === 'string' && /[\n\r]/.test(value)
 }
 
@@ -102,13 +104,13 @@ function hasLineBreak(value: string | number): boolean {
  * significant (`pre-wrap`), while a prose line break stays `pre-line` so its
  * surrounding spaces collapse exactly like the rest of the UI.
  */
-function isCodeCell(value: string | number): boolean {
+function isCodeCell(value: TableCell): boolean {
   if (typeof value !== 'string') return false
   return /(^|\n)[ \t]/.test(value) || value.includes('```')
 }
 
 /** The whitespace class a multi-line cell needs, or undefined for single-line. */
-function cellWrapClass(value: string | number): string | undefined {
+function cellWrapClass(value: TableCell): string | undefined {
   if (!hasLineBreak(value)) return undefined
   return isCodeCell(value) ? css.tdCode : css.tdMultiline
 }
@@ -124,7 +126,7 @@ function deltaTone(value: unknown): 'up' | 'down' | null {
 
 /** `types: ["spark"]` cell: comma/space separated numbers drawn as a micro
  *  trend line (area wash + end dot, same geometry as stat.spark). */
-function CellSpark({ cell }: { cell: string | number }) {
+function CellSpark({ cell }: { cell: TableCell }) {
   const values = String(cell).split(/[\s,;]+/).map(Number).filter(Number.isFinite)
   if (values.length < 2) return <>{renderInline(String(cell), false)}</>
   const W = 88
@@ -148,7 +150,7 @@ function CellSpark({ cell }: { cell: string | number }) {
 }
 
 /** `types: ["ring"]` cell: a 28px ring gauge read as 0-100. */
-function CellRing({ cell }: { cell: string | number }) {
+function CellRing({ cell }: { cell: TableCell }) {
   const n = parseSortableNumber(cell)
   const pct = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0
   const R = 11
@@ -168,7 +170,7 @@ function CellRing({ cell }: { cell: string | number }) {
 }
 
 /** Markdown table text for the 复制 Markdown chip (pipes escaped). */
-export function tableToMarkdown(columns: string[], rows: Array<Array<string | number>>): string {
+export function tableToMarkdown(columns: string[], rows: Array<Array<TableCell>>): string {
   const escape = (v: unknown): string => String(v ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')
   const head = `| ${columns.map(escape).join(' | ')} |`
   const rule = `| ${columns.map(() => '---').join(' | ')} |`
@@ -177,7 +179,7 @@ export function tableToMarkdown(columns: string[], rows: Array<Array<string | nu
 }
 
 /** RFC 4180 CSV text for the 复制 CSV chip. */
-export function tableToCsv(rows: Array<Array<string | number>>): string {
+export function tableToCsv(rows: Array<Array<TableCell>>): string {
   const cell = (v: unknown): string => {
     const s = String(v ?? '')
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
@@ -187,7 +189,7 @@ export function tableToCsv(rows: Array<Array<string | number>>): string {
 
 /** Copy chips above a table (`table.export`). Local clipboard only — no action,
  *  no round trip; the label confirms for a moment and then resets. */
-function TableExportChips({ columns, rows }: { columns: string[]; rows: Array<Array<string | number>> }) {
+function TableExportChips({ columns, rows }: { columns: string[]; rows: Array<Array<TableCell>> }) {
   useT()
   const [copied, setCopied] = useState<'md' | 'csv' | null>(null)
   const copy = (kind: 'md' | 'csv'): void => {
@@ -211,7 +213,7 @@ function TableExportChips({ columns, rows }: { columns: string[]; rows: Array<Ar
 }
 
 /** `types: ["bar"]` cell: an inline 0-100 track with the value printed on it. */
-function CellBar({ cell }: { cell: string | number }) {
+function CellBar({ cell }: { cell: TableCell }) {
   const n = parseSortableNumber(cell)
   const pct = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0
   return (
@@ -334,7 +336,7 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
   const formatTotal = (n: number): string =>
     Number.isInteger(n) ? n.toLocaleString('en-US') : String(Math.round(n * 100) / 100)
 
-  const renderCell = (cell: string | number, j: number, rowIndex: number): ReactNode => {
+  const renderCell = (cell: TableCell, j: number, rowIndex: number): ReactNode => {
     const type = types[j]
     const wrap = cellWrapClass(cell)
     const tone = type === 'delta'

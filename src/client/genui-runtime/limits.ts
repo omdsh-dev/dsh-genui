@@ -31,6 +31,8 @@ export const GENUI_LIMITS = {
   /** Maximum `plot` series and per-series parameters. */
   maxPlotSeries: 8,
   maxPlotParams: 6,
+  /** Maximum computed fields evaluated for one GenUI specification. */
+  maxComputedFields: 50,
   /** Maximum `scene3d` meshes. */
   maxMeshes: 5,
   /** Maximum `quiz` options. */

@@ -233,7 +233,7 @@ export function SliderNode({ node, onAction, answers }: {
 }) {
   const action = node.action
   const id = node.id
-  const restored = id !== undefined && answers?.fields[id] !== undefined
+  const restored = id !== undefined && answers?.fields !== undefined && Object.hasOwn(answers.fields, id)
     ? Number(answers!.fields[id]!)
     : NaN
   const initial = Number.isFinite(restored) ? restored : node.value ?? node.min ?? 0
@@ -328,7 +328,7 @@ export function SelectNode({ node, onAction, answers }: {
   const action = node.action
   const id = node.id
   const options = node.options.slice(0, GENUI_LIMITS.maxOptions)
-  const restored = id !== undefined && answers?.fields[id] !== undefined
+  const restored = id !== undefined && answers?.fields !== undefined && Object.hasOwn(answers.fields, id)
     ? options.indexOf(answers!.fields[id]!)
     : -1
   const defaultValue = restored >= 0
@@ -388,7 +388,9 @@ export function InputNode({ node, onAction, answers }: {
   const action = node.action
   const id = node.id
   const secret = node.inputType === 'password'
-  const restored = !secret && id !== undefined ? answers?.fields[id] : undefined
+  const restored = !secret && id !== undefined && answers?.fields !== undefined && Object.hasOwn(answers.fields, id)
+    ? answers.fields[id]
+    : undefined
   // Initial value: durable state wins over the spec default. Secrets always
   // restore as blank so a password can never survive a refresh.
   const [value, setValue] = useState<string>(() => {
@@ -474,7 +476,9 @@ export function TextareaNode({ node, onAction, answers }: {
   const action = node.action
   const id = node.id
   // Durable state wins over the spec default (same contract as InputNode).
-  const restored = id !== undefined ? answers?.fields[id] : undefined
+  const restored = id !== undefined && answers?.fields !== undefined && Object.hasOwn(answers.fields, id)
+    ? answers.fields[id]
+    : undefined
   const [value, setValue] = useState<string>(() => restored ?? node.value ?? '')
   // Last value delivered to the model: blur sends only on change. Seeded
   // with the mount value so an unedited blur stays silent.
