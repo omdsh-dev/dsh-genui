@@ -113,9 +113,14 @@ export function getDuplicateComputedInputIds(spec: GenuiSpec): string[] {
  *
  * @param definitions - 规格声明的计算字段。
  * @param inputIds - 可读取的输入字段 ID。
+ * @param duplicateInputIds - 重复声明的输入字段 ID。
  * @returns 有序计算定义及对应错误。
  */
-export function buildComputedGraph(definitions: readonly GenuiComputed[], inputIds: ReadonlySet<string>): ComputedGraph {
+export function buildComputedGraph(
+  definitions: readonly GenuiComputed[],
+  inputIds: ReadonlySet<string>,
+  duplicateInputIds: ReadonlySet<string> = new Set(),
+): ComputedGraph {
   const errors = Object.create(null) as Record<string, string>
   const formulas = new Map<string, GenuiComputed>()
   if (definitions.length > GENUI_LIMITS.maxComputedFields) {
@@ -144,6 +149,8 @@ export function buildComputedGraph(definitions: readonly GenuiComputed[], inputI
       errors[id] = '表达式无效或引用了未声明字段'
       continue
     }
+    const duplicateInput = program.variables.find(name => duplicateInputIds.has(name))
+    if (duplicateInput !== undefined) errors[id] = `输入字段 ${duplicateInput} ID 重复，无法计算`
     programs.set(id, program.variables.filter(name => declaredFormulaIds.has(name)))
   }
 
@@ -208,13 +215,9 @@ function formatComputedValue(value: number, format: GenuiComputedFormat | undefi
 export function evaluateComputed(spec: GenuiSpec, fields: Readonly<Record<string, string>>): ComputedEvaluation {
   const inputIds = getComputedInputIds(spec)
   const definitions = spec.computed ?? []
-  const graph = buildComputedGraph(definitions, inputIds)
+  const duplicateInputIds = new Set(getDuplicateComputedInputIds(spec))
+  const graph = buildComputedGraph(definitions, inputIds, duplicateInputIds)
   const errors = Object.assign(Object.create(null) as Record<string, string>, graph.errors)
-  const duplicateInputIds = getDuplicateComputedInputIds(spec)
-  if (duplicateInputIds.length > 0) {
-    for (const definition of graph.order) errors[definition.id] = '输入字段 ID 重复，无法计算'
-    return { values: Object.create(null) as Record<string, number>, formatted: Object.create(null) as Record<string, string>, errors }
-  }
   const computedIds = definitions.slice(0, GENUI_LIMITS.maxComputedFields).map(item => item.id)
   const fieldValues = { ...collectInputDefaults(spec), ...fields }
   const numericValues = Object.create(null) as Record<string, number>

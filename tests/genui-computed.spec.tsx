@@ -337,9 +337,36 @@ describe('Computed evaluation', () => {
     const validation = validateGenuiSpec(spec)
     expect(validation.ok).toBe(false)
     expect(validation.errors).toContain("spec.items contains duplicate input field ID 'amount'")
-    expect(evaluateComputed(spec, { amount: '20' }).errors.double).toContain('输入字段 ID 重复')
+    expect(evaluateComputed(spec, { amount: '20' }).errors.double).toContain('输入字段 amount ID 重复')
     const out = render(<GenuiBlock spec={spec} />)
     expect(out.container.textContent).toContain('结果 无效输入')
+  })
+
+  it('keeps formulas that do not reference duplicate input IDs valid', () => {
+    const spec: GenuiSpec = {
+      computed: [
+        { id: 'total', expr: 'price*quantity' },
+        { id: 'noteLength', expr: 'note+1' },
+        { id: 'noteResult', expr: 'noteLength*2' },
+      ],
+      items: [
+        { type: 'input', id: 'price', inputType: 'number', value: '10' },
+        { type: 'input', id: 'quantity', inputType: 'number', value: '3' },
+        { type: 'input', id: 'note', value: '1' },
+        { type: 'input', id: 'note', value: '2' },
+        { type: 'stat', label: '总额', value: '{{total}}' },
+        { type: 'text', content: '重复字段计算 {{noteResult}}' },
+      ],
+    }
+
+    const result = evaluateComputed(spec, { price: '10', quantity: '3', note: '2' })
+    expect(result.values.total).toBe(30)
+    expect(result.errors.noteLength).toContain('输入字段 note ID 重复')
+    expect(result.errors.noteResult).toContain('依赖字段 noteLength 无效')
+
+    const out = render(<GenuiBlock spec={spec} />)
+    expect(out.container.textContent).toContain('总额30')
+    expect(out.container.textContent).toContain('重复字段计算 无效输入')
   })
 
   it('resolves an invalid chart reference by removing its point', () => {
