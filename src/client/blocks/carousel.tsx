@@ -11,6 +11,8 @@ export function CarouselNode({ node, children }: { node: GenuiCarousel; children
   const t = useT()
   const id = useId()
   const trackRef = useRef<HTMLDivElement>(null)
+  const previousRef = useRef<HTMLButtonElement>(null)
+  const nextRef = useRef<HTMLButtonElement>(null)
   const [edges, setEdges] = useState({ previous: false, next: false })
   const [hasOverflow, setHasOverflow] = useState(false)
   const slides = children.slice(0, GENUI_LIMITS.maxCarouselItems)
@@ -22,8 +24,12 @@ export function CarouselNode({ node, children }: { node: GenuiCarousel; children
     const track = trackRef.current
     if (track === null) return
     const maximum = Math.max(0, track.scrollWidth - track.clientWidth)
-    setHasOverflow(current => current === (maximum > 1) ? current : maximum > 1)
     const next = { previous: track.scrollLeft > 1, next: track.scrollLeft < maximum - 1 }
+    // Edge controls disappear; preserve keyboard context before React removes the focused one.
+    const active = document.activeElement
+    if (((maximum <= 1 || !next.previous) && active === previousRef.current)
+      || ((maximum <= 1 || !next.next) && active === nextRef.current)) track.focus({ preventScroll: true })
+    setHasOverflow(current => current === (maximum > 1) ? current : maximum > 1)
     setEdges(current => current.previous === next.previous && current.next === next.next ? current : next)
   }, [])
 
@@ -78,6 +84,7 @@ export function CarouselNode({ node, children }: { node: GenuiCarousel; children
         : <div className={css.trackWrap}>
           {hasOverflow && <div className={css.controls}>
           {edges.previous && <button
+            ref={previousRef}
             type="button"
             className={`${css.control} ${css.previous}`}
             aria-label={t('block.carouselPrevious')}
@@ -86,6 +93,7 @@ export function CarouselNode({ node, children }: { node: GenuiCarousel; children
           ><span aria-hidden="true">←</span></button>
           }
           {edges.next && <button
+            ref={nextRef}
             type="button"
             className={`${css.control} ${css.next}`}
             aria-label={t('block.carouselNext')}

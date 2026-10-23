@@ -229,7 +229,7 @@ try {
     headless: true,
     args: ['--password-store=basic', '--use-mock-keychain'],
   })
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1200 }, locale: 'zh-CN', hasTouch: SMOKE, permissions: ['clipboard-read', 'clipboard-write'] })
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1200 }, locale: 'zh-CN', hasTouch: false, permissions: ['clipboard-read', 'clipboard-write'] })
   const pageErrors = []
   const pageMessages = []
   page.on('console', message => pageMessages.push(message.text()))

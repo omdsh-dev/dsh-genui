@@ -63,7 +63,7 @@ export async function checkGalleryTouch({ page, track, assertNoActions, timeout 
   assert.equal(page.viewportSize()?.width, 420)
   const capability = await bounded(page.evaluate(() => ({ maxTouchPoints: navigator.maxTouchPoints,
     coarsePointer: matchMedia('(pointer: coarse)').matches })), 'Read touch capability', remaining())
-  assert.ok(capability.maxTouchPoints > 0, 'Smoke context must be created with hasTouch: true')
+  assert.ok(capability.maxTouchPoints > 0, 'The owned page must have touch capability enabled for this scenario')
   await track.scrollIntoViewIfNeeded({ timeout: remaining() })
   const before = await bounded(track.evaluate(element => {
     const box = element.getBoundingClientRect()

@@ -9,6 +9,7 @@ import { createServer } from 'node:http'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { checkGalleryTouch } from './gallery-touch-checks.mjs'
+import { createGalleryInputMode } from './gallery-input-mode.mjs'
 
 const TITLE = 'Gallery browser regression'
 const CAROUSEL = 'Gallery browser cards'
@@ -98,9 +99,11 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
   const probeId = `gallery-background-${Date.now()}`
   const probe = page.locator(`[data-gallery-background="${probeId}"]`)
   const errors = []
+  let inputMode
   report.visualScope = 'Installed renderer CSS, images, native modal, keyboard, pointer, wheel and native Chromium touch scrolling; not physical-device, mouse-drag, or lightbox-swipe validation'
   report.scenarios = []
   try {
+    inputMode = await createGalleryInputMode(page)
     await bounded(page.evaluate(id => {
       const button = document.createElement('button')
       button.type = 'button'
@@ -147,12 +150,13 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
     }
     const states = [
       { name: 'wide-light', width: 1100, mode: 'light', interactions: true },
-      { name: 'narrow-light', width: 420, mode: 'light', interactions: true },
-      { name: 'narrow-dark', width: 420, mode: 'dark' },
+      { name: 'narrow-light', width: 420, mode: 'light', interactions: true, touch: true },
+      { name: 'narrow-dark', width: 420, mode: 'dark', touch: true },
       { name: 'wide-dark', width: 1100, mode: 'dark' },
       { name: 'wide-light-return', width: 1100, mode: 'light' },
     ]
     for (const state of states) {
+      const input = await inputMode.set(state.touch === true)
       await bounded(page.setViewportSize({ width: state.width, height: 960 }), remaining(), 'resize gallery viewport')
       await bounded(page.emulateMedia({ colorScheme: state.mode }), remaining(), 'switch host theme')
       await page.waitForFunction(dark => document.body.hasAttribute('data-ds-dark-theme') === dark,
@@ -183,30 +187,53 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
         assert.ok(slide.width > 100 && slide.width <= geometry.trackWidth + 1)
         assert.equal(slide.snapAlign, 'start')
       }
+      if (state.touch) {
+        assert.equal(await next.isVisible(), false, 'Touch devices hide mouse navigation')
+        assert.equal(await previous.isVisible(), false, 'Touch devices hide mouse navigation')
+      }
       if (state.interactions) {
         await dismiss()
-        await next.click({ timeout: remaining() })
-        await settle(value => value.left > 2, 'Trusted next click moves to a snap point')
-        await poll(() => attribute(previous, 'aria-disabled'), value => value === 'false', 'Previous edge enables')
-        // DOM order is previous, next, track. A real Tab focuses the track.
-        await key('Tab')
-        assert.ok(await active(track), 'Tab after next control must focus the scroll track')
+        // Initial keyboard setup only. Never reset focus after an edge control disappears.
+        await track.focus({ timeout: remaining() })
+        assert.ok(await active(track), 'Initial keyboard setup focuses the track')
+        await key('Home')
+        await settle(value => value.left <= 1, 'Home reaches first edge')
+        if (!state.touch) {
+          assert.equal(await previous.count(), 0, 'Previous is absent at the first edge')
+          await next.click({ timeout: remaining() })
+          const moved = await settle(value => value.left > 2, 'Trusted next click moves to a snap point')
+          if (moved.left >= moved.maximum - 1) {
+            assert.equal(await next.count(), 0)
+            assert.ok(await active(track), 'Removed Next hands focus to the track')
+          } else {
+            assert.ok(await active(next))
+            await key('Tab')
+            assert.ok(await active(track), 'Tab after remaining Next reaches track')
+          }
+        }
         await key('End')
         await settle(value => Math.abs(value.left - value.maximum) <= 2, 'End reaches the last edge')
-        await poll(() => attribute(next, 'aria-disabled'), value => value === 'true', 'Next edge disables')
-        await key('Home')
-        await settle(value => value.left <= 1, 'Home returns to the first edge')
-        await poll(() => attribute(previous, 'aria-disabled'), value => value === 'true', 'Previous edge disables')
-        assert.equal(await attribute(next, 'aria-disabled'), 'false')
+        assert.equal(await next.count(), 0, 'Next is absent at the last edge')
+        assert.ok(await active(track), 'Keyboard edge movement retains track focus')
+        if (!state.touch) {
+          await key('Shift+Tab')
+          assert.ok(await active(previous), 'Previous is keyboard reachable from track at the last edge')
+          for (let step = 0; step < 8 && await previous.count(); step++) {
+            const before = await position()
+            await key('Enter')
+            await settle(value => value.left < before.left - 2, 'Keyboard Previous moves left and snaps')
+          }
+          assert.equal(await previous.count(), 0, 'Previous disappears on reaching the first edge')
+          assert.ok(await active(track), 'Removed Previous hands focus to the track')
+        } else {
+          await key('Home')
+          await settle(value => value.left <= 1, 'Touch-mode keyboard Home returns to first edge')
+        }
         await dismiss()
         await track.hover({ timeout: remaining() })
         await bounded(page.mouse.wheel(370, 0), remaining(), 'native wheel input')
-        const wheeled = await settle(value => value.left > 2, 'Native horizontal wheel scrolls and snaps')
-        await previous.click({ timeout: remaining() })
-        await settle(value => value.left < wheeled.left - 2, 'Trusted previous click moves left and snaps')
-        await key('Tab')
-        await key('Tab')
-        assert.ok(await active(track))
+        await settle(value => value.left > 2, 'Native horizontal wheel scrolls and snaps')
+        assert.ok(await active(track), 'Wheel navigation does not steal keyboard focus')
         await key('Home')
         await settle(value => value.left <= 1, 'Return track to start after wheel')
       }
@@ -320,7 +347,7 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
         await renderedRoot.screenshot({ path: join(artifactsDir, `gallery-${state.name}.png`), timeout: remaining() })
         report.screenshots.push({ file: `gallery-${state.name}.png`, state: state.name, target: 'rendered gallery root' })
       }
-      report.scenarios.push({ name: state.name, geometry, images, theme, modal,
+      report.scenarios.push({ input, name: state.name, geometry, images, theme, modal,
         interactions: Boolean(state.interactions), sameMountedRoot: true,
         focus: { closeOnOpen: true, openerAfterEscape: true, tabCycleTrapped: state.interactions ? true : null,
           backgroundClickBlocked: state.interactions ? true : null, openerAfterCloseClick: state.interactions ? true : null } })
@@ -335,6 +362,7 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
     await page.screenshot({ path: join(artifactsDir, 'gallery-failure.png'), timeout: STEP_MS }).catch(() => {})
   } finally {
     for (const [label, cleanup] of [
+      ['restore input capability', () => inputMode?.restore()],
       ['close gallery viewer', async () => {
         const dialog = renderedRoot.locator('dialog')
         if (await dialog.count() === 1 && await dialog.evaluate(el => el.open)) await page.keyboard.press('Escape')

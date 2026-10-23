@@ -248,3 +248,43 @@ describe('image group local viewing workflow', () => {
     expect(document.activeElement).toBe(opener)
   })
 })
+
+
+describe('carousel disappearing navigation focus', () => {
+  it.each(['next', 'previous'] as const)('hands focused %s to the track at its edge', direction => {
+    const result = render(<GenuiBlock spec={{ items: [carousel] }} />)
+    const track = result.getByRole('group', { name: 'Synthetic choices' })
+    scrollable(track, 300, 500)
+    if (direction === 'previous') { track.scrollLeft = 200; fireEvent.scroll(track) }
+    const control = result.getByRole('button', { name: direction === 'next' ? '下一组卡片' : '上一组卡片' })
+    control.focus()
+    fireEvent.click(control)
+    expect(control.isConnected).toBe(false)
+    expect(document.activeElement).toBe(track)
+    // Continue from the actual active element, rather than directly dispatching to an unfocused track.
+    fireEvent.keyDown(document.activeElement!, { key: direction === 'next' ? 'Home' : 'End' })
+    expect(track.scrollLeft).toBe(direction === 'next' ? 0 : 200)
+  })
+
+  it('hands a focused navigation control to the track when overflow disappears', () => {
+    const result = render(<GenuiBlock spec={{ items: [carousel] }} />)
+    const track = result.getByRole('group', { name: 'Synthetic choices' })
+    scrollable(track, 300, 500)
+    result.getByRole('button', { name: '下一组卡片' }).focus()
+    scrollable(track, 600, 500)
+    expect(result.queryByRole('button', { name: '下一组卡片' })).toBeNull()
+    expect(document.activeElement).toBe(track)
+  })
+
+  it('does not steal focus from nested input on scroll or resize', () => {
+    const result = render(<GenuiBlock spec={{ items: [carousel] }} />)
+    const track = result.getByRole('group', { name: 'Synthetic choices' })
+    scrollable(track, 300, 500)
+    const input = result.getByRole('textbox')
+    input.focus()
+    track.scrollLeft = 200; fireEvent.scroll(track)
+    expect(document.activeElement).toBe(input)
+    scrollable(track, 600, 500)
+    expect(document.activeElement).toBe(input)
+  })
+})
