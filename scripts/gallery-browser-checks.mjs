@@ -66,6 +66,44 @@ async function bounded(promise, ms, label) {
   } finally { clearTimeout(timer) }
 }
 
+/** One read-only DOM snapshot, including CSS-hidden edge buttons for this track only. */
+export function readGalleryCarouselPosition(element) {
+  const left = element.scrollLeft
+  const maximum = Math.max(0, element.scrollWidth - element.clientWidth)
+  const start = element.getBoundingClientRect().left
+  const stops = [...element.children].map(slide => Math.min(maximum,
+    Math.max(0, slide.getBoundingClientRect().left - start + left)))
+  // DOM presence, not accessible visibility: touch CSS hides these controls.
+  const controls = [...element.parentElement.querySelectorAll('button[aria-controls]')]
+    .filter(button => button.getAttribute('aria-controls') === element.id)
+  const previousCount = controls.filter(button => /^(上一组卡片|Previous cards)$/u.test(button.getAttribute('aria-label') ?? '')).length
+  const nextCount = controls.filter(button => /^(下一组卡片|Next cards)$/u.test(button.getAttribute('aria-label') ?? '')).length
+  return { left, maximum, previousCount, nextCount, snapDistance: Math.min(...stops.map(stop => Math.abs(stop - left))) }
+}
+
+/** Wait for browser scrolling AND React's rendered edge controls, never repair focus. */
+export async function settleGalleryCarousel(readPosition, predicate, label, timeout = STEP_MS) {
+  assert.ok(timeout > 0 && timeout <= STEP_MS, 'Carousel settlement stays within the eight-second step budget')
+  const deadline = Date.now() + timeout
+  let actual
+  let expected
+  let lastReady = null
+  do {
+    actual = await bounded(readPosition(), Math.max(1, deadline - Date.now()),
+      `${label}: read scroll/snap/edge state; last=${JSON.stringify(actual ?? null)}`)
+    expected = { previousCount: actual.maximum > 1 && actual.left > 1 ? 1 : 0,
+      nextCount: actual.maximum > 1 && actual.left < actual.maximum - 1 ? 1 : 0 }
+    const ready = predicate(actual) && actual.snapDistance <= 2
+      && actual.previousCount === expected.previousCount && actual.nextCount === expected.nextCount
+    if (ready && lastReady && ['left', 'maximum', 'snapDistance', 'previousCount', 'nextCount']
+      .every(field => actual[field] === lastReady[field])) return actual
+    lastReady = ready ? { ...actual } : null
+    // Condition polling only. Elapsed time alone never makes a state acceptable.
+    await new Promise(resolve => setTimeout(resolve, Math.min(50, Math.max(1, deadline - Date.now()))))
+  } while (Date.now() < deadline)
+  assert.fail(`${label}: scroll/snap and edge DOM did not settle; actual=${JSON.stringify(actual)}; expected=${JSON.stringify(expected)}; matchingReadySamples=${lastReady ? 1 : 0}`)
+}
+
 /** Reusable visual/input checks. Caller owns rendering and removing renderedRoot.
  * restoreColorScheme is the caller's previous Playwright override (null = system).
  * The smoke adapter runs before e2e.mjs changes media, hence restores null.
@@ -147,16 +185,8 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
     const imageNext = dialog.getByRole('button', { name: /^(下一张图片|Next image)$/u })
     const imagePrevious = dialog.getByRole('button', { name: /^(上一张图片|Previous image)$/u })
     const active = locator => read(locator, element => element === document.activeElement)
-    const position = () => read(track, element => {
-      const left = element.scrollLeft
-      const maximum = element.scrollWidth - element.clientWidth
-      const start = element.getBoundingClientRect().left
-      const stops = [...element.children].map(slide => Math.min(maximum,
-        Math.max(0, slide.getBoundingClientRect().left - start + left)))
-      return { left, maximum, snapDistance: Math.min(...stops.map(stop => Math.abs(stop - left))) }
-    })
-    const settle = (predicate, label) => poll(position,
-      value => predicate(value) && value.snapDistance <= 2, label)
+    const position = () => read(track, readGalleryCarouselPosition)
+    const settle = (predicate, label) => settleGalleryCarousel(position, predicate, label, remaining())
     const decoded = async (image, size) => {
       await image.waitFor({ state: 'visible', timeout: remaining() })
       await poll(() => read(image, img => [img.complete, img.naturalWidth, img.naturalHeight]),
@@ -222,16 +252,16 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
           await next.click({ timeout: remaining() })
           const moved = await settle(value => value.left > 2, 'Trusted next click moves to a snap point')
           if (moved.left >= moved.maximum - 1) {
-            assert.equal(await next.count(), 0)
+            assert.equal(await next.count(), 0, 'Next disappears at the last edge after trusted Next click')
             assert.ok(await active(track), 'Removed Next hands focus to the track')
           } else {
-            assert.ok(await active(next))
+            assert.ok(await active(next), 'Remaining Next keeps focus after trusted Next click')
             await key('Tab')
             assert.ok(await active(track), 'Tab after remaining Next reaches track')
           }
         }
         await key('End')
-        await settle(value => Math.abs(value.left - value.maximum) <= 2, 'End reaches the last edge')
+        await settle(value => value.left >= value.maximum - 1, 'End reaches the last edge (within the one-pixel threshold)')
         assert.equal(await next.count(), 0, 'Next is absent at the last edge')
         assert.ok(await active(track), 'Keyboard edge movement retains track focus')
         if (!touchContext) {

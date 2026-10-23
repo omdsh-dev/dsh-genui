@@ -26,7 +26,11 @@ export async function readGalleryInputCapabilities(page, profile, { phase = 'inp
 
 /** Keep nested assertion details without emitting the local host's ready-URL token. */
 export function galleryErrorDetails(error) {
-  return { name: error?.name ?? 'Error', message: String(error?.message ?? error).replace(/([?&]token=)[A-Za-z0-9_-]+/gu, '$1[redacted]'),
+  const known = new Set(['gallery-browser-checks.mjs', 'gallery-fixed-contexts.mjs',
+    'gallery-input-mode.mjs', 'gallery-touch-checks.mjs'])
+  const location = [...String(error?.stack ?? '').matchAll(/[\\/](gallery-[a-z0-9-]+\.mjs):(\d+):(\d+)(?=[)\s]|$)/gu)]
+    .find(match => known.has(match[1]))
+  return { ...(location ? { location: `${location[1]}:${location[2]}:${location[3]}` } : {}), name: error?.name ?? 'Error', message: String(error?.message ?? error).replace(/([?&]token=)[A-Za-z0-9_-]+/gu, '$1[redacted]'),
     ...(Array.isArray(error?.errors) ? { errors: error.errors.map(galleryErrorDetails) } : {}) }
 }
 
@@ -35,7 +39,7 @@ export function gallerySafeError(error) {
   const detail = galleryErrorDetails(error)
   const safe = Array.isArray(error?.errors)
     ? new AggregateError(error.errors.map(gallerySafeError), detail.message)
-    : new Error(detail.message)
+    : new Error(detail.location ? `${detail.message} (${detail.location})` : detail.message)
   safe.name = detail.name
   return safe
 }
