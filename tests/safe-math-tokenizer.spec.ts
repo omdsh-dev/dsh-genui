@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compileMathExpr, compileMathExprProgram } from '../src/client/safe-math.ts'
+import { compileMathExpr, compileMathExprProgram, parseDecimalNumber } from '../src/client/safe-math.ts'
 
 describe('SafeMath 数字解析', () => {
   it('保留相邻的加减运算符', () => {
@@ -14,6 +14,16 @@ describe('SafeMath 数字解析', () => {
     expect(compileMathExpr('1e-3+2')!(0)).toBeCloseTo(2.001)
     expect(compileMathExpr('1e+3-2')!(0)).toBe(998)
     expect(compileMathExpr('1e3+2')!(0)).toBe(1002)
+  })
+
+  it('只接受十进制输入，并支持正负号、小数和科学计数法', () => {
+    expect(parseDecimalNumber('+12')).toBe(12)
+    expect(parseDecimalNumber('-.5')).toBe(-0.5)
+    expect(parseDecimalNumber('1.')).toBe(1)
+    expect(parseDecimalNumber('1.25e-2')).toBe(0.0125)
+    for (const value of ['0x10', '0b10', '0o10', 'Infinity', '1e999', '-', '']) {
+      expect(parseDecimalNumber(value), `should reject ${value}`).toBeUndefined()
+    }
   })
 
   it('拒绝格式错误的数字', () => {

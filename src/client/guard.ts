@@ -35,7 +35,8 @@ import { analyzeSubmissionRegistry } from './submission-registry.ts'
 import { isTableDetailReachable, prepareTableRows, tableRowsForDetails } from './table-details.ts'
 import { color, enu, int, num, obj, opt, safeMediaSrc, str } from './genui-runtime/value-utils.ts'
 import { classifyLinkTarget } from './file-link.ts'
-import { buildComputedGraph, getComputedInputIds, getDuplicateComputedInputIds } from './computed.ts'
+import { buildComputedGraph, getComputedInputIds, getDuplicateComputedInputIds, getComputedTemplateScope } from './computed.ts'
+import type { ComputedTemplateScope } from './computed.ts'
 import { SAFE_MATH_LIMITS } from './safe-math.ts'
 
 /** Result of `validateGenuiSpec`. */
@@ -1877,7 +1878,7 @@ type Walker = (list: unknown, depth: number, path: string) => void
 function validateComputedReferences(title: unknown, items: unknown, computedIds: ReadonlySet<string>, errors: string[]): void {
   const visited = new WeakSet<object>()
   let visitedCount = 0
-  const visit = (value: unknown, path: string, referenceAllowed: boolean, depth: number, templateAllowed = true): void => {
+  const visit = (value: unknown, path: string, referenceAllowed: boolean, depth: number, templateAllowed: ComputedTemplateScope = false): void => {
     if (depth > GENUI_LIMITS.maxDepth * 2 || visitedCount >= GENUI_LIMITS.maxNodes * 8) return
     if (typeof value === 'string') {
       if (!templateAllowed) return
@@ -1892,7 +1893,7 @@ function validateComputedReferences(title: unknown, items: unknown, computedIds:
     visited.add(value)
     visitedCount += 1
     if (Array.isArray(value)) {
-      value.forEach((item, index) => visit(item, `${path}[${index}]`, referenceAllowed, depth + 1))
+      value.forEach((item, index) => visit(item, `${path}[${index}]`, referenceAllowed, depth + 1, templateAllowed))
       return
     }
     const record = value as Record<string, unknown>
@@ -1905,11 +1906,10 @@ function validateComputedReferences(title: unknown, items: unknown, computedIds:
         || record.type === 'table' && key === 'rows'
         || (record.type === 'chart' || record.type === 'echart') && (key === 'data' || key === 'series')
         || record.type === 'echart' && key === 'option'
-      const childAllowsTemplate = !['id', 'type', 'expr', 'action', 'href', 'src', 'poster'].includes(key)
-      visit(child, `${path}.${key}`, childAllowsReference, depth + 1, childAllowsTemplate)
+      visit(child, `${path}.${key}`, childAllowsReference, depth + 1, getComputedTemplateScope(record.type, key, templateAllowed))
     }
   }
-  visit(title, 'spec.title', false, 0)
+  visit(title, 'spec.title', false, 0, true)
   visit(items, 'spec.items', false, 0)
 }
 

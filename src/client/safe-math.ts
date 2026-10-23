@@ -32,6 +32,14 @@ export const SAFE_MATH_LIMITS = {
   maxDepth: 32,
 } as const
 
+/** 解析十进制输入，拒绝 JavaScript Number 接受的非十进制进制写法。 */
+export function parseDecimalNumber(value: string): number | undefined {
+  const normalized = value.trim()
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(normalized)) return undefined
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
 const CONSTANTS: Record<string, number> = {
   pi: Math.PI,
   e: Math.E,

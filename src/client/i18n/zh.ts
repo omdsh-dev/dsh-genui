@@ -318,6 +318,7 @@ export const ZH: Record<keyof typeof EN, string> = {
   'block.yourAnswer': '你的答案：',
   'block.correctAnswer': ' 正确答案：',
   'block.selectedCount': '已选 {answered}/{total}',
+  'block.invalidNumber': '请输入有效的十进制数值',
   'block.target': '目标 {value}%',
   'block.chart.barsAria': '横向柱状图，{count} 组',
   'block.chart.barsSummary': '柱状图，{count} 组，最大 {max}',

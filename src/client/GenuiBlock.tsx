@@ -108,6 +108,7 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
   // submit collection — the input itself stays masked and its own action
   // still delivers the value on explicit user submit.
   const [secretFields, setSecretFields] = useState<ReadonlySet<string>>(new Set())
+  const [invalidNumericFields, setInvalidNumericFields] = useState<ReadonlySet<string>>(new Set())
   const setAnswer = useCallback((group: string, choice: string) => {
     setAnswers(prev => (prev[group] === choice ? prev : { ...prev, [group]: choice }))
   }, [])
@@ -136,6 +137,16 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
     // this does not change what the model receives.
     setFields(prev => (Object.hasOwn(prev, id) && prev[id] === value ? prev : { ...prev, [id]: value }))
   }, [])
+  const setNumericFieldValidity = useCallback((id: string, valid: boolean) => {
+    setInvalidNumericFields(prev => {
+      const currentlyInvalid = prev.has(id)
+      if (currentlyInvalid === !valid) return prev
+      const next = new Set(prev)
+      if (valid) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
   const registerSecretField = useCallback((id: string) => {
     setSecretFields(prev => (prev.has(id) ? prev : new Set(prev).add(id)))
   }, [])
@@ -147,10 +158,10 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
   }, [])
   const answersState = useMemo<AnswersState>(
     () => ({
-      answers, multiAnswers, fields, secretFields, registry: submissionRegistry, locked, round,
-      setAnswer, setMultiAnswer, setField, registerSecretField, clear, setLocked,
+      answers, multiAnswers, fields, secretFields, invalidNumericFields, registry: submissionRegistry, locked, round,
+      setAnswer, setMultiAnswer, setField, setNumericFieldValidity, registerSecretField, clear, setLocked,
     }),
-    [answers, multiAnswers, fields, secretFields, submissionRegistry, locked, round, setAnswer, setMultiAnswer, setField, registerSecretField, clear],
+    [answers, multiAnswers, fields, secretFields, invalidNumericFields, submissionRegistry, locked, round, setAnswer, setMultiAnswer, setField, setNumericFieldValidity, registerSecretField, clear],
   )
   const durableState = useMemo(() => {
     const safeFields = Object.fromEntries(Object.entries(fields).filter(([id]) => !secretFields.has(id)))

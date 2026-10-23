@@ -8,6 +8,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import { useT } from '../i18n/index.ts'
+import { parseDecimalNumber } from '../safe-math.ts'
 import { resolveSubmitState } from '../submission-registry.ts'
 import type { RadioSubmissionMember } from '../submission-registry.ts'
 import type { AnswersState, GenuiBlockProps } from './state.ts'
@@ -87,17 +88,18 @@ export function SubmitNode({ node, onAction, answers }: {
   const recorded = answers?.answers ?? {}
   const multiRecorded = answers?.multiAnswers ?? {}
   const fields = answers?.fields ?? {}
+  const validFields = Object.fromEntries(Object.entries(fields).filter(([id]) => !answers?.invalidNumericFields.has(id)))
   const expected = node.groups
   // One shared notion of "filled fields" for answered/ready/payload: non-blank
   // values only, secrets (password inputs) never collected into submit.
   const filledFields = Object.fromEntries(
-    Object.entries(fields).filter(([id, v]) => v.trim() !== '' && !answers?.secretFields.has(id)),
+    Object.entries(validFields).filter(([id, v]) => v.trim() !== '' && !answers?.secretFields.has(id)),
   )
   const resolved = answers === undefined ? { scope: [], answered: 0, total: expected?.length ?? 0, localGradeEligible: false, hasOutOfScopePayload: false }
     : resolveSubmitState({
       registry: answers.registry,
       ...(expected === undefined ? {} : { groups: expected }),
-      state: { answers: recorded, multiAnswers: multiRecorded, fields, secretFields: answers.secretFields },
+      state: { answers: recorded, multiAnswers: multiRecorded, fields: validFields, secretFields: answers.secretFields },
     })
   const { scope, answered, total } = resolved
   const canSendAction = node.action !== undefined && onAction !== undefined
@@ -385,6 +387,7 @@ export function InputNode({ node, onAction, answers }: {
   onAction?: GenuiBlockProps['onAction']
   answers?: AnswersState | undefined
 }) {
+  const t = useT()
   const action = node.action
   const id = node.id
   const secret = node.inputType === 'password'
@@ -406,23 +409,28 @@ export function InputNode({ node, onAction, answers }: {
   // used to fire a pointless action round trip). Seeded with the mount value
   // so the very first unedited blur also stays silent.
   const lastSent = useRef<string | null>(value)
+  const registeredFieldId = useRef(id)
+  const setField = answers?.setField
+  const setNumericFieldValidity = answers?.setNumericFieldValidity
   const send = (submit: boolean): void => {
+    if (numeric && value.trim() !== '' && parseDecimalNumber(value) === undefined) return
     if (action !== undefined && onAction !== undefined) {
       lastSent.current = value
       onAction(action, { type: 'input', value, ...(id !== undefined ? { id } : {}), ...(submit ? { submit: true } : {}) })
     }
   }
   const ime = useImeComposing()
-  // Register the displayed initial value, including the native color default.
-  const mounted = useRef(false)
+  // 流式规格改变控件类型或 ID 时，同步更新共享字段状态。
   useEffect(() => {
-    if (mounted.current) return
-    mounted.current = true
-    if (!secret && id !== undefined && value.trim() !== '') {
-      answers?.setField(id, value)
+    const previousId = registeredFieldId.current
+    if (previousId !== id && previousId !== undefined) setNumericFieldValidity?.(previousId, true)
+    registeredFieldId.current = id
+    if (id !== undefined) {
+      const valid = !numeric || value.trim() === '' || parseDecimalNumber(value) !== undefined
+      setNumericFieldValidity?.(id, valid)
+      if (!secret && value.trim() !== '' && valid) setField?.(id, value)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [id, numeric, value, secret, setField, setNumericFieldValidity])
   // Secret fields are filtered from persistence and submit collection.
   useEffect(() => {
     if (secret && id !== undefined) answers?.registerSecretField(id)
@@ -449,7 +457,11 @@ export function InputNode({ node, onAction, answers }: {
           const v = e.currentTarget.value
           setValue(v)
           if (id !== undefined) {
-            if (!numeric || v.trim() === '' || Number.isFinite(Number(v))) answers?.setField(id, v)
+            if (numeric) {
+              const valid = v.trim() === '' || parseDecimalNumber(v) !== undefined
+              answers?.setNumericFieldValidity(id, valid)
+              if (valid) answers?.setField(id, v)
+            } else answers?.setField(id, v)
           }
         }}
         onBlur={() => {
@@ -464,6 +476,7 @@ export function InputNode({ node, onAction, answers }: {
           send(true)
         }}
       />
+      {numeric && value.trim() !== '' && parseDecimalNumber(value) === undefined && <span role="alert">{t('block.invalidNumber')}</span>}
     </label>
   )
 }

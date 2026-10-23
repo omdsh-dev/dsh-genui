@@ -323,6 +323,7 @@ export const EN = {
   'block.yourAnswer': 'Your answer:',
   'block.correctAnswer': ' Correct answer:',
   'block.selectedCount': '{answered}/{total} answered',
+  'block.invalidNumber': 'Enter a valid decimal number',
   'block.target': 'Target {value}%',
   'block.chart.barsAria': 'Horizontal bar chart, {count} groups',
   'block.chart.barsSummary': 'Bar chart, {count} groups, max {max}',

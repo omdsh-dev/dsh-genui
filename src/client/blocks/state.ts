@@ -51,6 +51,8 @@ export interface AnswersState {
   fields: Record<string, string>
   /** Field ids whose value must never be persisted or collected (secrets). */
   secretFields: ReadonlySet<string>
+  /** Numeric fields whose visible draft is not a valid decimal value. */
+  invalidNumericFields: ReadonlySet<string>
   registry: SubmissionRegistry
   /** True after a local grading: questions are locked until 重新作答. */
   locked: boolean
@@ -59,6 +61,7 @@ export interface AnswersState {
   setAnswer: (group: string, choice: string) => void
   setMultiAnswer: (group: string, choice: string, checked: boolean) => void
   setField: (id: string, value: string) => void
+  setNumericFieldValidity: (id: string, valid: boolean) => void
   registerSecretField: (id: string) => void
   clear: () => void
   setLocked: (locked: boolean) => void

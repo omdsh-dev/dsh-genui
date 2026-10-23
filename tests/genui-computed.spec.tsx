@@ -70,6 +70,130 @@ describe('Computed evaluation', () => {
     expect(unsetPrototypeField.errors.total).toContain('需要有效数值')
   })
 
+  it('rejects non-decimal numeric field strings', () => {
+    const spec: GenuiSpec = {
+      computed: [{ id: 'double', expr: 'amount*2' }],
+      items: [{ type: 'input', id: 'amount', inputType: 'number' }],
+    }
+    for (const amount of ['0x10', '0b10', '0o10']) {
+      expect(evaluateComputed(spec, { amount }).errors.double).toBe('字段 amount 需要有效数值')
+    }
+    expect(evaluateComputed(spec, { amount: '1.25e2' }).values.double).toBe(250)
+  })
+
+  it('interpolates the remaining accessible and navigation labels', () => {
+    const spec: GenuiSpec = {
+      computed: [{ id: 'total', expr: '12' }],
+      items: [
+        { type: 'arrow', label: '共 {{total}} 项' },
+        { type: 'icon', name: 'Check', label: '共 {{total}} 项' },
+        { type: 'avatar', name: '用户 {{total}}' },
+        { type: 'copy', label: '复制 {{total}} 项', text: 'raw {{total}}' },
+        { type: 'breadcrumb', items: ['项目', '第 {{total}} 项'] },
+      ],
+    }
+    const result = resolveComputedSpec(spec, evaluateComputed(spec, {}))
+
+    expect(result.items).toMatchObject([
+      { label: '共 12 项' },
+      { label: '共 12 项' },
+      { name: '用户 12' },
+      { label: '复制 12 项', text: 'raw {{total}}' },
+      { items: ['项目', '第 12 项'] },
+    ])
+    expect(validateGenuiSpec(spec).ok).toBe(true)
+  })
+
+  it('preserves template syntax inside code, SVG, and Mermaid source', () => {
+    const spec: GenuiSpec = {
+      items: [
+        { type: 'code', lang: 'javascript', code: "const template = '{{name}}';" },
+        { type: 'svg', code: '<svg><text>{{name}}</text></svg>' },
+        { type: 'mermaid', code: 'flowchart TD\n  A[{{name}}] --> B' },
+      ],
+    }
+    expect(validateGenuiSpec(spec).ok).toBe(true)
+    const resolved = resolveComputedSpec(spec, evaluateComputed(spec, {}))
+    expect((resolved.items[0] as { code: string }).code).toBe("const template = '{{name}}';")
+    expect((resolved.items[1] as { code: string }).code).toBe('<svg><text>{{name}}</text></svg>')
+    expect((resolved.items[2] as { code: string }).code).toBe('flowchart TD\n  A[{{name}}] --> B')
+  })
+
+  it('uses the same template scope for validation and resolution', () => {
+    const invalidTemplate: GenuiSpec = { items: [{ type: 'text', content: '{{missing}}' }] }
+    expect(validateGenuiSpec(invalidTemplate).ok).toBe(false)
+    expect((resolveComputedSpec(invalidTemplate, evaluateComputed(invalidTemplate, {})).items[0] as { content: string }).content)
+      .toBe('无效输入')
+
+    const rawOptions: GenuiSpec = { items: [{ type: 'select', options: ['{{name}}'] }] }
+    expect(validateGenuiSpec(rawOptions).ok).toBe(true)
+    expect((resolveComputedSpec(rawOptions, evaluateComputed(rawOptions, {})).items[0] as { options: string[] }).options)
+      .toEqual(['{{name}}'])
+
+    const rawJson: GenuiSpec = {
+      items: [{ type: 'list', items: [{ type: 'json', value: { template: '{{name}}' } }] }],
+    }
+    expect(validateGenuiSpec(rawJson).ok).toBe(true)
+    expect(resolveComputedSpec(rawJson, evaluateComputed(rawJson, {})).items[0]).toMatchObject({
+      items: [{ type: 'json', value: { template: '{{name}}' } }],
+    })
+
+    const nestedDisplays: GenuiSpec = {
+      computed: [{ id: 'total', expr: '1' }],
+      items: [
+        { type: 'accordion', items: [{ title: '分组 {{total}}', items: [] }] },
+        { type: 'tabs', tabs: [{ label: '页面 {{total}}', items: [] }] },
+      ],
+    }
+    expect(validateGenuiSpec(nestedDisplays).ok).toBe(true)
+    const resolvedNested = resolveComputedSpec(nestedDisplays, evaluateComputed(nestedDisplays, {}))
+    expect(resolvedNested.items[0]).toMatchObject({ items: [{ title: '分组 1' }] })
+    expect(resolvedNested.items[1]).toMatchObject({ tabs: [{ label: '页面 1' }] })
+
+    const blockText: GenuiSpec = {
+      computed: [{ id: 'total', expr: '12' }],
+      items: [{ type: 'blocks', rows: [{
+        label: '{{total}}',
+        color: '{{total}}',
+        cells: ['{{total}}', { text: '{{total}}', sub: '{{total}}', color: '{{total}}' }],
+      }] }],
+    }
+    const resolvedBlocks = resolveComputedSpec(blockText, evaluateComputed(blockText, {})).items[0] as {
+      rows: Array<{ label: string; color: string; cells: Array<string | { text: string; sub?: string; color?: string }> }>
+    }
+    expect(resolvedBlocks.rows[0]).toEqual({
+      label: '12', color: '{{total}}', cells: ['12', { text: '12', sub: '12', color: '{{total}}' }],
+    })
+
+    const radioText: GenuiSpec = {
+      computed: [{ id: 'total', expr: '12' }],
+      items: [{ type: 'radio', options: ['A'], explanation: '总数 {{total}}' }],
+    }
+    expect(validateGenuiSpec(radioText).ok).toBe(true)
+    expect(resolveComputedSpec(radioText, evaluateComputed(radioText, {})).items[0]).toMatchObject({ explanation: '总数 12' })
+    expect(validateGenuiSpec({
+      computed: [{ id: 'total', expr: '12' }],
+      items: [{ type: 'radio', options: ['A'], explanation: '总数 {{missing}}' }],
+    }).ok).toBe(false)
+  })
+
+  it('invalidates formulas that depend on a computed field conflicting with an input', () => {
+    const spec: GenuiSpec = {
+      computed: [{ id: 'amount', expr: '100' }, { id: 'double', expr: 'amount*2' }],
+      items: [
+        { type: 'input', id: 'amount', inputType: 'number', value: '10' },
+        { type: 'text', content: '结果：{{double}}' },
+      ],
+    }
+    const graph = buildComputedGraph(spec.computed!, new Set(['amount']))
+    expect(graph.errors.amount).toContain('计算字段 ID 重复')
+    expect(graph.errors.double).toContain('依赖字段 amount 无效')
+    expect(graph.order.map(definition => definition.id)).not.toContain('double')
+    const result = evaluateComputed(spec, { amount: '10' })
+    expect(result.values).not.toHaveProperty('double')
+    expect(resolveComputedSpec(spec, result).items[1]).toMatchObject({ content: '结果：无效输入' })
+  })
+
   it('supports field IDs that match JavaScript prototype names', () => {
     const spec: GenuiSpec = {
       computed: [{ id: 'total', expr: '__proto__*2' }],
