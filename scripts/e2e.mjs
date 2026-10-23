@@ -11,7 +11,7 @@
  *
  * 用法：
  *   node scripts/e2e.mjs [--port 3088] [--keep] [--install link|npm|tarball]
- *                        [--tarball <路径> --tarball-sha256 <sha>] [--smoke] [--sidechat]
+ *                        [--tarball <路径> --tarball-sha256 <sha>] [--smoke] [--sidechat | --map]
  *
  *   --install link    （默认）装当前工作区，测的就是当前代码
  *   --install npm     从公开 npm 包安装
@@ -21,6 +21,8 @@
  *                     rc.2 Gallery 使用官方本地 replay 验证真实会话动作，不访问真实模型。
  *   --sidechat        显式启用双插件验收；仅允许 --smoke --install tarball，
  *                     会构建固定提交的 Better Sidebar，不改变原有 smoke 模式。
+ *   --map             仅现有 Linux CI：sandboxed Chrome + 真实 Map WebGL/worker、
+ *                     packed embed、离线 HTML；rc.2 官方 replay 验证一次显式提交。
  * 退出码 0 = PASS，1 = FAIL。
  */
 
@@ -38,6 +40,9 @@ import { createGallerySpec, startGalleryImageServer } from './gallery-browser-ch
 import { runGalleryFixedContexts } from './gallery-fixed-contexts.mjs'
 import { gallerySmokeEnvironment, prepareGalleryConversation } from './e2e-gallery-host.mjs'
 import { runSidechatCI, validateSidechatMode } from './sidechat-acceptance/ci.mjs'
+import { prepareMapConversation } from './e2e-map-host.mjs'
+import { createMapSpec, mapBrowserLaunchOptions, validateMapMode, safeMapError } from './map-acceptance/contract.mjs'
+import { runMapAcceptance } from './map-acceptance/run.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DSH_ROOT = process.env.DSH_ROOT ?? resolve(process.env.HOME ?? '', '.dsh/source/current')
@@ -56,17 +61,19 @@ const PORT = Number(arg('--port') ?? 3088)
 const KEEP = process.argv.includes('--keep')
 const SMOKE = process.argv.includes('--smoke')
 const SIDECHAT = process.argv.includes('--sidechat')
+const MAP = process.argv.includes('--map')
 const INSTALL = arg('--install') ?? 'link'
 const TARBALL = arg('--tarball')
 const TARBALL_SHA = arg('--tarball-sha256')
 const PROMPT = '请严格照抄以下三行 Markdown，不要增加或删除任何字符。第一行只有围栏标签，JSON 从第二行开始：\n```dsh-ui\n{"items":[{"type":"text","content":"兼容验收"},{"type":"radio","label":"模式","group":"mode","options":["甲","乙"]},{"type":"checkbox","label":"启用","group":"flags"},{"type":"input","id":"note","label":"备注"},{"type":"button","label":"发送动作","action":"compat_ping"}]}\n```'
 
-const fail = (msg) => { console.error(`✗ ${msg}`); process.exit(1) }
+const fail = (msg) => { console.error(`✗ ${MAP ? safeMapError(msg) : msg}`); process.exit(1) }
 const log = (msg) => console.log(`· ${msg}`)
 
 // ── 预检：参数、端口、工具 ─────────────────────────────────────────────────
 if (!['link', 'npm', 'tarball'].includes(INSTALL)) fail(`--install 仅允许 link | npm | tarball，收到 "${INSTALL}"`)
 validateSidechatMode({ sidechat: SIDECHAT, smoke: SMOKE, install: INSTALL })
+validateMapMode({ map: MAP, smoke: SMOKE, sidechat: SIDECHAT, install: INSTALL, env: process.env, uid: process.getuid?.() })
 if (INSTALL === 'tarball') {
   if (!TARBALL || !TARBALL_SHA) fail('tarball 模式必须提供 --tarball <绝对路径> 与 --tarball-sha256 <sha256>')
   if (!resolve(TARBALL).startsWith('/')) fail('--tarball 必须是绝对路径')
@@ -141,7 +148,7 @@ const logTail = async (n = 30) => {
     const content = await (await import('node:fs/promises')).readFile(webLog, 'utf8')
     const lines = content.split('\n').filter(Boolean).slice(-n)
     console.error('── dsh-web.log 尾部 ──')
-    console.error(lines.join('\n') || '(空)')
+    console.error(MAP ? safeMapError(lines.join('\n') || '(空)') : lines.join('\n') || '(空)')
   } catch { /* no log yet */ }
 }
 
@@ -168,7 +175,9 @@ try {
     if (r.status !== 0) fail('link 安装失败（见上方输出）')
   }
 
-  if (SMOKE) {
+  if (MAP) {
+    galleryConversation = await prepareMapConversation({ dshRoot: DSH_ROOT, dshHome: DSH_HOME, spec: createMapSpec() })
+  } else if (SMOKE) {
     galleryAssets = await startGalleryImageServer()
     galleryConversation = await prepareGalleryConversation({
       dshRoot: DSH_ROOT, dshHome: DSH_HOME, spec: createGallerySpec(galleryAssets.origin),
@@ -230,12 +239,12 @@ try {
 
   // ── 浏览器链路 ──────────────────────────────────────────────────────────
   const { chromium } = await import(pathToFileURL(join(DSH_ROOT, 'apps/web/node_modules/playwright/index.mjs')).href)
-  browser = await chromium.launch({
+  browser = await chromium.launch(MAP ? mapBrowserLaunchOptions(process.env.E2E_CHROMIUM) : {
     ...(process.env.E2E_CHROMIUM ? { executablePath: process.env.E2E_CHROMIUM } : { channel: 'chrome' }),
     headless: true,
     args: ['--password-store=basic', '--use-mock-keychain'],
   })
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1200 }, locale: 'zh-CN', hasTouch: false, permissions: ['clipboard-read', 'clipboard-write'] })
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1200 }, locale: 'zh-CN', hasTouch: false, ...(MAP ? {} : { permissions: ['clipboard-read', 'clipboard-write'] }) })
   const pageErrors = []
   const pageMessages = []
   page.on('console', message => pageMessages.push(message.text()))
@@ -292,6 +301,13 @@ try {
     await page.getByRole('button', { name: '继续', exact: true }).click()
     await page.waitForTimeout(500)
     await dismissCredentialsOverlay()
+    if (MAP) {
+      await runMapAcceptance({ browser, page, readyUrl, repoRoot: REPO_ROOT, tarball: TARBALL,
+        conversation: galleryConversation, dismiss: dismissCredentialsOverlay })
+      await cleanup()
+      console.log('PASS Map browser acceptance (sandboxed software GPU; synthetic local replay only)')
+      process.exit(0)
+    }
     await runGalleryFixedContexts({ browser, page, readyUrl, artifactsDir, galleryConversation, galleryAssets,
       createDismissCredentialsOverlay, log })
     // Percentage columns divide the space remaining after the row gap. Exercise
@@ -729,8 +745,17 @@ try {
   await cleanup()
   process.exit(0)
 } catch (e) {
-  console.error('✗ e2e 异常:', e)
+  if (MAP) {
+    const out = join(REPO_ROOT, '.e2e-artifacts/map')
+    await mkdir(out, { recursive: true })
+    await writeFile(join(out, 'map-runner-error.json'), JSON.stringify({ passed: false, error: safeMapError(e),
+      browserStarted: browser !== null, sandboxRequested: true, revision: process.env.GITHUB_SHA ?? null }, null, 2) + '\n')
+  }
+  console.error('✗ e2e 异常:', MAP ? safeMapError(e) : e)
   await logTail()
-  await cleanup()
+  try { await cleanup() } catch (error) {
+    if (!MAP) throw error
+    console.error('Map cleanup failed:', safeMapError(error))
+  }
   process.exit(1)
 }

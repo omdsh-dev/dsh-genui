@@ -380,3 +380,18 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 
     同理：需要用户执行的脚本放进 `code` 节点（`lang`: `bash`/`python`）或正文围栏，并保证**从第一行到最后一行一次粘进终端就能跑**。
 11. **先验后发（复杂 UI）**：发出 ```dsh-ui 围栏前，若 spec ≥3 个组件或含 `table`（长表格最易括号错位），先调用 `validate_dsh_ui` 工具（参数 `spec` 传围栏内的 JSON 文本）验证；返回 `next=fix_and_revalidate` 就按诊断修正后重新验证；返回 `next=emit_fence` 再发出；返回 `next=emit_repaired_fence` 时直接照抄 `repaired_json` 发出，无需再次验证；简单 UI（≤2 个组件）不必验证，渲染器会自动修复大部分标点/括号错误
+
+### 地图 `map`：地点选择与内联路线
+
+需要让用户比较地点、选择候选位置或查看示意路线时，使用原生 `map`，不要用静态图片伪装交互地图。默认是无街道底图的离线坐标地图，真实标记与路线由 MapLibre 渲染。地点列表始终可用。
+
+```dsh-ui
+{"items":[{"type":"map","id":"stop","title":"候选地点（合成示例）","locations":[{"id":"a","label":"地点 A","coordinates":[12.49,41.89]},{"id":"b","label":"地点 B","coordinates":[12.51,41.90]}],"routes":[{"id":"r","label":"示意路线，非导航","coordinates":[[12.49,41.89],[12.51,41.90]]}]},{"type":"submit","label":"确认地点","action":"choose_stop","groups":["stop"]}]}
+```
+
+- `locations` 必填，最多 50 项：`id` 唯一且稳定，`label`，`coordinates: [经度, 纬度]`，可选 `description`。坐标必须有限，经度 [-180,180]、纬度 [-90,90]；不确定坐标时不要编造真实地点。
+- 可选 `routes` 最多 8 条，每条有 `id`、`label`、2–500 对内联坐标。只接受 LineString 路径，不调用导航、地理编码或远程 GeoJSON。不要声称路线可安全通行、距离或预计时间已核实。
+- 可选 `center`、`zoom`（0–20）、`height`（200–640）、`selected`（地点 ID）。选中标记与列表双向同步；缩放、重置视图、清除选择都只在本地执行。
+- `id` 复用表单字段持久化，独立 `submit` 才发送 `fields[id] = 选中地点 ID`。不要在 map 上写 `action`。
+- 不允许在模型 JSON 中设置 style、source URL、worker URL、API key 或凭据，不请求地理位置权限。外部底图只能由可信宿主配置。导出保留离线坐标地图，不导出宿主的私有样式配置；分享前审查地点隐私。
+- 资源或 WebGL 不可用时明确降级为可操作地点列表与路线坐标，不把降级描述成完整地图。完整契约见 `docs/map.md`。

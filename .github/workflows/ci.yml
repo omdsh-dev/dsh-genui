@@ -73,6 +73,27 @@ jobs:
           DSH_ROOT: ${{ github.workspace }}/../../.dsh/source/current
           DSH_BIN: ${{ github.workspace }}/../../.dsh/source/current/apps/cli/lib/bin.js
 
+      # Existing host matrix + verified tarball. This mode requires normal
+      # Chrome sandboxes and the supported software OpenGL ES driver; no unsafe
+      # WebGL fallback, new permissions, model credentials, or external service.
+      - name: Map real browser acceptance (sandboxed, no model key)
+        run: node scripts/e2e.mjs --smoke --map --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
+        env:
+          DSH_ROOT: ${{ github.workspace }}/../../.dsh/source/current
+          DSH_BIN: ${{ github.workspace }}/../../.dsh/source/current/apps/cli/lib/bin.js
+
+      - name: Archive synthetic Map browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-${{ matrix.node }}-${{ matrix.role }}
+          retention-days: 7
+          path: |
+            .e2e-artifacts/map/map-*.png
+            .e2e-artifacts/map/map-*.json
+            .e2e-artifacts/map/map-offline.html
+          if-no-files-found: ignore
+
       - name: Archive gallery browser evidence
         if: always()
         uses: actions/upload-artifact@v4

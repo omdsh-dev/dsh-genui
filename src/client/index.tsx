@@ -207,3 +207,7 @@ export function apply(ctx: Context): () => void {
 // arrival order, hosts without it never register /panel — and the renderer
 // itself never depends on the service either way.
 export const inject = ['slots', 'sessions']
+
+/** Trusted host configuration, separate from model-authored JSON. */
+export { GenuiMapContext, setGenuiMapConfig } from './map-config.ts'
+export type { GenuiMapConfig, GenuiMapStyle } from './map-config.ts'

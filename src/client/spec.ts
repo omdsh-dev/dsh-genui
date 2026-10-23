@@ -61,6 +61,7 @@ export type GenuiNode = (
   | GenuiMermaid
   | GenuiSvg
   | GenuiScene3D
+  | GenuiMap
   | GenuiTimeline
   | GenuiFileTree
   | GenuiBreadcrumb
@@ -72,6 +73,32 @@ export type GenuiNode = (
 ) & GenuiLayoutHints
 
   | GenuiEChart
+
+/** A map is a local location picker, never an implicit action or geocoder. */
+export interface GenuiMapLocation {
+  id: string
+  label: string
+  coordinates: [number, number]
+  description?: string
+}
+export interface GenuiMapRoute {
+  id: string
+  label: string
+  /** Inline LineString, not a routing-service request. */
+  coordinates: [number, number][]
+}
+export interface GenuiMap {
+  type: 'map'
+  title?: string
+  /** Submission field holding a selected location ID, not a label. */
+  id?: string
+  locations: GenuiMapLocation[]
+  routes?: GenuiMapRoute[]
+  selected?: string
+  center?: [number, number]
+  zoom?: number
+  height?: number
+}
 
 export interface GenuiSpec {
   /** Short title shown as the card banner. */

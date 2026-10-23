@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { cp, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -24,6 +24,9 @@ try {
   await cp(join(repoRoot, 'tests'), join(checkRoot, 'tests'), { recursive: true })
   // e2e-auth 等测试按 cwd 相对路径读取 scripts/ 源码，隔离目录需要一并拷贝
   await cp(join(repoRoot, 'scripts'), join(checkRoot, 'scripts'), { recursive: true })
+  // Map 的 CI 契约测试读取真实工作流；只补齐这份测试输入，不复制整个 .github。
+  await mkdir(join(checkRoot, '.github/workflows'), { recursive: true })
+  await cp(join(repoRoot, '.github/workflows/ci.yml'), join(checkRoot, '.github/workflows/ci.yml'))
 
   // 所有直接 DSH 依赖统一到目标版本，避免测试辅助包把另一版宿主混入检查。
   // pnpm 在隔离目录安装发布包，源码中的 import 由该目录的 node_modules 解析。

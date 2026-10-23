@@ -390,3 +390,12 @@ This version strictly requires DSH `^0.2.0-rc.1 || ^0.2.1-rc.1`. Older host vers
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
+
+### Native maps
+
+The `map` node combines lazy MapLibre markers and inline routes with an
+always-available keyboard-operable location list. Selection stays local and can
+be persisted/submitted as a stable location ID through the existing fields
+contract. The default is an offline blank coordinate map, not a street basemap;
+external styles belong to trusted host configuration, never model JSON.
+See [the map contract and embedding/export guide](docs/map.md).

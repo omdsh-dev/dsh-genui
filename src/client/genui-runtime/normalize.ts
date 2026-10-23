@@ -196,7 +196,9 @@ function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[]
   for (const [field, nested] of Object.entries(definition.nested)) {
     if (out[field] === undefined) continue
     const nestedValue = out[field]
-    const cap = type === 'image-group' && field === 'items' ? GENUI_LIMITS.maxImageGroupItems : undefined
+    const cap = type === 'image-group' && field === 'items' ? GENUI_LIMITS.maxImageGroupItems
+      : type === 'map' && field === 'locations' ? GENUI_LIMITS.maxMapLocations
+      : type === 'map' && field === 'routes' ? GENUI_LIMITS.maxMapRoutes : undefined
     if (cap !== undefined && Array.isArray(nestedValue)) {
       out[field] = [
         ...normalizeRecordTree(nestedValue.slice(0, cap), nested, `${path}.${field}`, type, warnings) as unknown[],

@@ -385,3 +385,10 @@ dsh plugin --profile web add @changfenhuang/dsh-genui
 ## 📄 开源许可
 
 本项目遵循 [MIT License](LICENSE) 开源协议。
+
+### 原生地图
+
+`map` 使用延迟加载的 MapLibre 标记和内联路线，并始终提供可键盘操作的地点列表。
+地点选择只在本地更新，可通过既有字段机制持久化并由独立提交按钮发送地点 ID。
+默认是无街道底图的离线坐标地图；外部样式仅由可信宿主配置，不接受模型 JSON URL。
+详见 [地图契约与嵌入、导出说明](docs/map.md)。

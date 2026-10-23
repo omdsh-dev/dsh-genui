@@ -366,6 +366,7 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   keyvalue: schema(['pairs'], { ...nodeFields, pairs: 'array' }, { items: 'pairs', rows: 'pairs', entries: 'pairs' }, { nested: { pairs: keyValueRecordSchema } }),
   link: schema(['label'], { ...nodeFields, label: 'string', href: 'string' }),
   list: schema(['items'], { ...nodeFields, items: 'array', filter: 'string' }),
+  map: schema(['locations'], { ...nodeFields, id: 'string', title: 'string', locations: 'array', routes: 'array', selected: 'string', center: 'array', zoom: 'number', height: 'number' }, {}, { nested: { locations: recordSchema(['id', 'label', 'coordinates'], { id: 'string', label: 'string', coordinates: 'array', description: 'string' }), routes: recordSchema(['id', 'label', 'coordinates'], { id: 'string', label: 'string', coordinates: 'array' }) } }),
   mermaid: schema(['code'], { ...nodeFields, code: 'string' }),
   svg: schema(['code'], { ...nodeFields, code: 'string', title: 'string', height: 'number' }),
   plot: schema(['series'], { ...nodeFields, series: 'array', xMin: 'number', xMax: 'number', yMin: 'number', yMax: 'number', title: 'string' }, {}, { nested: { series: plotSeriesSchema } }),

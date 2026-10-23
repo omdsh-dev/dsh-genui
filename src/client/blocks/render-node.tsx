@@ -29,6 +29,7 @@ import { CarouselNode } from './carousel.tsx'
 import { ImageGroupNode } from './image-group.tsx'
 import { SvgNode } from './svg.tsx'
 import { IconNode } from './icon.tsx'
+import { MapNode } from './map.tsx'
 import { BlocksNode } from './blocks.tsx'
 
 import { EChartNode } from '../EChartNode.tsx'
@@ -191,6 +192,7 @@ export function renderNode(
   if (depth > GENUI_LIMITS.maxDepth) return null
 
   switch (node.type) {
+    case 'map': return <MapNode key={`${key}:${answers?.round ?? 0}`} node={node} answers={answers} />
     case 'text': {
       const size = node.size ?? 'body'
       // `align` is canonical; legacy `center: true` maps to the center class.

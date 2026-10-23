@@ -116,3 +116,11 @@
 - 每个组件渲染完、动画停稳后再操作，避免画面抖动
 - 事件循环幕点完按钮后等模型回复（10–30 秒），期间不要操作，剪辑时把等待压缩成 1 秒转场
 - 如果某幕生成超长，可以中途停止重发，模型会续写
+
+## Map: synthetic location picker
+
+Show a native map with three explicitly synthetic locations around [12.5, 41.9],
+a short illustrative inline route, and a persistent field named stop. Keep
+marker/list selection local, with a separate Confirm stop submit action. Say
+that the default is a blank coordinate map, not a street basemap or directions.
+Do not include remote style/tile URLs, credentials, or geolocation requests.

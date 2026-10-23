@@ -7,6 +7,21 @@
 import type { EN } from './en.ts'
 
 export const ZH: Record<keyof typeof EN, string> = {
+  'map.title': '地点',
+  'map.canvas': '交互地图',
+  'map.marker': '在地图上选择 {label}',
+  'map.loading': '正在加载地图，下方地点列表可直接使用。',
+  'map.failed': '地图不可用，请使用下方地点列表和路线坐标。',
+  'map.offline': '离线坐标地图，不含街道底图，不请求外部资源。',
+  'map.hostStyle': '底图由宿主提供；地点选择只保存在本地，提交后才发送。',
+  'map.zoomIn': '放大',
+  'map.zoomOut': '缩小',
+  'map.reset': '重置视图',
+  'map.clear': '清除选择',
+  'map.polar': '纬度超出 ±85.051129° 的坐标无法在此投影中显示，请使用列表中的准确坐标；涉及这些坐标的路线不绘制。',
+  'map.empty': '暂无有效地点。',
+  'map.locations': '选择地点',
+  'map.routes': '路线坐标',
   // --------------------------------------------------------- 成果文件
   'artifact.export': '导出',
   'artifact.exportHtml': 'HTML',

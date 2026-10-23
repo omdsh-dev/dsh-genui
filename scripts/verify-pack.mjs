@@ -24,7 +24,10 @@ const { values: options } = parseArgs({
 // 懒加载资源、src/client/icons/icon-data-full.ts 是它的可复现构建输入（issue #15）。
 // 两者都不可裁掉，因此把上限显式抬一档；若上游决定缩减字形集，同步回落这两个值。
 const MAX_TARBALL = Number(process.env.GENUI_PACK_MAX_TARBALL ?? 4 * 1024 * 1024)
-const MAX_UNPACKED = Number(process.env.GENUI_PACK_MAX_UNPACKED ?? 12 * 1024 * 1024)
+// 2026-10-23: 内置懒加载 MapLibre 的 CSP 主包、CSS 和独立 worker（issue #358 / PR #362）
+// 使解包体积达到约 12.33 MiB。维护者同意保留完整引擎、许可和可复现源码，
+// 将解包预算从 12 MiB 调整为 13 MiB；压缩包预算仍为上面的 4 MiB。
+const MAX_UNPACKED = Number(process.env.GENUI_PACK_MAX_UNPACKED ?? 13 * 1024 * 1024)
 
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 

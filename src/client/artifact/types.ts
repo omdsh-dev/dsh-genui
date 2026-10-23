@@ -6,7 +6,7 @@ export const GENUI_ARTIFACT_FORMAT = 'dsh-genui'
 export const GENUI_ARTIFACT_VERSION = 1 as const
 
 export type GenuiArtifactTheme = 'light' | 'dark'
-export type GenuiStandaloneAsset = 'mermaid' | 'three' | 'echarts-core' | 'echarts-full' | 'icons'
+export type GenuiStandaloneAsset = 'mermaid' | 'three' | 'echarts-core' | 'echarts-full' | 'icons' | 'maplibre'
 
 export interface GenuiArtifactV1 {
   format: typeof GENUI_ARTIFACT_FORMAT

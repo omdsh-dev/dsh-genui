@@ -9,6 +9,21 @@
  * `block.*`, `err.*`.
  */
 export const EN = {
+  'map.title': 'Locations',
+  'map.canvas': 'Interactive map',
+  'map.marker': 'Select {label} on map',
+  'map.loading': 'Loading map. The location list is available below.',
+  'map.failed': 'Map unavailable. Use the location list and route coordinates below.',
+  'map.offline': 'Offline coordinate map. No street basemap or external requests.',
+  'map.hostStyle': 'Basemap provided by the host. Location selection stays local until submitted.',
+  'map.zoomIn': 'Zoom in',
+  'map.zoomOut': 'Zoom out',
+  'map.reset': 'Reset view',
+  'map.clear': 'Clear selection',
+  'map.polar': 'Coordinates beyond ±85.051129° latitude cannot be shown in this projection. Use their exact coordinates in the list; affected routes are not drawn.',
+  'map.empty': 'No valid locations.',
+  'map.locations': 'Choose a location',
+  'map.routes': 'Route coordinates',
   // --------------------------------------------------------- artifacts
   'artifact.export': 'Export',
   'artifact.exportHtml': 'HTML',

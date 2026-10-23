@@ -65,7 +65,7 @@ const pending = new Map<string, Promise<Record<string, unknown>>>()
  * @param name - 'mermaid', 'three', 'echarts-core', 'echarts-full', or 'icons'.
  * @returns the registered engine surface.
  */
-export function loadGenuiAsset<T>(name: 'mermaid' | 'three' | 'echarts-core' | 'echarts-full' | 'icons'): Promise<T> {
+export function loadGenuiAsset<T>(name: 'mermaid' | 'three' | 'echarts-core' | 'echarts-full' | 'icons' | 'maplibre'): Promise<T> {
   const preloaded = preloadedAsset(name)
   if (preloaded !== undefined) return Promise.resolve(preloaded as T)
   const file = `${name}.js`

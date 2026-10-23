@@ -34,6 +34,7 @@ import { GENUI_LIMITS } from './genui-runtime/limits.ts'
 import { analyzeSubmissionRegistry } from './submission-registry.ts'
 import { isTableDetailReachable, prepareTableRows, tableRowsForDetails } from './table-details.ts'
 import { color, enu, int, num, obj, opt, safeMediaSrc, str } from './genui-runtime/value-utils.ts'
+import { repairMap, validateMap } from './map-data.ts'
 import { classifyLinkTarget } from './file-link.ts'
 import { buildComputedGraph, getComputedInputIds, getDuplicateComputedInputIds, getComputedTemplateScope, getComputedChildNodeScope } from './computed.ts'
 import type { ComputedTemplateScope, ComputedNodeScope } from './computed.ts'
@@ -155,6 +156,8 @@ function validateNestedRecordSchemas(
     if (Array.isArray(nestedValue)) {
       const records = value.type === 'image-group' && field === 'items'
         ? nestedValue.slice(0, GENUI_LIMITS.maxImageGroupItems)
+        : value.type === 'map' && field === 'locations' ? nestedValue.slice(0, GENUI_LIMITS.maxMapLocations)
+        : value.type === 'map' && field === 'routes' ? nestedValue.slice(0, GENUI_LIMITS.maxMapRoutes)
         : field === 'computed' ? nestedValue.slice(0, GENUI_LIMITS.maxComputedFields) : nestedValue
       records.forEach((item, index) => validateRecordSchema(item, `${at}.${field}[${index}]`, nested, errors))
     } else {
@@ -720,6 +723,7 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
       if (code === undefined) return null
       return { type: 'mermaid', code }
     }
+    case 'map': return repairMap(v)
     case 'scene3d': {
       const meshes = repairMeshes(v.meshes)
       if (meshes === undefined) return null
@@ -2250,6 +2254,9 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       break
     case 'mermaid':
       if (typeof v.code !== 'string') errors.push(`${at}: type 'mermaid' requires code (string)`)
+      break
+    case 'map':
+      validateMap(v, at, errors)
       break
     case 'scene3d':
       if (!Array.isArray(v.meshes)) errors.push(`${at}: type 'scene3d' requires meshes (array)`)

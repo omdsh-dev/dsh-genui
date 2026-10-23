@@ -76,6 +76,29 @@ function cssModulesPlugin(): NonNullable<UserConfig['plugins']>[number] {
   }
 }
 
+/** CSS and CSP worker stay inert in the lazy engine, including offline exports. */
+function maplibreResourcesPlugin(): NonNullable<UserConfig['plugins']>[number] {
+  const source = resolvePath(PROJECT_ROOT, 'src/client/maplibre-resources.ts')
+  const virtualId = '\0dsh-genui-maplibre-resources'
+  return {
+    name: 'dsh-genui-maplibre-resources',
+    resolveId(id: string, importer: string | undefined) {
+      return importer !== undefined && resolvePath(dirname(importer), id) === source ? virtualId : null
+    },
+    async load(id: string) {
+      if (id !== virtualId) return null
+      const dist = resolvePath(PROJECT_ROOT, 'node_modules/maplibre-gl/dist')
+      const cssFile = resolvePath(dist, 'maplibre-gl.css')
+      const workerFile = resolvePath(dist, 'maplibre-gl-csp-worker.js')
+      this.addWatchFile(cssFile)
+      this.addWatchFile(workerFile)
+      const css = await readFile(cssFile, 'utf8')
+      const worker = (await readFile(workerFile, 'utf8')).replace(/\/\/# sourceMappingURL=.*$/gm, '')
+      return `export const maplibreCss = ${JSON.stringify(css)}; export const maplibreWorker = ${JSON.stringify(worker)};`
+    },
+  }
+}
+
 function purityGate(): NonNullable<UserConfig['plugins']>[number] {
   return {
     name: 'dsh-client-bundle-purity',
@@ -216,7 +239,7 @@ const standaloneConfig: UserConfig = {
  * main client bundle never contains either engine, so the eager download
  * drops from ~9 MB to the small renderer core.
  */
-function assetConfig(name: 'mermaid' | 'three' | 'echarts' | 'echarts-core' | 'echarts-full' | 'icons', entry: string): UserConfig {
+function assetConfig(name: 'mermaid' | 'three' | 'echarts' | 'echarts-core' | 'echarts-full' | 'icons' | 'maplibre', entry: string): UserConfig {
   return {
     name: `${ID}/assets/${name}`,
     entry: { [`assets/${name}`]: entry },
@@ -236,7 +259,7 @@ function assetConfig(name: 'mermaid' | 'three' | 'echarts' | 'echarts-core' | 'e
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'production'),
     },
-    plugins: [purityGate()],
+    plugins: [purityGate(), maplibreResourcesPlugin()],
     outputOptions: {
       entryFileNames: '[name].js',
     },
@@ -266,6 +289,7 @@ export default [
   standaloneConfig,
   assetConfig('mermaid', 'src/client/asset-mermaid.ts'),
   assetConfig('three', 'src/client/asset-three.ts'),
+  assetConfig('maplibre', 'src/client/asset-maplibre.ts'),
   assetConfig('echarts-core', 'src/client/asset-echarts-core.ts'),
   assetConfig('echarts-full', 'src/client/asset-echarts.ts'),
   // Full 749-glyph icon catalogue (~1 MB of path data): fetched once, only
