@@ -1,4 +1,5 @@
-import type { GenuiComputed, GenuiComputedFormat, GenuiNode, GenuiSpec } from './spec.ts'
+import { GENUI_COMPUTED_CELL } from './spec.ts'
+import type { GenuiComputed, GenuiComputedCell, GenuiComputedFormat, GenuiNode, GenuiSpec } from './spec.ts'
 import { compileMathExprProgram } from './safe-math.ts'
 import { GENUI_LIMITS } from './genui-runtime/index.ts'
 import { walkGenuiNodes } from './walk-spec.ts'
@@ -31,6 +32,17 @@ export function getComputedInputIds(spec: GenuiSpec): Set<string> {
     if (node.id !== undefined && COMPUTED_ID.test(node.id)) ids.add(node.id)
   })
   return ids
+}
+
+/** 收集重复声明的数值输入字段 ID。 */
+export function getDuplicateComputedInputIds(spec: GenuiSpec): string[] {
+  const counts = new Map<string, number>()
+  walkGenuiNodes(spec, node => {
+    if (node.type !== 'input' && node.type !== 'select' && node.type !== 'slider' && node.type !== 'textarea') return
+    if (node.type === 'input' && node.inputType === 'password') return
+    if (node.id !== undefined && COMPUTED_ID.test(node.id)) counts.set(node.id, (counts.get(node.id) ?? 0) + 1)
+  })
+  return [...counts].filter(([, count]) => count > 1).map(([id]) => id)
 }
 
 /**
@@ -129,11 +141,16 @@ export function evaluateComputed(spec: GenuiSpec, fields: Readonly<Record<string
   const inputIds = getComputedInputIds(spec)
   const definitions = spec.computed ?? []
   const graph = buildComputedGraph(definitions, inputIds)
+  const errors = Object.assign(Object.create(null) as Record<string, string>, graph.errors)
+  const duplicateInputIds = getDuplicateComputedInputIds(spec)
+  if (duplicateInputIds.length > 0) {
+    for (const definition of graph.order) errors[definition.id] = '输入字段 ID 重复，无法计算'
+    return { values: Object.create(null) as Record<string, number>, formatted: Object.create(null) as Record<string, string>, errors }
+  }
   const computedIds = definitions.slice(0, GENUI_LIMITS.maxComputedFields).map(item => item.id)
   const fieldValues = { ...collectInputDefaults(spec), ...fields }
   const numericValues = Object.create(null) as Record<string, number>
   const formatted = Object.create(null) as Record<string, string>
-  const errors = Object.assign(Object.create(null) as Record<string, string>, graph.errors)
 
   for (const definition of graph.order) {
     const programVariables = Object.create(null) as Record<string, number>
@@ -186,17 +203,32 @@ export function evaluateComputed(spec: GenuiSpec, fields: Readonly<Record<string
 }
 
 /** 递归解析模板文字与数值对象引用。 */
-function resolveComputedValue(value: unknown, key: string | undefined, result: ComputedEvaluation, referenceAllowed = false, chartReference = false): unknown {
+function resolveComputedValue(
+  value: unknown,
+  key: string | undefined,
+  result: ComputedEvaluation,
+  referenceAllowed = false,
+  chartReference = false,
+  tableCellReference = false,
+): unknown {
   if (typeof value === 'string') {
     if (key === 'id' || key === 'type' || key === 'expr' || key === 'action' || key === 'href' || key === 'src' || key === 'poster') return value
     return value.replace(COMPUTED_REFERENCE_PATTERN, (_match, id: string) => result.formatted[id] ?? '无效输入')
   }
-  if (Array.isArray(value)) return value.map(item => resolveComputedValue(item, undefined, result, referenceAllowed, chartReference))
+  if (Array.isArray(value)) return value.map(item => resolveComputedValue(item, undefined, result, referenceAllowed, chartReference, tableCellReference))
   if (value === null || typeof value !== 'object') return value
   const record = value as Record<string, unknown>
   if (referenceAllowed && Object.keys(record).length === 1 && typeof record.$computed === 'string') {
     if (!Object.hasOwn(result.values, record.$computed)) return chartReference ? null : '无效输入'
     const computedValue = result.values[record.$computed]!
+    if (tableCellReference) {
+      const cell: GenuiComputedCell = {
+        [GENUI_COMPUTED_CELL]: true,
+        value: computedValue,
+        formatted: result.formatted[record.$computed] ?? String(computedValue),
+      }
+      return cell
+    }
     return chartReference && Math.abs(computedValue) > 1e12 ? null : computedValue
   }
   return Object.fromEntries(Object.entries(record).map(([entryKey, entryValue]) => [
@@ -207,7 +239,8 @@ function resolveComputedValue(value: unknown, key: string | undefined, result: C
         || record.type === 'echart' && entryKey === 'option'
         || referenceAllowed,
       (record.type === 'chart' || record.type === 'echart') && (entryKey === 'data' || entryKey === 'series' || entryKey === 'option')
-        || chartReference),
+        || chartReference,
+      record.type === 'table' && entryKey === 'rows' || tableCellReference),
   ]))
 }
 
@@ -221,26 +254,7 @@ function filterInvalidChartData(value: unknown): void {
   const record = value as Record<string, unknown>
   if ((record.type === 'chart' || record.type === 'echart') && Array.isArray(record.data)) {
     record.data = record.data.filter(point => point !== null && typeof point === 'object'
-      && typeof (point as Record<string, unknown>).value === 'number')
-  }
-  if ((record.type === 'chart' || record.type === 'echart') && Array.isArray(record.series)) {
-    const series = record.series.filter(item => item !== null && typeof item === 'object'
-      && Array.isArray((item as Record<string, unknown>).data)) as Array<Record<string, unknown>>
-    const dataSets = series.map(item => item.data as unknown[])
-    if (dataSets.length === 1) {
-      series[0]!.data = dataSets[0]!.filter(point => point !== null && typeof point === 'object'
-        && typeof (point as Record<string, unknown>).value === 'number')
-    } else if (dataSets.length > 1) {
-      const alignedIndexes = Array.from({ length: Math.min(...dataSets.map(data => data.length)) }, (_unused, index) => index)
-        .filter(index => dataSets.every(data => {
-          const point = data[index]
-          return point !== null && typeof point === 'object' && typeof (point as Record<string, unknown>).value === 'number'
-        }))
-      for (let index = 0; index < series.length; index++) {
-        const data = dataSets[index]!
-        series[index]!.data = alignedIndexes.map(pointIndex => data[pointIndex])
-      }
-    }
+      && (point as Record<string, unknown>).value !== null)
   }
   Object.values(record).forEach(filterInvalidChartData)
 }

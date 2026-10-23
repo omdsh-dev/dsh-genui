@@ -388,6 +388,7 @@ export function InputNode({ node, onAction, answers }: {
   const action = node.action
   const id = node.id
   const secret = node.inputType === 'password'
+  const numeric = node.inputType === 'number'
   const restored = !secret && id !== undefined && answers?.fields !== undefined && Object.hasOwn(answers.fields, id)
     ? answers.fields[id]
     : undefined
@@ -432,7 +433,8 @@ export function InputNode({ node, onAction, answers }: {
       {node.label !== undefined && <span>{renderInline(node.label, false)}</span>}
       <input
         className={css.input}
-        type={node.inputType ?? 'text'}
+        type={numeric ? 'text' : node.inputType ?? 'text'}
+        inputMode={numeric ? 'decimal' : undefined}
         style={node.inputType === 'color' ? {
           width: 64,
           height: 40,
@@ -446,7 +448,9 @@ export function InputNode({ node, onAction, answers }: {
         onChange={e => {
           const v = e.currentTarget.value
           setValue(v)
-          if (id !== undefined) answers?.setField(id, v)
+          if (id !== undefined) {
+            if (!numeric || v.trim() === '' || Number.isFinite(Number(v))) answers?.setField(id, v)
+          }
         }}
         onBlur={() => {
           if (value !== lastSent.current) send(false)

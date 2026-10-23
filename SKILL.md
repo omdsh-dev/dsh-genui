@@ -346,7 +346,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 ### Computed（输入驱动计算）
 在规格根部用 `computed` 声明有序无关的计算字段。表达式只支持数字、字段 ID、括号、`+ - * / % ^` 和 `sin cos tan asin acos atan sqrt cbrt exp log ln abs floor ceil round min max pow` 白名单函数，以及 `pi/e/tau` 常量；不执行 JavaScript。字段 ID 以字母或下划线开头，后续可含数字，最多 64 个字符。表达式最多 512 个字符、嵌套最多 32 层、每份规格最多 50 个计算字段；未声明字段、循环依赖和无效数值会显示为无效输入，图表会跳过无效点。
 
-`{{fieldId}}` 可放在显示文字与规格标题中；`chart`、`echart` 的数据点和 `table` 单元格使用 `{"$computed":"fieldId"}` 引用数值。完整 ECharts `option` 中的数据值也可使用该引用。`format` 可设置 `locale`、`style`（`decimal|currency|percent`）、`currency` 和小数位范围。
+`{{fieldId}}` 可放在显示文字与规格标题中；`chart`、`echart` 的数据点和 `table` 单元格使用 `{"$computed":"fieldId"}` 引用数值。完整 ECharts `option` 中的数据值也可使用该引用。`format` 可设置 `locale`、`style`（`decimal|currency|percent`）、`currency` 和小数位范围。表格显示格式化文字，排序使用原始数值。`number` 输入使用十进制文本草稿；暂时无法解析的编辑内容保留在输入框中，不会覆盖上一次有效计算值；清空输入会显示无效输入。
 
 ```dsh-ui
 {"computed":[{"id":"annual","expr":"monthly*12","format":{"locale":"zh-CN","style":"currency","currency":"CNY","maximumFractionDigits":0}},{"id":"tax","expr":"annual*rate","format":{"locale":"zh-CN","style":"currency","currency":"CNY","maximumFractionDigits":0}}],"items":[{"type":"input","id":"monthly","label":"月收入","inputType":"number","value":"10000"},{"type":"input","id":"rate","label":"税率","inputType":"number","value":"0.1"},{"type":"stat","label":"年度收入","value":"{{annual}}"},{"type":"stat","label":"预估税额","value":"{{tax}}"},{"type":"chart","kind":"bars","data":[{"label":"收入","value":{"$computed":"annual"}},{"label":"税额","value":{"$computed":"tax"}}]},{"type":"table","columns":["项目","金额"],"rows":[["年度收入",{"$computed":"annual"}],["预估税额",{"$computed":"tax"}]]}]}

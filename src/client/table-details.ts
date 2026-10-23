@@ -1,5 +1,6 @@
 import { GENUI_LIMITS } from './genui-runtime/index.ts'
-import type { GenuiComputedRef } from './spec.ts'
+import { GENUI_COMPUTED_CELL } from './spec.ts'
+import type { GenuiComputedCell, GenuiComputedRef } from './spec.ts'
 
 /** 保存 repair 所需的原始 table 字段。 */
 export interface TableDetailSource {
@@ -12,7 +13,7 @@ export interface TableDetailSource {
 /** 保存 repair 后的 table 列和行。 */
 export interface PreparedTableRows {
   columns: string[]
-  rows: Array<Array<string | number | GenuiComputedRef>>
+  rows: Array<Array<string | number | GenuiComputedRef | GenuiComputedCell>>
 }
 
 /** 使用 table repair 相同的转换规则处理列和行。 */
@@ -92,16 +93,17 @@ function repairColumnValues(value: unknown): string[] {
 }
 
 /** 按照 table repair 的单元格规则裁剪并清理行。 */
-function repairRows(value: unknown): Array<Array<string | number | GenuiComputedRef>> {
+function repairRows(value: unknown): Array<Array<string | number | GenuiComputedRef | GenuiComputedCell>> {
   if (!Array.isArray(value)) return []
-  const rows: Array<Array<string | number | GenuiComputedRef>> = []
+  const rows: Array<Array<string | number | GenuiComputedRef | GenuiComputedCell>> = []
   for (const row of value) {
     if (rows.length >= GENUI_LIMITS.maxTableRows) break
     if (!Array.isArray(row)) continue
-    const cells: Array<string | number | GenuiComputedRef> = []
+    const cells: Array<string | number | GenuiComputedRef | GenuiComputedCell> = []
     for (const cell of row) {
       if (cells.length >= GENUI_LIMITS.maxTableCols) break
-      if (typeof cell === 'string') cells.push(cell.slice(0, 256))
+      if (isComputedCell(cell)) cells.push(cell)
+      else if (typeof cell === 'string') cells.push(cell.slice(0, 256))
       else if (typeof cell === 'number' && Number.isFinite(cell)) cells.push(cell)
       else if (cell !== null && typeof cell === 'object' && !Array.isArray(cell)
         && Object.keys(cell).length === 1 && typeof (cell as Record<string, unknown>).$computed === 'string'
@@ -115,7 +117,7 @@ function repairRows(value: unknown): Array<Array<string | number | GenuiComputed
 }
 
 /** 从有效的首行表头生成 table 列。 */
-function deriveTableColumns(rows: Array<Array<string | number | GenuiComputedRef>>): PreparedTableRows | null {
+function deriveTableColumns(rows: Array<Array<string | number | GenuiComputedRef | GenuiComputedCell>>): PreparedTableRows | null {
   const header = rows[0]
   if (header === undefined || header.length === 0) return null
   const body = rows.slice(1)
@@ -140,7 +142,8 @@ function columnKeyOf(value: unknown): string | undefined {
 }
 
 /** 将 object row 中的值转换为 table 单元格，并保留列位置。 */
-function cellText(value: unknown): string | number | GenuiComputedRef {
+function cellText(value: unknown): string | number | GenuiComputedRef | GenuiComputedCell {
+  if (isComputedCell(value)) return value
   if (typeof value === 'string') return value
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -150,6 +153,15 @@ function cellText(value: unknown): string | number | GenuiComputedRef {
   }
   if (value === null || value === undefined) return ''
   return JSON.stringify(value)
+}
+
+/** 验证只由 Computed 解析器生成的表格显示单元格。 */
+function isComputedCell(value: unknown): value is GenuiComputedCell {
+  if (value === null || typeof value !== 'object' || Array.isArray(value) || !Object.hasOwn(value, GENUI_COMPUTED_CELL)) {
+    return false
+  }
+  const cell = value as GenuiComputedCell
+  return cell[GENUI_COMPUTED_CELL] === true && Number.isFinite(cell.value) && typeof cell.formatted === 'string'
 }
 
 /** 读取 object column 显示的标题。 */

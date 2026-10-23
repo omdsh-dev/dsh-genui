@@ -35,7 +35,7 @@ import { analyzeSubmissionRegistry } from './submission-registry.ts'
 import { isTableDetailReachable, prepareTableRows, tableRowsForDetails } from './table-details.ts'
 import { color, enu, int, num, obj, opt, safeMediaSrc, str } from './genui-runtime/value-utils.ts'
 import { classifyLinkTarget } from './file-link.ts'
-import { buildComputedGraph, getComputedInputIds } from './computed.ts'
+import { buildComputedGraph, getComputedInputIds, getDuplicateComputedInputIds } from './computed.ts'
 import { SAFE_MATH_LIMITS } from './safe-math.ts'
 
 /** Result of `validateGenuiSpec`. */
@@ -1609,7 +1609,7 @@ export function validateCanonicalGenuiSpec(value: unknown): GenuiValidation {
   if (repaired !== null) {
     const graph = buildComputedGraph(repaired.computed ?? [], getComputedInputIds(repaired))
     for (const [id, error] of Object.entries(graph.errors)) errors.push(`spec.computed.${id}: ${error}`)
-    validateComputedReferences(repaired.items, new Set((repaired.computed ?? []).map(field => field.id)), errors)
+    validateComputedReferences(repaired.title, repaired.items, new Set((repaired.computed ?? []).map(field => field.id)), errors)
   }
   let count = 0
   let capped = false
@@ -1634,6 +1634,11 @@ export function validateCanonicalGenuiSpec(value: unknown): GenuiValidation {
   }
   walk(v.items, 0, 'items')
   if (errors.length === 0) errors.push(...analyzeSubmissionRegistry(v as unknown as GenuiSpec).diagnostics)
+  if (repaired !== null) {
+    for (const id of getDuplicateComputedInputIds(repaired)) {
+      errors.push(`spec.items contains duplicate input field ID '${id}'`)
+    }
+  }
   const uniqueErrors = [...new Set(errors)]
   return { ok: uniqueErrors.length === 0, errors: uniqueErrors }
 }
@@ -1868,12 +1873,20 @@ export function partialRepairGenuiSpec(processed: GenuiProcessResult): GenuiSpec
 
 type Walker = (list: unknown, depth: number, path: string) => void
 
-/** 校验图表与表格中的数值引用是否指向已声明字段。 */
-function validateComputedReferences(items: unknown, computedIds: ReadonlySet<string>, errors: string[]): void {
+/** 校验模板文字与图表、表格中的计算引用是否指向已声明字段。 */
+function validateComputedReferences(title: unknown, items: unknown, computedIds: ReadonlySet<string>, errors: string[]): void {
   const visited = new WeakSet<object>()
   let visitedCount = 0
-  const visit = (value: unknown, path: string, referenceAllowed: boolean, depth: number): void => {
+  const visit = (value: unknown, path: string, referenceAllowed: boolean, depth: number, templateAllowed = true): void => {
     if (depth > GENUI_LIMITS.maxDepth * 2 || visitedCount >= GENUI_LIMITS.maxNodes * 8) return
+    if (typeof value === 'string') {
+      if (!templateAllowed) return
+      for (const match of value.matchAll(/\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}/g)) {
+        const id = match[1]!
+        if (!computedIds.has(id)) errors.push(`${path} references unknown computed field '${id}'`)
+      }
+      return
+    }
     if (value === null || typeof value !== 'object') return
     if (visited.has(value)) return
     visited.add(value)
@@ -1892,9 +1905,11 @@ function validateComputedReferences(items: unknown, computedIds: ReadonlySet<str
         || record.type === 'table' && key === 'rows'
         || (record.type === 'chart' || record.type === 'echart') && (key === 'data' || key === 'series')
         || record.type === 'echart' && key === 'option'
-      visit(child, `${path}.${key}`, childAllowsReference, depth + 1)
+      const childAllowsTemplate = !['id', 'type', 'expr', 'action', 'href', 'src', 'poster'].includes(key)
+      visit(child, `${path}.${key}`, childAllowsReference, depth + 1, childAllowsTemplate)
     }
   }
+  visit(title, 'spec.title', false, 0)
   visit(items, 'spec.items', false, 0)
 }
 

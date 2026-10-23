@@ -33,7 +33,10 @@ describe('Computed evaluation', () => {
     const resolved = resolveComputedSpec(spec, updated)
     expect(updated.values).toEqual({ annual: 240000, tax: 48000 })
     expect((resolved.items[3] as { data: Array<{ value: number }> }).data[0]?.value).toBe(240000)
-    expect((resolved.items[4] as { rows: Array<Array<number>> }).rows[0]?.[0]).toBe(48000)
+    expect((resolved.items[4] as { rows: Array<Array<{ value: number; formatted: string }>> }).rows[0]?.[0]).toMatchObject({
+      value: 48000,
+      formatted: updated.formatted.tax,
+    })
     expect((resolved.items[2] as { content: string }).content).toContain('48,000')
     expect(resolved.title).toContain('48,000')
     expect((resolved.items[5] as { option: { series: Array<{ data: Array<{ value: number }> }> } }).option.series[0]?.data[0]?.value).toBe(48000)
@@ -105,6 +108,10 @@ describe('Computed evaluation', () => {
     ] }).ok).toBe(false)
     expect(validateGenuiSpec({ computed: [{ id: 'total', expr: '1+2', format: { locale: 'en-US-US' } }], items: [] }).ok).toBe(false)
     expect(validateGenuiSpec({ computed: [{ id: 'total', expr: '1+2', format: { locale: 'en-US-u-nu-latn' } }], items: [] }).ok).toBe(true)
+    expect(validateGenuiSpec({ computed: [{ id: 'total', expr: '1+2' }], title: '总额 {{totla}}', items: [] }).ok).toBe(false)
+    expect(validateGenuiSpec({ computed: [{ id: 'total', expr: '1+2' }], items: [
+      { type: 'text', content: '总额 {{totla}}' },
+    ] }).errors.some(error => error.includes('unknown computed field'))).toBe(true)
     expect(validateGenuiSpec({
       computed: Array.from({ length: 51 }, (_unused, index) => ({ id: `field${index}`, expr: '1' })),
       items: [],
@@ -115,18 +122,100 @@ describe('Computed evaluation', () => {
     ] }).ok).toBe(false)
   })
 
-  it('keeps multi-series chart labels aligned and omits out-of-range chart values', () => {
+  it('keeps independent multi-series data and leaves gaps for invalid computed values', () => {
     const spec: GenuiSpec = {
       computed: [{ id: 'large', expr: '1e13' }, { id: 'small', expr: '2' }],
-      items: [{ type: 'chart', kind: 'line', series: [
-        { label: 'A', data: [{ label: 'X', value: { $computed: 'small' } }, { label: 'Y', value: { $computed: 'large' } }] },
+      items: [{ type: 'chart', kind: 'line', data: [], series: [
+        { label: 'A', data: [
+          { label: 'X', value: { $computed: 'small' } },
+          { label: 'Y', value: { $computed: 'large' } },
+          { label: 'Z', value: { $computed: 'small' } },
+        ] },
         { label: 'B', data: [{ label: 'X', value: 3 }, { label: 'Y', value: 4 }] },
       ] }],
     }
     const chart = resolveComputedSpec(spec, evaluateComputed(spec, {})).items[0] as {
+      series: Array<{ data: Array<{ label: string; value: number | null }> }>
+    }
+    expect(chart.series.map(entry => entry.data.map(point => point.label))).toEqual([['X', 'Y', 'Z'], ['X', 'Y']])
+    expect(chart.series.map(entry => entry.data.map(point => point.value))).toEqual([[2, null, 2], [3, 4]])
+    const out = render(<GenuiBlock spec={spec} />)
+    expect(within(out.container).getByRole('img').querySelectorAll('circle')).toHaveLength(4)
+  })
+
+  it('preserves different multi-series lengths when no Computed fields are declared', () => {
+    const spec: GenuiSpec = {
+      items: [
+        { type: 'chart', kind: 'line', data: [], series: [
+          { label: 'A', data: [{ label: 'X', value: 1 }, { label: 'Y', value: 2 }] },
+          { label: 'B', data: [{ label: 'X', value: 4 }, { label: 'Y', value: 5 }, { label: 'Z', value: 6 }] },
+        ] },
+        { type: 'chart', data: [], series: [
+          { label: 'A', data: [{ label: 'X', value: 1 }, { label: 'Y', value: 2 }] },
+          { label: 'B', data: [{ label: 'X', value: 4 }, { label: 'Y', value: 5 }, { label: 'Z', value: 6 }] },
+        ] },
+      ],
+    }
+    const resolved = resolveComputedSpec(spec, evaluateComputed(spec, {}))
+    const chart = resolved.items[0] as {
       series: Array<{ data: Array<{ label: string; value: number }> }>
     }
-    expect(chart.series.map(entry => entry.data.map(point => point.label))).toEqual([['X'], ['X']])
+    expect(chart.series.map(entry => entry.data.map(point => point.value))).toEqual([[1, 2], [4, 5, 6]])
+    const out = render(<GenuiBlock spec={spec} />)
+    const charts = within(out.container).getAllByRole('img')
+    expect(charts[0]!.querySelectorAll('circle')).toHaveLength(5)
+    expect(charts[0]!.querySelector('svg')?.textContent).toContain('Z')
+    expect(within(charts[1]!).getByText('Z')).toBeTruthy()
+  })
+
+  it('matches multi-series chart points by category label', () => {
+    const spec: GenuiSpec = {
+      items: [
+        { type: 'chart', kind: 'line', data: [], series: [
+          { label: 'A', data: [{ label: 'North', value: 1 }, { label: 'South', value: 2 }] },
+          { label: 'B', data: [{ label: 'South', value: 3 }, { label: 'West', value: 4 }] },
+        ] },
+        { type: 'chart', kind: 'line', data: [], series: [
+          { label: 'A', data: [{ label: 'X', value: 1 }, { label: 'Z', value: 2 }] },
+          { label: 'B', data: [{ label: 'X', value: 3 }, { label: 'Y', value: 4 }, { label: 'Z', value: 5 }] },
+        ] },
+      ],
+    }
+    const out = render(<GenuiBlock spec={spec} />)
+    const [chart, reorderedChart] = within(out.container).getAllByRole('img')
+    const labels = [...chart!.querySelectorAll('svg text')].map(node => node.textContent)
+    expect(labels).toEqual(expect.arrayContaining(['North', 'South', 'West']))
+    expect(chart!.querySelectorAll('circle')).toHaveLength(4)
+    const categoryLabels = [...reorderedChart!.querySelectorAll('svg text[y="168"]')].map(node => node.textContent)
+    expect(categoryLabels).toEqual(['X', 'Y', 'Z'])
+  })
+
+  it('keeps up to the per-series chart point limit across distinct categories', () => {
+    const spec: GenuiSpec = {
+      items: [{ type: 'chart', kind: 'line', data: [], series: [
+        { label: 'A', data: Array.from({ length: 60 }, (_unused, index) => ({ label: `A${index}`, value: index })) },
+        { label: 'B', data: Array.from({ length: 60 }, (_unused, index) => ({ label: `B${index}`, value: index })) },
+      ] }],
+    }
+    const out = render(<GenuiBlock spec={spec} />)
+    expect(within(out.container).getByRole('img').querySelectorAll('circle')).toHaveLength(120)
+  })
+
+  it('rejects duplicate input IDs and prevents ambiguous formulas from rendering a value', () => {
+    const spec: GenuiSpec = {
+      computed: [{ id: 'double', expr: 'amount*2' }],
+      items: [
+        { type: 'input', id: 'amount', label: '金额一', inputType: 'number', value: '10' },
+        { type: 'input', id: 'amount', label: '金额二', inputType: 'number', value: '20' },
+        { type: 'text', content: '结果 {{double}}' },
+      ],
+    }
+    const validation = validateGenuiSpec(spec)
+    expect(validation.ok).toBe(false)
+    expect(validation.errors).toContain("spec.items contains duplicate input field ID 'amount'")
+    expect(evaluateComputed(spec, { amount: '20' }).errors.double).toContain('输入字段 ID 重复')
+    const out = render(<GenuiBlock spec={spec} />)
+    expect(out.container.textContent).toContain('结果 无效输入')
   })
 
   it('resolves an invalid chart reference by removing its point', () => {
@@ -190,5 +279,57 @@ describe('Computed rendering', () => {
     fireEvent.change(within(out.container).getByLabelText('数量'), { target: { value: '6' } })
     expect(out.container.textContent).toContain('12')
     expect(out.container.textContent).not.toContain('8')
+  })
+
+  it('keeps numeric drafts local until parsing succeeds and treats clearing as invalid input', () => {
+    const spec: GenuiSpec = {
+      computed: [{ id: 'double', expr: 'amount*2' }],
+      items: [
+        { type: 'input', id: 'amount', label: '金额', inputType: 'number', value: '2' },
+        { type: 'text', content: '结果 {{double}}' },
+      ],
+    }
+    const out = render(<GenuiBlock spec={spec} />)
+    const input = within(out.container).getByLabelText('金额')
+    expect(input.getAttribute('type')).toBe('text')
+    expect(input.getAttribute('inputmode')).toBe('decimal')
+    fireEvent.change(input, { target: { value: '-' } })
+    expect((input as HTMLInputElement).value).toBe('-')
+    expect(out.container.textContent).toContain('结果 4')
+    fireEvent.change(input, { target: { value: '1.' } })
+    expect((input as HTMLInputElement).value).toBe('1.')
+    expect(out.container.textContent).toContain('结果 2')
+    fireEvent.change(input, { target: { value: '' } })
+    expect(out.container.textContent).toContain('结果 无效输入')
+  })
+
+  it('shows currency, percentage, and decimal formatting in tables while sorting by raw values', () => {
+    const spec: GenuiSpec = {
+      computed: [
+        { id: 'money', expr: '120000', format: { locale: 'en-US', style: 'currency', currency: 'USD', maximumFractionDigits: 0 } },
+        { id: 'ratio', expr: '0.125', format: { style: 'percent', maximumFractionDigits: 1 } },
+        { id: 'fraction', expr: '1/3', format: { maximumFractionDigits: 2 } },
+        { id: 'high', expr: '20', format: { style: 'currency', currency: 'USD', maximumFractionDigits: 0 } },
+        { id: 'low', expr: '3', format: { style: 'currency', currency: 'USD', maximumFractionDigits: 0 } },
+      ],
+      items: [
+        { type: 'table', columns: ['金额', '比例', '小数'], rows: [[{ $computed: 'money' }, { $computed: 'ratio' }, { $computed: 'fraction' }]] },
+        { type: 'table', columns: ['金额', '名称'], rows: [[{ $computed: 'high' }, '较高'], [{ $computed: 'low' }, '较低']] },
+        { type: 'table', columns: ['分组', '金额'], types: ['group', 'num'], rows: [[{ $computed: 'money' }, ''], ['项目', 1]] },
+      ],
+    }
+    const result = evaluateComputed(spec, {})
+    const out = render(<GenuiBlock spec={spec} />)
+    const tables = within(out.container).getAllByRole('table')
+    expect(tables[0]?.textContent).toContain(result.formatted.money)
+    expect(tables[0]?.textContent).toContain(result.formatted.ratio)
+    expect(tables[0]?.textContent).toContain(result.formatted.fraction)
+    fireEvent.click(within(tables[1]!).getByRole('button', { name: '金额' }))
+    expect(Array.from(tables[1]!.querySelectorAll('tbody tr')).map(row => row.textContent)).toEqual([
+      `${result.formatted.low}较低`,
+      `${result.formatted.high}较高`,
+    ])
+    expect(tables[2]?.textContent).toContain(result.formatted.money)
+    expect(tables[2]?.textContent).not.toContain('[object Object]')
   })
 })

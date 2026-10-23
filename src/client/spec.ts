@@ -113,6 +113,15 @@ export interface GenuiComputedRef {
   $computed: string
 }
 
+/** 仅用于渲染阶段的表格值，排序读取原始数值，显示读取格式化文字。 */
+export const GENUI_COMPUTED_CELL = Symbol('dsh-genui-computed-cell')
+
+export interface GenuiComputedCell {
+  [GENUI_COMPUTED_CELL]: true
+  value: number
+  formatted: string
+}
+
 /* ---------------- leaf nodes ---------------- */
 
 export interface GenuiText {
@@ -431,7 +440,7 @@ export interface GenuiList {
 export interface GenuiTable {
   type: 'table'
   columns: string[]
-  rows: Array<Array<string | number | GenuiComputedRef>>
+  rows: Array<Array<string | number | GenuiComputedRef | GenuiComputedCell>>
   /** Per-column cell type; missing = auto (numeric right-align, signed delta). */
   types?: TableCellType[]
   /** Append a 合计 footer row (numeric columns are summed). */
@@ -459,7 +468,7 @@ export type TableCellType = 'text' | 'num' | 'delta' | 'bar' | 'badge' | 'spark'
 
 export interface GenuiChartDatum {
   label: string
-  value: number | GenuiComputedRef
+  value: number | GenuiComputedRef | null
   color?: string
 }
 
