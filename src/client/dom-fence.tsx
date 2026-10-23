@@ -75,7 +75,7 @@ import { normalizeFenceLanguage } from '../shared/fence-language.ts'
 const CODE_BLOCK_SELECTORS = '.md-code-block, .code-block, .code-block-small'
 
 /** 在同一处收集代码块包装节点，供候选扫描和原始围栏序号共用。 */
-function codeBlockSurfaces(scope: ParentNode): HTMLElement[] {
+export function codeBlockSurfaces(scope: ParentNode): HTMLElement[] {
   const surfaces = new Set(scope.querySelectorAll<HTMLElement>(CODE_BLOCK_SELECTORS))
   for (const content of scope.querySelectorAll<HTMLElement>('[data-code-block-content]')) {
     if (content.parentElement !== null) surfaces.add(content.parentElement)
@@ -117,10 +117,10 @@ const DIAGNOSTIC_CLASS = 'genui-dom-fence-diagnostic'
 /** Host containers a takeover never reaches: our own mounted trees. Every
  * discovery path shares these gates, so a changed node cannot enqueue what a
  * full scan rejects. */
-const SURFACE_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-genui-svg-fence]`
+const SURFACE_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-genui-svg-fence], [data-genui-surface]`
 /** Same for tag-text spans: the host renders these rows outside the
  * transcript (reasoning, tool output, sidebars, plugin panels). */
-const TAG_TEXT_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-chat-group-part="reasoning"], [data-tool], [data-sidebar-chat], [data-sidebar-right-session], [data-sidebar-right-panel], [data-panel-conversation], [data-plugin-panel]`
+const TAG_TEXT_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-genui-surface], [data-chat-group-part="reasoning"], [data-tool], [data-sidebar-chat], [data-sidebar-right-session], [data-sidebar-right-panel], [data-panel-conversation], [data-plugin-panel]`
 /**
  * Subtrees whose mutations cannot change a fence.
  *
@@ -136,7 +136,7 @@ const IGNORED_MUTATION_SCOPE = `${SURFACE_EXCLUDES}, [data-composer-seat], [data
 const FENCE_ATTRIBUTES = ['data-streaming', 'class', 'data-code-block-content', 'data-code-block-banner',
   'data-chat-anchor-key', 'data-chat-flow-key', 'data-chat-flow-kind', 'data-chat-node-key',
   'data-chat-group-part', 'data-tool', 'data-sidebar-chat', 'data-sidebar-right-session',
-  'data-sidebar-right-panel', 'data-panel-conversation', 'data-plugin-panel', 'data-genui-svg-fence']
+  'data-sidebar-right-panel', 'data-panel-conversation', 'data-plugin-panel', 'data-genui-svg-fence', 'data-genui-surface']
 /** Slow sweep interval: the observer catches everything, this is the 1s
  * belt-and-braces pass (history loads, missed attribute batches). */
 const SWEEP_MS = 1000

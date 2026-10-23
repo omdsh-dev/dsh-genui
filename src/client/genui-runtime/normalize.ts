@@ -4,6 +4,7 @@ import type { ComponentRecordSchema } from './schema.ts'
 import { isComponentRoot } from '../spec.ts'
 import type { GenuiDiagnostic } from './diagnostics.ts'
 import { isTableDetailReachable } from '../table-details.ts'
+import { GENUI_LIMITS } from './limits.ts'
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -137,13 +138,16 @@ function normalizeRecordTree(
   if (holder === undefined) return value
   const out = { ...holder }
   for (const [alias, canonical] of Object.entries(definition.aliases)) {
-    if (!(alias in out) || canonical in out) continue
-    out[canonical] = out[alias]
+    if (!(alias in out)) continue
+    const keptCanonical = canonical in out
+    if (!keptCanonical) out[canonical] = out[alias]
     delete out[alias]
     warnings.push({
       kind: 'alias',
       path: `${at}.${alias}`,
-      message: `${at}.${alias} normalized/adopted as '${canonical}'`,
+      message: keptCanonical
+        ? `${at}.${alias} is ignored because canonical field '${canonical}' is present`
+        : `${at}.${alias} normalized/adopted as '${canonical}'`,
       type,
       field: alias,
       canonical,
@@ -190,7 +194,17 @@ function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[]
   // Nested data records (keyvalue pairs, file-tree items, …) carry their own
   // field aliases — apply them before validation/repair see the records.
   for (const [field, nested] of Object.entries(definition.nested)) {
-    if (out[field] !== undefined) out[field] = normalizeRecordTree(out[field], nested, `${path}.${field}`, type, warnings)
+    if (out[field] === undefined) continue
+    const nestedValue = out[field]
+    const cap = type === 'image-group' && field === 'items' ? GENUI_LIMITS.maxImageGroupItems : undefined
+    if (cap !== undefined && Array.isArray(nestedValue)) {
+      out[field] = [
+        ...normalizeRecordTree(nestedValue.slice(0, cap), nested, `${path}.${field}`, type, warnings) as unknown[],
+        ...nestedValue.slice(cap),
+      ]
+    } else {
+      out[field] = normalizeRecordTree(nestedValue, nested, `${path}.${field}`, type, warnings)
+    }
   }
   const normalizeNodeValue = (child: unknown, childPath: string): unknown => normalizeNode(child, childPath, warnings)
   const normalizeNodeArray = (children: unknown, childPath: string): unknown => Array.isArray(children)
@@ -222,8 +236,18 @@ function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[]
     }
   }
 
-  if (type === 'row' || type === 'col' || type === 'grid' || type === 'card' || type === 'file-tree' || type === 'timeline' || type === 'breadcrumb') {
-    if (type !== 'file-tree' && type !== 'timeline' && type !== 'breadcrumb') out.items = normalizeNodeArray(out.items, `${path}.items`)
+  if (type === 'row' || type === 'col' || type === 'grid' || type === 'card' || type === 'carousel' || type === 'file-tree' || type === 'timeline' || type === 'breadcrumb') {
+    if (type !== 'file-tree' && type !== 'timeline' && type !== 'breadcrumb') {
+      if (type === 'carousel' && Array.isArray(out.items)) {
+        const rendered = out.items.slice(0, GENUI_LIMITS.maxCarouselItems)
+        out.items = [
+          ...normalizeNodeArray(rendered, `${path}.items`) as unknown[],
+          ...out.items.slice(GENUI_LIMITS.maxCarouselItems),
+        ]
+      } else {
+        out.items = normalizeNodeArray(out.items, `${path}.items`)
+      }
+    }
   } else if (type === 'list' && Array.isArray(out.items)) {
     // List records and nested nodes share items; aliases only belong to records.
     out.items = out.items.map((child, index) => {

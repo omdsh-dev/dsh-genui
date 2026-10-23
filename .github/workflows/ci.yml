@@ -67,10 +67,37 @@ jobs:
       # 任何活跃实例；宿主二进制必须位于本次 checkout 内。
       - name: Smoke e2e (no model key)
         run: |
-          node scripts/e2e.mjs --smoke --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
+          node --test scripts/sidechat-acceptance/tests/*.test.mjs
+          node scripts/e2e.mjs --smoke --sidechat --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
         env:
           DSH_ROOT: ${{ github.workspace }}/../../.dsh/source/current
           DSH_BIN: ${{ github.workspace }}/../../.dsh/source/current/apps/cli/lib/bin.js
+
+      - name: Archive gallery browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-${{ matrix.node }}-${{ matrix.role }}
+          path: |
+            gallery-*.png
+            gallery-*.json
+          if-no-files-found: ignore
+
+      # Only bounded synthetic screenshots and explicit verdicts, never HOME/logs/config.
+      - name: Archive dual-plugin sidechat evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sidechat-node-${{ matrix.node }}-${{ matrix.role }}
+          retention-days: 7
+          path: |
+            .e2e-artifacts/sidechat/dsh354-thread-A-block2-fence1.png
+            .e2e-artifacts/sidechat/dsh354-thread-B-block0-fence1.png
+            .e2e-artifacts/sidechat/dsh354-main-unchanged.png
+            .e2e-artifacts/sidechat/dsh354-thread-B-after-actions.png
+            .e2e-artifacts/sidechat/dsh354-host-verdict.json
+            .e2e-artifacts/sidechat/dsh354-browser-report.json
+          if-no-files-found: ignore
 
       - name: Archive e2e artifacts
         if: failure()

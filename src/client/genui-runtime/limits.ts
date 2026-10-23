@@ -17,6 +17,9 @@ export const GENUI_LIMITS = {
   maxGridCols: 12,
   /** Maximum `tabs` count. */
   maxTabs: 12,
+  /** Bounded gallery/slide counts; carousel children also consume maxNodes. */
+  maxCarouselItems: 24,
+  maxImageGroupItems: 24,
   /** Maximum `accordion` items. */
   maxAccordionItems: 24,
   /** Maximum `list` items. */

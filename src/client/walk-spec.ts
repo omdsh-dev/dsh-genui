@@ -19,6 +19,9 @@ export function walkGenuiNodes(spec: GenuiSpec, visitor: (node: GenuiNode, path:
       case 'card':
         walk(node.items, `${at}.items`, depth + 1)
         break
+      case 'carousel':
+        walk(node.items.slice(0, GENUI_LIMITS.maxCarouselItems), `${at}.items`, depth + 1)
+        break
       case 'tabs':
         node.tabs.forEach((tab, tabIndex) => walk(tab.items, `${at}.tabs[${tabIndex}].items`, depth + 1))
         break

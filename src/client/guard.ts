@@ -153,7 +153,9 @@ function validateNestedRecordSchemas(
     const nestedValue = value[field]
     if (nestedValue === undefined) continue
     if (Array.isArray(nestedValue)) {
-      const records = field === 'computed' ? nestedValue.slice(0, GENUI_LIMITS.maxComputedFields) : nestedValue
+      const records = value.type === 'image-group' && field === 'items'
+        ? nestedValue.slice(0, GENUI_LIMITS.maxImageGroupItems)
+        : field === 'computed' ? nestedValue.slice(0, GENUI_LIMITS.maxComputedFields) : nestedValue
       records.forEach((item, index) => validateRecordSchema(item, `${at}.${field}[${index}]`, nested, errors))
     } else {
       validateRecordSchema(nestedValue, `${at}.${field}`, nested, errors)
@@ -354,6 +356,25 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
         // figure headers need `justify: "center"` (icon + title over a caption).
         ...opt('justify', enu(v.justify, ROW_JUSTIFY)),
       }
+    }
+    case 'carousel': {
+      const source = Array.isArray(v.items) ? v.items.slice(0, GENUI_LIMITS.maxCarouselItems) : []
+      return {
+        type: 'carousel', items: repairItems(source, ctx, depth + 1),
+        ...opt('title', str(v.title, GENUI_LIMITS.maxString)),
+        ...opt('itemWidth', num(v.itemWidth, 80, 640)),
+        ...opt('gap', num(v.gap, 0, Number.MAX_SAFE_INTEGER / 4)),
+      }
+    }
+    case 'image-group': {
+      const source = Array.isArray(v.items) ? v.items.slice(0, GENUI_LIMITS.maxImageGroupItems) : []
+      const items = source.flatMap(value => {
+        const item = obj(value)
+        const src = safeMediaSrc(item?.src)
+        if (item === undefined || src === undefined) return []
+        return [{ src, ...opt('alt', str(item.alt, GENUI_LIMITS.maxString)), ...opt('caption', str(item.caption, GENUI_LIMITS.maxString)) }]
+      })
+      return { type: 'image-group', items, ...opt('title', str(v.title, GENUI_LIMITS.maxString)) }
     }
     case 'col': {
       return {
@@ -1404,7 +1425,7 @@ export function countGenuiNodes(value: unknown, cap = Number.POSITIVE_INFINITY):
           const io = obj(it)
           if (io !== undefined) walk(io.items)
         }
-      } else if ((v.type === 'row' || v.type === 'col' || v.type === 'grid' || v.type === 'card') && Array.isArray(v.items)) {
+      } else if ((v.type === 'row' || v.type === 'col' || v.type === 'grid' || v.type === 'card' || v.type === 'carousel') && Array.isArray(v.items)) {
         // Layout containers hold real children; skipping them undercounted
         // the tree and hid silent drops from validate_dsh_ui (issue #42).
         walk(v.items)
@@ -1446,16 +1467,17 @@ export const GENUI_NODE_TYPES: ReadonlySet<string> = GENUI_NATIVE_TYPES
  *
  * With `familyCaps` (default) the traversal applies the same per-family
  * policy caps repair enforces (tabs ≤ maxTabs, accordion items ≤
- * maxAccordionItems): nodes beyond a cap are policy-truncated, not defects,
+ * maxAccordionItems, carousel items ≤ maxCarouselItems): nodes beyond a cap are policy-truncated, not defects,
  * so the declared-vs-rendered ledger must not count them as vanished (#298).
  */
 function visitDeclaredGenuiNodes(
   value: unknown,
   cap: number,
   visit: (node: Record<string, unknown>, at: string) => void,
-  options: { familyCaps?: boolean } = {},
+  options: { familyCaps?: boolean; carouselCaps?: boolean } = {},
 ): number {
   const familyCaps = options.familyCaps !== false
+  const carouselCaps = options.carouselCaps ?? familyCaps
   let count = 0
   const declared = (candidate: unknown): boolean => {
     const o = obj(candidate)
@@ -1484,8 +1506,9 @@ function visitDeclaredGenuiNodes(
       for (let row = 0; row < rowCount; row++) {
         walkItemsOf(v.items[row], `${at}.items[${row}]`)
       }
-    } else if ((v.type === 'row' || v.type === 'col' || v.type === 'grid' || v.type === 'card') && Array.isArray(v.items)) {
-      walk(v.items, `${at}.items`)
+    } else if ((v.type === 'row' || v.type === 'col' || v.type === 'grid' || v.type === 'card' || v.type === 'carousel') && Array.isArray(v.items)) {
+      const items = v.type === 'carousel' && carouselCaps ? v.items.slice(0, GENUI_LIMITS.maxCarouselItems) : v.items
+      walk(items, `${at}.items`)
     } else if (v.type === 'list' && Array.isArray(v.items)) {
       for (let row = 0; row < v.items.length; row++) {
         walkNode(v.items[row], `${at}.items[${row}]`)
@@ -1517,10 +1540,10 @@ function visitDeclaredGenuiNodes(
  * Count white-listed nodes declared by a raw spec before repair drops invalid entries.
  * @param value - raw GenUI spec.
  * @param cap - traversal ceiling.
- * @param options - `familyCaps: false` counts beyond per-family policy caps too.
+ * @param options - `familyCaps: false` counts beyond per-family policy caps; `carouselCaps: true` keeps the carousel item cap.
  * @returns declared node count up to the ceiling.
  */
-export function countDeclaredGenuiNodes(value: unknown, cap = Number.POSITIVE_INFINITY, options: { familyCaps?: boolean } = {}): number {
+export function countDeclaredGenuiNodes(value: unknown, cap = Number.POSITIVE_INFINITY, options: { familyCaps?: boolean; carouselCaps?: boolean } = {}): number {
   return visitDeclaredGenuiNodes(value, cap, () => {}, options)
 }
 
@@ -1700,13 +1723,14 @@ export function processGenuiSpec(value: unknown): GenuiProcessResult {
   const repaired = repairCanonicalGenuiSpec(normalized.value)
   const validation = validateCanonicalGenuiSpec(normalized.value)
   // Policy-aware ledger (#298): nodes beyond a per-family cap (tabs ≤
-  // maxTabs, accordion items ≤ maxAccordionItems) are truncated BY DESIGN, so
+  // maxTabs, accordion items ≤ maxAccordionItems, carousel items ≤
+  // maxCarouselItems) are truncated BY DESIGN, so
   // they are not counted as "declared but vanished" — otherwise the fence
   // below would always degrade to a code block and the truncation in repair
   // could never take effect. The uncapped pass measures the truncation for
   // the teaching warning instead.
   const declaredNativeCount = countDeclaredGenuiNodes(normalized.value, GENUI_LIMITS.maxNodes + 1)
-  const uncappedDeclaredCount = countDeclaredGenuiNodes(normalized.value, GENUI_LIMITS.maxNodes + 1, { familyCaps: false })
+  const uncappedPolicyNodeCount = countDeclaredGenuiNodes(normalized.value, GENUI_LIMITS.maxNodes + 1, { familyCaps: false, carouselCaps: true })
   const renderedNativeCount = repaired === null ? 0 : countRenderedNativeGenuiNodes(repaired)
   const renderedTotalCount = repaired === null ? 0 : countGenuiNodes(repaired)
   // The shared public validator preserves its historical diagnostic for an
@@ -1720,11 +1744,30 @@ export function processGenuiSpec(value: unknown): GenuiProcessResult {
     errors.push(`repair dropped ${declaredNativeCount - renderedNativeCount} declared native node(s): declared ${declaredNativeCount}, rendered ${renderedNativeCount}`)
   }
   const warnings: GenuiDiagnostic[] = [...normalized.warnings, ...diagnoseUnknownGenuiFields(normalized.value)]
-  if (uncappedDeclaredCount > declaredNativeCount) {
+  let carouselItemOverflow = 0
+  let imageGroupOverflow = 0
+  visitDeclaredGenuiNodes(normalized.value, GENUI_LIMITS.maxNodes + 1, node => {
+    if (node.type === 'carousel' && Array.isArray(node.items)) {
+      carouselItemOverflow += Math.max(0, node.items.length - GENUI_LIMITS.maxCarouselItems)
+    } else if (node.type === 'image-group' && Array.isArray(node.items)) {
+      imageGroupOverflow += Math.max(0, node.items.length - GENUI_LIMITS.maxImageGroupItems)
+    }
+  })
+  const truncationReasons: string[] = []
+  if (uncappedPolicyNodeCount > declaredNativeCount) {
+    truncationReasons.push(`${uncappedPolicyNodeCount - declaredNativeCount} 个声明节点超出 tabs ≤ ${GENUI_LIMITS.maxTabs} / accordion ≤ ${GENUI_LIMITS.maxAccordionItems} 的上限`)
+  }
+  if (carouselItemOverflow > 0) {
+    truncationReasons.push(`${carouselItemOverflow} 个 carousel 项超出 carousel ≤ ${GENUI_LIMITS.maxCarouselItems} 的上限`)
+  }
+  if (imageGroupOverflow > 0) {
+    truncationReasons.push(`${imageGroupOverflow} 张图片超出 image-group ≤ ${GENUI_LIMITS.maxImageGroupItems} 的上限`)
+  }
+  if (truncationReasons.length > 0) {
     warnings.push({
       kind: 'truncated',
       path: 'spec',
-      message: `策略上限截断:${uncappedDeclaredCount - declaredNativeCount} 个声明节点超出 tabs ≤ ${GENUI_LIMITS.maxTabs} / accordion ≤ ${GENUI_LIMITS.maxAccordionItems} 的上限,未渲染;围栏照常渲染,重发时可拆分为多个组件`,
+      message: `策略上限截断:${truncationReasons.join('；')},未渲染;策略限制包括 tabs ≤ ${GENUI_LIMITS.maxTabs} / accordion ≤ ${GENUI_LIMITS.maxAccordionItems} / carousel ≤ ${GENUI_LIMITS.maxCarouselItems} / image-group ≤ ${GENUI_LIMITS.maxImageGroupItems};围栏照常渲染,重发时可拆分为多个组件`,
     })
   }
   return {
@@ -2039,14 +2082,23 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       isStr('content')
       isStr('text')
       break
-    case 'row': case 'col': case 'card': case 'grid':
+    case 'row': case 'col': case 'card': case 'grid': case 'carousel':
       if (!Array.isArray(v.items)) errors.push(`${at}: type '${type}' requires items (array)`)
-      walk(v.items, depth + 1, `${at}.items`)
+      walk(type === 'carousel' && Array.isArray(v.items) ? v.items.slice(0, GENUI_LIMITS.maxCarouselItems) : v.items, depth + 1, `${at}.items`)
       if (type === 'grid') isNum('cols')
       break
     case 'button': case 'checkbox': case 'link': case 'switch':
       if (typeof v.label !== 'string') errors.push(`${at}: type '${type}' requires label (string)`)
       isStr('label')
+      break
+    case 'image-group':
+      if (!Array.isArray(v.items)) errors.push(`${at}: type 'image-group' requires items (array)`)
+      else v.items.slice(0, GENUI_LIMITS.maxImageGroupItems).forEach((item, index) => {
+        const image = obj(item)
+        if (image !== undefined && typeof image.src === 'string' && safeMediaSrc(image.src) === undefined) {
+          errors.push(`${at}.items[${index}].src must be an http(s) or relative media URL`)
+        }
+      })
       break
     case 'image': case 'audio': case 'video':
       if (typeof v.src !== 'string') errors.push(`${at}: type '${type}' requires src (string)`)

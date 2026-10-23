@@ -4,6 +4,7 @@ import { analyzeGenuiPortability } from './portability.ts'
 import { GenuiExportError, type GenuiArtifactV1, type GenuiStandaloneAsset } from './types.ts'
 import { STANDALONE_THEME_CSS } from './standalone-theme.ts'
 import type { GenuiSpec } from '../spec.ts'
+import { walkGenuiNodes } from '../walk-spec.ts'
 
 const bundleCache = new Map<string, Promise<Uint8Array>>()
 
@@ -46,6 +47,13 @@ function bundleElement(name: string, bytes: Uint8Array): string {
 /** 将媒体相对地址转换为导出页面所在站点的绝对地址。 */
 function resolveMediaUrls(spec: GenuiSpec, baseURI: string): GenuiSpec {
   const copy = structuredClone(spec)
+  /** 复用媒体节点的 URL 与协议规则，不修改原 JSON artifact。 */
+  function resolveUrl(media: string): string {
+    if (/^https?:\/\//i.test(media)) return media
+    const url = new URL(media, baseURI)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new GenuiExportError('artifact-invalid', `media URL cannot be exported: ${media}`)
+    return url.href
+  }
   /** 遍历规范中的嵌套节点和容器。 */
   function visit(value: unknown): void {
     if (Array.isArray(value)) {
@@ -57,15 +65,19 @@ function resolveMediaUrls(spec: GenuiSpec, baseURI: string): GenuiSpec {
     if (node.type === 'image' || node.type === 'audio' || node.type === 'video') {
       for (const field of node.type === 'video' ? ['src', 'poster'] : ['src']) {
         const media = node[field]
-        if (typeof media !== 'string' || /^https?:\/\//i.test(media)) continue
-        const url = new URL(media, baseURI)
-        if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new GenuiExportError('artifact-invalid', `media URL cannot be exported: ${media}`)
-        node[field] = url.href
+        if (typeof media === 'string') node[field] = resolveUrl(media)
       }
     }
     for (const child of Object.values(node)) visit(child)
   }
   visit(copy.items)
+  // Gallery records have no node type. Only visit actual UI components, never
+  // similarly shaped raw JSON/chart data embedded in another component.
+  walkGenuiNodes(copy, node => {
+    if (node.type === 'image-group') {
+      for (const item of node.items) item.src = resolveUrl(item.src)
+    }
+  })
   return copy
 }
 

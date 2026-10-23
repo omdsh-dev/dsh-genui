@@ -153,6 +153,7 @@ dsh-genui Capabilities
   - Multi-series plotting with expressions (trig, log, exp, power);
   - **Live Parameter Sliders**: Drag sliders to redraw curves instantly at 60 FPS; supports auto-animation loops.
 - **Mermaid & 3D Visuals**: Flowcharts, sequence diagrams, and lightweight 3D models with on-demand asset loading.
+- **Native Galleries**: `carousel` composes existing cards and forms in a responsive, keyboard-navigable horizontal track; `image-group` opens images in a local lightbox with focus restoration. Navigation does not invoke model actions. [Examples and verification](docs/gallery.md).
 - **Native Media**: Inline playback for accessible audio and video URLs, with poster images, aspect ratios, and controls.
 - **KaTeX Math Rendering**: Inline math (`$...$`) and display blocks (`$$...$$`), supporting matrices and multi-line equations.
 
@@ -318,6 +319,14 @@ To customize plugin behaviors, add configurations under `cordis.patch.yml` in yo
 You can import `GenuiBlock`, `GenuiActionContext`, and `processGenuiSpec` from `@changfenhuang/dsh-genui/embed` to embed the renderer into any React application supporting CSS Modules.
 
 ---
+
+### BetterSidebar side conversations (optional)
+
+GenUI can render settled `dsh-ui` fences on an explicit BetterSidebar sidechat surface. This requires BetterSidebar's `registerSidechatSurfaceAdapter` service capability; an older or absent BetterSidebar keeps its original Markdown. No cross-plugin package import or main-conversation DOM attributes are required.
+
+Actions use the owning child thread's existing prompt route, never the main conversation. Interaction state is isolated by source, thread, event, original text-block index and fence index. Streaming text remains Markdown until settled. `panel:true`, SVG, unlabelled fences and invalid or mismatched source/DOM content retain their original code blocks; this integration does not invent a sidechat panel dock.
+
+See [the bounded surface contract and validation checklist](docs/sidechat-surfaces.md). This is a coordinated capability addition, not a claim that released BetterSidebar 0.28.0 already supports it.
 
 ## ❓ FAQ & Troubleshooting
 

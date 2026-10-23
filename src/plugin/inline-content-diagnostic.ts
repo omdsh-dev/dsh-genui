@@ -1,3 +1,4 @@
+import { GENUI_LIMITS } from '../client/genui-runtime/limits.ts'
 import type { GenuiNode, GenuiSpec } from '../client/spec.ts'
 
 export interface InlineContentWarning {
@@ -47,6 +48,15 @@ export function collectInlineContentWarnings(spec: GenuiSpec): InlineContentWarn
       case 'card':
         check(node.title, `${path}.title`)
         node.items.forEach((child, i) => visit(child, `${path}.items[${i}]`))
+        break
+      case 'carousel':
+        check(node.title, `${path}.title`)
+        node.items.slice(0, GENUI_LIMITS.maxCarouselItems).forEach((child, i) => visit(child, `${path}.items[${i}]`))
+        break
+      case 'image-group':
+        check(node.title, `${path}.title`)
+        node.items.slice(0, GENUI_LIMITS.maxImageGroupItems).forEach((item, i) => check(item.caption, `${path}.items[${i}].caption`))
+        // alt and src are plain attributes, not inline Markdown surfaces.
         break
       case 'row':
       case 'col':

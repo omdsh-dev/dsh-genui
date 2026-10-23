@@ -11,13 +11,16 @@
  *
  * 用法：
  *   node scripts/e2e.mjs [--port 3088] [--keep] [--install link|npm|tarball]
- *                        [--tarball <路径> --tarball-sha256 <sha>] [--smoke]
+ *                        [--tarball <路径> --tarball-sha256 <sha>] [--smoke] [--sidechat]
  *
  *   --install link    （默认）装当前工作区，测的就是当前代码
  *   --install npm     从公开 npm 包安装
  *   --install tarball 必须给 --tarball 绝对路径与 --tarball-sha256（防假安装）
  *   --smoke           不要求模型 Key：安装 → 启动 → 首页/client.js 200 →
- *                     无页面异常 → 插件 boot → Diff/Code/JSON 渲染与复制；不跑模型链路
+ *                     无页面异常 → 插件 boot → Diff/Code/JSON 渲染与复制；
+ *                     rc.2 Gallery 使用官方本地 replay 验证真实会话动作，不访问真实模型。
+ *   --sidechat        显式启用双插件验收；仅允许 --smoke --install tarball，
+ *                     会构建固定提交的 Better Sidebar，不改变原有 smoke 模式。
  * 退出码 0 = PASS，1 = FAIL。
  */
 
@@ -31,6 +34,10 @@ import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { createServer } from 'node:net'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createGallerySpec, startGalleryImageServer } from './gallery-browser-checks.mjs'
+import { runGalleryFixedContexts } from './gallery-fixed-contexts.mjs'
+import { gallerySmokeEnvironment, prepareGalleryConversation } from './e2e-gallery-host.mjs'
+import { runSidechatCI, validateSidechatMode } from './sidechat-acceptance/ci.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DSH_ROOT = process.env.DSH_ROOT ?? resolve(process.env.HOME ?? '', '.dsh/source/current')
@@ -48,6 +55,7 @@ function findDshWebUrl(output) {
 const PORT = Number(arg('--port') ?? 3088)
 const KEEP = process.argv.includes('--keep')
 const SMOKE = process.argv.includes('--smoke')
+const SIDECHAT = process.argv.includes('--sidechat')
 const INSTALL = arg('--install') ?? 'link'
 const TARBALL = arg('--tarball')
 const TARBALL_SHA = arg('--tarball-sha256')
@@ -58,6 +66,7 @@ const log = (msg) => console.log(`· ${msg}`)
 
 // ── 预检：参数、端口、工具 ─────────────────────────────────────────────────
 if (!['link', 'npm', 'tarball'].includes(INSTALL)) fail(`--install 仅允许 link | npm | tarball，收到 "${INSTALL}"`)
+validateSidechatMode({ sidechat: SIDECHAT, smoke: SMOKE, install: INSTALL })
 if (INSTALL === 'tarball') {
   if (!TARBALL || !TARBALL_SHA) fail('tarball 模式必须提供 --tarball <绝对路径> 与 --tarball-sha256 <sha256>')
   if (!resolve(TARBALL).startsWith('/')) fail('--tarball 必须是绝对路径')
@@ -82,10 +91,16 @@ log(`pnpm: ${spawnSync('pnpm', ['--version'], { encoding: 'utf8' }).stdout.trim(
 
 // ── 临时环境 ──────────────────────────────────────────────────────────────
 const DSH_HOME = await mkdtemp(join(tmpdir(), 'dsh-genui-e2e-host-'))
-const env = { ...process.env, DSH_HOME }
+const env = SMOKE
+  ? { ...gallerySmokeEnvironment(process.env, DSH_HOME), HOME: join(DSH_HOME, 'tool-home') }
+  : { ...process.env, DSH_HOME }
+const smokeCwd = join(DSH_HOME, 'smoke-workspace')
 const webLog = join(DSH_HOME, 'dsh-web.log')
 const artifactsDir = process.cwd()
 let webChild = null
+let browser = null
+let galleryAssets = null
+let galleryConversation = null
 
 const killWeb = () => {
   if (webChild === null) return
@@ -102,9 +117,23 @@ process.on('exit', () => {
 })
 
 const cleanup = async () => {
+  const errors = []
+  for (const [name, close] of [
+    ['browser', async () => { const owned = browser; browser = null; await owned?.close() }],
+    ['gallery images', async () => { const owned = galleryAssets; galleryAssets = null; await owned?.close() }],
+  ]) {
+    let timer
+    try {
+      await Promise.race([close(), new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Closing ${name} timed out`)), 8000)
+      })])
+    } catch (error) { errors.push(error) }
+    finally { clearTimeout(timer) }
+  }
   killWeb()
   if (!KEEP) await rm(DSH_HOME, { recursive: true, force: true })
   else log(`保留临时环境: ${DSH_HOME}（日志: ${webLog}）`)
+  if (errors.length) throw new AggregateError(errors, 'Owned smoke resources did not close normally')
 }
 
 const logTail = async (n = 30) => {
@@ -117,19 +146,37 @@ const logTail = async (n = 30) => {
 }
 
 try {
+  // The official launcher reads cwd/.env. A no-key run must not load a real
+  // project environment, even after inherited credential variables are removed.
+  if (SMOKE) {
+    await mkdir(smokeCwd, { recursive: true })
+    await mkdir(env.HOME, { recursive: true })
+  }
+  const installCwd = SMOKE ? smokeCwd : undefined
   // ── 安装插件 ────────────────────────────────────────────────────────────
   if (INSTALL === 'npm') {
     log('安装插件（npm 公开包）...')
-    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', '@changfenhuang/dsh-genui'], { env, stdio: 'inherit' })
+    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', '@changfenhuang/dsh-genui'], { env, cwd: installCwd, stdio: 'inherit' })
     if (r.status !== 0) fail('npm 安装失败（见上方输出）')
   } else if (INSTALL === 'tarball') {
     log(`安装插件（tarball ${TARBALL}）...`)
-    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', TARBALL], { env, stdio: 'inherit' })
+    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', TARBALL], { env, cwd: installCwd, stdio: 'inherit' })
     if (r.status !== 0) fail('tarball 安装失败（见上方输出）')
   } else {
     log('安装插件（link 当前工作区）...')
-    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', `link:${REPO_ROOT}`], { env, stdio: 'inherit' })
+    const r = spawnSync(DSH_BIN, ['plugin', '--profile', 'web', 'add', `link:${REPO_ROOT}`], { env, cwd: installCwd, stdio: 'inherit' })
     if (r.status !== 0) fail('link 安装失败（见上方输出）')
+  }
+
+  if (SMOKE) {
+    galleryAssets = await startGalleryImageServer()
+    galleryConversation = await prepareGalleryConversation({
+      dshRoot: DSH_ROOT, dshHome: DSH_HOME, spec: createGallerySpec(galleryAssets.origin),
+    })
+    if (galleryConversation === null) {
+      await galleryAssets.close()
+      galleryAssets = null
+    }
   }
 
   // ── 启动 dsh web（stdout/stderr 真写进 webLog）──────────────────────────
@@ -140,7 +187,7 @@ try {
     unit: { name: 'workspace', version: 2 },
     global: { initialized: true, workspaceIds: [workspaceId], archivedSessionIds: [] },
     tables: { workspaces: { [workspaceId]: {
-      path: REPO_ROOT, title: 'dsh-genui-e2e', sessionIds: [], createdAt: now, updatedAt: now,
+      path: SMOKE ? smokeCwd : REPO_ROOT, title: 'dsh-genui-e2e', sessionIds: [], createdAt: now, updatedAt: now,
     } } },
   }
   await mkdir(join(DSH_HOME, 'storages'), { recursive: true })
@@ -156,8 +203,10 @@ try {
 
   log(`启动 dsh web (port ${PORT}, DSH_HOME=${DSH_HOME})...`)
   const logStream = createWriteStream(webLog, { flags: 'a' })
-  webChild = spawn(DSH_BIN, ['web', '--no-open', '--port', String(PORT)], {
-    env, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
+  // Launcher --patch flags precede web-app flags; both are official CLI paths.
+  webChild = spawn(DSH_BIN, ['web', ...(galleryConversation?.webArgs ?? []), '--no-open', '--port', String(PORT)], {
+    env, cwd: SMOKE ? galleryConversation?.cwd ?? smokeCwd : undefined,
+    detached: true, stdio: ['ignore', 'pipe', 'pipe'],
   })
   let webOutput = ''
   const captureWebOutput = (chunk) => {
@@ -181,12 +230,12 @@ try {
 
   // ── 浏览器链路 ──────────────────────────────────────────────────────────
   const { chromium } = await import(pathToFileURL(join(DSH_ROOT, 'apps/web/node_modules/playwright/index.mjs')).href)
-  const browser = await chromium.launch({
+  browser = await chromium.launch({
     ...(process.env.E2E_CHROMIUM ? { executablePath: process.env.E2E_CHROMIUM } : { channel: 'chrome' }),
     headless: true,
     args: ['--password-store=basic', '--use-mock-keychain'],
   })
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1200 }, locale: 'zh-CN', permissions: ['clipboard-read', 'clipboard-write'] })
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1200 }, locale: 'zh-CN', hasTouch: false, permissions: ['clipboard-read', 'clipboard-write'] })
   const pageErrors = []
   const pageMessages = []
   page.on('console', message => pageMessages.push(message.text()))
@@ -226,22 +275,25 @@ try {
     // 提供「稍后配置」；DSH 0.2.1 系列只留关闭（Esc/×），且关闭只作用于当前
     // 页面会话（刷新会重现）。遮罩可能在宿主重渲染时重新挂回，所以在后续每次
     // 真实指针交互前幂等地再关一次。scratch 实例,不是产品行为断言（同 e2e-visual.mts）。
-    const dismissCredentialsOverlay = async () => {
-      const later = page.getByRole('button', { name: '稍后配置', exact: true })
+    const createDismissCredentialsOverlay = activePage => async () => {
+      const later = activePage.getByRole('button', { name: '稍后配置', exact: true })
       if (await later.count() > 0) {
-        await later.first().click().catch(() => {})
+        await later.first().click({ timeout: 8000 }).catch(() => {})
         return
       }
-      const login = page.getByRole('button', { name: '登录', exact: true })
+      const login = activePage.getByRole('button', { name: '登录', exact: true })
       if (await login.isVisible().catch(() => false)) {
-        await page.keyboard.press('Escape')
-        await page.waitForTimeout(300)
+        await activePage.keyboard.press('Escape')
+        await activePage.waitForTimeout(300)
       }
     }
+    const dismissCredentialsOverlay = createDismissCredentialsOverlay(page)
     // Fresh keyless profiles follow the host's normal onboarding.
     await page.getByRole('button', { name: '继续', exact: true }).click()
     await page.waitForTimeout(500)
     await dismissCredentialsOverlay()
+    await runGalleryFixedContexts({ browser, page, readyUrl, artifactsDir, galleryConversation, galleryAssets,
+      createDismissCredentialsOverlay, log })
     // Percentage columns divide the space remaining after the row gap. Exercise
     // the installed renderer, including min-content pressure from a long code line.
     for (const width of [500, 280]) {
@@ -567,7 +619,14 @@ try {
     log('packed client source-unavailable CodeBlock 严格兜底验证通过')
 
     log('smoke 模式：安装、激活、Diff/Code/JSON 真实渲染及复制均通过')
-    await browser.close()
+    try {
+      if (SIDECHAT) {
+        const sidechat = await runSidechatCI({ browser, dshRoot: DSH_ROOT, dshBin: DSH_BIN,
+          genuiTarball: TARBALL, genuiTarballSha256: TARBALL_SHA,
+          artifactDir: join(REPO_ROOT, '.e2e-artifacts/sidechat') })
+        log(`dual-plugin sidechat: ${sidechat.status} (${sidechat.hostVersion})`)
+      }
+    } finally { await browser.close() }
     await cleanup()
     console.log('PASS smoke e2e（不消耗模型额度）')
     process.exit(0)
