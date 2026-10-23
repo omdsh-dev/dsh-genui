@@ -9,7 +9,7 @@ import { createServer } from 'node:http'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { checkGalleryTouch } from './gallery-touch-checks.mjs'
-import { createGalleryInputMode } from './gallery-input-mode.mjs'
+import { galleryErrorDetails, readGalleryInputCapabilities } from './gallery-input-mode.mjs'
 
 const TITLE = 'Gallery browser regression'
 const CAROUSEL = 'Gallery browser cards'
@@ -71,7 +71,14 @@ async function bounded(promise, ms, label) {
  * The smoke adapter runs before e2e.mjs changes media, hence restores null.
  */
 export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
-  dismissCredentialsOverlay, restoreColorScheme = null, assertNoActions, report = {} }) {
+  dismissCredentialsOverlay, restoreColorScheme = null, assertNoActions, inputProfile = 'desktop',
+  artifactPrefix = `gallery-${inputProfile}`, report = {} }) {
+  assert.ok(inputProfile === 'desktop' || inputProfile === 'touch')
+  assert.equal(artifactPrefix, `gallery-${inputProfile}`)
+  const touchContext = inputProfile === 'touch'
+  const artifact = name => `${artifactPrefix}-${name}`
+  report.inputChecks ??= []
+  const checkInput = phase => readGalleryInputCapabilities(page, inputProfile, { phase, observations: report.inputChecks })
   const remaining = budget()
   const read = (locator, fn, arg) => bounded(locator.evaluate(fn, arg), remaining(), 'gallery DOM read')
   const attribute = (locator, name) => locator.getAttribute(name, { timeout: remaining() })
@@ -99,11 +106,20 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
   const probeId = `gallery-background-${Date.now()}`
   const probe = page.locator(`[data-gallery-background="${probeId}"]`)
   const errors = []
-  let inputMode
-  report.visualScope = 'Installed renderer CSS, images, native modal, keyboard, pointer, wheel and native Chromium touch scrolling; not physical-device, mouse-drag, or lightbox-swipe validation'
+  report.context = { inputProfile, hasTouch: touchContext, isMobile: false, rootContinuity: 'within this context only' }
+  report.visualScope = touchContext
+    ? 'Fixed touch-capable desktop Chromium: CSS, images, modal, keyboard, wheel and native touch scrolling; no physical-device, mouse-drag, or lightbox-swipe claim'
+    : 'Fixed desktop Chromium: CSS, images, native modal, keyboard, mouse controls and wheel at wide and narrow viewports'
   report.scenarios = []
   try {
-    inputMode = await createGalleryInputMode(page)
+    const initialInput = await checkInput('before-first-scenario')
+    const screenshot = async file => {
+      const options = { path: join(artifactsDir, artifact(file)), timeout: remaining() }
+      // Playwright 1.61.1 captureBeyondViewport can alter touch capability.
+      // Neither fixed context uses locator/full-page captures or their capability-restoration path.
+      await page.screenshot({ ...options, fullPage: false })
+      assert.deepEqual(await checkInput(`after-screenshot:${file}`), initialInput)
+    }
     await bounded(page.evaluate(id => {
       const button = document.createElement('button')
       button.type = 'button'
@@ -150,17 +166,20 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
     }
     const states = [
       { name: 'wide-light', width: 1100, mode: 'light', interactions: true },
-      { name: 'narrow-light', width: 420, mode: 'light', interactions: true, touch: true },
-      { name: 'narrow-dark', width: 420, mode: 'dark', touch: true },
+      { name: 'narrow-light', width: 420, mode: 'light', interactions: true },
+      { name: 'narrow-dark', width: 420, mode: 'dark' },
       { name: 'wide-dark', width: 1100, mode: 'dark' },
       { name: 'wide-light-return', width: 1100, mode: 'light' },
     ]
     for (const state of states) {
-      const input = await inputMode.set(state.touch === true)
+      const inputBefore = await checkInput(`before:${state.name}`)
+      assert.deepEqual(inputBefore, initialInput)
       await bounded(page.setViewportSize({ width: state.width, height: 960 }), remaining(), 'resize gallery viewport')
       await bounded(page.emulateMedia({ colorScheme: state.mode }), remaining(), 'switch host theme')
       await page.waitForFunction(dark => document.body.hasAttribute('data-ds-dark-theme') === dark,
         state.mode === 'dark', { timeout: remaining() })
+      const input = await checkInput(`after-viewport-theme:${state.name}`)
+      assert.deepEqual(input, initialInput)
       await carousel.scrollIntoViewIfNeeded({ timeout: remaining() })
       await poll(() => read(renderedRoot, root => root.getAnimations({ subtree: true })
         .filter(animation => animation.playState === 'running').length), count => count === 0, 'Gallery entrance animation')
@@ -187,7 +206,7 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
         assert.ok(slide.width > 100 && slide.width <= geometry.trackWidth + 1)
         assert.equal(slide.snapAlign, 'start')
       }
-      if (state.touch) {
+      if (touchContext) {
         assert.equal(await next.isVisible(), false, 'Touch devices hide mouse navigation')
         assert.equal(await previous.isVisible(), false, 'Touch devices hide mouse navigation')
       }
@@ -198,7 +217,7 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
         assert.ok(await active(track), 'Initial keyboard setup focuses the track')
         await key('Home')
         await settle(value => value.left <= 1, 'Home reaches first edge')
-        if (!state.touch) {
+        if (!touchContext) {
           assert.equal(await previous.count(), 0, 'Previous is absent at the first edge')
           await next.click({ timeout: remaining() })
           const moved = await settle(value => value.left > 2, 'Trusted next click moves to a snap point')
@@ -215,7 +234,7 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
         await settle(value => Math.abs(value.left - value.maximum) <= 2, 'End reaches the last edge')
         assert.equal(await next.count(), 0, 'Next is absent at the last edge')
         assert.ok(await active(track), 'Keyboard edge movement retains track focus')
-        if (!state.touch) {
+        if (!touchContext) {
           await key('Shift+Tab')
           assert.ok(await active(previous), 'Previous is keyboard reachable from track at the last edge')
           for (let step = 0; step < 8 && await previous.count(); step++) {
@@ -237,11 +256,12 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
         await key('Home')
         await settle(value => value.left <= 1, 'Return track to start after wheel')
       }
-      if (state.name === 'narrow-light') {
+      if (touchContext && state.name === 'narrow-light') {
         await dismiss()
         report.touch = await checkGalleryTouch({ page, track, assertNoActions, timeout: remaining() })
-        await track.screenshot({ path: join(artifactsDir, 'gallery-narrow-touch.png'), timeout: remaining() })
-        report.screenshots.push({ file: 'gallery-narrow-touch.png', state: state.name, target: 'carousel after native touch scroll' })
+        assert.deepEqual(await checkInput('after-native-touch'), initialInput)
+        await screenshot('narrow-gesture.png')
+        report.screenshots.push({ file: artifact('narrow-gesture.png'), state: state.name, target: 'viewport after native touch scroll' })
       }
       await gallery.scrollIntoViewIfNeeded({ timeout: remaining() })
       await decoded(gallery.locator('img[alt="Gallery wide"]').first(), [480, 240])
@@ -328,9 +348,9 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
         await decoded(dialog.locator('img'), [480, 240])
       }
       if (state.name === 'narrow-dark') {
-        await dialog.screenshot({ path: join(artifactsDir, 'gallery-narrow-dark-modal.png'), timeout: remaining() })
-        report.screenshots.push({ file: 'gallery-narrow-dark-modal.png', state: state.name,
-          target: 'native modal', focused: await close.getAttribute('aria-label', { timeout: remaining() }),
+        await screenshot('narrow-dark-modal.png')
+        report.screenshots.push({ file: artifact('narrow-dark-modal.png'), state: state.name,
+          target: 'viewport with native modal', focused: await close.getAttribute('aria-label', { timeout: remaining() }),
           nativeModal: await read(dialog, el => el.matches(':modal')), closeFocused: await active(close) })
       }
       await key('Escape')
@@ -344,10 +364,13 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
         assert.ok(await active(opener), 'Trusted Close click also restores the opener')
       }
       if (state.name === 'wide-light' || state.name === 'narrow-dark') {
-        await renderedRoot.screenshot({ path: join(artifactsDir, `gallery-${state.name}.png`), timeout: remaining() })
-        report.screenshots.push({ file: `gallery-${state.name}.png`, state: state.name, target: 'rendered gallery root' })
+        await screenshot(`${state.name}.png`)
+        report.screenshots.push({ file: artifact(`${state.name}.png`), state: state.name,
+          target: 'viewport with rendered gallery' })
       }
-      report.scenarios.push({ input, name: state.name, geometry, images, theme, modal,
+      const inputAfter = await checkInput(`after:${state.name}`)
+      assert.deepEqual(inputAfter, initialInput)
+      report.scenarios.push({ inputBefore, input, inputAfter, name: state.name, geometry, images, theme, modal,
         interactions: Boolean(state.interactions), sameMountedRoot: true,
         focus: { closeOnOpen: true, openerAfterEscape: true, tabCycleTrapped: state.interactions ? true : null,
           backgroundClickBlocked: state.interactions ? true : null, openerAfterCloseClick: state.interactions ? true : null } })
@@ -357,12 +380,12 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
     report.passed = true
   } catch (error) {
     report.passed = false
-    report.error = String(error)
+    report.errorDetails = galleryErrorDetails(error)
+    report.error = report.errorDetails.message
     errors.push(error)
-    await page.screenshot({ path: join(artifactsDir, 'gallery-failure.png'), timeout: STEP_MS }).catch(() => {})
+    await page.screenshot({ path: join(artifactsDir, artifact('failure.png')), fullPage: false, timeout: STEP_MS }).catch(() => {})
   } finally {
     for (const [label, cleanup] of [
-      ['restore input capability', () => inputMode?.restore()],
       ['close gallery viewer', async () => {
         const dialog = renderedRoot.locator('dialog')
         if (await dialog.count() === 1 && await dialog.evaluate(el => el.open)) await page.keyboard.press('Escape')
@@ -370,13 +393,14 @@ export async function checkGalleryBrowser({ page, renderedRoot, artifactsDir,
       ['remove background probe', () => probe.evaluate(el => el.remove())],
       ['restore viewport', () => page.setViewportSize(originalViewport)],
       ['restore media', () => page.emulateMedia({ colorScheme: restoreColorScheme })],
+      ['verify unchanged fixed input', async () => { report.finalInput = await checkInput('after-cleanup') }],
       ['dispose root handle', () => originalRoot.dispose()],
     ]) {
       try { await bounded(cleanup(), STEP_MS, label) } catch (error) { errors.push(error) }
     }
-    report.cleanupErrors = errors.slice(report.error ? 1 : 0).map(String)
+    report.cleanupErrors = errors.slice(report.error ? 1 : 0).map(galleryErrorDetails)
     if (errors.length) report.passed = false
-    await writeFile(join(artifactsDir, 'gallery-browser-results.json'), `${JSON.stringify(report, null, 2)}\n`)
+    await writeFile(join(artifactsDir, artifact('results.json')), `${JSON.stringify(report, null, 2)}\n`)
   }
   if (errors.length) throw new AggregateError(errors, 'Gallery browser checks failed')
   return report
@@ -405,9 +429,10 @@ export async function startGalleryImageServer() {
 }
 
 /** Adapter for the existing no-key smoke. No app state or conversation is fabricated. */
-export async function runGalleryBrowserChecks({ page, artifactsDir, dismissCredentialsOverlay, log = console.log }) {
+export async function runGalleryBrowserChecks({ page, artifactsDir, dismissCredentialsOverlay, log = console.log,
+  inputProfile = 'desktop', report = {} }) {
   let assets
-  const report = { fixture: 'DOM fence; no conversation or host action routing claim' }
+  report.fixture = 'Minimum-host DOM fence; no conversation or host action routing claim'
   let failure
   try {
     assets = await startGalleryImageServer()
@@ -430,7 +455,7 @@ export async function runGalleryBrowserChecks({ page, artifactsDir, dismissCrede
     }, spec), STEP_MS, 'mount gallery DOM fence')
     const renderedRoot = page.locator(`${FIXTURE} [data-genui]`).first()
     await renderedRoot.waitFor({ state: 'visible', timeout: STEP_MS })
-    await checkGalleryBrowser({ page, renderedRoot, artifactsDir, dismissCredentialsOverlay, report })
+    await checkGalleryBrowser({ page, renderedRoot, artifactsDir, dismissCredentialsOverlay, inputProfile, report })
     for (const path of ['/wide.svg', '/tall.svg', '/missing.svg']) {
       assert.ok(assets.requests.some(request => request.path === path), `Browser must request ${path} from the real local server`)
     }
@@ -438,15 +463,16 @@ export async function runGalleryBrowserChecks({ page, artifactsDir, dismissCrede
   } catch (error) {
     failure = error
     report.passed = false
-    report.error ??= String(error)
+    report.errorDetails ??= galleryErrorDetails(error)
+    report.error ??= report.errorDetails.message
   } finally {
     // Only remove this fixture and close this server. Do not touch host state/browser lifecycle.
     try {
       await bounded(page.locator(FIXTURE).evaluateAll(elements => elements.forEach(el => el.remove())), STEP_MS, 'remove gallery fixture')
-    } catch (error) { failure ??= error; report.cleanupErrors = [...report.cleanupErrors ?? [], String(error)] }
-    try { await assets?.close() } catch (error) { failure ??= error; report.cleanupErrors = [...report.cleanupErrors ?? [], String(error)] }
+    } catch (error) { failure ??= error; report.cleanupErrors = [...report.cleanupErrors ?? [], galleryErrorDetails(error)] }
+    try { await assets?.close() } catch (error) { failure ??= error; report.cleanupErrors = [...report.cleanupErrors ?? [], galleryErrorDetails(error)] }
     if (failure) report.passed = false
-    await writeFile(join(artifactsDir, 'gallery-browser-results.json'), `${JSON.stringify(report, null, 2)}\n`)
+    await writeFile(join(artifactsDir, `gallery-${inputProfile}-results.json`), `${JSON.stringify(report, null, 2)}\n`)
   }
   if (failure) throw failure
   return report

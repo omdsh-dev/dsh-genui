@@ -93,9 +93,30 @@ export async function prepareGalleryConversation({ dshRoot, dshHome, spec }) {
     assert.equal(rows.filter(row => row.type === 'llm-route').length, 1, 'Browsing must not invoke the model')
     return { userMessages: 1, genuiActions: 0, replayCalls: 1 }
   }
+  let workspaceId = null
+  const openExistingConversation = async ({ page, dismissCredentialsOverlay }) => {
+    assert.ok(workspaceId, 'Create the one gallery session before selecting it in another context')
+    await assertNoActions()
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
+    await dismissCredentialsOverlay()
+    const workspaceRow = page.locator(`[data-row-key="workspace:${workspaceId}"]`)
+    await workspaceRow.waitFor({ state: 'visible', timeout: 15000 })
+    if (await workspaceRow.getAttribute('aria-expanded', { timeout: 15000 }) === 'false') await workspaceRow.click({ timeout: 15000 })
+    const title = page.getByText(TITLE, { exact: true }).and(page.locator(':visible'))
+    await title.waitFor({ state: 'visible', timeout: 15000 })
+    assert.equal(await title.count(), 1, 'Created session title must have one visible UI target')
+    await title.click({ timeout: 15000 })
+    const renderedRoot = page.locator('[data-chat-flow-kind="assistant-step"] [data-genui]').filter({ has: page.getByRole('group', { name: 'Gallery browser cards', exact: true }) })
+    await renderedRoot.waitFor({ state: 'visible', timeout: 15000 })
+    assert.equal(await renderedRoot.count(), 1, 'Real assistant must render one gallery fence')
+    await assertNoActions()
+    return renderedRoot
+  }
   return {
     webArgs: ['--patch', patchFile], cwd: join(root, 'workspace'), sessionId, auditFile,
+    openExistingConversation,
     async openConversation({ page, dismissCredentialsOverlay }) {
+      assert.equal(workspaceId, null, 'The replay fixture must be created and prompted only once')
       await waitFor(rows => rows.some(row => row.type === 'ready'), 'Replay configuration')
       const rpc = async (method, request) => {
         const response = await page.request.post(new URL(`/api/${method}`, page.url()).href, {
@@ -107,6 +128,7 @@ export async function prepareGalleryConversation({ dshRoot, dshHome, spec }) {
         return payload.result.value
       }
       const { workspace } = await rpc('workspace/create', { path: join(root, 'workspace') })
+      workspaceId = workspace.workspaceId
       const created = await rpc('session/create', { workspaceId: workspace.workspaceId, sessionId })
       assert.equal(created.sessionId, sessionId, 'Must use the actual created session')
       await rpc('session/rename', { sessionId, title: TITLE })
@@ -117,20 +139,7 @@ export async function prepareGalleryConversation({ dshRoot, dshHome, spec }) {
       const assistant = rows.filter(row => row.type === 'assistant-message')
       assert.equal(assistant.length, 1)
       assert.equal(textOf(assistant[0]), `\`\`\`dsh-ui\n${JSON.stringify(spec)}\n\`\`\``)
-      await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
-      await dismissCredentialsOverlay()
-      const workspaceRow = page.locator(`[data-row-key="workspace:${workspace.workspaceId}"]`)
-      await workspaceRow.waitFor({ state: 'visible', timeout: 15000 })
-      if (await workspaceRow.getAttribute('aria-expanded') === 'false') await workspaceRow.click()
-      const title = page.getByText(TITLE, { exact: true }).and(page.locator(':visible'))
-      await title.waitFor({ state: 'visible', timeout: 15000 })
-      assert.equal(await title.count(), 1, 'Created session title must have one visible UI target')
-      await title.click({ timeout: 15000 })
-      const renderedRoot = page.locator('[data-chat-flow-kind="assistant-step"] [data-genui]').filter({ has: page.getByRole('group', { name: 'Gallery browser cards', exact: true }) })
-      await renderedRoot.waitFor({ state: 'visible', timeout: 15000 })
-      assert.equal(await renderedRoot.count(), 1, 'Real assistant must render one gallery fence')
-      await assertNoActions()
-      return renderedRoot
+      return openExistingConversation({ page, dismissCredentialsOverlay })
     },
     assertNoActions,
     async verifyChoose({ page, renderedRoot, dismissCredentialsOverlay }) {

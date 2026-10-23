@@ -32,7 +32,8 @@ import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { createServer } from 'node:net'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { checkGalleryBrowser, createGallerySpec, runGalleryBrowserChecks, startGalleryImageServer } from './gallery-browser-checks.mjs'
+import { createGallerySpec, startGalleryImageServer } from './gallery-browser-checks.mjs'
+import { runGalleryFixedContexts } from './gallery-fixed-contexts.mjs'
 import { gallerySmokeEnvironment, prepareGalleryConversation } from './e2e-gallery-host.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -269,47 +270,25 @@ try {
     // 提供「稍后配置」；DSH 0.2.1 系列只留关闭（Esc/×），且关闭只作用于当前
     // 页面会话（刷新会重现）。遮罩可能在宿主重渲染时重新挂回，所以在后续每次
     // 真实指针交互前幂等地再关一次。scratch 实例,不是产品行为断言（同 e2e-visual.mts）。
-    const dismissCredentialsOverlay = async () => {
-      const later = page.getByRole('button', { name: '稍后配置', exact: true })
+    const createDismissCredentialsOverlay = activePage => async () => {
+      const later = activePage.getByRole('button', { name: '稍后配置', exact: true })
       if (await later.count() > 0) {
-        await later.first().click().catch(() => {})
+        await later.first().click({ timeout: 8000 }).catch(() => {})
         return
       }
-      const login = page.getByRole('button', { name: '登录', exact: true })
+      const login = activePage.getByRole('button', { name: '登录', exact: true })
       if (await login.isVisible().catch(() => false)) {
-        await page.keyboard.press('Escape')
-        await page.waitForTimeout(300)
+        await activePage.keyboard.press('Escape')
+        await activePage.waitForTimeout(300)
       }
     }
+    const dismissCredentialsOverlay = createDismissCredentialsOverlay(page)
     // Fresh keyless profiles follow the host's normal onboarding.
     await page.getByRole('button', { name: '继续', exact: true }).click()
     await page.waitForTimeout(500)
     await dismissCredentialsOverlay()
-    if (galleryConversation !== null) {
-      const report = { fixture: 'Official rc.2 real conversation with deterministic local replay',
-        assetRequests: galleryAssets.requests, hostActionPassed: false }
-      try {
-        const renderedRoot = await galleryConversation.openConversation({ page, dismissCredentialsOverlay })
-        await checkGalleryBrowser({ page, renderedRoot, artifactsDir, dismissCredentialsOverlay,
-          assertNoActions: galleryConversation.assertNoActions, report })
-        report.beforeChoose = await galleryConversation.assertNoActions()
-        report.choice = await galleryConversation.verifyChoose({ page, renderedRoot, dismissCredentialsOverlay })
-        for (const path of ['/wide.svg', '/tall.svg', '/missing.svg']) {
-          assert.ok(galleryAssets.requests.some(request => request.path === path), `Browser must request ${path}`)
-        }
-        report.hostActionPassed = true
-        log('✓ Gallery: real rc.2 rendering, browser interactions, and one session-routed Choose with local replay')
-      } catch (error) {
-        report.passed = false
-        report.error = String(error)
-        await page.screenshot({ path: join(artifactsDir, 'gallery-failure.png'), timeout: 8000 }).catch(() => {})
-        throw error
-      } finally {
-        await writeFile(join(artifactsDir, 'gallery-browser-results.json'), `${JSON.stringify(report, null, 2)}\n`)
-      }
-    } else {
-      await runGalleryBrowserChecks({ page, artifactsDir, dismissCredentialsOverlay, log })
-    }
+    await runGalleryFixedContexts({ browser, page, readyUrl, artifactsDir, galleryConversation, galleryAssets,
+      createDismissCredentialsOverlay, log })
     // Percentage columns divide the space remaining after the row gap. Exercise
     // the installed renderer, including min-content pressure from a long code line.
     for (const width of [500, 280]) {
