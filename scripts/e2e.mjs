@@ -11,7 +11,7 @@
  *
  * 用法：
  *   node scripts/e2e.mjs [--port 3088] [--keep] [--install link|npm|tarball]
- *                        [--tarball <路径> --tarball-sha256 <sha>] [--smoke]
+ *                        [--tarball <路径> --tarball-sha256 <sha>] [--smoke] [--sidechat]
  *
  *   --install link    （默认）装当前工作区，测的就是当前代码
  *   --install npm     从公开 npm 包安装
@@ -19,6 +19,8 @@
  *   --smoke           不要求模型 Key：安装 → 启动 → 首页/client.js 200 →
  *                     无页面异常 → 插件 boot → Diff/Code/JSON 渲染与复制；
  *                     rc.2 Gallery 使用官方本地 replay 验证真实会话动作，不访问真实模型。
+ *   --sidechat        显式启用双插件验收；仅允许 --smoke --install tarball，
+ *                     会构建固定提交的 Better Sidebar，不改变原有 smoke 模式。
  * 退出码 0 = PASS，1 = FAIL。
  */
 
@@ -35,6 +37,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createGallerySpec, startGalleryImageServer } from './gallery-browser-checks.mjs'
 import { runGalleryFixedContexts } from './gallery-fixed-contexts.mjs'
 import { gallerySmokeEnvironment, prepareGalleryConversation } from './e2e-gallery-host.mjs'
+import { runSidechatCI, validateSidechatMode } from './sidechat-acceptance/ci.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DSH_ROOT = process.env.DSH_ROOT ?? resolve(process.env.HOME ?? '', '.dsh/source/current')
@@ -52,6 +55,7 @@ function findDshWebUrl(output) {
 const PORT = Number(arg('--port') ?? 3088)
 const KEEP = process.argv.includes('--keep')
 const SMOKE = process.argv.includes('--smoke')
+const SIDECHAT = process.argv.includes('--sidechat')
 const INSTALL = arg('--install') ?? 'link'
 const TARBALL = arg('--tarball')
 const TARBALL_SHA = arg('--tarball-sha256')
@@ -62,6 +66,7 @@ const log = (msg) => console.log(`· ${msg}`)
 
 // ── 预检：参数、端口、工具 ─────────────────────────────────────────────────
 if (!['link', 'npm', 'tarball'].includes(INSTALL)) fail(`--install 仅允许 link | npm | tarball，收到 "${INSTALL}"`)
+validateSidechatMode({ sidechat: SIDECHAT, smoke: SMOKE, install: INSTALL })
 if (INSTALL === 'tarball') {
   if (!TARBALL || !TARBALL_SHA) fail('tarball 模式必须提供 --tarball <绝对路径> 与 --tarball-sha256 <sha256>')
   if (!resolve(TARBALL).startsWith('/')) fail('--tarball 必须是绝对路径')
@@ -614,7 +619,14 @@ try {
     log('packed client source-unavailable CodeBlock 严格兜底验证通过')
 
     log('smoke 模式：安装、激活、Diff/Code/JSON 真实渲染及复制均通过')
-    await browser.close()
+    try {
+      if (SIDECHAT) {
+        const sidechat = await runSidechatCI({ browser, dshRoot: DSH_ROOT, dshBin: DSH_BIN,
+          genuiTarball: TARBALL, genuiTarballSha256: TARBALL_SHA,
+          artifactDir: join(REPO_ROOT, '.e2e-artifacts/sidechat') })
+        log(`dual-plugin sidechat: ${sidechat.status} (${sidechat.hostVersion})`)
+      }
+    } finally { await browser.close() }
     await cleanup()
     console.log('PASS smoke e2e（不消耗模型额度）')
     process.exit(0)

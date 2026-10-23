@@ -22,6 +22,7 @@ import type { IConversation } from '@deepseek-ai/dsh-client-ui-conversation/clie
 import { createElement } from 'react'
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import { installDomFenceRenderer } from './dom-fence.tsx'
+import { installSidechatAdapter, type SidechatSurfaceService } from './sidechat-surface.tsx'
 import { createFileLinkAvailability, withFileLinkContext, type FileLinkCordisContext } from './file-link-context.tsx'
 import { createPanelSlashSource } from './panel-command.ts'
 import { GenuiPanel, type GenuiPanelInjected } from './panel.tsx'
@@ -116,6 +117,10 @@ function sendInlineGenuiAction(ctx: Context, sessionId: SessionId, action: strin
  * toolview for the render_ui tool, and the session panel dock; returning the
  * disposers lets cordis tear all registrations down on plugin unload. */
 export function apply(ctx: Context): () => void {
+  // Optional Cordis service: no cross-plugin runtime import or hard inject.
+  ctx.inject(['betterSidebar'], scope => {
+    scope.effect(() => installSidechatAdapter(scope.get('betterSidebar') as Partial<SidechatSurfaceService> | undefined), 'genui: sidechat surface')
+  })
   // Language: follow the host's DSH language preference when the deployment
   // ships the locale service, otherwise fall back to browser detection. Read
   // OPTIONALLY (never declared in `inject`) so a host without the
