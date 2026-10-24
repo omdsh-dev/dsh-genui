@@ -18,6 +18,9 @@ export interface SafeMathOptions {
   vars?: Record<string, number>
   /** 关闭 plot 使用的单字母隐式参数。 */
   allowImplicitVariables?: boolean
+  /** Parse an append's external references before its panel context is known.
+   * Unbound values evaluate to NaN; this never supplies a runtime fallback. */
+  allowUnboundVariables?: boolean
 }
 
 export interface SafeMathProgram {
@@ -70,6 +73,7 @@ class SafeMathParser {
     private readonly src: string,
     private readonly vars: Record<string, number>,
     private readonly allowImplicitVariables: boolean,
+    private readonly allowUnboundVariables: boolean,
   ) {}
 
   parse(): SafeMathProgram {
@@ -242,6 +246,10 @@ class SafeMathParser {
     // plot 中未声明的单个小写字母参数默认取 1；该规则不接受全局对象名称。
     if (Object.hasOwn(CONSTANTS, name)) return CONSTANTS[name]!
     if (this.allowImplicitVariables && /^[a-z]$/.test(name)) return () => 1
+    if (this.allowUnboundVariables) {
+      this.variables.add(name)
+      return () => NaN
+    }
     throw new ParseError(`unknown identifier '${name}'`, start)
   }
 
@@ -310,7 +318,7 @@ export function compileMathExprProgram(expr: string, options: SafeMathOptions = 
     if (options.allowImplicitVariables !== false) delete vars.x
     if (expr.length > SAFE_MATH_LIMITS.maxExpressionLength
       || Object.values(vars).some(value => !Number.isFinite(value))) return null
-    return new SafeMathParser(expr, vars, options.allowImplicitVariables !== false).parse()
+    return new SafeMathParser(expr, vars, options.allowImplicitVariables !== false, options.allowUnboundVariables === true).parse()
   } catch {
     return null
   }

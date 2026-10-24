@@ -101,7 +101,7 @@ export async function runSidechatCI(options, { executeCommand = execute, accepta
     const applicability = hostApplicability(version)
     if (applicability === 'not-applicable') {
       report.status = 'not-applicable'
-      report.reason = 'The minimum 0.2.0-rc.1 lane runs the existing GenUI smoke; dual-plugin coverage requires exact 0.2.1-rc.2.'
+      report.reason = 'The minimum 0.2.0-rc.1 lane runs the existing GenUI smoke; dual-plugin coverage requires exact 0.2.1-rc.3.'
       return report
     }
     stage = 'genui-pack-preflight'

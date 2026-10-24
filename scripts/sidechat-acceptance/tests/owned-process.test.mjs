@@ -27,3 +27,14 @@ test('normal install cannot pass by silently ignoring a dependency lifecycle bui
   await assert.rejects(command.finish(), /requires dependency-build approval/u)
   await assert.rejects(command.stop(), /exited unexpectedly/u)
 })
+
+test('failed installs expose a bounded diagnostic without leaking registry URLs or tokens', async () => {
+  const command = spawnOwned(process.execPath, ['-e', "console.error('ERR_PNPM_FETCH_500 https://registry.example/private?token=synthetic-secret'); console.error('fatal: unable to access https://git.example/private?token=synthetic-secret'); process.exitCode=1"], options)
+  await assert.rejects(command.finish(), error => {
+    assert.match(error.message, /ERR_PNPM_FETCH_500/u)
+    assert.match(error.message, /fatal: unable to access/u)
+    assert.doesNotMatch(error.message, /registry\.example|git\.example|synthetic-secret/u)
+    return true
+  })
+  await assert.rejects(command.stop(), /exited unexpectedly/u)
+})

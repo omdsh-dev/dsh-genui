@@ -38,7 +38,8 @@ export interface GenuiBlockProps {
 
 /** Block-wide aggregation state. Grouped radios store one selected label in
  * `answers`; grouped checkboxes store a selected-label array in
- * `multiAnswers`. Keeping the registries separate preserves the existing
+ * `multiAnswers` (source templates stay stable as display labels change).
+ * Keeping the registries separate preserves the existing
  * radio/local-grading string contract while allowing submit to expose one
  * unified `answers` payload (`string | string[]`). */
 export interface AnswersState {
@@ -61,8 +62,6 @@ export interface AnswersState {
   setAnswer: (group: string, choice: string) => void
   setMultiAnswer: (group: string, choice: string, checked: boolean) => void
   setField: (id: string, value: string) => void
-  setNumericFieldValidity: (id: string, valid: boolean) => void
-  registerSecretField: (id: string) => void
   clear: () => void
   setLocked: (locked: boolean) => void
 }

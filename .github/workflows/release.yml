@@ -19,7 +19,7 @@ jobs:
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name }}
       PRERELEASE: ${{ github.event.release.prerelease }}
-      HOST_REF: dsh-v0.2.1-rc.2
+      HOST_REF: dsh-v0.2.1-rc.3
       MINIMUM_HOST_REF: dsh-v0.2.0-rc.1
 
     steps:
@@ -123,10 +123,28 @@ jobs:
         run: node scripts/verify-pack.mjs --keep
 
       - name: Smoke selected release channel
-        run: node scripts/e2e.mjs --smoke --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
+        run: |
+          node --test scripts/sidechat-acceptance/tests/*.test.mjs
+          node scripts/e2e.mjs --smoke --sidechat --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
         env:
           DSH_ROOT: ${{ github.workspace }}/../../.dsh/source/current
           DSH_BIN: ${{ github.workspace }}/../../.dsh/source/current/apps/cli/lib/bin.js
+
+      - name: Archive release browser acceptance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-browser-acceptance
+          path: |
+            gallery-*.png
+            gallery-*.json
+            computed-*.png
+            computed-browser-results.json
+            computed-acceptance.json
+            .e2e-artifacts/sidechat/dsh354-*.png
+            .e2e-artifacts/sidechat/dsh354-host-verdict.json
+            .e2e-artifacts/sidechat/dsh354-browser-report.json
+          if-no-files-found: ignore
 
       - name: Publish to npm
         run: npm publish "${{ steps.pack.outputs.tarball }}" --access public --tag "${{ steps.release.outputs.npm_tag }}"

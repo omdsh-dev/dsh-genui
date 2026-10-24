@@ -107,7 +107,14 @@ export function SubmitNode({ node, onAction, answers }: {
   const submitted = answers?.locked === true
   const collectedAnswers: Record<string, string | string[]> = {
     ...recorded,
-    ...multiRecorded,
+    ...Object.fromEntries(Object.entries(multiRecorded).flatMap(([group, values]) => {
+      const member = answers?.registry.members.get(group)
+      if (member?.kind !== 'checkbox') return []
+      return [[group, values.flatMap(value => {
+        const label = member.choices.get(value)
+        return label === undefined ? [] : [label]
+      })]]
+    })),
   }
   // Ready = enough answers AND the click can do something: either local
   // grading, or a real action name + provider. A submit with neither is a
@@ -409,12 +416,7 @@ export function InputNode({ node, onAction, answers }: {
   // used to fire a pointless action round trip). Seeded with the mount value
   // so the very first unedited blur also stays silent.
   const lastSent = useRef<string | null>(value)
-  const registeredFieldId = useRef(id)
   const setField = answers?.setField
-  const setNumericFieldValidity = answers?.setNumericFieldValidity
-  useEffect(() => () => {
-    if (id !== undefined) setNumericFieldValidity?.(id, true)
-  }, [id, setNumericFieldValidity])
   const send = (submit: boolean): void => {
     if (numeric && value.trim() !== '' && parseDecimalNumber(value) === undefined) return
     if (action !== undefined && onAction !== undefined) {
@@ -423,22 +425,11 @@ export function InputNode({ node, onAction, answers }: {
     }
   }
   const ime = useImeComposing()
-  // 流式规格改变控件类型或 ID 时，同步更新共享字段状态。
+  // renderNode keys inputs by field identity and type, so this value cannot
+  // be registered to a different field after streaming or tab navigation.
   useEffect(() => {
-    const previousId = registeredFieldId.current
-    if (previousId !== id && previousId !== undefined) setNumericFieldValidity?.(previousId, true)
-    registeredFieldId.current = id
-    if (id !== undefined) {
-      const valid = !numeric || value.trim() === '' || parseDecimalNumber(value) !== undefined
-      setNumericFieldValidity?.(id, valid)
-      if (!secret && value.trim() !== '' && valid) setField?.(id, value)
-    }
-  }, [id, numeric, value, secret, setField, setNumericFieldValidity])
-  // Secret fields are filtered from persistence and submit collection.
-  useEffect(() => {
-    if (secret && id !== undefined) answers?.registerSecretField(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [secret, id])
+    if (!secret && id !== undefined && value.trim() !== '') setField?.(id, value)
+  }, [id, value, secret, setField])
   return (
     <label className={css.field}>
       {node.label !== undefined && <span>{renderInline(node.label, false)}</span>}
@@ -459,13 +450,7 @@ export function InputNode({ node, onAction, answers }: {
         onChange={e => {
           const v = e.currentTarget.value
           setValue(v)
-          if (id !== undefined) {
-            if (numeric) {
-              const valid = v.trim() === '' || parseDecimalNumber(v) !== undefined
-              answers?.setNumericFieldValidity(id, valid)
-              if (valid) answers?.setField(id, v)
-            } else answers?.setField(id, v)
-          }
+          if (!secret && id !== undefined) answers?.setField(id, v)
         }}
         onBlur={() => {
           if (value !== lastSent.current) send(false)

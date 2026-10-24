@@ -21,7 +21,7 @@ export function spawnOwned(command, args, { cwd, env, label, expectedStopCode = 
   child.stdout.on('data', receive); child.stderr.on('data', receive)
   child.on('error', error => { failure = new Error(`${label} failed to spawn (${error.code ?? 'unknown'})`) })
   child.on('close', (code, signal) => { closed = { code, signal }; resolveClosed(closed) })
-  const diagnostic = () => output.split('\n').filter(line => /error|cannot|not found|unknown|invalid|requires|ENOENT|ERR_/iu.test(line)).slice(-5).map(line => line.replace(/https?:\/\/[^\s]+/gu, '[URL withheld]').replace(/token[^\s]*/giu, '[token withheld]')).join(' | ').slice(0, 1800)
+  const diagnostic = () => output.split('\n').filter(line => /error|fatal|failed|unable|could not|cannot|not found|unknown|invalid|requires|ENOENT|ERR_/iu.test(line)).slice(-5).map(line => line.replace(/https?:\/\/[^\s]+/gu, '[URL withheld]').replace(/token[^\s]*/giu, '[token withheld]')).join(' | ').slice(0, 1800)
   const alive = () => { if (failure) throw failure; if (closed !== undefined) throw new Error(`${label} exited before completion (${closed.code ?? closed.signal}); ${diagnostic()}`) }
   async function stop() {
     if (stopping) return closedPromise
@@ -50,7 +50,7 @@ export function spawnOwned(command, args, { cwd, env, label, expectedStopCode = 
   }, async finish(timeoutMs = 120000) {
     const result = await timeout(() => closedPromise, timeoutMs, label)
     if (failure) throw failure
-    assert.equal(result.code, 0, `${label} failed (${result.code}); no script approval or policy bypass will be attempted`)
+    assert.equal(result.code, 0, `${label} failed (${result.code}); ${diagnostic()}; no script approval or policy bypass will be attempted`)
     assert.equal(blockedBuild, false, `${label} requires dependency-build approval; skipped scripts cannot count as acceptance`)
     completedCommand = true; output = ''; return result
   } }

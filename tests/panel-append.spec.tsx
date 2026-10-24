@@ -79,6 +79,20 @@ describe('mergePanelSpecs', () => {
 })
 
 describe('panel append fence (settled source)', () => {
+  it('resolves computed references through the real fence and panel pipeline', () => {
+    render(renderGenuiFence(JSON.stringify({
+      panel: true,
+      computed: [{ id: 'base', expr: 'amount*2' }],
+      items: [{ type: 'input', id: 'amount', inputType: 'number', value: '3' }],
+    }), 'base', ctx(1)))
+    render(renderGenuiFence(JSON.stringify({
+      panel: true, append: true,
+      computed: [{ id: 'answer', expr: 'base+1' }],
+      items: [text('{{answer}}')],
+    }), 'append', ctx(2)))
+    expect(evaluateComputed(getPanelSpec('p1')!, {}).values).toEqual({ base: 6, answer: 7 })
+  })
+
   it('rejects an append exceeding the shared computed-field budget without truncating the panel', () => {
     const seed: GenuiSpec = {
       computed: Array.from({ length: GENUI_LIMITS.maxComputedFields - 1 }, (_, index) => ({ id: `field${index}`, expr: '1' })),

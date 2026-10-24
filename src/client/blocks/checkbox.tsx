@@ -2,6 +2,7 @@ import { renderInline } from '../inline.ts'
 import { useEffect, useState } from 'react'
 import css from '../GenuiBlock.module.css'
 import type { GenuiCheckbox } from '../spec.ts'
+import { GENUI_CHECKBOX_VALUE } from '../spec.ts'
 import type { AnswersState, GenuiBlockProps } from './state.ts'
 
 /**
@@ -20,12 +21,13 @@ export function CheckboxNode({ node, onAction, answers }: {
   answers?: AnswersState | undefined
 }) {
   const group = node.group
+  const value = node[GENUI_CHECKBOX_VALUE] ?? node.label
   const grouped = group !== undefined
   const hasRecordedGroup = group !== undefined
     && Object.prototype.hasOwnProperty.call(answers?.multiAnswers ?? {}, group)
   const recorded = group === undefined ? undefined : answers?.multiAnswers[group]
   const groupChecked = hasRecordedGroup
-    ? Array.isArray(recorded) && recorded.includes(node.label)
+    ? Array.isArray(recorded) && recorded.includes(value)
     : node.checked === true
   const [checked, setChecked] = useState(node.checked === true)
 
@@ -33,11 +35,11 @@ export function CheckboxNode({ node, onAction, answers }: {
     if (group === undefined || node.checked !== true || hasRecordedGroup) return
     // Model-provided defaults are real initial selections, but never override
     // a restored user choice (including an explicitly empty group).
-    answers?.setMultiAnswer(group, node.label, true)
+    answers?.setMultiAnswer(group, value, true)
     // answers is intentionally omitted: the callbacks are stable and a
     // registry update should not re-register the same default.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [group, node.checked, node.label, hasRecordedGroup])
+  }, [group, node.checked, value, hasRecordedGroup])
 
   return (
     <label className={css.checkbox}>
@@ -49,7 +51,7 @@ export function CheckboxNode({ node, onAction, answers }: {
           setChecked(next)
           if (grouped) {
             // Aggregation mode: update local multi-answer state only.
-            answers?.setMultiAnswer(group, node.label, next)
+            answers?.setMultiAnswer(group, value, next)
           } else if (node.action !== undefined && onAction !== undefined) {
             onAction(node.action, { type: 'checkbox', checked: next })
           }

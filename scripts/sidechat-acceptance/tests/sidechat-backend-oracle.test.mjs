@@ -84,19 +84,17 @@ test('baseline absence cannot pass as completion', () => {
   assert.throws(() => evaluate(fixture(), finalExpected()))
 })
 
-const UI_AWAY = { sessionId: 'session-22222222-2222-4222-8222-222222222222', workspaceId: '11111111-1111-4111-8111-111111111111' }
+const UI_AWAY = { sessionId: AWAY_ID, workspaceId: '11111111-1111-4111-8111-111111111111' }
 function withUiAway(expected = initialExpected()) {
   const record = fixture(expected)
-  record.createdUiSessionIds = [UI_AWAY.sessionId]
   record.uiAwayOwnership = { ...UI_AWAY, root: true, cwdOwned: true, workspaceMember: true }
-  record.sessions[UI_AWAY.sessionId] = []
   return record
 }
 test('unbound empty native creation cannot pass the baseline', () => {
   const record = fixture(initialExpected()); record.createdUiSessionIds = [UI_AWAY.sessionId]
   assert.throws(() => evaluate(record, initialExpected()))
 })
-test('both old away and UI-away remain zero before and after all four child actions', () => {
+test('reused away remains zero before and after all four child actions', () => {
   for (const expected of [initialExpected(), finalExpected()]) {
     const snapshot = evaluate(withUiAway(expected), expected, { uiAway: UI_AWAY })
     assert.deepEqual(Object.keys(snapshot.sessions), IDS)
@@ -104,25 +102,22 @@ test('both old away and UI-away remain zero before and after all four child acti
   }
 })
 for (const [label, mutate] of [
-  ['unobserved creation', r => { r.createdUiSessionIds = [] }],
+  ['unexpected fresh creation', r => { r.createdUiSessionIds = ['session-extra'] }],
   ['wrong captured ID', r => { r.createdUiSessionIds = [AWAY_ID] }],
-  ['second blank root', r => { r.createdUiSessionIds.push('session-extra') }],
   ['missing ownership', r => { delete r.uiAwayOwnership }],
   ['forged root ownership', r => { r.uiAwayOwnership.root = false }],
   ['forged workspace ownership', r => { r.uiAwayOwnership.workspaceMember = false }],
   ['forged cwd ownership', r => { r.uiAwayOwnership.cwdOwned = false }],
   ['wrong workspace ID', r => { r.uiAwayOwnership.workspaceId = 'other' }],
   ['missing UI-away durable stream', r => { delete r.sessions[UI_AWAY.sessionId] }],
-  ['missing original away durable stream', r => { delete r.sessions[AWAY_ID] }],
   ['extra durable root', r => { r.sessions['session-extra'] = [] }],
   ['UI-away relevant context', r => { r.sessions[UI_AWAY.sessionId].push(event('user/message', 1, { source: { kind: 'plugin:context' }, content: [], containsAction: false })) }],
-  ['old-away relevant context', r => { r.sessions[AWAY_ID].push(event('user/message', 1, { source: { kind: 'plugin:context' }, content: [], containsAction: false })) }],
   ['UI-away model route', r => { r.audit.push({ type: 'llm-route', phase: 'resume', sessionId: UI_AWAY.sessionId, provider: PROVIDER, model: MODEL, turn: 1, step: 1, allowed: true }) }],
 ]) test(`bound durable oracle rejects ${label}`, () => {
   const record = withUiAway(); mutate(record)
   assert.throws(() => evaluate(record, initialExpected(), { uiAway: UI_AWAY }))
 })
-test('the fifth stream cannot silently become the preexisting away', () => {
-  assert.throws(() => evaluate(withUiAway(), initialExpected(), { uiAway: { ...UI_AWAY, sessionId: AWAY_ID } }))
+test('binding cannot name a new root or omit the observed reuse', () => {
+  assert.throws(() => evaluate(withUiAway(), initialExpected(), { uiAway: { ...UI_AWAY, sessionId: 'session-22222222-2222-4222-8222-222222222222' } }))
   assert.throws(() => evaluate(withUiAway(), initialExpected()))
 })

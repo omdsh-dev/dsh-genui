@@ -31,7 +31,7 @@ export interface FenceResolution {
  * @returns 当前候选正文的规格处理结果。
  */
 function resolveParsedFence(value: unknown): FenceResolution {
-  const processed = processGenuiSpec(value)
+  const processed = processGenuiSpec(value, { deferPanelReferences: true })
   return { value, processed, spec: partialRepairGenuiSpec(processed) }
 }
 

@@ -1,4 +1,4 @@
-import { GENUI_COMPUTED_CELL } from './spec.ts'
+import { GENUI_CHECKBOX_VALUE, GENUI_COMPUTED_CELL } from './spec.ts'
 import type { GenuiComputed, GenuiComputedCell, GenuiComputedFormat, GenuiNode, GenuiSpec } from './spec.ts'
 import { compileMathExprProgram, parseDecimalNumber } from './safe-math.ts'
 import { GENUI_LIMITS } from './genui-runtime/index.ts'
@@ -131,6 +131,7 @@ export function buildComputedGraph(
   definitions: readonly GenuiComputed[],
   inputIds: ReadonlySet<string>,
   duplicateInputIds: ReadonlySet<string> = new Set(),
+  allowExternalReferences = false,
 ): ComputedGraph {
   const errors = Object.create(null) as Record<string, string>
   const formulas = new Map<string, GenuiComputed>()
@@ -155,7 +156,7 @@ export function buildComputedGraph(
   const symbols = Object.fromEntries([...inputIds, ...formulas.keys()].map(id => [id, 0]))
   const programs = new Map<string, string[]>()
   for (const [id, definition] of formulas) {
-    const program = compileMathExprProgram(definition.expr, { vars: symbols, allowImplicitVariables: false })
+    const program = compileMathExprProgram(definition.expr, { vars: symbols, allowImplicitVariables: false, allowUnboundVariables: allowExternalReferences })
     if (program === null) {
       errors[id] = '表达式无效或引用了未声明字段'
       continue
@@ -330,7 +331,14 @@ function resolveComputedValue(
       getComputedTemplateScope(nodeType, entryKey, templateAllowed),
       getComputedChildNodeScope(nodeType, entryKey, nodeScope)),
   ]))
-  if ((nodeType === 'chart' || nodeType === 'echart') && Array.isArray(resolved.data)) {
+  // Keep selection identity separate from its changing display label. The
+  // original template is stable and is already present in the exported spec.
+  if (nodeType === 'checkbox' && typeof record.label === 'string') {
+    Object.assign(resolved, { [GENUI_CHECKBOX_VALUE]: record.label })
+  }
+  // ECharts uses positional categories: a missing value must keep its slot.
+  // Native charts consume only complete points and calculate their own axes.
+  if (nodeType === 'chart' && Array.isArray(resolved.data)) {
     resolved.data = resolved.data.filter(point => point !== null && typeof point === 'object'
       && (point as Record<string, unknown>).value !== null)
   }

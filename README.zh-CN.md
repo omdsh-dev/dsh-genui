@@ -78,7 +78,7 @@ https://github.com/user-attachments/assets/f5db33ec-7471-4d4a-a85b-79c9962ab4ef
 ### 1. 环境准备
 
 安装前请确认满足以下条件：
-- **DSH 版本**：`^0.2.0-rc.1 || ^0.2.1-rc.1`（已在 `dsh-v0.2.0-rc.1` 与 `dsh-v0.2.1-rc.2` 上深度验证）
+- **DSH 版本**：`^0.2.0-rc.1 || ^0.2.1-rc.1`（已在 `dsh-v0.2.0-rc.1` 与 `dsh-v0.2.1-rc.3` 上深度验证）
 - **pnpm 处于 PATH 中**：`dsh plugin` 底层依赖 pnpm。如尚未安装，请执行 `corepack enable` 或 `npm i -g pnpm`，之后**重新打开终端**，确认 `pnpm -v` 可正常输出。
 
 ### 2. 一键安装与激活
@@ -284,7 +284,7 @@ dsh plugin --profile web add link:$PWD
 ```sh
 pnpm run check           # 类型检查 + 单元测试 + 构建
 pnpm run test            # 运行 Vitest 测试套件
-pnpm run check:host-api dsh-v0.2.1-rc.2  # 检查当前发布版 DSH 的公开接口
+pnpm run check:host-api dsh-v0.2.1-rc.3  # 检查当前发布版 DSH 的公开接口
 node scripts/verify-pack.mjs --keep  # 生成并打包校验 tarball
 ```
 
@@ -296,7 +296,7 @@ node scripts/verify-pack.mjs --keep  # 生成并打包校验 tarball
   ```
 - **真机闭环 E2E（调用模型真实响应）**：
   ```sh
-  export DSH_ROOT=/path/to/deepseek-harness-0.2.1-rc.2
+  export DSH_ROOT=/path/to/deepseek-harness-0.2.1-rc.3
   export DSH_BIN="$DSH_ROOT/apps/cli/lib/bin.js"
   DEEPSEEK_API_KEY=sk-... node scripts/e2e.mjs
   ```

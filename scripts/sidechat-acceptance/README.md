@@ -14,7 +14,7 @@ modes are unchanged and do not build or fetch the companion. `--sidechat` requir
 `--smoke --install tarball` before runtime setup. The gate reuses that caller-owned browser but creates and closes its own
 isolated context. There is no additional workflow, job, runner, or release.
 
-- Exact official source host `0.2.1-rc.2`: dual-plugin acceptance is mandatory in
+- Exact official source host `0.2.1-rc.3`: dual-plugin acceptance is mandatory in
   both the current Node 22 and Node 24 lanes. A missing/incomplete browser result,
   failed package installation, or failed cleanup fails the smoke job.
 - Official `0.2.0-rc.1`: the existing minimum-host GenUI smoke still runs. The
@@ -43,15 +43,15 @@ action requires a positive transport response and fresh durable replay receipts;
 parent/away actions, duplicates, foreign routes and missing completed turns fail.
 PASS requires the final durable quiet reread and owned cleanup.
 
-The seed contains parent, A, B and one untouched empty root. Official rc.2 hides
-non-current empty session rows, so the away/return scenario uses one normal
-workspace **New session** click, not a lookup of the hidden seeded root. The
-helper passively observes the correlated successful create response, verifies
-that exact fresh ID is visibly selected, and binds it once to the durable oracle.
-All subsequent reads include both empty roots. Both must retain zero relevant
-messages, model calls, actions and turns; root/cwd/workspace ownership and the
-exactly-one creation receipt are checked independently. No backend selection or
-extra model action is used, and the original four child actions are unchanged.
+The seed contains parent, A, B and one untouched empty root. Official rc.3 hides
+non-current blank rows and reuses the existing blank from the native workspace
+header **New session** control. The helper observes the correlated request and
+successful response, requires both to name that exact empty root, verifies it is
+visibly selected, and binds it once to the durable oracle. All subsequent reads
+require the same four sessions, zero new roots and zero relevant messages, model
+calls, actions or turns in the reused blank. Root/cwd/workspace ownership is
+checked independently. No backend selection or extra model action is used, and
+the original four child actions are unchanged.
 
 Pure Node contracts cover these guards and negative controls. They do not prove
 that a real browser or host invocation passed. Each actual CI run must establish

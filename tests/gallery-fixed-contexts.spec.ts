@@ -35,6 +35,8 @@ async function fixture(real = true) {
     openConversation: vi.fn(async () => { order.push('create-once'); return root }),
     openExistingConversation: vi.fn(async () => { order.push('open-existing'); return root }),
     assertNoActions: vi.fn(async () => ({ userMessages: 1, genuiActions: 0, replayCalls: 1 })),
+    editPanelBeforeAppend: vi.fn(async () => { order.push('edit-panel') }),
+    checkPanelAfterAppend: vi.fn(async () => { order.push('check-panel-append') }),
     verifyChoose: vi.fn(async () => { order.push('choose-once'); return { genuiActions: 1, replayCalls: 2 } }),
   } : null
   const args = { browser, page, readyUrl: 'http://127.0.0.1:3190/?token=ephemeral', artifactsDir, galleryConversation,
@@ -48,13 +50,14 @@ describe('fixed-context orchestration (synthetic, no browser)', () => {
     const f = await fixture()
     checks.browser.mockImplementation(async ({ inputProfile, report }) => { f.order.push(`check-${inputProfile}`); report.passed = true })
     const result = await runGalleryFixedContexts(f.args)
-    expect(f.order).toEqual(['create-once', 'check-desktop', 'touch-goto', 'touch-onboarding', 'open-existing', 'check-touch', 'touch-close', 'choose-once'])
+    expect(f.order).toEqual(['create-once', 'check-desktop', 'touch-goto', 'touch-onboarding', 'open-existing', 'check-touch', 'touch-close', 'edit-panel', 'choose-once', 'check-panel-append'])
     expect(f.galleryConversation!.openConversation).toHaveBeenCalledOnce()
     expect(f.galleryConversation!.openExistingConversation).toHaveBeenCalledOnce()
     expect(f.galleryConversation!.verifyChoose).toHaveBeenCalledOnce()
     expect(f.browser.newPage).toHaveBeenCalledWith({ viewport: { width: 1440, height: 1200 }, locale: 'zh-CN', hasTouch: true })
     expect(result.contexts.desktop.inputChecks.at(-1)?.phase).toBe('after-touch-context-closed')
     expect(result.hostActionPassed).toBe(true)
+    expect(result.panelAppendPassed).toBe(true)
     expect(JSON.stringify(result)).not.toContain('ephemeral')
   })
   it('runs explicitly separated minimum-host DOM checks without inventing routing evidence', async () => {

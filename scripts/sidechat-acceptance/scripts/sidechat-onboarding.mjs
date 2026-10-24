@@ -1,4 +1,4 @@
-/** Exact dsh-v0.2.1-rc.2 public UI copy, not a replacement renderer.
+/** Exact dsh-v0.2.1-rc.3 public UI copy, not a replacement renderer.
  * Sources: packages/client/ui-settings-models WelcomeNotice/OnboardingModal/locales;
  * packages/client/ui-settings-account SignInDialog/AccountOnboarding/locales.
  * Only the nonbinding preview notice and idle optional setup cancellation are allowed.

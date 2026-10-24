@@ -1,4 +1,4 @@
-/** rc.2-only real conversation oracle for the existing no-key smoke job.
+/** rc.3-only real conversation oracle for the existing no-key smoke job.
  * Runtime files live under the caller's disposable DSH_HOME. No installation,
  * credentials, persisted session seeding, production patches, or new server.
  */
@@ -8,6 +8,10 @@ import { mkdir, readFile, writeFile, access, copyFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { computedSpec, panelBase, panelAppend, editPanelBeforeAppend, checkPanelAfterAppend, runComputedBrowserChecks } from './computed-browser-checks.mjs'
+
+const fence = spec => `\`\`\`dsh-ui\n${JSON.stringify(spec)}\n\`\`\``
+const COMPUTED_ACK = 'Synthetic computed submission received.'
 const ACK = 'Synthetic gallery choice received.'
 const INITIAL = 'Display the synthetic gallery fixture.'
 const TITLE = 'Gallery browser synthetic conversation'
@@ -33,7 +37,7 @@ export async function prepareGalleryConversation({ dshRoot, dshHome, spec }) {
   const host = JSON.parse(await readFile(join(dshRoot, 'apps/cli/package.json'), 'utf8'))
   // Minimum rc.1 continues to run the reusable DOM-fence visual checks only.
   if (host.version === '0.2.0-rc.1') return null
-  assert.equal(host.version, '0.2.1-rc.2', 'Unrecognized host must not silently skip conversation coverage')
+  assert.equal(host.version, '0.2.1-rc.3', 'Unrecognized host must not silently skip conversation coverage')
   const replayModule = join(dshRoot, 'packages/test-support/llm-replay/lib/index.js')
   await access(replayModule) // Missing official build output is a failure, not a skip.
   const root = join(dshHome, 'gallery-e2e')
@@ -44,9 +48,9 @@ export async function prepareGalleryConversation({ dshRoot, dshHome, spec }) {
   const replayFile = join(root, 'replay.json')
   const config = { sessionId, provider: 'gallery-e2e-replay', model: 'gallery-e2e', replayModule, replayFile, auditFile }
   await writeFile(auditFile, '')
-  await writeFile(replayFile, JSON.stringify([
-    replayChunks(`\`\`\`dsh-ui\n${JSON.stringify(spec)}\n\`\`\``), replayChunks(ACK),
-  ]))
+  const initialText = [spec, computedSpec, panelBase].map(fence).join('\n\n')
+  const choiceText = `${ACK}\n\n${fence(panelAppend)}`
+  await writeFile(replayFile, JSON.stringify([replayChunks(initialText), replayChunks(choiceText), replayChunks(COMPUTED_ACK)]))
   const patchFile = join(root, 'cordis.patch.yml')
   // Loader discovers client packages through the nearest package.json. Mounting
   // scripts/fixtures directly would make this a second GenUI client source next
@@ -138,15 +142,37 @@ export async function prepareGalleryConversation({ dshRoot, dshHome, spec }) {
       assert.equal(rows.find(row => row.type === 'turn-end' && row.turn === 1).reason.kind, 'completed')
       const assistant = rows.filter(row => row.type === 'assistant-message')
       assert.equal(assistant.length, 1)
-      assert.equal(textOf(assistant[0]), `\`\`\`dsh-ui\n${JSON.stringify(spec)}\n\`\`\``)
+      assert.equal(textOf(assistant[0]), initialText)
       return openExistingConversation({ page, dismissCredentialsOverlay })
     },
     assertNoActions,
+    editPanelBeforeAppend, checkPanelAfterAppend,
+    async verifyComputed({ page, browser, artifactsDir }) {
+      return runComputedBrowserChecks({ page, browser, artifactsDir, verifySubmit: async renderedRoot => {
+        await renderedRoot.getByRole('button', { name: 'Send computed', exact: true }).click()
+        await waitFor(rows => rows.some(row => row.type === 'replay-consumed'), 'Computed Submit and third replay turn')
+        await page.getByText(COMPUTED_ACK, { exact: true }).waitFor({ state: 'visible' })
+        await page.waitForTimeout(1000)
+        const rows = await audit()
+        const inputs = users(rows)
+        assert.equal(inputs.length, 3, 'Computed submit must create exactly one new input')
+        const action = inputs[2]
+        assert.equal(action.sessionId, sessionId)
+        assert.ok(textOf(action).startsWith('[genui-action] computed-submit。'))
+        const payload = JSON.parse(textOf(action).split(' 组件数据: ')[1])
+        assert.deepEqual(payload.fields, { note: 'safe note', amount: '3' })
+        assert.deepEqual(payload.answers.choices, ['Choose 6'])
+        assert.ok(!JSON.stringify(rows).includes('SYNTHETIC_SECRET_TEST_ONLY'))
+        assert.equal(rows.filter(row => row.type === 'llm-route').length, 3)
+        assert.deepEqual(rows.filter(row => row.type === 'turn-end').map(row => row.reason.kind), ['completed', 'completed', 'completed'])
+        return { userMessages: 3, genuiActions: 2, replayCalls: 3, fields: payload.fields, choices: payload.answers.choices }
+      } })
+    },
     async verifyChoose({ page, renderedRoot, dismissCredentialsOverlay }) {
       await assertNoActions()
       await dismissCredentialsOverlay()
       await renderedRoot.getByRole('button', { name: 'Choose One', exact: true }).click({ timeout: 15000 })
-      await waitFor(rows => rows.some(row => row.type === 'replay-consumed'), 'Real Choose action and second replay turn')
+      await waitFor(rows => rows.some(row => row.type === 'turn-end' && row.turn === 2), 'Real Choose action and second replay turn')
       await page.getByText(ACK, { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
       // Include the renderer's trailing debounce window before final counts.
       await page.waitForTimeout(1000)
@@ -164,7 +190,7 @@ export async function prepareGalleryConversation({ dshRoot, dshHome, spec }) {
       assert.equal(payload.label, 'Choose One')
       const assistants = rows.filter(row => row.type === 'assistant-message')
       assert.equal(assistants.length, 2)
-      assert.equal(textOf(assistants[1]), ACK)
+      assert.equal(textOf(assistants[1]), choiceText)
       assert.equal(rows.filter(row => row.type === 'llm-route').length, 2)
       assert.deepEqual(rows.filter(row => row.type === 'turn-end').map(row => row.reason.kind), ['completed', 'completed'])
       return { sessionId, genuiActions: 1, replayCalls: 2, actionRequestId: action.message.source.rpcId }

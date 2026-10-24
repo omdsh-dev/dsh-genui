@@ -1576,7 +1576,12 @@ export function validateGenuiChartSemantics(value: unknown): string[] {
  * @param value - 未经过别名转换的 GenUI 文档。
  * @returns 完整结构与字段校验结果。
  */
-export function validateCanonicalGenuiSpec(value: unknown): GenuiValidation {
+interface GenuiValidationOptions {
+  /** Only the fence pipeline may defer an append's external references to the ordered panel fold. */
+  deferPanelReferences?: boolean
+}
+
+export function validateCanonicalGenuiSpec(value: unknown, options: GenuiValidationOptions = {}): GenuiValidation {
   const errors: string[] = []
   const v = obj(value)
   if (v === undefined) return { ok: false, errors: ['spec root must be an object'] }
@@ -1584,7 +1589,7 @@ export function validateCanonicalGenuiSpec(value: unknown): GenuiValidation {
   // agrees with the renderer about what is a valid fence body.
   if (isComponentRoot(value)) {
     const wrapped = wrapSingleComponentRoot(value)
-    if (wrapped !== null) return validateCanonicalGenuiSpec(wrapped)
+    if (wrapped !== null) return validateCanonicalGenuiSpec(wrapped, options)
     return { ok: false, errors: ['spec.items must be an array'] }
   }
   if (!Array.isArray(v.items)) return { ok: false, errors: ['spec.items must be an array'] }
@@ -1631,9 +1636,12 @@ export function validateCanonicalGenuiSpec(value: unknown): GenuiValidation {
   }
   const repaired = repairCanonicalGenuiSpec(v)
   if (repaired !== null) {
-    const graph = buildComputedGraph(repaired.computed ?? [], getComputedInputIds(repaired))
+    // An append is a delta. Its external references are checked by the
+    // ordered panel fold, after earlier fields and formulas are available.
+    const append = options.deferPanelReferences === true && repaired.panel === true && repaired.append === true
+    const graph = buildComputedGraph(repaired.computed ?? [], getComputedInputIds(repaired), new Set(), append)
     for (const [id, error] of Object.entries(graph.errors)) errors.push(`spec.computed.${id}: ${error}`)
-    validateComputedReferences(repaired.title, repaired.items, new Set((repaired.computed ?? []).map(field => field.id)), errors)
+    validateComputedReferences(repaired.title, repaired.items, new Set((repaired.computed ?? []).map(field => field.id)), errors, append)
   }
   let count = 0
   let capped = false
@@ -1657,7 +1665,8 @@ export function validateCanonicalGenuiSpec(value: unknown): GenuiValidation {
     }
   }
   walk(v.items, 0, 'items')
-  if (errors.length === 0) errors.push(...analyzeSubmissionRegistry(v as unknown as GenuiSpec).diagnostics)
+  if (errors.length === 0) errors.push(...analyzeSubmissionRegistry(v as unknown as GenuiSpec,
+    options.deferPanelReferences === true && v.panel === true && v.append === true).diagnostics)
   if (repaired !== null) {
     for (const id of getDuplicateComputedInputIds(repaired)) {
       errors.push(`spec.items contains duplicate input field ID '${id}'`)
@@ -1718,10 +1727,10 @@ export interface GenuiProcessResult {
  * @param value - Raw GenUI spec or bare component.
  * @returns Canonical input, repaired output, diagnostics, and node counts.
  */
-export function processGenuiSpec(value: unknown): GenuiProcessResult {
+export function processGenuiSpec(value: unknown, options: GenuiValidationOptions = {}): GenuiProcessResult {
   const normalized = normalizeGenuiSpec(value)
   const repaired = repairCanonicalGenuiSpec(normalized.value)
-  const validation = validateCanonicalGenuiSpec(normalized.value)
+  const validation = validateCanonicalGenuiSpec(normalized.value, options)
   // Policy-aware ledger (#298): nodes beyond a per-family cap (tabs ≤
   // maxTabs, accordion items ≤ maxAccordionItems, carousel items ≤
   // maxCarouselItems) are truncated BY DESIGN, so
@@ -1738,7 +1747,8 @@ export function processGenuiSpec(value: unknown): GenuiProcessResult {
   // custom nodes stay opaque and must not fail native schema validation.
   const errors = validation.errors.filter(error => !error.includes(': unknown type '))
   if (repaired !== null && errors.length === 0) {
-    errors.push(...analyzeSubmissionRegistry(repaired).diagnostics)
+    errors.push(...analyzeSubmissionRegistry(repaired,
+      options.deferPanelReferences === true && repaired.panel === true && repaired.append === true).diagnostics)
   }
   if (declaredNativeCount > renderedNativeCount) {
     errors.push(`repair dropped ${declaredNativeCount - renderedNativeCount} declared native node(s): declared ${declaredNativeCount}, rendered ${renderedNativeCount}`)
@@ -1918,7 +1928,7 @@ export function partialRepairGenuiSpec(processed: GenuiProcessResult): GenuiSpec
 type Walker = (list: unknown, depth: number, path: string) => void
 
 /** 校验模板文字与图表、表格中的计算引用是否指向已声明字段。 */
-function validateComputedReferences(title: unknown, items: unknown, computedIds: ReadonlySet<string>, errors: string[]): void {
+function validateComputedReferences(title: unknown, items: unknown, computedIds: ReadonlySet<string>, errors: string[], allowExternalReferences = false): void {
   const visited = new WeakSet<object>()
   let visitedCount = 0
   const visit = (value: unknown, path: string, referenceAllowed: boolean, depth: number, templateAllowed: ComputedTemplateScope = false, nodeScope: ComputedNodeScope = false): void => {
@@ -1927,7 +1937,7 @@ function validateComputedReferences(title: unknown, items: unknown, computedIds:
       if (!templateAllowed) return
       for (const match of value.matchAll(/\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}/g)) {
         const id = match[1]!
-        if (!computedIds.has(id)) errors.push(`${path} references unknown computed field '${id}'`)
+        if (!allowExternalReferences && !computedIds.has(id)) errors.push(`${path} references unknown computed field '${id}'`)
       }
       return
     }
@@ -1943,7 +1953,7 @@ function validateComputedReferences(title: unknown, items: unknown, computedIds:
     const record = value as Record<string, unknown>
     const nodeType = nodeScope === true ? record.type : undefined
     if (referenceAllowed && Object.keys(record).length === 1 && typeof record.$computed === 'string') {
-      if (!computedIds.has(record.$computed)) errors.push(`${path} references unknown computed field '${record.$computed}'`)
+      if (!allowExternalReferences && !computedIds.has(record.$computed)) errors.push(`${path} references unknown computed field '${record.$computed}'`)
       return
     }
     for (const [key, child] of Object.entries(record)) {

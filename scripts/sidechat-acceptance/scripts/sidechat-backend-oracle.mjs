@@ -29,9 +29,9 @@ export function durableSnapshot(record, { expected, assistantEventSeq, allowPend
   assert.equal(record.phase, 'resume', 'Only separately resumed persisted data qualifies')
   assert.ok(record.requestId && typeof record.requestId === 'string', 'Fresh read receipt required')
   assertAudit(record.audit)
-  if (uiAway) validateUiAway(uiAway, originalIds)
-  const all = [...originalIds, ...(uiAway ? [uiAway.sessionId] : [])]
-  assert.deepEqual(record.createdUiSessionIds, uiAway ? [uiAway.sessionId] : [], 'Exactly the bound UI-created root, or none before binding, is allowed')
+  if (uiAway) validateUiAway(uiAway, AWAY_ID)
+  const all = originalIds
+  assert.deepEqual(record.createdUiSessionIds, [], 'New Session must reuse the existing empty root without creating another')
   assert.deepEqual(record.uiAwayOwnership, uiAway ? { ...uiAway, root: true, cwdOwned: true, workspaceMember: true } : undefined, 'Exact independently verified UI-away ownership is required')
   assert.deepEqual(Object.keys(record.sessions).sort(), [...all].sort(), 'All owned and away sessions must be read')
   assert.deepEqual(Object.keys(expected).sort(), [...IDS].sort(), 'Exact oracle ownership required')
@@ -104,7 +104,7 @@ export function durableSnapshot(record, { expected, assistantEventSeq, allowPend
         completedTurns.push(turn); turn = undefined; current = undefined
       } else assert.fail(`Unexpected exported durable event: ${event.type}`)
     }
-    if (id === AWAY_ID || id === uiAway?.sessionId) { assert.equal(events.length, 0, 'Away session must have no user input, model or turn events'); continue }
+    if (id === AWAY_ID) { assert.equal(events.length, 0, 'Away session must have no user input, model or turn events'); continue }
     assert.equal(seedUser, 1); assert.equal(seedAssistant, 1)
     const want = expected[id]
     assert.ok(actions.length <= want.actions.length && completedTurns.length <= want.completedTurns.length, 'Unexpected additional action/turn')

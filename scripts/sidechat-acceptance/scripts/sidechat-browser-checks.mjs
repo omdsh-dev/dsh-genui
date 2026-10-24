@@ -179,7 +179,7 @@ export async function checkSidechatBrowser(options) {
   report.scenarios = []
   report.actionTransport = []
   report.identity = { parentId, childIds: [...childIds], awaySessionId, seed: structuredClone(seed) }
-  const uiAwayCreate = observeUiAwayCreate(page, location.origin, workspaceId, [...ids, awaySessionId])
+  const uiAwayCreate = observeUiAwayCreate(page, location.origin, workspaceId, awaySessionId)
   page.on('pageerror', onPageError)
   page.on('request', onRequest)
   page.on('requestfailed', onRequestFailed)
@@ -215,8 +215,8 @@ export async function checkSidechatBrowser(options) {
     await assertSide(fixtureValues('B'))
     report.scenarios.push('Real Files ↔ Sidechat native tab round trip retains all four B values')
 
-    // Official rc.2 hides non-current blank rows. The workspace header creates
-    // a fresh blank, not the pre-seeded away. Observe and bind that exact ID.
+    // Official rc.3 reuses the existing workspace blank. Observe that native
+    // request and response, then bind the visibly selected empty root.
     const workspaceRow = page.locator(`[data-row-key="workspace:${workspaceId}"]`)
     await count(workspaceRow, 1, 'Exact owned workspace must be unique')
     await workspaceRow.hover({ timeout: remaining() }) // Native row actions are visible on hover.
@@ -226,8 +226,8 @@ export async function checkSidechatBrowser(options) {
     await click(newSessionControl)
     const uiAway = await uiAwayCreate.finish(remaining())
     const uiAwayRow = page.locator(`[data-row-key="session:${uiAway.sessionId}"]`)
-    await count(uiAwayRow, 1, 'Returned UI-created session must resolve uniquely')
-    await poll(() => attr(uiAwayRow, 'aria-selected'), value => value === 'true', 'Returned UI-created session must actually be selected')
+    await count(uiAwayRow, 1, 'Returned UI-reused session must resolve uniquely')
+    await poll(() => attr(uiAwayRow, 'aria-selected'), value => value === 'true', 'Returned UI-reused session must actually be selected')
     verifyUiAwaySelection(uiAway, { rowKey: await attr(uiAwayRow, 'data-row-key'),
       selected: await attr(uiAwayRow, 'aria-selected'), onScreen: await onScreen(uiAwayRow) })
     report.uiAway = await run(() => bindUiAwaySession(uiAway.sessionId), 'Bind exact UI away to durable zero-event oracle')

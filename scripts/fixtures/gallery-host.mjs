@@ -1,6 +1,6 @@
 /** Test-only Cordis plugin. Real AgentLoop + official local ReplayAdapter, no
  * seeded messages, fake conversation services, renderer patches, or endpoints.
- * Loaded only by e2e.mjs's fresh rc.2 smoke profile through --patch.
+ * Loaded only by e2e.mjs's fresh rc.3 smoke profile through --patch.
  */
 import assert from 'node:assert/strict'
 import { appendFileSync } from 'node:fs'
@@ -20,7 +20,7 @@ export async function apply(ctx, config) {
   // model middleware, rejecting any route that might prepare a live provider.
   ctx.on('agent/request', async ({ agent, turn, step }, next) => {
     assert.equal(agent.id, sessionId, 'Unexpected agent in synthetic profile')
-    assert.ok((turn === 1 || turn === 2) && step === 1, 'Only two one-step turns are scripted')
+    assert.ok((turn === 1 || turn === 2 || turn === 3) && step === 1, 'Only three one-step turns are scripted')
     const selection = await next()
     const allowed = selection.provider === provider && selection.model === model
     save({ type: 'agent-route', sessionId: agent.id, turn, step, allowed })
@@ -30,7 +30,7 @@ export async function apply(ctx, config) {
   ctx.on('llm/stream', (options, next) => {
     const allowed = options.sessionId === sessionId && options.provider === provider && options.model === model
     save({ type: 'llm-route', sessionId: options.sessionId, allowed, call: ++streams })
-    assert.ok(allowed && streams <= 2, 'Refusing unexpected or extra model calls')
+    assert.ok(allowed && streams <= 3, 'Refusing unexpected or extra model calls')
     return next()
   }, { global: true, prepend: true })
   const replay = installLlmReplay(ctx, {
@@ -50,9 +50,9 @@ export async function apply(ctx, config) {
     }
     if (event.type === 'turn/end') {
       save({ type: 'turn-end', sessionId, turn: event.data.turn, reason: event.data.reason })
-      if (event.data.turn === 2) {
+      if (event.data.turn === 3) {
         replay.assertConsumed()
-        assert.equal(streams, 2)
+        assert.equal(streams, 3)
         save({ type: 'replay-consumed', sessionId, calls: streams })
       }
     }

@@ -42,7 +42,7 @@ export async function apply(ctx, config) {
   ctx.on('session/created', session => {
     if (phase !== 'resume' || [...ALL_IDS, config.awayId].includes(session.id)) return
     if (createdUiSessionIds.length < 2) createdUiSessionIds.push(session.id)
-    if (createdUiSessionIds.length !== 1) fatal = 'More than one extra synthetic root was created'
+    fatal = 'Unexpected extra synthetic root: New Session must reuse the existing blank'
   }, { global: true })
   const save = record => {
     if (audit.length >= 512) { fatal = 'Bounded audit capacity exceeded'; return }
@@ -275,7 +275,7 @@ export async function apply(ctx, config) {
     snapshotTask = (async () => {
       await trace.run('binding', 'all', () => {
         if (request.uiAway !== undefined) {
-          const next = validateUiAway(request.uiAway, [...ALL_IDS, config.awayId])
+          const next = validateUiAway(request.uiAway, config.awayId)
           if (uiAway) assert.deepEqual(next, uiAway, 'UI away binding cannot change')
           else uiAway = next
         } else assert.equal(uiAway, undefined, 'A bound UI away cannot be omitted')
@@ -283,12 +283,12 @@ export async function apply(ctx, config) {
       await trace.run('flush', 'all', () => ctx.sessionPersistence.flush())
       const sessions = {}
       let uiAwayOwnership
-      for (const id of [...ALL_IDS, config.awayId, ...(uiAway ? [uiAway.sessionId] : [])]) {
+      for (const id of [...ALL_IDS, config.awayId]) {
         const owner = id === PARENT_ID ? 'parent' : id === CHILD_IDS[0] ? 'child-a' : id === CHILD_IDS[1] ? 'child-b'
-          : id === config.awayId ? 'seeded-away' : 'ui-away'
+          : 'seeded-away'
         const stored = await readSnapshotSession(ctx.sessionPersistence, id, owner, trace)
         if (id === uiAway?.sessionId) uiAwayOwnership = await trace.run('ownership', owner, () => verifyUiAwayOwnership(uiAway, stored.header,
-          ctx.workspaceRegistry.get(uiAway.workspaceId), join(allowed, 'workspace'), [...ALL_IDS, config.awayId]))
+          ctx.workspaceRegistry.get(uiAway.workspaceId), join(allowed, 'workspace'), [...ALL_IDS, config.awayId], config.awayId))
         sessions[id] = await trace.run('projection', owner, () => {
           const events = stored.events.filter(event => relevant.has(event.type) && event.type !== 'agent/inbox/spliced').map(event => {
             const result = { type: event.type, seq: event.seq, data: event.data }

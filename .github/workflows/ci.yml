@@ -16,10 +16,10 @@ jobs:
             host-ref: "dsh-v0.2.0-rc.1"
             role: minimum
           - node: 22
-            host-ref: "dsh-v0.2.1-rc.2"
+            host-ref: "dsh-v0.2.1-rc.3"
             role: current
           - node: 24
-            host-ref: "dsh-v0.2.1-rc.2"
+            host-ref: "dsh-v0.2.1-rc.3"
             role: current
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -73,7 +73,7 @@ jobs:
           DSH_ROOT: ${{ github.workspace }}/../../.dsh/source/current
           DSH_BIN: ${{ github.workspace }}/../../.dsh/source/current/apps/cli/lib/bin.js
 
-      - name: Archive gallery browser evidence
+      - name: Archive gallery and computed browser evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -81,6 +81,9 @@ jobs:
           path: |
             gallery-*.png
             gallery-*.json
+            computed-*.png
+            computed-browser-results.json
+            computed-acceptance.json
           if-no-files-found: ignore
 
       # Only bounded synthetic screenshots and explicit verdicts, never HOME/logs/config.

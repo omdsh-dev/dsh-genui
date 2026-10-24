@@ -78,7 +78,7 @@ https://github.com/user-attachments/assets/f5db33ec-7471-4d4a-a85b-79c9962ab4ef
 ### 1. Prerequisites
 
 Ensure your environment meets the following requirements:
-- **DSH Version**: `^0.2.0-rc.1 || ^0.2.1-rc.1` (verified against `dsh-v0.2.0-rc.1` and `dsh-v0.2.1-rc.2`)
+- **DSH Version**: `^0.2.0-rc.1 || ^0.2.1-rc.1` (verified against `dsh-v0.2.0-rc.1` and `dsh-v0.2.1-rc.3`)
 - **pnpm on PATH**: The `dsh plugin` CLI requires pnpm. If missing: run `corepack enable` or `npm i -g pnpm`, then **open a new terminal** and confirm `pnpm -v` prints a version number.
 
 ### 2. Install & Activate
@@ -285,7 +285,7 @@ dsh plugin --profile web add link:$PWD
 ```sh
 pnpm run check           # Type checks + full unit test suite + build
 pnpm run test            # Run Vitest unit tests
-pnpm run check:host-api dsh-v0.2.1-rc.2  # Check the current published DSH API
+pnpm run check:host-api dsh-v0.2.1-rc.3  # Check the current published DSH API
 node scripts/verify-pack.mjs --keep  # Verify and inspect npm tarball
 ```
 
@@ -297,7 +297,7 @@ node scripts/verify-pack.mjs --keep  # Verify and inspect npm tarball
   ```
 - **Real-Model Integration E2E**:
   ```sh
-  export DSH_ROOT=/path/to/deepseek-harness-0.2.1-rc.2
+  export DSH_ROOT=/path/to/deepseek-harness-0.2.1-rc.3
   export DSH_BIN="$DSH_ROOT/apps/cli/lib/bin.js"
   DEEPSEEK_API_KEY=sk-... node scripts/e2e.mjs
   ```

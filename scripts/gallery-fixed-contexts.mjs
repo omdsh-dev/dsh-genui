@@ -15,7 +15,7 @@ async function bounded(promise, timeout, label) {
 export async function runGalleryFixedContexts({ browser, page, readyUrl, artifactsDir,
   galleryConversation, galleryAssets, createDismissCredentialsOverlay, log = console.log }) {
   const fixture = galleryConversation
-    ? 'Official rc.2 real conversation with deterministic local replay'
+    ? 'Official rc.3 real conversation with deterministic local replay'
     : 'Minimum-host DOM fence; no conversation or host action routing claim'
   const report = { fixture, identity: { hostSha: process.env.HOST_SHA ?? null,
     revision: process.env.GITHUB_SHA ?? null, browser: browser.version() },
@@ -105,7 +105,10 @@ export async function runGalleryFixedContexts({ browser, page, readyUrl, artifac
     if (galleryConversation) {
       report.stage = 'single-desktop-choose'
       report.beforeChoose = await galleryConversation.assertNoActions()
+      await galleryConversation.editPanelBeforeAppend(page)
       report.choice = await galleryConversation.verifyChoose({ page, renderedRoot, dismissCredentialsOverlay: dismissDesktop })
+      await galleryConversation.checkPanelAfterAppend(page)
+      report.panelAppendPassed = true
       for (const path of ['/wide.svg', '/tall.svg', '/missing.svg']) {
         assert.ok(galleryAssets.requests.some(request => request.path === path), `Browser must request ${path}`)
       }

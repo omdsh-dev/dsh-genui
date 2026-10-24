@@ -18,6 +18,8 @@ import type { AnswersState, GenuiBlockProps } from './blocks/state.ts'
 import type { GenuiSpec } from './spec.ts'
 import { compileSubmissionRegistry } from './submission-registry.ts'
 import { evaluateComputed, resolveComputedSpec } from './computed.ts'
+import { parseDecimalNumber } from './safe-math.ts'
+import { walkGenuiNodes } from './walk-spec.ts'
 
 export const GENUI_ACTION_DEBOUNCE_MS = 300
 
@@ -73,10 +75,8 @@ function useDebouncedAction(onAction: GenuiBlockProps['onAction'] | undefined): 
  * ~200 full-tree renders for a max-size fence. Stringify equality makes the
  * memo skip renders whose content did not actually change; the cost is one
  * JSON.stringify per chunk (≤200 nodes, negligible next to a React tree
- * reconciliation). `stateKey` already embeds the content fingerprint, so when
- * both keys are equal and non-undefined the specs necessarily stringify
- * equal — the stringify branch matters for the streaming path (stateKey
- * undefined).
+ * reconciliation). Panels keep their state key across append operations, so
+ * their spec still needs comparison even when the durable key is unchanged.
  */
 function specEquivalent(a: GenuiSpec, b: GenuiSpec): boolean {
   if (a === b) return true
@@ -97,18 +97,62 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
   // state into one action. Block-local state survives streaming/panel
   // re-renders, and with a stateKey it also survives refresh/reopen.
   const [persisted] = useState(() => initialState ?? (onStateChange !== undefined || stateKey === undefined ? null : loadBlockState(stateKey)))
-  const [answers, setAnswers] = useState<Record<string, string>>(persisted?.answers ?? {})
-  const [multiAnswers, setMultiAnswers] = useState<Record<string, string[]>>(persisted?.multiAnswers ?? {})
-  const [fields, setFields] = useState<Record<string, string>>(persisted?.fields ?? {})
-  const computedSpec = useMemo(() => resolveComputedSpec(spec, evaluateComputed(spec, fields)), [spec, fields])
+  const [storedAnswers, setAnswers] = useState<Record<string, string>>(persisted?.answers ?? {})
+  const [storedMultiAnswers, setMultiAnswers] = useState<Record<string, string[]>>(persisted?.multiAnswers ?? {})
+  const fieldKinds = useMemo(() => {
+    const numeric = new Set<string>()
+    const secret = new Set<string>()
+    const declared = new Set<string>()
+    walkGenuiNodes(spec, node => {
+      if ((node.type === 'input' || node.type === 'textarea' || node.type === 'select' || node.type === 'slider') && node.id !== undefined) declared.add(node.id)
+      if (node.type !== 'input' || node.id === undefined) return
+      if (node.inputType === 'number') numeric.add(node.id)
+      if (node.inputType === 'password') secret.add(node.id)
+    })
+    return { numeric, secret, declared }
+  }, [spec])
+  const secretFields = fieldKinds.secret
+  // Visible drafts belong to the field, including while its control is hidden.
+  // Only computation retains a last valid number; submit/persistence use the draft.
+  const [fieldState, setFieldState] = useState(() => {
+    const fields = Object.fromEntries(Object.entries(persisted?.fields ?? {}).filter(([id]) => !secretFields.has(id)))
+    const numericValues = Object.fromEntries(Object.entries(fields).filter(([id, value]) =>
+      fieldKinds.numeric.has(id) && (value.trim() === '' || parseDecimalNumber(value) !== undefined)))
+    return { fields, numericValues }
+  })
+  const fields = useMemo(() => Object.fromEntries(Object.entries(fieldState.fields)
+    .filter(([id]) => fieldKinds.declared.has(id) && !secretFields.has(id))), [fieldState.fields, fieldKinds, secretFields])
+  // A replacement may remove fields while retaining the base form identity.
+  // Removed members must not survive in drafts, export or later submissions.
+  useEffect(() => {
+    setFieldState(prev => {
+      const entries = Object.entries(prev.fields).filter(([id]) => fieldKinds.declared.has(id) && !secretFields.has(id))
+      if (entries.length === Object.keys(prev.fields).length) return prev
+      return { fields: Object.fromEntries(entries), numericValues: Object.fromEntries(Object.entries(prev.numericValues)
+        .filter(([id]) => fieldKinds.numeric.has(id) && !secretFields.has(id))) }
+    })
+  }, [fieldKinds, secretFields])
+  const computedSpec = useMemo(() => {
+    const numericValues = Object.fromEntries(Object.entries(fieldState.numericValues).filter(([id]) => fieldKinds.numeric.has(id)))
+    return resolveComputedSpec(spec, evaluateComputed(spec, { ...fields, ...numericValues }))
+  }, [spec, fields, fieldState.numericValues, fieldKinds])
   const submissionRegistry = useMemo(() => compileSubmissionRegistry(computedSpec), [computedSpec])
+  const answers = useMemo(() => Object.fromEntries(Object.entries(storedAnswers).filter(([group, choice]) => {
+    const member = submissionRegistry.members.get(group)
+    return member?.kind === 'radio' && member.options.includes(choice)
+  })), [storedAnswers, submissionRegistry])
+  const multiAnswers = useMemo(() => Object.fromEntries(Object.entries(storedMultiAnswers).flatMap(([group, choices]) => {
+    const member = submissionRegistry.members.get(group)
+    return member?.kind === 'checkbox' ? [[group, choices.filter(choice => member.choices.has(choice))]] : []
+  })), [storedMultiAnswers, submissionRegistry])
   const [locked, setLocked] = useState(persisted?.locked === true)
   const [round, setRound] = useState(0)
   // Secret (password) field ids: their values never persist and never join
   // submit collection — the input itself stays masked and its own action
   // still delivers the value on explicit user submit.
-  const [secretFields, setSecretFields] = useState<ReadonlySet<string>>(new Set())
-  const [invalidNumericFields, setInvalidNumericFields] = useState<ReadonlySet<string>>(new Set())
+  const invalidNumericFields = useMemo(() => new Set(Object.entries(fields)
+    .filter(([id, value]) => fieldKinds.numeric.has(id) && value.trim() !== '' && parseDecimalNumber(value) === undefined)
+    .map(([id]) => id)), [fields, fieldKinds])
   const setAnswer = useCallback((group: string, choice: string) => {
     setAnswers(prev => (prev[group] === choice ? prev : { ...prev, [group]: choice }))
   }, [])
@@ -135,21 +179,22 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
     // next mount. Blank values are still excluded from submit collection by
     // SubmitNode's filledFields filter (and from persistence for secrets), so
     // this does not change what the model receives.
-    setFields(prev => (Object.hasOwn(prev, id) && prev[id] === value ? prev : { ...prev, [id]: value }))
-  }, [])
-  const setNumericFieldValidity = useCallback((id: string, valid: boolean) => {
-    setInvalidNumericFields(prev => {
-      const currentlyInvalid = prev.has(id)
-      if (currentlyInvalid === !valid) return prev
-      const next = new Set(prev)
-      if (valid) next.delete(id)
-      else next.add(id)
-      return next
+    if (secretFields.has(id)) return
+    setFieldState(prev => {
+      const validNumber = fieldKinds.numeric.has(id) && (value.trim() === '' || parseDecimalNumber(value) !== undefined)
+      let numericValues = prev.numericValues
+      if (validNumber && numericValues[id] !== value) numericValues = { ...numericValues, [id]: value }
+      else if (!fieldKinds.numeric.has(id) && Object.hasOwn(numericValues, id)) {
+        numericValues = { ...numericValues }
+        delete numericValues[id]
+      }
+      if (Object.hasOwn(prev.fields, id) && prev.fields[id] === value && numericValues === prev.numericValues) return prev
+      return {
+        fields: { ...prev.fields, [id]: value },
+        numericValues,
+      }
     })
-  }, [])
-  const registerSecretField = useCallback((id: string) => {
-    setSecretFields(prev => (prev.has(id) ? prev : new Set(prev).add(id)))
-  }, [])
+  }, [fieldKinds, secretFields])
   const clear = useCallback(() => {
     setAnswers({})
     setMultiAnswers({})
@@ -159,9 +204,9 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
   const answersState = useMemo<AnswersState>(
     () => ({
       answers, multiAnswers, fields, secretFields, invalidNumericFields, registry: submissionRegistry, locked, round,
-      setAnswer, setMultiAnswer, setField, setNumericFieldValidity, registerSecretField, clear, setLocked,
+      setAnswer, setMultiAnswer, setField, clear, setLocked,
     }),
-    [answers, multiAnswers, fields, secretFields, invalidNumericFields, submissionRegistry, locked, round, setAnswer, setMultiAnswer, setField, setNumericFieldValidity, registerSecretField, clear],
+    [answers, multiAnswers, fields, secretFields, invalidNumericFields, submissionRegistry, locked, round, setAnswer, setMultiAnswer, setField, clear],
   )
   const durableState = useMemo(() => {
     const safeFields = Object.fromEntries(Object.entries(fields).filter(([id]) => !secretFields.has(id)))
@@ -175,6 +220,13 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
   useEffect(() => {
     onStateSnapshot?.(durableState)
   }, [durableState, onStateSnapshot])
+  const durableRef = useRef(durableState)
+  durableRef.current = durableState
+  // Collapsing a panel unmounts its form. Flush the current draft on teardown
+  // instead of losing edits inside the normal save debounce window.
+  useEffect(() => () => {
+    if (!savesExternally && stateKey !== undefined) saveBlockState(stateKey, durableRef.current)
+  }, [stateKey, savesExternally])
   // Achievement telemetry: every emitted action counts as one interaction
   // (the debounced emit fires once per real user action).
   const trackedAction = useMemo(() => {

@@ -19,7 +19,7 @@
 export interface BlockInteractionState {
   /** group → chosen option label (radio aggregation answers). */
   answers?: Record<string, string>
-  /** group → chosen option labels (checkbox aggregation answers). Empty arrays
+  /** group → chosen source labels/templates (stable checkbox identities). Empty arrays
    * are retained so an explicitly cleared group wins over `checked` defaults
    * after refresh. */
   multiAnswers?: Record<string, string[]>

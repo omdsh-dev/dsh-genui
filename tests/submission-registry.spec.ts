@@ -53,7 +53,7 @@ describe('submission registry', () => {
     expect(diagnostics).toEqual([])
     expect([...registry.members.values()]).toEqual([
       { kind: 'radio', key: 'q1', label: 'Question', options: ['A', 'B'], answer: 1, explanation: 'Because' },
-      { kind: 'checkbox', key: 'styles' },
+      { kind: 'checkbox', key: 'styles', choices: new Map([['A', 'A'], ['B', 'B']]) },
       { kind: 'field', key: 'secret', fieldType: 'input', secret: true },
       { kind: 'field', key: 'note', fieldType: 'textarea', secret: false },
       { kind: 'field', key: 'choice', fieldType: 'select', secret: false },

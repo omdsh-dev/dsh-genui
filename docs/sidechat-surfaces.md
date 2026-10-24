@@ -26,7 +26,7 @@ The observer is limited to the supplied root, ignores its own output and adds no
 ## Required release validation
 
 - Both normal package builds and pack lifecycles, plus type checks and focused/full regression suites.
-- Real DSH `0.2.1-rc.2` in a fresh keyless profile with both actual plugin packages, not a standalone gallery or callback spy.
+- Real DSH `0.2.1-rc.3` in a fresh keyless profile with both actual plugin packages, not a standalone gallery or callback spy.
 - Identical forms in the main conversation and two side threads: isolated state, multiple original text blocks and mixed/repeated fences, rapid hide/reopen and DOM replacement.
 - Real control actions reach the owning child's prompt route and events/inbox, while the main conversation and other child remain unchanged. Synthetic replay/provider data must be labelled as such.
 - Existing mount invariants, plugin removal/late arrival, no page errors, and original Markdown fallback.

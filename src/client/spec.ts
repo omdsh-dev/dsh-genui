@@ -185,7 +185,11 @@ export interface GenuiSelect {
   id?: string
 }
 
+/** Runtime identity for a checkbox whose display label has been computed. */
+export const GENUI_CHECKBOX_VALUE = Symbol('dsh-genui-checkbox-value')
+
 export interface GenuiCheckbox {
+  [GENUI_CHECKBOX_VALUE]?: string
   type: 'checkbox'
   label: string
   checked?: boolean

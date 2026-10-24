@@ -291,8 +291,8 @@ export function renderNode(
         </ClickFeedbackButton>
       )
     }
-    case 'input': return <InputNode key={key} node={node} onAction={onAction} answers={answers} />
-    case 'select': return <SelectNode key={key} node={node} onAction={onAction} answers={answers} />
+    case 'input': return <InputNode key={JSON.stringify([path, node.id, node.inputType ?? 'text'])} node={node} onAction={onAction} answers={answers} />
+    case 'select': return <SelectNode key={JSON.stringify([path, node.id])} node={node} onAction={onAction} answers={answers} />
     case 'checkbox': return <CheckboxNode key={key} node={node} onAction={onAction} answers={answers} />
     case 'link': {
       const target = classifyLinkTarget(node.href)
@@ -513,11 +513,11 @@ export function renderNode(
     case 'diff': return <DiffNode key={key} node={node} />
     case 'json': return <JsonNode key={key} node={node} />
     case 'code': return <CodeNode key={key} node={node} />
-    case 'radio': return <RadioNode key={`${key}:r${answers?.round ?? 0}`} node={node} onAction={onAction} answers={answers} />
+    case 'radio': return <RadioNode key={JSON.stringify([path, node.group, answers?.round ?? 0])} node={node} onAction={onAction} answers={answers} />
     case 'submit': return <SubmitNode key={key} node={node} onAction={onAction} answers={answers} />
     case 'switch': return <SwitchNode key={key} node={node} onAction={onAction} />
-    case 'slider': return <SliderNode key={key} node={node} onAction={onAction} answers={answers} />
-    case 'textarea': return <TextareaNode key={key} node={node} onAction={onAction} answers={answers} />
+    case 'slider': return <SliderNode key={JSON.stringify([path, node.id])} node={node} onAction={onAction} answers={answers} />
+    case 'textarea': return <TextareaNode key={JSON.stringify([path, node.id])} node={node} onAction={onAction} answers={answers} />
     case 'accordion': return <AccordionNode key={key} node={node} onAction={onAction} depth={depth + 1} answers={answers} path={path} />
     case 'copy': return <CopyNode key={key} node={node} path={path} />
     case 'mermaid': return <MermaidNode key={key} node={node} />

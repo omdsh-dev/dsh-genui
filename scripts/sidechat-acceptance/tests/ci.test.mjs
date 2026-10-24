@@ -20,8 +20,8 @@ function pack(name, version = '0.28.0', scripts) {
 }
 const sha = bytes => createHash('sha256').update(bytes).digest('hex')
 const passed = () => ({ kind: 'real-dual-plugin-sidechat-acceptance', status: 'passed',
-  browserAcceptance: true, cleanupCompleted: true, hostVersion: '0.2.1-rc.2' })
-async function fixture(t, version = '0.2.1-rc.2') {
+  browserAcceptance: true, cleanupCompleted: true, hostVersion: '0.2.1-rc.3' })
+async function fixture(t, version = '0.2.1-rc.3') {
   const root = await mkdtemp(join(tmpdir(), 'dsh354-ci-contract-'))
   t.after(() => rm(root, { recursive: true, force: true }))
   const cli = join(root, 'host/apps/cli')
@@ -68,8 +68,8 @@ test('sidechat requires both smoke and tarball mode instead of adding implicit n
     assert.throws(() => validateSidechatMode({ sidechat: true, smoke, install }), /--sidechat requires --smoke --install tarball/)
   }
 })
-test('only exact rc.2 requires coverage; minimum is explicit N/A, never PASS', () => {
-  assert.equal(hostApplicability('0.2.1-rc.2'), 'required')
+test('only exact rc.3 requires coverage; minimum is explicit N/A, never PASS', () => {
+  assert.equal(hostApplicability('0.2.1-rc.3'), 'required')
   assert.equal(hostApplicability('0.2.0-rc.1'), 'not-applicable')
   for (const version of ['0.2.1-rc.1', '0.2.1', '0.2.2', '', undefined]) assert.throws(() => hostApplicability(version), /silently skipped/)
 })
@@ -85,7 +85,7 @@ test('minimum lane emits N/A, removes stale evidence, and does no checkout or br
   for (const file of ['dsh354-browser-report.json', 'dsh354-thread-A-block2-fence1.png']) await assert.rejects(stat(join(options.artifactDir, file)), { code: 'ENOENT' })
 })
 test('unknown host fails rather than silently bypassing the required gate', async t => {
-  const { options } = await fixture(t, '0.2.1-rc.3'), commands = commandRecorder()
+  const { options } = await fixture(t, '0.2.1-rc.4'), commands = commandRecorder()
   await assert.rejects(runSidechatCI(options, commands), /silently skipped/)
   assert.equal(commands.calls.length, 0); assert.equal((await verdict(options)).status, 'failed')
 })
@@ -154,7 +154,7 @@ for (const [name, settings, expected] of [
 })
 for (const [name, result] of [
   ['no result', undefined], ['incomplete', { ...passed(), status: 'incomplete' }],
-  ['not applicable on rc.2', { ...passed(), status: 'not-applicable' }],
+  ['not applicable on rc.3', { ...passed(), status: 'not-applicable' }],
   ['artifact-only success', { ...passed(), browserAcceptance: false }],
   ['missing cleanup', { ...passed(), cleanupCompleted: false }],
 ]) test(`${name} cannot produce a CI PASS`, async t => {

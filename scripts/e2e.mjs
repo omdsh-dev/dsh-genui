@@ -18,7 +18,7 @@
  *   --install tarball 必须给 --tarball 绝对路径与 --tarball-sha256（防假安装）
  *   --smoke           不要求模型 Key：安装 → 启动 → 首页/client.js 200 →
  *                     无页面异常 → 插件 boot → Diff/Code/JSON 渲染与复制；
- *                     rc.2 Gallery 使用官方本地 replay 验证真实会话动作，不访问真实模型。
+ *                     rc.3 Gallery 使用官方本地 replay 验证真实会话动作，不访问真实模型。
  *   --sidechat        显式启用双插件验收；仅允许 --smoke --install tarball，
  *                     会构建固定提交的 Better Sidebar，不改变原有 smoke 模式。
  * 退出码 0 = PASS，1 = FAIL。
@@ -294,6 +294,7 @@ try {
     await dismissCredentialsOverlay()
     await runGalleryFixedContexts({ browser, page, readyUrl, artifactsDir, galleryConversation, galleryAssets,
       createDismissCredentialsOverlay, log })
+    await galleryConversation?.verifyComputed({ page, browser, artifactsDir })
     // Percentage columns divide the space remaining after the row gap. Exercise
     // the installed renderer, including min-content pressure from a long code line.
     for (const width of [500, 280]) {
