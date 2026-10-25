@@ -22,11 +22,12 @@ function hostBlock(raw = body): HTMLElement {
   return block
 }
 function surface(extra: Partial<SidechatSurface> = {}, rawBodies = [body]): SidechatSurface {
+  const source = extra.source ?? 'dsh-better-sidebar/sidechat'
   const root = document.createElement('div')
-  root.setAttribute('data-genui-surface', 'dsh-better-sidebar/sidechat')
+  root.setAttribute('data-genui-surface', source)
   root.append(...rawBodies.map(raw => hostBlock(raw)))
   document.body.append(root)
-  return { root, source: 'dsh-better-sidebar/sidechat', threadId: 'child-a', eventSeq: 42,
+  return { root, source, threadId: 'child-a', eventSeq: 42,
     contentBlockIndex: 0, text: markdown(), sendPrompt: vi.fn(async () => {}), ...extra }
 }
 async function mount(value: SidechatSurface): Promise<() => void> {
@@ -64,6 +65,18 @@ describe('explicit sidechat surfaces', () => {
     expect(vi.mocked(value.sendPrompt).mock.calls[0]![0]).toMatch(/^\[genui-action\] continue /)
   })
 
+  it('isolates persisted state between provider sources with identical message identity', async () => {
+    const values = [surface({ source: 'dsh-native/sidechat' }), surface({ source: 'third-party/sidechat' })]
+    for (const value of values) await mount(value)
+    fireEvent.change(within(values[0]!.root).getByRole('textbox'), { target: { value: 'native-only' } })
+    fireEvent.change(within(values[1]!.root).getByRole('textbox'), { target: { value: 'third-party-only' } })
+    await act(async () => { for (const dispose of disposers.splice(0)) dispose() })
+    const restored = [surface({ source: 'dsh-native/sidechat' }), surface({ source: 'third-party/sidechat' })]
+    for (const value of restored) await mount(value)
+    expect((within(restored[0]!.root).getByRole('textbox') as HTMLInputElement).value).toBe('native-only')
+    expect((within(restored[1]!.root).getByRole('textbox') as HTMLInputElement).value).toBe('third-party-only')
+  })
+
   it('isolates identical forms across child threads and original content blocks', async () => {
     const values = [surface(), surface({ threadId: 'child-b' }), surface({ contentBlockIndex: 2 })]
     for (const value of values) await mount(value)
@@ -98,7 +111,7 @@ describe('explicit sidechat surfaces', () => {
   })
 
   it.each([
-    ['source', { source: 'other' }], ['empty thread', { threadId: '' }], ['missing thread', { threadId: undefined }],
+    ['empty source', { source: '' }], ['empty thread', { threadId: '' }], ['missing thread', { threadId: undefined }],
     ['fractional seq', { eventSeq: 1.5 }], ['negative seq', { eventSeq: -1 }], ['missing index', { contentBlockIndex: undefined }],
     ['negative index', { contentBlockIndex: -1 }], ['missing sender', { sendPrompt: undefined }],
   ])('fails closed for %s', async (_, extra) => {
@@ -106,6 +119,48 @@ describe('explicit sidechat surfaces', () => {
     await mount(value)
     expect(value.root.querySelector('[data-genui]')).toBeNull()
     expect(value.root.querySelector<HTMLElement>('.md-code-block')!.style.display).toBe('')
+  })
+
+  it('fails closed when the provider source and root marker differ', async () => {
+    const value = surface({ source: 'dsh-native/sidechat' })
+    value.root.setAttribute('data-genui-surface', 'another-provider/sidechat')
+    await mount(value)
+    expect(value.root.querySelector('[data-genui]')).toBeNull()
+    expect(value.root.querySelector<HTMLElement>('.md-code-block')!.style.display).toBe('')
+  })
+
+  it('restores Markdown and closes the action route when a mounted provider marker changes', async () => {
+    const value = surface({ source: 'dsh-native/sidechat' })
+    value.root.querySelector('.md-code-block > div')!.textContent = 'dsh-ui'
+    const send = vi.fn()
+    const ctx = { sessions: { list: { getSnapshot: () => ({ ids: ['main'] }) }, retainInfo: () => ({ getSnapshot: () => ({ retainedBy: { mainView: 1 } }) }) } } as unknown as Context
+    await act(async () => { disposers.push(installDomFenceRenderer(ctx, send)); await new Promise(resolve => setTimeout(resolve, 35)) })
+    await mount(value)
+    const button = within(value.root).getByRole('button', { name: 'Send' })
+    value.root.removeAttribute('data-genui-surface')
+    fireEvent.click(button)
+    expect(value.sendPrompt).not.toHaveBeenCalled()
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 35)) })
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) })
+    expect(value.root.querySelector('[data-genui]')).toBeNull()
+    expect(value.root.querySelector<HTMLElement>('.md-code-block')!.style.display).toBe('')
+    expect(value.root.hasAttribute('data-genui-sidechat-root')).toBe(true)
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('keeps root exclusion ownership when duplicate mounts and stale disposers overlap', async () => {
+    const value = surface({ source: 'dsh-native/sidechat' })
+    const firstDispose = await mount(value)
+    let duplicateDispose = () => {}
+    await act(async () => { duplicateDispose = mountSidechatSurface({ ...value, sendPrompt: vi.fn(async () => {}) }) })
+    expect(value.root.querySelectorAll('[data-genui]')).toHaveLength(1)
+    await act(async () => { firstDispose() })
+    const next = { ...value, sendPrompt: vi.fn(async () => {}) }
+    const nextDispose = await mount(next)
+    await act(async () => { firstDispose() })
+    expect(value.root.hasAttribute('data-genui-sidechat-root')).toBe(true)
+    expect(value.root.querySelectorAll('[data-genui]')).toHaveLength(1)
+    await act(async () => { duplicateDispose(); nextDispose() })
   })
 
   it.each([

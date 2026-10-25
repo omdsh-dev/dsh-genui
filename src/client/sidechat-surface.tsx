@@ -1,4 +1,4 @@
-/** Explicit, optional BetterSidebar integration. Never impersonates a main chat row. */
+/** 显式侧聊接入，不伪装成主会话消息行。 */
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { GenuiActionContext } from './action-context.ts'
@@ -9,10 +9,11 @@ import { resolveGenuiSpec } from './fence-render.tsx'
 import { fenceStateKey, loadBlockState, saveBlockState, type BlockInteractionState } from './interaction-store.ts'
 import { sourceFencesOf } from './source-fence.ts'
 
-/** Structural service contract: no runtime import of the other plugin. */
+/** Provider 声明的 sidechat 内容及其稳定身份和专属交互路由。 */
 export interface SidechatSurface {
   readonly root: HTMLElement
-  readonly source: 'dsh-better-sidebar/sidechat'
+  /** Provider 提供的稳定 surface 名称，同时写入 root 标记。 */
+  readonly source: string
   readonly threadId: string
   readonly eventSeq: number
   readonly contentBlockIndex: number
@@ -20,6 +21,7 @@ export interface SidechatSurface {
   readonly sendPrompt: (text: string) => Promise<void>
 }
 
+/** 宿主或插件向 GenUI 提供的 sidechat adapter 注册接口。 */
 export interface SidechatSurfaceService {
   registerSidechatSurfaceAdapter(adapter: {
     readonly id: string
@@ -28,6 +30,8 @@ export interface SidechatSurfaceService {
 }
 
 const MOUNT = 'data-genui-explicit-fence'
+const SIDECHAT_ROOT = 'data-genui-sidechat-root'
+const sidechatSurfaceOwners = new WeakMap<HTMLElement, symbol>()
 
 function CommittedFence({ children, onCommit }: { children: ReactNode; onCommit: (content: HTMLElement) => void }) {
   const content = useRef<HTMLDivElement>(null)
@@ -59,7 +63,7 @@ function surfaceState(stateKey: string) {
 }
 
 function validSurface(surface: SidechatSurface): boolean {
-  return surface.source === 'dsh-better-sidebar/sidechat'
+  return typeof surface.source === 'string' && surface.source.trim() !== ''
     && surface.root instanceof HTMLElement
     && surface.root.getAttribute('data-genui-surface') === surface.source
     && typeof surface.threadId === 'string' && surface.threadId.trim() !== ''
@@ -75,9 +79,12 @@ function validSurface(surface: SidechatSurface): boolean {
  * No main-session lookup, fallback action route, global query or polling.
  */
 export function mountSidechatSurface(surface: SidechatSurface): () => void {
-  if (!validSurface(surface)) return () => {}
+  if (!validSurface(surface) || sidechatSurfaceOwners.has(surface.root)) return () => {}
   const fences = sourceFencesOf(surface.text)
   if (!fences.some(fence => fence.lang === 'dsh-ui')) return () => {}
+  const owner = Symbol('genui-sidechat-surface')
+  sidechatSurfaceOwners.set(surface.root, owner)
+  surface.root.setAttribute(SIDECHAT_ROOT, '')
   let active = true
   let queued = false
   const mounts = new Map<HTMLElement, { container: HTMLElement; root: Root; display: string; index: number; state: ReturnType<typeof surfaceState>; content: HTMLElement | null; committed: boolean; wiped: boolean }>()
@@ -105,6 +112,10 @@ export function mountSidechatSurface(surface: SidechatSurface): () => void {
   const scan = (): void => {
     queued = false
     if (!active) return
+    if (!validSurface(surface)) {
+      for (const block of mounts.keys()) drop(block)
+      return
+    }
     const all = codeBlockSurfaces(surface.root).filter(block => block.closest(`[${MOUNT}]`) === null)
     const blocks = all.filter(block => !all.some(other => other !== block && other.contains(block)))
     if (blocks.length !== fences.length) {
@@ -152,10 +163,10 @@ export function mountSidechatSurface(surface: SidechatSurface): () => void {
             }
           }}>
           <GenuiActionContext.Provider value={(action, payload) => {
-            if (!active || mounts.get(block)?.root !== ownedRoot || !surface.root.contains(block)) return
+            if (!active || surface.root.getAttribute('data-genui-surface') !== surface.source
+              || mounts.get(block)?.root !== ownedRoot || !surface.root.contains(block)) return
             void surface.sendPrompt(`[genui-action] ${action} ${JSON.stringify(payload)}`).catch(() => {
-              // The owning BetterSidebar surface reports transport errors.
-              // Never retry against the main conversation.
+              // 传输错误由 provider 处理，动作不会发送到主会话。
             })
           }}>
             <ErrorBoundary key={stateKey} label="sidechat dsh-ui fence">
@@ -201,16 +212,28 @@ export function mountSidechatSurface(surface: SidechatSurface): () => void {
       return [...mounts.values()].some(mounted => target === mounted.container && mounted.wiped)
     })) schedule()
   })
-  observer.observe(surface.root, { childList: true, subtree: true, characterData: true })
+  observer.observe(surface.root, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ['data-genui-surface'],
+  })
   scan()
   return () => {
     active = false
     observer.disconnect()
     for (const block of mounts.keys()) drop(block)
+    if (sidechatSurfaceOwners.get(surface.root) === owner) {
+      if (surface.root.hasAttribute('data-genui-surface') || !surface.root.isConnected) {
+        surface.root.removeAttribute(SIDECHAT_ROOT)
+      }
+      sidechatSurfaceOwners.delete(surface.root)
+    }
   }
 }
 
-/** Optional service registration: older/absent BetterSidebar keeps Markdown. */
+/** 向提供通用 sidechat service 的宿主注册 GenUI adapter。 */
 export function installSidechatAdapter(service: Partial<SidechatSurfaceService> | undefined): () => void {
   if (typeof service?.registerSidechatSurfaceAdapter !== 'function') return () => {}
   return service.registerSidechatSurfaceAdapter({ id: 'dsh-genui', mount: mountSidechatSurface })

@@ -117,10 +117,10 @@ const DIAGNOSTIC_CLASS = 'genui-dom-fence-diagnostic'
 /** Host containers a takeover never reaches: our own mounted trees. Every
  * discovery path shares these gates, so a changed node cannot enqueue what a
  * full scan rejects. */
-const SURFACE_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-genui-svg-fence], [data-genui-surface]`
+const SURFACE_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-genui-svg-fence], [data-genui-surface], [data-genui-sidechat-root]`
 /** Same for tag-text spans: the host renders these rows outside the
  * transcript (reasoning, tool output, sidebars, plugin panels). */
-const TAG_TEXT_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-genui-surface], [data-chat-group-part="reasoning"], [data-tool], [data-sidebar-chat], [data-sidebar-right-session], [data-sidebar-right-panel], [data-panel-conversation], [data-plugin-panel]`
+const TAG_TEXT_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-genui-surface], [data-genui-sidechat-root], [data-chat-group-part="reasoning"], [data-tool], [data-sidebar-chat], [data-sidebar-right-session], [data-sidebar-right-panel], [data-panel-conversation], [data-plugin-panel]`
 /**
  * Subtrees whose mutations cannot change a fence.
  *
@@ -632,7 +632,7 @@ function hostFenceBlocksOf(row: Element): HTMLElement[] {
   return codeBlockSurfaces(row).filter(candidate => {
     if (closestCodeBlockSurface(candidate.parentElement) !== null) return false
     if (candidate.closest(`.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-genui], [data-genui-svg-fence]`) !== null) return false
-    if (candidate.closest('[data-chat-group-part="reasoning"], [data-tool], [data-sidebar-chat], [data-sidebar-right-session], [data-sidebar-right-panel], [data-panel-conversation], [data-plugin-panel]') !== null) return false
+    if (candidate.closest('[data-genui-sidechat-root], [data-chat-group-part="reasoning"], [data-tool], [data-sidebar-chat], [data-sidebar-right-session], [data-sidebar-right-panel], [data-panel-conversation], [data-plugin-panel]') !== null) return false
     if (candidate.closest(ASSISTANT_FLOW_ROW) !== row) return false
     return isPlausibleFenceSurface(candidate) && candidate.querySelector('pre') !== null
   })

@@ -320,13 +320,11 @@ You can import `GenuiBlock`, `GenuiActionContext`, and `processGenuiSpec` from `
 
 ---
 
-### BetterSidebar side conversations (optional)
+### Sidechat surfaces (optional)
 
-GenUI can render settled `dsh-ui` fences on an explicit BetterSidebar sidechat surface. This requires BetterSidebar's `registerSidechatSurfaceAdapter` service capability; an older or absent BetterSidebar keeps its original Markdown. No cross-plugin package import or main-conversation DOM attributes are required.
+GenUI can render settled `dsh-ui` fences on provider-declared sidechat surfaces. BetterSidebar uses its `registerSidechatSurfaceAdapter` capability; other providers can expose the optional `genuiSidechat` Cordis service. Each surface carries its owning thread identity and prompt callback, so actions and interaction state stay within that child thread. Streaming rows and unsupported or invalid fences keep their original Markdown.
 
-Actions use the owning child thread's existing prompt route, never the main conversation. Interaction state is isolated by source, thread, event, original text-block index and fence index. Streaming text remains Markdown until settled. `panel:true`, SVG, unlabelled fences and invalid or mismatched source/DOM content retain their original code blocks; this integration does not invent a sidechat panel dock.
-
-See [the bounded surface contract and validation checklist](docs/sidechat-surfaces.md). This is a coordinated capability addition, not a claim that released BetterSidebar 0.28.0 already supports it.
+See [the sidechat surface adapter contract](docs/sidechat-surfaces.md). The DSH native Side Chat provider must expose `genuiSidechat` to enable this integration.
 
 ## ❓ FAQ & Troubleshooting
 

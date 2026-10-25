@@ -117,7 +117,11 @@ function sendInlineGenuiAction(ctx: Context, sessionId: SessionId, action: strin
  * toolview for the render_ui tool, and the session panel dock; returning the
  * disposers lets cordis tear all registrations down on plugin unload. */
 export function apply(ctx: Context): () => void {
-  // Optional Cordis service: no cross-plugin runtime import or hard inject.
+  // Provider 提交所属线程身份和专属操作路由；DOM renderer 继续忽略这些 surface。
+  ctx.inject(['genuiSidechat'], scope => {
+    scope.effect(() => installSidechatAdapter(scope.get('genuiSidechat') as Partial<SidechatSurfaceService> | undefined), 'genui: host sidechat surface')
+  })
+  // BetterSidebar 保留现有 service，并沿用通用 sidechat surface contract。
   ctx.inject(['betterSidebar'], scope => {
     scope.effect(() => installSidechatAdapter(scope.get('betterSidebar') as Partial<SidechatSurfaceService> | undefined), 'genui: sidechat surface')
   })
@@ -191,6 +195,8 @@ export function apply(ctx: Context): () => void {
     for (const dispose of disposers) dispose()
   }
 }
+
+export type { SidechatSurface, SidechatSurfaceService } from './sidechat-surface.tsx'
 
 // Browser services the client entry needs: the slots registry (toolview +
 // dock) and sessions (scoped conversation send behind actions). This
