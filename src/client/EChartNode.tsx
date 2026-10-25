@@ -46,10 +46,19 @@ function readToken(name: string, fallback: string, el?: HTMLElement | null): str
   return fallback
 }
 
-/** Read a px-valued font token as a number for ECharts textStyle fields. */
+/** Read a font token as px for ECharts textStyle fields. The type scale is
+ *  em-anchored (chat sync); a raw `parseFloat('1.93em')` would resolve to
+ *  1.93px, so em values scale against the container's computed size. */
 function readFontSize(name: string, fallback: number, el?: HTMLElement | null): number {
-  const parsed = Number.parseFloat(readToken(name, '', el))
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+  const raw = readToken(name, '', el).trim()
+  const parsed = Number.parseFloat(raw)
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback
+  if (raw.endsWith('em')) {
+    const baseEl = el ?? (typeof document === 'undefined' ? null : document.body)
+    const base = baseEl !== null ? Number.parseFloat(getComputedStyle(baseEl).fontSize) : NaN
+    return Number.isFinite(base) && base > 0 ? parsed * base : fallback
+  }
+  return parsed
 }
 
 /** Resolve the host accent and label colors for ECharts theming. */

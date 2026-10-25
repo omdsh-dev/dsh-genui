@@ -110,7 +110,7 @@
    to the way back. Without this, an accidental zoom left the reader with a
    domain nobody asked for and no visible affordance to restore it. */
 .plotTools { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 4px; }
-.plotHint { font-size: 12.5px; color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
+.plotHint { font-size: 0.86em; color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
 .plotReset {
   padding: 2px 9px;
   border: 1px solid var(--dsw-alias-border-l2, rgba(255, 255, 255, 0.12));
@@ -118,7 +118,7 @@
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 0.86em;
   cursor: pointer;
 }
 .plotReset:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-state-business-primary, #4f8ef7); }

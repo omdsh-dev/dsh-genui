@@ -17,7 +17,7 @@
 .title {
   margin: 0;
   min-width: 0;
-  font-size: var(--dsl-g-font-h3, 16px);
+  font-size: var(--dsl-g-font-h3, 1.10em);
   font-weight: 650;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -56,7 +56,7 @@
   background: var(--dsl-g-surface);
   color: inherit;
   font: inherit;
-  font-size: var(--dsl-g-font-h3, 16px);
+  font-size: var(--dsl-g-font-h3, 1.10em);
   cursor: pointer;
   transition: background var(--dsl-g-dur-fast, 0.15s) var(--dsl-g-ease-out, ease-out);
 }
@@ -109,7 +109,7 @@
 .position {
   margin: 0;
   color: var(--dsw-alias-label-secondary, inherit);
-  font-size: var(--dsl-g-font-meta, 12.5px);
+  font-size: var(--dsl-g-font-meta, 0.86em);
 }
 
 .imageGrid {
@@ -173,7 +173,7 @@
 .caption {
   margin-top: var(--dsl-g-gap-sm, 8px);
   color: var(--dsw-alias-label-secondary, inherit);
-  font-size: var(--dsl-g-font-meta, 12.5px);
+  font-size: var(--dsl-g-font-meta, 0.86em);
   line-height: 1.6;
   overflow-wrap: anywhere;
   white-space: pre-line;
@@ -187,7 +187,7 @@
   min-height: 100px;
   padding: var(--dsl-g-gap-lg, 16px);
   color: var(--dsw-alias-label-secondary, inherit);
-  font-size: var(--dsl-g-font-body, 14.5px);
+  font-size: var(--dsl-g-font-body, 1em);
   text-align: center;
 }
 

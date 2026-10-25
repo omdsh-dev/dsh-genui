@@ -52,18 +52,24 @@ body[data-ds-dark-theme] .panel {
      (34/28/24/19/16) against a 14.5px body, and the reading floor stays 12px.
      v11 names the three big figures by their OWNER: stat values, the single
      hero stat, and the hero cover's mega figure are three different jobs on
-     one scale (before v11: "--dsl-g-font-hero", a bare 44px and a bare 52px). */
-  --dsl-g-font-stat: 34px;
-  --dsl-g-font-stat-hero: 44px;
-  --dsl-g-font-mega: 52px;
-  --dsl-g-font-display: 28px;
-  --dsl-g-font-h1: 24px;
-  --dsl-g-font-h2: 19px;
-  --dsl-g-font-h3: 16px;
-  --dsl-g-font-body: 14.5px;
-  --dsl-g-font-title: 13.5px;
-  --dsl-g-font-meta: 12.5px;
-  --dsl-g-font-data: 12px;
+     one scale (before v11: "--dsl-g-font-hero", a bare 44px and a bare 52px).
+     Chat sync: every text token is an em ratio anchored on the inherited
+     message size (1em = chat body ≈ old 14.5px) — same absolute sizes at
+     default chat size, but a host text-size change now scales the whole
+     block proportionally. The mount container is a sibling of the fence
+     (block.before) at message-flow level, so it inherits the message font,
+     never the <pre> mono size. */
+  --dsl-g-font-stat: 2.34em;
+  --dsl-g-font-stat-hero: 3.03em;
+  --dsl-g-font-mega: 3.59em;
+  --dsl-g-font-display: 1.93em;
+  --dsl-g-font-h1: 1.66em;
+  --dsl-g-font-h2: 1.31em;
+  --dsl-g-font-h3: 1.10em;
+  --dsl-g-font-body: 1em;
+  --dsl-g-font-title: 0.93em;
+  --dsl-g-font-meta: 0.86em;
+  --dsl-g-font-data: 0.83em;
 
   --dsl-g-gap-lg: 16px;
   --dsl-g-gap-xl: 24px;
@@ -131,7 +137,9 @@ body[data-ds-dark-theme] .panel {
   /* Inline in the conversation: no canvas, no border, no padding — the
      components themselves (card/quiz/plot/…) carry the surfaces. A slab
      around every fence was tried and rejected: a lone stat or text node
-     does not need a card wrapper. */
+     does not need a card wrapper.
+     No font-size here on purpose — the block inherits the message
+     font-size, and every text token is an em ratio of it (chat sync). */
   margin: 8px 0;
   color: var(--dsw-alias-label-primary);
   /* Numbers line up wherever they appear (stats, tables, progress, legends). */

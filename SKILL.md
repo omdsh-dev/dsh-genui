@@ -40,6 +40,7 @@ description: "Render structured interactive UI inline through the dsh-ui fence. 
 高级：`svg` `mermaid` `diagram` `scene3d` `quiz`
 
 ### 布局
+- 字号跟随聊天：整个字阶是相对比例（body = 聊天正文字号，h1 ≈ 1.66×，display ≈ 1.93×，stat ≈ 2.34×），用户在宿主里放大/缩小字号时整块等比缩放——不需要、也不要写任何绝对字号。
 - text: `{"type":"text","size":"display|h1|h2|h3|body|muted|caption","content":"...","align":"left|center|right"?}`（`tone:"danger|success|warning|info|muted"` 给整行文字上语义色，不用套 badge；`mono:true` 走等宽字体，用于十六进制/二进制/标识符，不带行内代码底色）（`size:"display"` 比标题大一档，作引言/开篇点题句，**一条回答 ≤1**；`center:true` 是旧写法，等价 `align:"center"`，新写一律用 `align`）
 - row / col: `{"type":"row"|"col","items":[...],"wrap":true?,"spacer":true?,"gap":n?}`；`row.justify:"center"` 主轴居中（图标+标题那种图头）；`col.width:n`（1-100）给这一列占行宽的百分比，不写就按内容宽
 - grid: `{"type":"grid","cols":n,"items":[...]}`
