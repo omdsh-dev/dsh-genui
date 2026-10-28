@@ -364,6 +364,15 @@ export const EN = {
   'action.panel': '[genui-action] {action}. The user just triggered this action "{action}" in the panel. Carry it out using the component data and emit a single panel:true dsh-ui fence that updates the panel, with at most a one-line confirmation in the reply (for example "Refreshed"). Do not explain, and do not emit an ordinary fence.{payload}',
   'action.payload': ' Component data: {json}',
 
+  // ------------------------------------------------------------- diagram
+  'dgm.legend': 'LEGEND',
+  'dgm.legend.focal': 'Focal',
+  'dgm.legend.backend': 'Backend',
+  'dgm.legend.store': 'Store',
+  'dgm.legend.external': 'External',
+  'dgm.legend.optional': 'Optional',
+  'dgm.legend.security': 'Security',
+
   // -------------------------------------------------------- error text
   'err.boundary.generic': 'this interface',
   'err.boundary.fence': 'this interface',

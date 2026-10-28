@@ -53,7 +53,9 @@ const DARK: DiagramPalette = {
 export function hostPalette(): DiagramPalette {
   const accent = 'var(--dsw-alias-state-business-primary, #4f8ef7)'
   return {
-    paper: 'var(--dsw-alias-bg-layer-2, #ffffff)',
+    // The card surface token, not the raw layer: the diagram ground sat one
+    // step lighter than the cards above it.
+    paper: 'var(--dsl-g-surface, var(--dsw-alias-bg-layer-2, #ffffff))',
     paper2: 'var(--dsw-alias-bg-layer-3, #f5f5f5)',
     ink: 'var(--dsw-alias-label-primary, #2d3142)',
     muted: 'var(--dsw-alias-label-secondary, #4f5d75)',

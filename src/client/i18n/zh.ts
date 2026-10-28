@@ -359,6 +359,15 @@ export const ZH: Record<keyof typeof EN, string> = {
   'action.panel': '[genui-action] {action}。用户刚刚在面板中触发了动作 "{action}"，请根据组件数据执行相应操作，只输出一个 panel:true 的 dsh-ui 围栏来更新面板，回复文本至多一行 10 字以内的确认（如"已刷新"），不要解释、不要普通围栏。{payload}',
   'action.payload': ' 组件数据: {json}',
 
+  // ------------------------------------------------------------- 图示
+  'dgm.legend': '图例',
+  'dgm.legend.focal': '焦点',
+  'dgm.legend.backend': '后端',
+  'dgm.legend.store': '存储',
+  'dgm.legend.external': '外部',
+  'dgm.legend.optional': '可选',
+  'dgm.legend.security': '安全',
+
   // -------------------------------------------------------- error text
   'err.boundary.generic': '此界面',
   'err.boundary.fence': '该界面',

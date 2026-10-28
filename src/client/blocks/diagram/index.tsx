@@ -15,6 +15,7 @@ import { GENUI_LIMITS } from '../../genui-runtime/index.ts'
 import { resolveLayout } from './layout.ts'
 import { routeEdge, labelGeometry, type Box } from './geometry.ts'
 import { resolvePalette, nodeTreatment, edgeStroke, inkAt } from './theme.ts'
+import { t, type GenuiTextKey } from '../../i18n/index.ts'
 
 const FONT_SANS = "'Geist', -apple-system, 'Segoe UI', sans-serif"
 const FONT_MONO = "'Geist Mono', ui-monospace, 'SF Mono', monospace"
@@ -23,13 +24,15 @@ const FONT_MONO = "'Geist Mono', ui-monospace, 'SF Mono', monospace"
 const NODE_H = 64 // node box height (48→64 for the editorial ramp)
 const LEGEND_COL_W = 150
 const LEGEND_ROW_H = 22
-const LEGEND_ITEMS: Array<{ label: string; type: string | undefined }> = [
-  { label: 'Focal', type: 'focal' },
-  { label: 'Backend', type: 'backend' },
-  { label: 'Store', type: 'store' },
-  { label: 'External', type: 'external' },
-  { label: 'Optional', type: 'optional' },
-  { label: 'Security', type: 'security' },
+/** Legend labels resolve per call from the active dictionary: a frozen label
+ *  kept printing LEGEND / Focal / Backend in the middle of a Chinese answer. */
+const LEGEND_ITEMS: Array<{ key: GenuiTextKey; type: string | undefined }> = [
+  { key: 'dgm.legend.focal', type: 'focal' },
+  { key: 'dgm.legend.backend', type: 'backend' },
+  { key: 'dgm.legend.store', type: 'store' },
+  { key: 'dgm.legend.external', type: 'external' },
+  { key: 'dgm.legend.optional', type: 'optional' },
+  { key: 'dgm.legend.security', type: 'security' },
 ]
 
 /**
@@ -169,11 +172,11 @@ function renderZone(z: { label: string; x: number; y: number; w: number; h: numb
 }
 
 /** Legend strip at the bottom: hairline separator + treatment swatches. */
-function renderLegend(palette: ReturnType<typeof resolvePalette>, items: typeof LEGEND_ITEMS, width: number, cols: number): React.ReactNode {
+function renderLegend(palette: ReturnType<typeof resolvePalette>, items: ReadonlyArray<{ label: string; type: string | undefined }>, width: number, cols: number): React.ReactNode {
   return (
     <g>
       <line x1={40} y1={0} x2={Math.max(120, width - 40)} y2={0} stroke={inkAt(palette.ink, 0.10)} strokeWidth={0.8} />
-      <text x={40} y={16} fill={palette.soft} fontSize={8} fontFamily={FONT_MONO} letterSpacing={1.6}>LEGEND</text>
+      <text x={40} y={16} fill={palette.soft} fontSize={8} fontFamily={FONT_MONO} letterSpacing={1.6}>{t('dgm.legend')}</text>
       {items.map((item, i) => {
         const t = nodeTreatment(item.type, palette)
         const x = 40 + (i % cols) * LEGEND_COL_W
@@ -230,8 +233,10 @@ export function DiagramNode({ node }: { node: GenuiDiagram }) {
   // Legend: only the types this diagram actually uses, wrapped to the canvas
   // width (the old fixed 170px pitch + hardcoded 1000px rule overflowed any
   // narrow canvas and printed "Extern…").
-  const legendItems = LEGEND_ITEMS.filter(item => item.type !== undefined
-    && nodes.some(n => (n.node.type ?? 'backend') === item.type))
+  const legendItems = LEGEND_ITEMS
+    .filter(item => item.type !== undefined
+      && nodes.some(n => (n.node.type ?? 'backend') === item.type))
+    .map(item => ({ label: t(item.key), type: item.type }))
   const legendCols = Math.max(1, Math.floor((layout.width - 40) / LEGEND_COL_W))
   const legendRows = Math.max(1, Math.ceil(legendItems.length / legendCols))
   const legendH = 24 + legendRows * LEGEND_ROW_H
@@ -240,7 +245,7 @@ export function DiagramNode({ node }: { node: GenuiDiagram }) {
   return (
     <figure className="genui-diagram" data-genui-diagram>
       {node.title !== undefined && (
-        <figcaption id={captionId} style={{ fontFamily: "Instrument Serif, 'Times New Roman', serif", fontSize: 20, marginBottom: 8, color: palette.ink }}>
+        <figcaption id={captionId} style={{ fontFamily: 'inherit', fontSize: 'var(--dsl-g-font-h3)', fontWeight: 600, lineHeight: 1.4, marginBottom: 10, color: palette.ink }}>
           {renderInline(node.title)}
         </figcaption>
       )}
@@ -249,7 +254,16 @@ export function DiagramNode({ node }: { node: GenuiDiagram }) {
         aria-labelledby={titleId}
         aria-describedby={descId}
         viewBox={`0 0 ${layout.width} ${canvasH}`}
-        style={{ maxWidth: '100%', height: 'auto', background: palette.paper }}
+        style={{
+          maxWidth: '100%',
+          height: 'auto',
+          background: palette.paper,
+          /* Match the card surface the diagram sits next to: same radius, same
+             hairline. A full-bleed square slab read as an image pasted into the
+             answer rather than a component of it. */
+          borderRadius: 'var(--dsl-g-radius-surface)',
+          border: '1px solid var(--dsl-g-border)',
+        }}
       >
         <title id={titleId}>{node.title ?? node.kind}</title>
         <desc id={descId}>{`${node.kind} diagram with ${nodes.length} nodes and ${edges.length} connectors`}</desc>

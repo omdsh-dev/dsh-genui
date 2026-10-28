@@ -2,6 +2,7 @@
 // Editorial diagram rendering: the `diagram` node renders inline SVG with the
 // editorial constraints (orthogonal paths, semantic tokens, a11y shell).
 import { cleanup, render } from '@testing-library/react'
+import { t } from '../src/client/i18n/index.ts'
 import { afterEach, describe, expect, it } from 'vitest'
 import { DiagramNode } from '../src/client/blocks/diagram/index.tsx'
 import type { GenuiDiagram } from '../src/client/spec.ts'
@@ -122,11 +123,11 @@ describe('DiagramNode', () => {
     const texts = Array.from(container.querySelectorAll('text')).map(t => t.textContent)
     expect(texts).toContain('FRONTEND')
     expect(texts).toContain('DATA')
-    expect(texts).toContain('LEGEND')
+    expect(texts).toContain(t('dgm.legend'))
     // The legend lists only the node types this diagram actually uses: two
     // untyped nodes are `backend`, so `Backend` shows and unused roles do not.
-    expect(texts).toContain('Backend')
-    expect(texts).not.toContain('Security')
+    expect(texts).toContain(t('dgm.legend.backend'))
+    expect(texts).not.toContain(t('dgm.legend.security'))
     // Zone hairline rects exist (dashed border + label mask + node boxes).
     expect(container.querySelectorAll('rect').length).toBeGreaterThanOrEqual(8)
   })

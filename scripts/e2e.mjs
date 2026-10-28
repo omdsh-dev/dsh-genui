@@ -465,7 +465,9 @@ try {
         const svg = element.querySelector('svg')
         const text = [...svg.querySelectorAll('text')].find(t => t.textContent === '服务')
         const probe = document.createElement('span')
-        probe.style.backgroundColor = 'var(--dsw-alias-bg-layer-2)'
+        // The diagram ground is the SAME surface the block's cards use (not the
+        // raw layer beneath them), so the probe reads the token the renderer reads.
+        probe.style.backgroundColor = 'var(--dsl-g-surface)'
         probe.style.color = 'var(--dsw-alias-label-primary)'
         element.append(probe)
         const expected = { paper: getComputedStyle(probe).backgroundColor, ink: getComputedStyle(probe).color }
@@ -480,7 +482,7 @@ try {
           }).map(t => t.textContent),
         }
       })
-      assert.equal(result.paper, result.expected.paper, `${mode}: diagram follows host background`)
+      assert.equal(result.paper, result.expected.paper, `${mode}: diagram ground matches the block surface`)
       assert.equal(result.ink, result.expected.ink, `${mode}: diagram follows host text`)
       assert.equal(result.node, result.expected.paper, `${mode}: backend node follows theme`)
       assert.deepEqual(result.clipped, [], `${mode}: narrow diagram legend remains visible`)
