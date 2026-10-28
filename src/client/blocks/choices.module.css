@@ -1,0 +1,185 @@
+/* `choices`: a decision list. Rows are separated by hairlines and the selected
+   row is marked by a left accent bar + a faint wash — no card per option, since
+   the choice itself is one object, not N cards. */
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-sm);
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--dsl-g-font-h3);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--dsw-alias-label-primary);
+}
+
+.prompt {
+  margin: 0;
+  font-size: var(--dsl-g-font-body);
+  line-height: 1.55;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-surface);
+  background: var(--dsl-g-surface);
+  overflow: hidden;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--dsl-g-gap-md);
+  padding: 12px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--dsl-g-border);
+  transition: background var(--dsl-g-dur-fast);
+}
+
+.row:last-child { border-bottom: 0; }
+.row:hover { background: var(--dsl-g-hover); }
+
+/* Selection is carried by a real accent bar, not a colour wash alone: the wash
+   sits under the text and a bar is unambiguous at a glance. */
+.row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: transparent;
+  transition: background var(--dsl-g-dur-fast);
+}
+
+.rowActive { background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint-quiet), transparent); }
+.rowActive::before { background: var(--dsl-g-accent); }
+.rowActive:hover { background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent); }
+
+.row:focus-within {
+  outline: 2px solid var(--dsl-g-accent);
+  outline-offset: -2px;
+}
+
+.rowDisabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.rowDisabled:hover { background: transparent; }
+
+.control {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin: 2px 0 0;
+  accent-color: var(--dsl-g-accent);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.labelLine {
+  display: flex;
+  align-items: center;
+  gap: var(--dsl-g-gap-sm);
+  flex-wrap: wrap;
+}
+
+.label {
+  font-size: var(--dsl-g-font-body);
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--dsw-alias-label-primary);
+}
+
+.hint {
+  font-size: var(--dsl-g-font-meta);
+  line-height: 1.5;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Evidence sits on the right edge in the data voice: a number you can compare
+   down the column while reading the options. */
+.meta {
+  flex: none;
+  font-family: var(--dsl-g-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--dsl-g-font-meta);
+  color: var(--dsw-alias-label-secondary);
+  padding-top: 1px;
+}
+
+.recommended {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: var(--dsl-g-radius-pill);
+  background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent);
+  border: 1px solid color-mix(in srgb, var(--dsl-g-accent) 30%, transparent);
+  color: var(--dsw-alias-state-business-primary, var(--dsl-g-accent));
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.unavailable {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: var(--dsl-g-radius-pill);
+  border: 1px solid var(--dsl-g-border);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--dsl-g-gap-md);
+  flex-wrap: wrap;
+}
+
+.submit {
+  height: 34px;
+  padding: 0 16px;
+  border-radius: var(--dsl-g-radius-control);
+  border: 1px solid color-mix(in srgb, var(--dsl-g-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--dsl-g-accent) 84%, #0b1220);
+  color: #fff;
+  font: inherit;
+  font-size: var(--dsl-g-font-title);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dsl-g-dur-fast), border-color var(--dsl-g-dur-fast);
+}
+
+.submit:hover:not(:disabled) { background: color-mix(in srgb, var(--dsl-g-accent) 94%, #0b1220); }
+
+.submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.status {
+  font-size: var(--dsl-g-font-meta);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+@container (max-width: 480px) {
+  .row { flex-wrap: wrap; }
+  .meta { padding-top: 0; }
+}

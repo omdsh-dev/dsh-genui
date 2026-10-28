@@ -1,0 +1,263 @@
+/* compare block: an ordered image pair. Geometry resolves through the shared
+   --dsl-g-* tokens so it matches cards next to it; the two-column layout keys
+   off the CONTAINER width (a reply column and a side panel are different even
+   at one window size). */
+
+.compare {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-md);
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--dsl-g-font-h3);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--dsw-alias-label-primary);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--dsl-g-gap-md);
+  align-items: start;
+}
+
+/* Explicit vertical mode ignores the container width. */
+.stack { grid-template-columns: 1fr; }
+
+@container (max-width: 560px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.panel {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-xs);
+  min-width: 0;
+}
+
+.frame,
+.slider {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-surface);
+  background: var(--dsl-g-surface);
+  overflow: hidden;
+}
+
+/* The whole frame is the click target: a small "expand" affordance on a big
+   screenshot is a hit-target regression waiting to happen. */
+.hit {
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  position: relative;
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 3%, transparent);
+}
+
+.broken {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 72px;
+  font-size: var(--dsl-g-font-title);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Label chip: names the side. Never hover-revealed — the pair only means
+   something when both labels are readable at rest. */
+.chip {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  border-radius: var(--dsl-g-radius-pill);
+  background: color-mix(in srgb, #000 62%, transparent);
+  color: #fff;
+  font-size: var(--dsl-g-font-meta);
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+}
+
+.chipLeft { left: 8px; }
+.chipRight { left: auto; right: 8px; }
+
+.expand {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--dsl-g-radius-sm);
+  background: color-mix(in srgb, #000 55%, transparent);
+  color: #fff;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity var(--dsl-g-dur-fast);
+}
+
+.hit:hover .expand,
+.hit:focus-visible .expand { opacity: 1; }
+
+.caption {
+  font-size: var(--dsl-g-font-meta);
+  line-height: 1.5;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.captions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dsl-g-gap-sm) var(--dsl-g-gap-md);
+}
+
+/* ---------- slider mode ---------- */
+
+.sliderImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--dsl-g-accent);
+  pointer-events: none;
+}
+
+.knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--dsl-g-accent);
+  color: #fff;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* The range input is the interaction surface: it is invisible but sits on top
+   of the frame, so drag, touch, arrow keys and Home/End are native. */
+.range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+  touch-action: pan-y;
+}
+
+.slider:focus-within {
+  outline: 2px solid var(--dsl-g-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- zoom dialog ---------- */
+
+.dialog {
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-surface);
+  background: var(--dsw-alias-bg-layer-2, var(--dsl-g-surface));
+  color: var(--dsw-alias-label-primary);
+  padding: 14px;
+  max-width: min(92vw, 1200px);
+  max-height: 92vh;
+  overflow: auto;
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.dialogHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dsl-g-gap-md);
+  margin-bottom: 10px;
+}
+
+.close {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--dsl-g-radius-control);
+  border: 1px solid var(--dsl-g-border);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.close:hover {
+  border-color: var(--dsl-g-accent);
+  color: var(--dsw-alias-label-primary);
+}
+
+.expandedFrame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 160px;
+}
+
+.expandedFrame .image {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 76vh;
+}

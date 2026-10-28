@@ -30,6 +30,8 @@ export type GenuiNode = (
   | GenuiLink
   | GenuiImage
   | GenuiImageGroup
+  | GenuiCompare
+  | GenuiChoices
   | GenuiCarousel
   | GenuiAudio
   | GenuiVideo
@@ -262,6 +264,87 @@ export interface GenuiImageGroup {
   type: 'image-group'
   items: GenuiImageGroupItem[]
   title?: string
+}
+
+/** One side of a `compare` pair. Same media policy as `image`. */
+export interface GenuiComparePanel {
+  /** http(s) or relative media URL. */
+  src: string
+  /** Visible chip above the frame — `改动前` / `改动后`, or any two labels. */
+  label?: string
+  /** Accessible description (never shown as a heading). */
+  alt?: string
+  /** Line under the frame (measurement, reading, source). */
+  caption?: string
+}
+
+/** One row in a `choices` decision list. */
+export interface GenuiChoiceItem {
+  /** What the option IS (`加一台只读副本`). */
+  label: string
+  /** One line of cost / trade-off (`多 12% 成本，读延迟降 40%`). */
+  hint?: string
+  /** Short evidence chip on the right: a number, a verdict, a SLO. */
+  meta?: string
+  /** Marks the option the analyst recommends (at most one is expected). */
+  recommended?: boolean
+  /** Rules the option out without hiding it — the reason stays visible. */
+  disabled?: boolean
+  /** Why it is unavailable; shown in place of the hint when disabled. */
+  reason?: string
+}
+
+/**
+ * A decision the reader has to MAKE, not read: pick one (or several) from a
+ * list where every option carries its own cost. Distinct from `radio`, whose
+ * options are single strings with nowhere to put a trade-off.
+ *
+ * Local-first: selection is local state; `action` (optional) sends the chosen
+ * labels back to the model only when the choice needs a follow-up.
+ */
+export interface GenuiChoices {
+  type: 'choices'
+  title?: string
+  /** The question being decided (`先做哪个？`). */
+  prompt?: string
+  /** `single` (default) = one option; `multi` = toggle several. */
+  mode?: 'single' | 'multi'
+  items: GenuiChoiceItem[]
+  /** Label of the submit button; absent = selection stays local (no round trip). */
+  submit?: string
+  /** Action fired on submit with `{ question, selected, mode }`. */
+  action?: string
+  /** `multi` cap; extra clicks are ignored instead of silently replacing. */
+  max?: number
+  /**
+   * Paper member key. With `group`, the selection joins the block's shared
+   * answers registry instead of staying local, so a sibling `submit` can
+   * collect it and grade locally — this is what retires `radio`.
+   */
+  group?: string
+  /** Correct option for LOCAL grading: index or label. */
+  answer?: number | string
+  /** Per-question explanation shown after local grading. */
+  explanation?: string
+}
+
+/**
+ * Two images shown as a pair: what changed, what was chosen, what the two
+ * options look like. Not a gallery — a `before`/`after` pair carries an order,
+ * and `mode: 'slider'` lets the reader drag a divider across one frame.
+ */
+export interface GenuiCompare {
+  type: 'compare'
+  title?: string
+  before: GenuiComparePanel
+  after: GenuiComparePanel
+  /**
+   * `side` (default) = two columns while the container is wide enough,
+   * `stack` = always vertical, `slider` = one frame with a draggable divider.
+   */
+  mode?: 'side' | 'stack' | 'slider'
+  /** Frame height cap in px (120–640, default 260). */
+  height?: number
 }
 
 /** Horizontally scrollable native nodes, retaining normal state/action scope. */

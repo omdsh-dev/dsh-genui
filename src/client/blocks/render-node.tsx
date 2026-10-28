@@ -27,6 +27,8 @@ import { DiagramNode } from './diagram/index.tsx'
 import { ImageNode } from './image.tsx'
 import { CarouselNode } from './carousel.tsx'
 import { ImageGroupNode } from './image-group.tsx'
+import { CompareNode } from './compare.tsx'
+import { ChoicesNode } from './choices.tsx'
 import { SvgNode } from './svg.tsx'
 import { IconNode } from './icon.tsx'
 import { MapNode } from './map.tsx'
@@ -311,6 +313,8 @@ export function renderNode(
         renderNode(child, index, onAction, depth + 1, answers, `${path}.items[${index}]`))
     }</CarouselNode>
     case 'image-group': return <ImageGroupNode key={key} node={node} />
+    case 'compare': return <CompareNode key={key} node={node} />
+    case 'choices': return <ChoicesNode key={JSON.stringify([path, node.group, answers?.round ?? 0])} node={node} onAction={onAction} answers={answers} />
     case 'image': return <ImageNode key={`${key}:${node.src}`} node={node} />
     case 'audio': return <AudioNode key={`${key}:${node.src}`} node={node} />
     case 'video': return <VideoNode key={`${key}:${node.src}`} node={node} />

@@ -68,6 +68,8 @@ export const CALLOUT_TONES = ['info', 'success', 'warning', 'error'] as const
 export const CHART_KINDS = ['bars', 'line', 'donut'] as const
 export const PLOT_KINDS = ['line', 'area', 'scatter'] as const
 export const MEDIA_ASPECT_RATIOS = ['16:9', '4:3', '1:1', '9:16'] as const
+export const COMPARE_MODES = ['side', 'stack', 'slider'] as const
+export const CHOICE_MODES = ['single', 'multi'] as const
 export const MESH_SHAPES = ['box', 'sphere', 'cone', 'cylinder', 'torus'] as const
 export const FILE_TYPES = ['file', 'dir'] as const
 export const DIAGRAM_KINDS = [
@@ -220,6 +222,17 @@ const imageGroupItemSchema = recordSchema(['src'], {
   src: 'string', alt: 'string', caption: 'string',
 }, {}, {}, { url: 'src', link: 'src' })
 
+/** One side of a `compare` pair: the same media policy, plus a visible chip. */
+/** One option row: label + cost + optional evidence and state. */
+const choiceItemSchema = recordSchema(['label'], {
+  label: 'string', hint: 'string', meta: 'string',
+  recommended: 'boolean', disabled: 'boolean', reason: 'string',
+}, {}, {}, {})
+
+const comparePanelSchema = recordSchema(['src'], {
+  src: 'string', label: 'string', alt: 'string', caption: 'string',
+}, {}, {}, { url: 'src', link: 'src' })
+
 const tabHolderSchema = recordSchema(['label', 'items'], {
   label: 'string',
   items: 'nodes',
@@ -312,6 +325,34 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   card: schema(['items'], { ...nodeFields, title: 'string', eyebrow: 'string', items: 'nodes', tone: 'string', accent: 'string', flat: 'boolean' }, { label: 'title', content: 'items' }, { enums: { tone: CARD_TONES } }),
   carousel: schema(['items'], { ...nodeFields, items: 'nodes', title: 'string', itemWidth: 'number', gap: 'number' }, { children: 'items' }),
   'image-group': schema(['items'], { ...nodeFields, items: 'array', title: 'string' }, {}, { nested: { items: imageGroupItemSchema } }),
+  // Both sides are required: a "compare" with one side is a single image, and
+  // dropping the pair silently would leave a half-labelled figure.
+  // A decision list: options carry a cost, so the reader can choose instead of
+  // re-reading a paragraph. `radio` keeps the one-line quiz case.
+  choices: schema(['items'], {
+    ...nodeFields,
+    title: 'string',
+    prompt: 'string',
+    mode: 'string',
+    items: 'array',
+    submit: 'string',
+    action: 'string',
+    max: 'number',
+    group: 'string',
+    answer: 'unknown',
+    explanation: 'string',
+  }, {}, { nested: { items: choiceItemSchema }, enums: { mode: CHOICE_MODES } }),
+  compare: schema(['before', 'after'], {
+    ...nodeFields,
+    title: 'string',
+    before: 'object',
+    after: 'object',
+    mode: 'string',
+    height: 'number',
+  }, {}, {
+    nested: { before: comparePanelSchema, after: comparePanelSchema },
+    enums: { mode: COMPARE_MODES },
+  }),
   chart: schema([], {
     ...nodeFields,
     kind: 'string',

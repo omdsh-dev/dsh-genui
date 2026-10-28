@@ -67,6 +67,21 @@ export function analyzeSubmissionRegistry(spec: GenuiSpec, allowExternalGroups =
         member = { kind: 'radio', key: node.group, label: node.label ?? node.group, options: node.options.slice(0, GENUI_LIMITS.maxOptions), ...(node.answer === undefined ? {} : { answer: node.answer }), ...(node.explanation === undefined ? {} : { explanation: node.explanation }) }
         keyPath = `${path}.group`
         break
+      case 'choices':
+        // A `choices` list with a `group` is a paper question: single-select,
+        // graded from `answer` exactly like `radio` — but each option keeps its
+        // cost line, which `radio`'s bare strings cannot carry.
+        if (node.group === undefined) return
+        member = {
+          kind: 'radio',
+          key: node.group,
+          label: node.title ?? node.prompt ?? node.group,
+          options: node.items.map(item => item.label).slice(0, GENUI_LIMITS.maxOptions),
+          ...(node.answer === undefined ? {} : { answer: node.answer }),
+          ...(node.explanation === undefined ? {} : { explanation: node.explanation }),
+        }
+        keyPath = `${path}.group`
+        break
       case 'checkbox':
         if (node.group === undefined) return
         member = { kind: 'checkbox', key: node.group, choices: new Map([[node[GENUI_CHECKBOX_VALUE] ?? node.label, node.label]]) }
