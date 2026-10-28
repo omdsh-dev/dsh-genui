@@ -76,7 +76,7 @@ body[data-ds-dark-theme] .panel {
      component — control feedback, data growth, entrance reveal. */
   --dsl-g-dur-fast: 0.15s;
   --dsl-g-dur-grow: 0.6s;
-  --dsl-g-dur-reveal: 0.45s;
+  --dsl-g-dur-reveal: 0.25s;
   --dsl-g-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 
   --dsl-g-border: var(--dsw-alias-border-l1, var(--dsw-alias-border-l2, rgba(255, 255, 255, 0.12)));
@@ -144,17 +144,16 @@ body[data-ds-dark-theme] .panel {
 .panel *, .panel *::before, .panel *::after { box-sizing: border-box; }
 
 .banner {
-  /* Hierarchy through type, not decoration: the fence title reads as the page
-     heading (h1, 800) with a section-scale breath below it (gap-xl, v11) —
-     components under it start a new "chapter", not another row. The accent
-     bars v4 added read as PPT chrome and are gone. */
-  font-size: var(--dsl-g-font-h1);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--dsw-alias-label-primary);
-  padding-bottom: var(--dsl-g-gap-md);
-  margin-bottom: var(--dsl-g-gap-xl);
-  border-bottom: 1px solid var(--dsl-g-border);
+  /* A fence title sits INSIDE a reply, under the reply's own prose — it is a
+     caption for the block, not the page's headline. As h1/800 with a hairline
+     and a 24px gap it read as slide chrome: every titled block opened a new
+     chapter. As a 13.5px label it names the block and stays out of the way. */
+  font-size: var(--dsl-g-font-title);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--dsw-alias-label-secondary);
+  padding-bottom: 0;
+  margin-bottom: var(--dsl-g-gap-sm);
 }
 
 /* ---------- layout primitives ---------- */
@@ -165,14 +164,22 @@ body[data-ds-dark-theme] .panel {
 /* Cards contain fluid charts/tables: divide the available row, not their
    min-content widths (which can collapse a horizontal chart's tracks). */
 .row > .card { flex: 1 1 0; align-self: stretch; }
-.grid { display: grid; gap: var(--dsl-g-gap-md); }
+/* Default grid row alignment is `stretch`: a short card (a 4-line list) was
+   stretched to the height of a tall sibling (a table), leaving a visible empty
+   block inside its border. Cards hug their own content; the row may end
+   ragged, which reads as two objects instead of one broken object. */
+.grid { display: grid; gap: var(--dsl-g-gap-md); align-items: start; }
 /* Bento child: occupies N grid columns (the wrapper exists only so the child
    keeps its own layout). */
 .gridSpan { display: flex; flex-direction: column; min-width: 0; }
 .gridSpan > * { flex: 1; }
-/* Narrow conversation column (phone / split pane): a fixed 3-4 column grid
+/* Narrow column (phone / split pane / side panel): a fixed 3-4 column grid
    would squeeze every cell, so the grid collapses to one column. The inline
-   gridTemplateColumns from the spec needs !important to be overridden. */
+   gridTemplateColumns from the spec needs !important to be overridden.
+   This keys off the CONTAINER, not the window: the same reply renders in a
+   1100px chat column and a 320px side panel at the same window size, and a
+   window breakpoint handed the narrow case the desktop layout.
+   `.block` / `.panel` declare the container (see the bottom of this file). */
 @media (max-width: 560px) {
   .grid { grid-template-columns: 1fr !important; }
   .row { flex-wrap: wrap; }
@@ -321,7 +328,7 @@ body[data-ds-dark-theme] .panel {
    their hue; ghost washes over the surface it sits on). v11 retires the
    brightness-filter hover: filters ignored the theme's own hover language. */
 .button:hover:not(:disabled) { border-color: var(--dsl-g-accent); background-image: linear-gradient(var(--dsl-g-hover), var(--dsl-g-hover)); }
-.button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--dsl-g-accent) 92%, #fff); }
+.button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--dsl-g-accent) 94%, #0b1220); }
 /* Press feedback: a 1px sink makes every actionable control feel mechanical. */
 .button:active:not(:disabled) { transform: translateY(1px); }
 /* Display-only buttons (no action): honest disabled affordance — the
@@ -334,7 +341,10 @@ body[data-ds-dark-theme] .panel {
   pointer-events: none;
 }
 .button.primary {
-  background: var(--dsl-g-accent);
+  /* White on the raw accent (#4f8ef7) is 3.2:1 — the "primary" button read as
+     a disabled chip. Deepen the fill so the same white label clears 4.5:1; the
+     accent hue is unchanged, only its weight. */
+  background: color-mix(in srgb, var(--dsl-g-accent) 84%, #0b1220);
   border: none;
   color: #fff;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
@@ -373,6 +383,50 @@ body[data-ds-dark-theme] .panel {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint-strong), transparent);
 }
 .input::placeholder { color: var(--dsw-alias-label-caption, #5b6378); }
+
+/* One geometry for every single-line control (v13). The native <select> kept
+   the OS arrow and its own inset padding, so a 名称 / 环境 row rendered two
+   different control heights and two different arrows; radios kept the browser
+   default size while checkboxes were pinned to 15px, so a radio row and a
+   checkbox row did not line up. These three rules close those gaps without
+   changing the control language (same border, radius, focus ring). */
+.input, .select {
+  height: 34px;
+  padding: 0 12px;
+  line-height: 32px;
+}
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a8f9a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+}
+.radio input, .checkbox input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--dsl-g-accent);
+}
+.radio input:focus-visible, .checkbox input:focus-visible {
+  outline: 2px solid var(--dsl-g-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.button { min-height: 34px; }
+.button.small { min-height: 26px; }
+/* A tinted danger/success button sat at ~2.6:1 against its own text on the
+   dark canvas and read as disabled. The semantic hue stays; the LABEL is
+   mixed toward the surface's white so it clears 4.5:1. Light theme keeps the
+   saturated label (it does not need the help). */
+body[data-ds-dark-theme] .button.danger {
+  color: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) 68%, #fff);
+}
+body[data-ds-dark-theme] .button.success {
+  color: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) 58%, #fff);
+}
 
 .checkbox { display: flex; align-items: center; gap: var(--dsl-g-gap-sm); font-size: var(--dsl-g-font-title); color: var(--dsw-alias-label-secondary); cursor: pointer; }
 .checkbox input { accent-color: var(--dsl-g-accent); width: 15px; height: 15px; }
@@ -479,7 +533,11 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
-  font-family: var(--dsl-g-font-mono);
+  /* Display figures use the TEXT face, not the code face: SF Mono draws a
+     square period, so at 44-52px `99.96` rendered as `99■96`. Tabular figures
+     keep the digits aligned without borrowing the code font's punctuation. */
+  font-family: inherit;
+  font-feature-settings: "tnum" 1;
   font-size: var(--dsl-g-font-mega);
   font-weight: 750;
   letter-spacing: -0.028em;
@@ -569,6 +627,28 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   overflow: hidden;
   box-shadow: var(--dsl-g-shadow-card);
 }
+/* A stat nested in a surface must not draw a second surface. `stat` was
+   designed as its own metric card, so `card > stat` (the documented metric
+   pattern) rendered border-in-border with two backgrounds and two shadows —
+   the card read as two rectangles instead of one object. Inside a card the
+   stat keeps its typography and gives up padding, border, fill and shadow. */
+.card .stat {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+.card .grid > .stat,
+.card .row > .stat { border-left: 0; }
+/* The sparkline bleeds into the stat's OWN padding (negative side margins), a
+   trick that only works while the stat owns a surface. Inside a card that
+   bleed runs past the card's border. Keep it within the content box. */
+.card .stat .statSpark {
+  width: 100%;
+  margin: 6px 0 0;
+}
 /* Hero stat: one number is the answer's anchor (use it once per fence). */
 .statHero { padding: 18px 20px 20px; }
 .statHero .statValue { font-size: var(--dsl-g-font-stat-hero); line-height: 1.02; letter-spacing: -0.035em; }
@@ -585,7 +665,9 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   display: flex;
   align-items: baseline;
   gap: 3px;
-  font-family: var(--dsl-g-font-mono);
+  /* Same reason as .heroValue: the code face's square period. */
+  font-family: inherit;
+  font-feature-settings: "tnum" 1;
   font-size: var(--dsl-g-font-stat);
   font-weight: 700;
   letter-spacing: -0.03em;
@@ -1411,14 +1493,33 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 
 /* ---------- table cell types (types: ["bar"|"badge"|...]) ---------- */
 
+/* Same tone system as the standalone `badge` node (see .badge.success above):
+   the cell resolves a state keyword in charts.tsx and gets the matching wash,
+   so a 状态 column finally encodes state. Unknown labels stay accent. */
 .cellBadge {
   display: inline-block;
   padding: 1px 8px;
   border-radius: var(--dsl-g-radius-pill);
   background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent);
   color: var(--dsw-alias-label-primary);
+  border: 1px solid color-mix(in srgb, var(--dsl-g-accent) 30%, transparent);
   font-size: var(--dsl-g-font-meta);
   font-weight: 600;
+}
+.cellBadge.success {
+  background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent);
+  color: var(--dsw-alias-state-success-secondary, #7fe3b4);
+  border-color: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) 30%, transparent);
+}
+.cellBadge.warn {
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent);
+  color: var(--dsw-alias-state-warn-secondary, #f7cf7d);
+  border-color: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) 30%, transparent);
+}
+.cellBadge.danger {
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent);
+  color: var(--dsw-alias-state-error-primary, #ff9d9d);
+  border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) 30%, transparent);
 }
 .cellSpark { display: block; width: 88px; height: 22px; overflow: visible; }
 .cellRing { display: inline-flex; align-items: center; gap: 6px; }
@@ -1568,6 +1669,9 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 
 .textarea {
   width: 100%;
+  /* Same control box as .input/.select, but multi-line: a fixed height would
+     clip the field, so only a floor is set. */
+  min-height: 76px;
   background: var(--dsl-g-surface);
   border: 1px solid var(--dsl-g-border-surface);
   border-radius: var(--dsl-g-radius-control);
@@ -1674,8 +1778,24 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 
 /* ---------- mermaid ---------- */
 
-.mermaid { overflow-x: auto; padding: var(--dsl-g-gap-xs) 0; }
-.mermaid svg { max-width: 100%; height: auto; }
+.mermaid {
+  overflow-x: auto;
+  padding: var(--dsl-g-gap-xs) 0;
+  /* Auto-layout diagrams are drawn at their intrinsic size: a 3-node vertical
+     flowchart is ~130px wide and used to sit at the left edge of a 1000px
+     column as a thumbnail. Centre it and let it fill a readable width. */
+  display: flex;
+  justify-content: center;
+}
+.mermaid svg {
+  /* Both axes are capped: `max-width` stops a sparse diagram from becoming a
+     3000px-tall poster, `max-height` keeps a tall one on screen. The viewBox
+     keeps the aspect ratio, so the content letterboxes rather than stretches. */
+  width: 100%;
+  max-width: 720px;
+  max-height: 520px;
+  height: auto;
+}
 .mermaidFallback { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
 .mermaidFallback pre {
   margin: 0;
@@ -2513,6 +2633,15 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   box-shadow: none;
   background: color-mix(in srgb, var(--dsw-alias-label-primary) 2.5%, transparent);
   border-color: var(--dsl-g-border);
+}
+
+/* A card with no children renders its title as flat text: boxing a lone
+   heading drew a bordered empty block that read as a failed load. */
+.cardFlatText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-xs);
+  min-width: 0;
 }
 
 /* `text.mono`: hex / binary / identifiers without the inline-code pill. */

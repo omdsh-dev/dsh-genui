@@ -130,6 +130,27 @@ function deltaTone(value: unknown): 'up' | 'down' | null {
   return s.startsWith('+') ? 'up' : 'down'
 }
 
+/** `types: ["badge"]` cell tone: the pill used to render in the accent colour
+ *  for EVERY value, so a 状态 column showed 正常 / 偏高 / 失败 in one colour and
+ *  stopped encoding status. Standalone `badge` nodes already carry a tone; the
+ *  table cell just never resolved one. Unknown labels keep the accent pill, so
+ *  arbitrary words are safe. Negatives are tested first: 不正常 contains 正常. */
+const BADGE_TONE_WORDS: ReadonlyArray<['success' | 'warn' | 'danger', RegExp]> = [
+  ['danger', /(偏高|异常|失败|错误|故障|离线|拒绝|超限|危险|失效|超时|fail|error|down|critical|offline|blocked)/i],
+  ['warn', /(关注|警告|波动|部分|降级|观察|待定|degraded|partial|pending|warn|slow)/i],
+  ['success', /(正常|健康|通过|成功|完成|在线|稳定|有效|命中|启用|healthy|active|done|ready|pass|ok)/i],
+]
+
+function badgeTone(value: unknown): 'success' | 'warn' | 'danger' | null {
+  if (typeof value !== 'string') return null
+  const s = value.trim()
+  if (s === '') return null
+  for (const [tone, pattern] of BADGE_TONE_WORDS) {
+    if (pattern.test(s)) return tone
+  }
+  return null
+}
+
 /** `types: ["spark"]` cell: comma/space separated numbers drawn as a micro
  *  trend line (area wash + end dot, same geometry as stat.spark). */
 function CellSpark({ cell }: { cell: TableCell }) {
@@ -331,6 +352,9 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
     const tone = type === 'delta'
       ? (tableCellText(cell).trim().startsWith('-') ? 'down' : 'up')
       : deltaTone(tableCellText(cell))
+    // Badge cells resolve a state keyword to the same tone classes the
+    // standalone `badge` node uses (css.success / css.warn / css.danger).
+    const pillTone = type === 'badge' ? badgeTone(tableCellText(cell)) : null
     return (
       <td
         key={j}
@@ -339,7 +363,9 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
           .join(' ') || undefined}
       >
         {type === 'badge'
-          ? <span className={css.cellBadge}>{renderInline(tableCellText(cell), true)}</span>
+          ? <span className={[css.cellBadge, pillTone === null ? undefined : css[pillTone]]
+              .filter(part => part !== undefined)
+              .join(' ')}>{renderInline(tableCellText(cell), true)}</span>
           : type === 'bar'
             ? <CellBar cell={cell} />
             : type === 'spark'

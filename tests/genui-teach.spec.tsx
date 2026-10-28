@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Teaching components: quiz judging, plot animation bar, reset, staggered reveal.
+// Teaching components: quiz judging, plot animation bar, reset, entrance reveal.
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
@@ -93,8 +93,8 @@ describe('plot animation', () => {
   })
 })
 
-describe('staggered reveal', () => {
-  it('wraps root items with incremental reveal delays', () => {
+describe('entrance reveal', () => {
+  it('keeps a short stagger and caps the wait at 160ms', () => {
     const { container } = render(<MarkdownText text={fenced({ items: [
       { type: 'stat', label: 'A', value: '1' },
       { type: 'stat', label: 'B', value: '2' },
@@ -102,13 +102,13 @@ describe('staggered reveal', () => {
     ] })} />)
     const reveals = container.querySelectorAll('[class*="reveal"]')
     expect(reveals.length).toBe(3)
-    const delays = [...reveals].map(el => {
-      const st = el.getAttribute('style') ?? ''
-      const m = st.match(/animationDelay:\s*([0-9.]+)ms/) ?? st.match(/animation-delay:\s*([0-9.]+)ms/)
-      return m ? Number(m[1]) : 0
+    const delays = [...reveals].map(element => {
+      const style = element.getAttribute('style') ?? ''
+      const match = style.match(/animation[- ]delay:\s*([0-9.]+)ms/i)
+      return match === null ? 0 : Number(match[1])
     })
-    expect(delays[0]!).toBe(0)
-    expect(delays[1]!).toBeGreaterThan(delays[0]!)
-    expect(delays[2]!).toBeGreaterThan(delays[1]!)
+    // 90ms of rhythm per item, capped at 160ms: he last item lands at ~410ms
+    // (160 delay + 250ms fade) instead of the uncapped 1.17s.
+    expect(delays).toEqual([0, 90, 160])
   })
 })

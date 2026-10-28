@@ -261,15 +261,15 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
         {computedSpec.title !== undefined && <div className={css.banner}>{renderInline(computedSpec.title)}</div>}
         <div className={css.col} style={{ gap: `${gap}px` }}>
           {computedSpec.items.map((c, i) => (
-            // Staggered reveal: each root item fades/slides in after its
-            // predecessors, so the block assembles piece by piece instead of
-            // popping in as one slab. Delay capped so long specs still settle
-            // quickly; prefers-reduced-motion disables it (see CSS).
+            // Keep a trace of rhythm, cap the wait: 90ms per item but never
+            // more than 160ms of it, so the last root item is fully visible at
+            // ~410ms instead of 1.17s. The uncapped 720ms version made a ready
+            // component sit invisible while its predecessors faded in.
             <div
               key={i}
               className={css.reveal}
               style={{
-                animationDelay: `${Math.min(i * 90, 720)}ms`,
+                animationDelay: `${Math.min(i * 90, 160)}ms`,
                 ...(!animateEntrance || persisted !== null ? { animation: 'none' } : {}),
               }}
               onAnimationEnd={event => {
