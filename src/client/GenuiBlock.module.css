@@ -2103,49 +2103,37 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 /* Neutral state: three dots and nothing else. No panel, no rows.
    The motion is a slow rise-and-settle per dot with a soft halo, staggered by
    120ms, so the group reads as "being written" rather than as a spinner. */
+/* Neutral state: three dots, no panel, no rows.
+   Two rules learned from watching it in a real layout:
+   - it RESERVES the height a component usually takes, so replacing it does not
+     move everything below; the dots are centered inside that area, which is why
+     they sit at the optical middle instead of riding at the top edge;
+   - motion is opacity + scale only, 1.5s, easing out: no bouncing, no halos.
+     Bounce reads as a 2010 spinner and a halo reads as decoration. */
 .skeletonDots {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 20px;
-  margin: 6px 0;
+  gap: 7px;
+  min-height: 72px;
+  padding-left: 2px;
 }
 
 .skeletonDot {
-  position: relative;
   display: block;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--dsw-alias-label-primary) 42%, transparent);
-  animation: dsl-dotBreathe 1.65s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  background: var(--dsw-alias-label-primary);
+  opacity: 0.28;
+  animation: dsl-dotBreathe 1.5s cubic-bezier(0.33, 0, 0.24, 1) infinite;
 }
 
-.skeletonDot::after {
-  content: '';
-  position: absolute;
-  inset: -5px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent);
-  opacity: 0;
-  animation: dsl-dotHalo 1.65s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-.skeletonDot:nth-child(2) { animation-delay: 0.12s; }
-.skeletonDot:nth-child(3) { animation-delay: 0.24s; }
-.skeletonDot:nth-child(2)::after { animation-delay: 0.12s; }
-.skeletonDot:nth-child(3)::after { animation-delay: 0.24s; }
+.skeletonDot:nth-child(2) { animation-delay: 0.14s; }
+.skeletonDot:nth-child(3) { animation-delay: 0.28s; }
 
 @keyframes dsl-dotBreathe {
-  0%, 100% { transform: translateY(0) scale(0.86); opacity: 0.45; }
-  38% { transform: translateY(-3px) scale(1); opacity: 1; }
-  62% { transform: translateY(-1px) scale(0.96); opacity: 0.8; }
-}
-
-@keyframes dsl-dotHalo {
-  0%, 100% { opacity: 0; transform: scale(0.6); }
-  38% { opacity: 1; transform: scale(1.15); }
-  70% { opacity: 0; transform: scale(1.35); }
+  0%, 100% { opacity: 0.28; transform: scale(0.92); }
+  42% { opacity: 0.92; transform: scale(1); }
 }
 
 /* Donut charts arrive as a ring: the legend sits beside it, like the real one. */
@@ -2202,8 +2190,7 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) {
   .skeletonRing,
-  .skeletonDot,
-  .skeletonDot::after { animation: none; }
+  .skeletonDot { animation: none; }
   .skeletonTitle,
   .skeletonBars > span,
   .skeletonBlock,
