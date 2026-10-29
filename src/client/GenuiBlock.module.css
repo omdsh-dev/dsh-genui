@@ -2100,19 +2100,52 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   padding: var(--dsl-g-gap-sm) 0;
 }
 
-/* Neutral state: one full-width sweep, no internal geometry. */
-.skeletonNeutral {
+/* Neutral state: three dots and nothing else. No panel, no rows.
+   The motion is a slow rise-and-settle per dot with a soft halo, staggered by
+   120ms, so the group reads as "being written" rather than as a spinner. */
+.skeletonDots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 20px;
+  margin: 6px 0;
+}
+
+.skeletonDot {
+  position: relative;
   display: block;
-  height: 46px;
-  border-radius: var(--dsl-g-radius-control);
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--dsw-alias-label-primary) 5%, transparent) 0%,
-    color-mix(in srgb, var(--dsw-alias-label-primary) 13%, transparent) 50%,
-    color-mix(in srgb, var(--dsw-alias-label-primary) 5%, transparent) 100%
-  );
-  background-size: 200% 100%;
-  animation: dsl-skeleton 1.8s ease-in-out infinite;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 42%, transparent);
+  animation: dsl-dotBreathe 1.65s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.skeletonDot::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent);
+  opacity: 0;
+  animation: dsl-dotHalo 1.65s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.skeletonDot:nth-child(2) { animation-delay: 0.12s; }
+.skeletonDot:nth-child(3) { animation-delay: 0.24s; }
+.skeletonDot:nth-child(2)::after { animation-delay: 0.12s; }
+.skeletonDot:nth-child(3)::after { animation-delay: 0.24s; }
+
+@keyframes dsl-dotBreathe {
+  0%, 100% { transform: translateY(0) scale(0.86); opacity: 0.45; }
+  38% { transform: translateY(-3px) scale(1); opacity: 1; }
+  62% { transform: translateY(-1px) scale(0.96); opacity: 0.8; }
+}
+
+@keyframes dsl-dotHalo {
+  0%, 100% { opacity: 0; transform: scale(0.6); }
+  38% { opacity: 1; transform: scale(1.15); }
+  70% { opacity: 0; transform: scale(1.35); }
 }
 
 /* Donut charts arrive as a ring: the legend sits beside it, like the real one. */
@@ -2169,7 +2202,8 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) {
   .skeletonRing,
-  .skeletonNeutral { animation: none; }
+  .skeletonDot,
+  .skeletonDot::after { animation: none; }
   .skeletonTitle,
   .skeletonBars > span,
   .skeletonBlock,
@@ -2181,6 +2215,30 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   .skeletonDiagram > span,
   .skeletonMedia,
   .skeletonControl { animation: none; }
+}
+
+/* ---------- skeleton → component cross-fade ----------
+   The mount point carries a `view-transition-name`; these rules tune how the
+   two snapshots hand over. The outgoing skeleton leads slightly and the arriving
+   component settles up from 98%, so the change reads as one object resolving
+   rather than as two objects swapping. Wildcard selectors keep this working for
+   every concurrent fence (each gets its own name). */
+::view-transition-group(*.genui-stream) {
+  animation-duration: 260ms;
+  animation-timing-function: cubic-bezier(0.22, 0.8, 0.24, 1);
+}
+::view-transition-old(*.genui-stream) {
+  animation-duration: 180ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+}
+::view-transition-new(*.genui-stream) {
+  animation-duration: 260ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*.genui-stream),
+  ::view-transition-old(*.genui-stream),
+  ::view-transition-new(*.genui-stream) { animation: none; }
 }
 
 /* ---------- staggered reveal ---------- */

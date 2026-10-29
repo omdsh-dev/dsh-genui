@@ -61,6 +61,7 @@ import { GenuiActionContext, type GenuiActionHandler } from './action-context.ts
 import { withFileLinkContext, type FileLinkAvailability, type FileLinkCordisContext } from './file-link-context.tsx'
 import { renderSvgFence } from './svg-fence.tsx'
 import { inferSkeleton } from './streaming-shape.ts'
+import { flushSync } from 'react-dom'
 import { GenuiSkeleton } from './blocks/skeleton.tsx'
 import { repairFenceJson, trimToBalancedRoot } from '../shared/fence-repair.ts'
 import { describeFenceFailure, FenceDiagnostic, renderResolvedFenceNode, type GenuiFenceContext } from './fence-render.tsx'
@@ -1144,6 +1145,36 @@ export function installDomFenceRenderer(
     sendAction(sessionId, action, payload)
   }
 
+/** Monotonic suffix so several streaming fences can transition at once:
+ *  a view-transition-name must be unique within the document. */
+let streamTransitionSeq = 0
+
+type DocumentWithTransitions = Document & {
+  startViewTransition?: (update: () => void) => { finished: Promise<void> }
+}
+
+function prefersReducedMotion(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/**
+ * Swap the skeleton for real content as one continuous object.
+ *
+ * Without this the placeholder is removed and the component mounted in the same
+ * frame — a hard cut, which is why the change read as "a different thing
+ * appeared". The View Transition API cross-fades the two snapshots in place; the
+ * mount point keeps its `view-transition-name`, so the browser pairs them.
+ * Unsupported browsers (and reduced-motion users) get the plain render.
+ */
+function swapWithTransition(render: () => void): void {
+  const doc = document as DocumentWithTransitions
+  if (typeof doc.startViewTransition !== 'function' || prefersReducedMotion()) {
+    render()
+    return
+  }
+  doc.startViewTransition(() => flushSync(render))
+}
+
   function renderBlock(block: HTMLElement): void {
     if (block.hasAttribute(PROCESSED)) return
     const row = rowOf(block)
@@ -1186,6 +1217,12 @@ export function installDomFenceRenderer(
     // answer can never be blanked by a half-completed takeover.
     const container = document.createElement('div')
     container.className = CONTAINER_CLASS
+    // Stable per-mount name: the skeleton and the component that replaces it
+    // live in the same container, so the browser can pair their snapshots.
+    container.style.setProperty('view-transition-name', `genui-stream-${streamTransitionSeq++}`)
+    // Lets the module's rules target OUR transitions only (`(*.genui-stream)`),
+    // never the host's own view transitions.
+    container.style.setProperty('view-transition-class', 'genui-stream')
     block.after(container)
     let root: Root
     try {
@@ -1584,7 +1621,11 @@ export function installDomFenceRenderer(
         } else {
           try {
             const handler: GenuiActionHandler = (action, payload) => sendActionForBlock(block, action, payload)
-            mount.root.render(wrapFenceNode(node, context, handler, !settled))
+            const render = (): void => { mount.root.render(wrapFenceNode(node, context, handler, !settled)) }
+            // The skeleton leaving is the moment the reader notices: cross-fade
+            // it into the component instead of cutting.
+            if (mount.skeleton) swapWithTransition(render)
+            else render()
           } catch (error) {
             // Never leave the stock block hidden behind a broken root: restore
             // the raw code block and drop the mount (issue #19).

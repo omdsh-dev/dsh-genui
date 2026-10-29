@@ -13,6 +13,12 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Measured on an M-series laptop under full-suite parallelism: heavy DOM
+    // tests (fence bursts, the gallery render, the map type-check) take 5–11s
+    // there while finishing in ~1s alone. The 5s default made local runs fail
+    // where CI passes, which quietly devalues local verification. Individual
+    // hangs are still caught — just 15s later.
+    testTimeout: 20_000,
     setupFiles: ['tests/setup.ts'],
     include: ['tests/**/*.spec.{ts,tsx}'],
     server: {

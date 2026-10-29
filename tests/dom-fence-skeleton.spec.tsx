@@ -95,10 +95,12 @@ describe('neutral placeholder', () => {
       await tick()
       const skeleton = r.querySelector('[data-genui-skeleton]')!
       expect(skeleton.getAttribute('data-genui-skeleton')).toBe('generic')
-      const body = skeleton.querySelector('[class*="skeletonNeutral"]')
-      expect(body).not.toBeNull()
-      // No fake rows, no fake block, no fake title.
-      expect(skeleton.querySelectorAll('span').length).toBe(1)
+      // Three dots, and nothing that suggests a panel: no surface class, no
+      // rows, no heading. The wrapper itself is the only other element.
+      expect(skeleton.querySelectorAll('[class*="skeletonDots"] > span').length).toBe(3)
+      expect(skeleton.textContent).toBe('')
+      // The dots wrapper plus its three dots — and nothing else.
+      expect(skeleton.querySelectorAll('span').length).toBe(4)
     } finally {
       dispose()
     }

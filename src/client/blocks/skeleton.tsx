@@ -13,7 +13,7 @@ import type { SkeletonShape } from '../streaming-shape.ts'
 
 /** Shapes that are an object, not a block: they get no elevated surface, because
  *  a lone button or a divider does not become a card when it finishes. */
-const INLINE_SHAPES: ReadonlySet<SkeletonShape> = new Set<SkeletonShape>(['control', 'rule'])
+const INLINE_SHAPES: ReadonlySet<SkeletonShape> = new Set<SkeletonShape>(['control', 'rule', 'generic'])
 
 /** Replace a half-written spec with a placeholder of the same shape. */
 export function GenuiSkeleton({ shape, title, columns, chartKind, lines }: {
@@ -29,7 +29,7 @@ export function GenuiSkeleton({ shape, title, columns, chartKind, lines }: {
     // Without it every gap/padding/radius resolved to nothing and the
     // placeholder painted as a hard-edged rectangle — the "毛坯" look.
     <div className={css.block}>
-      <div className={`${css.skeleton} ${INLINE_SHAPES.has(shape) ? css.skeletonInline : ''}`}
+      <div className={`${css.skeleton} ${INLINE_SHAPES.has(shape) || shape === 'generic' ? css.skeletonInline : ''}`}
         data-genui-skeleton={shape} role="status"
         aria-label={title === undefined ? '正在生成界面' : `正在生成界面：${title}`}>
         {title !== undefined ? <span className={css.skeletonHeading}>{title}</span> : null}
@@ -146,11 +146,17 @@ export function SkeletonBody({ shape, columns, chartKind, lines }: {
     case 'rule':
       return <span className={css.skeletonRule} />
     case 'generic':
-      // Nothing is known yet — not even the component family. Any internal
-      // structure here is a guess that the next frame usually contradicts, so
-      // the neutral state shows ONE quiet sweep and nothing else. It reads as
-      // "an area is arriving", not as "a card with two lines is arriving".
-      return <span className={css.skeletonNeutral} />
+      // Nothing is known yet — not even the component family, and not even that
+      // it will be a panel. So this state draws NO surface: just three dots
+      // saying "text is being written". Drawing a box here promised a card the
+      // next frame usually contradicted.
+      return (
+        <span className={css.skeletonDots} aria-hidden="true">
+          <span className={css.skeletonDot} />
+          <span className={css.skeletonDot} />
+          <span className={css.skeletonDot} />
+        </span>
+      )
     case 'card':
     default:
       // A card's children are unknown from the prefix alone, so the placeholder
