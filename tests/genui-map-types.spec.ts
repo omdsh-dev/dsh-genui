@@ -5,7 +5,11 @@ import { join, resolve } from 'node:path'
 import ts from 'typescript'
 import { expect, it } from 'vitest'
 
-it('type-checks public map configuration with the engine package unavailable', () => {
+// Compiling a consumer project through the TypeScript API takes 1–2s idle; under
+// a full-suite run it has been measured at 11s. The 5s default turned that into a
+// flake that failed locally and passed on CI, which is the worst combination:
+// local verification stops meaning anything.
+it('type-checks public map configuration with the engine package unavailable', { timeout: 30_000 }, () => {
   const dir = mkdtempSync(join(tmpdir(), 'genui-map-types-'))
   try {
     const file = join(dir, 'consumer.ts')
