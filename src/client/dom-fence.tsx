@@ -59,8 +59,9 @@ import type { ChatNode, ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/cli
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { GenuiActionContext, type GenuiActionHandler } from './action-context.ts'
 import { withFileLinkContext, type FileLinkAvailability, type FileLinkCordisContext } from './file-link-context.tsx'
-import css from './GenuiBlock.module.css'
 import { renderSvgFence } from './svg-fence.tsx'
+import { inferSkeleton } from './streaming-shape.ts'
+import { GenuiSkeleton } from './blocks/skeleton.tsx'
 import { repairFenceJson, trimToBalancedRoot } from '../shared/fence-repair.ts'
 import { describeFenceFailure, FenceDiagnostic, renderResolvedFenceNode, type GenuiFenceContext } from './fence-render.tsx'
 import { resolveViewedSessionId } from './session-resolver.ts'
@@ -210,20 +211,6 @@ function looksLikeGenuiInProgress(raw: string): boolean {
  *  the stock block without a mounted replacement" (issue #19) still holds: if
  *  the body never parses, the settle sweep unmounts the skeleton and the raw
  *  code block returns. */
-function GenuiSkeleton() {
-  return (
-    <div className={css.skeleton} role="status" aria-label="正在生成界面">
-      <span className={css.skeletonTitle} />
-      <span className={css.skeletonBars}>
-        <span style={{ width: '32%' }} />
-        <span style={{ width: '52%' }} />
-        <span style={{ width: '24%' }} />
-      </span>
-      <span className={css.skeletonBlock} />
-    </div>
-  )
-}
-
 interface Mount {
   root: Root
   container: HTMLElement
@@ -1190,7 +1177,7 @@ export function installDomFenceRenderer(
       }
       // Streaming, spec-shaped, nothing renderable yet: show the skeleton
       // rather than a wall of half-written JSON.
-      payload = <GenuiSkeleton />
+      payload = <GenuiSkeleton {...inferSkeleton(raw)} />
     }
     clearDiagnostic(block)
     // Mount FIRST, hide AFTER (issue #19): the stock block is only ever

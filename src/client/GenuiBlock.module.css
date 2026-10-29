@@ -2037,7 +2037,11 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   flex-direction: column;
   gap: var(--dsl-g-gap-md);
   padding: var(--dsl-g-gap-lg);
-  border: 1px solid var(--dsl-g-border);
+  /* Same surface as a card: the placeholder is announcing a block, and a block
+     in this product is an elevated surface. Without it the shimmer bars sit on
+     the page colour and the whole thing reads as a rectangle of nothing. */
+  background: var(--dsl-g-surface);
+  border: 1px solid var(--dsl-g-border-surface);
   border-radius: var(--dsl-g-radius-surface);
   background: var(--dsl-g-surface);
 }
@@ -2050,14 +2054,63 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 .skeletonBars { display: flex; gap: var(--dsl-g-gap-sm); }
 .skeletonBars > span { display: block; height: 44px; border-radius: var(--dsl-g-radius-control); }
 .skeletonBlock { display: block; height: 76px; border-radius: var(--dsl-g-radius-control); }
+/* The known title is real text, not a bar: seeing the card's own heading keeps
+   the placeholder from reading as a different component. */
+.skeletonHeading {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+  opacity: 0.75;
+}
+
+.skeletonRows { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
+.skeletonRows > span { display: block; border-radius: var(--dsl-g-radius-pill); }
+
+.skeletonTable { display: flex; flex-direction: column; gap: 6px; }
+.skeletonRowHead,
+.skeletonRow { display: flex; gap: var(--dsl-g-gap-md); }
+.skeletonRowHead > span,
+.skeletonRow > span { display: block; height: 10px; border-radius: var(--dsl-g-radius-pill); }
+.skeletonRowHead { padding-bottom: 6px; border-bottom: 1px solid var(--dsl-g-border); }
+.skeletonRowHead > span { height: 8px; opacity: 0.85; }
+
+.skeletonChart { display: flex; gap: 6px; align-items: stretch; height: 96px; }
+.skeletonAxis { width: 22px; border-radius: var(--dsl-g-radius-control); }
+.skeletonChart .skeletonBars { flex: 1; align-items: flex-end; gap: var(--dsl-g-gap-md); }
+.skeletonChart .skeletonBars > span { flex: 1; border-radius: 4px 4px 2px 2px; }
+
+.skeletonStat { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
+.skeletonStat > span { display: block; border-radius: var(--dsl-g-radius-control); }
+
+.skeletonDiagram { display: flex; align-items: center; gap: var(--dsl-g-gap-md); }
+.skeletonDiagram > span:first-child,
+.skeletonDiagram > span:last-child { display: block; border-radius: var(--dsl-g-radius-control); }
+.skeletonLink { flex: 1; height: 2px; border-radius: 2px; }
+
+.skeletonMedia {
+  display: block;
+  height: 132px;
+  border-radius: var(--dsl-g-radius-control);
+}
+
 .skeletonTitle,
 .skeletonBars > span,
-.skeletonBlock {
+.skeletonBlock,
+.skeletonHeading + .skeletonBars,
+.skeletonRows > span,
+.skeletonRowHead > span,
+.skeletonRow > span,
+.skeletonAxis,
+.skeletonChart .skeletonBars > span,
+.skeletonStat > span,
+.skeletonDiagram > span,
+.skeletonLink,
+.skeletonMedia {
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent) 0%,
-    color-mix(in srgb, var(--dsw-alias-label-primary) 13%, transparent) 50%,
-    color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent) 100%
+    color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent) 0%,
+    color-mix(in srgb, var(--dsw-alias-label-primary) 16%, transparent) 50%,
+    color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent) 100%
   );
   background-size: 200% 100%;
   animation: dsl-skeleton 1.4s ease-in-out infinite;
@@ -2069,7 +2122,14 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .skeletonTitle,
   .skeletonBars > span,
-  .skeletonBlock { animation: none; }
+  .skeletonBlock,
+  .skeletonRows > span,
+  .skeletonRowHead > span,
+  .skeletonRow > span,
+  .skeletonAxis,
+  .skeletonStat > span,
+  .skeletonDiagram > span,
+  .skeletonMedia { animation: none; }
 }
 
 /* ---------- staggered reveal ---------- */
