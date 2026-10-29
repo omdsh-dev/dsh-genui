@@ -42,3 +42,33 @@ describe('coverage', () => {
     expect(unmapped).toEqual([])
   })
 })
+
+describe('size hints', () => {
+  it('counts declared table columns', () => {
+    expect(inferSkeleton('{"items":[{"type":"table","columns":["项目","金额","占比"]').columns).toBe(3)
+    expect(inferSkeleton('{"items":[{"type":"table","columns":["a","b","c","d","e"]').columns).toBe(5)
+  })
+
+  it('does not count a column that is still being typed', () => {
+    // `"金额` has no closing quote yet: it must not inflate the count.
+    expect(inferSkeleton('{"items":[{"type":"table","columns":["项目","金额').columns).toBe(1)
+  })
+
+  it('reads the chart kind, so a donut is not drawn as bars', () => {
+    expect(inferSkeleton('{"items":[{"type":"chart","kind":"donut","data":[').chartKind).toBe('donut')
+    expect(inferSkeleton('{"items":[{"type":"chart","kind":"bars","data":[').chartKind).toBe('bars')
+  })
+
+  it('estimates paragraph lines from the characters already written', () => {
+    const short = inferSkeleton('{"items":[{"type":"text","content":"短"').lines
+    const long = inferSkeleton(`{"items":[{"type":"text","content":"${'字'.repeat(120)}"`).lines
+    expect(short).toBe(1)
+    expect(long).toBeGreaterThanOrEqual(3)
+    expect(long).toBeLessThanOrEqual(6)
+  })
+
+  it('carries the hints only for the shape that uses them', () => {
+    // A card body is unknown; no size guess may leak from an unrelated field.
+    expect(inferSkeleton('{"items":[{"type":"card","title":"x","items":[').columns).toBeUndefined()
+  })
+})

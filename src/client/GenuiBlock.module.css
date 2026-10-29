@@ -2100,6 +2100,25 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   padding: var(--dsl-g-gap-sm) 0;
 }
 
+/* Donut charts arrive as a ring: the legend sits beside it, like the real one. */
+.skeletonDonut { display: flex; align-items: center; gap: var(--dsl-g-gap-lg); }
+.skeletonRing {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  /* A ring, not a white disc: same quiet fill as the other bars. */
+  border: 22px solid color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent);
+  box-sizing: border-box;
+  animation: dsl-skeletonPulse 1.4s ease-in-out infinite;
+}
+@keyframes dsl-skeletonPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.skeletonLegend { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); flex: 1; }
+.skeletonLegend > span { display: block; height: 9px; border-radius: var(--dsl-g-radius-pill); }
+
 .skeletonControl { display: block; width: 132px; height: 30px; border-radius: var(--dsl-g-radius-control); }
 .skeletonRule { display: block; width: 100%; height: 1px; border-radius: 1px; }
 
@@ -2117,7 +2136,9 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 .skeletonLink,
 .skeletonMedia,
 .skeletonControl,
-.skeletonRule {
+.skeletonRule,
+.skeletonRing,
+.skeletonLegend > span {
   background: linear-gradient(
     90deg,
     color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent) 0%,
@@ -2132,6 +2153,7 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   100% { background-position: -200% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .skeletonRing { animation: none; }
   .skeletonTitle,
   .skeletonBars > span,
   .skeletonBlock,

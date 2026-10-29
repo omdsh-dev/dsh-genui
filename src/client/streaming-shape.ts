@@ -73,10 +73,83 @@ function firstTitle(raw: string): string | undefined {
   return title === undefined || title === '' ? undefined : title
 }
 
-/** Infer the placeholder shape (and the known title) from a partial body. */
-export function inferSkeleton(raw: string): { shape: SkeletonShape; title?: string } {
+/** What the prefix already tells us about the component's SIZE. */
+export interface SkeletonDetail {
+  /** Table: how many columns were declared (3 when unknown). */
+  columns?: number
+  /** Chart: the declared kind, which decides bars vs a donut ring. */
+  chartKind?: string
+  /** Text/callout: an estimate of the rendered line count. */
+  lines?: number
+}
+
+/** Closed string literals inside the `columns` array, i.e. the declared count. */
+function columnCount(raw: string): number | undefined {
+  const start = raw.indexOf('"columns"')
+  if (start < 0) return undefined
+  const open = raw.indexOf('[', start)
+  if (open < 0) return undefined
+  let count = 0
+  let inString = false
+  let escaped = false
+  for (let i = open + 1; i < raw.length; i++) {
+    const ch = raw[i]!
+    if (inString) {
+      if (escaped) escaped = false
+      else if (ch === '\\') escaped = true
+      else if (ch === '"') { inString = false; count += 1 } else continue
+      continue
+    }
+    if (ch === '"') inString = true
+    else if (ch === ']') break
+  }
+  // A column still being typed is not counted: it has no closing quote yet.
+  return count === 0 ? undefined : Math.min(count, 8)
+}
+
+/** Chart kind: `kind` (or a legacy `chartType`) when it already arrived. */
+function chartKind(raw: string): string | undefined {
+  const match = /"(?:kind|chartType)"\s*:\s*"([a-z]{1,12})"/.exec(raw)
+  return match?.[1]
+}
+
+/** Rough rendered-line estimate: ~42 CJK/latin characters per line here. */
+function lineEstimate(raw: string): number | undefined {
+  const match = /"content"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(raw)
+  const text = match?.[1]
+  if (text === undefined) return undefined
+  const chars = text.replace(/\\n/g, '\n').length
+  if (chars === 0) return undefined
+  return Math.min(6, Math.max(1, Math.ceil(chars / 42)))
+}
+
+/** Infer the placeholder shape, its known title, and its size hints. */
+export function inferSkeleton(raw: string): {
+  shape: SkeletonShape
+  title?: string
+  columns?: number
+  chartKind?: string
+  lines?: number
+} {
   const type = firstType(raw)
   const shape = type === undefined ? 'generic' : (SHAPE_BY_TYPE[type] ?? 'generic')
+  const detail: SkeletonDetail = {}
+  if (shape === 'table') {
+    const columns = columnCount(raw)
+    if (columns !== undefined) detail.columns = columns
+  }
+  if (shape === 'chart') {
+    const kind = chartKind(raw)
+    if (kind !== undefined) detail.chartKind = kind
+  }
+  if (shape === 'text') {
+    const lines = lineEstimate(raw)
+    if (lines !== undefined) detail.lines = lines
+  }
+  // exactOptionalPropertyTypes: build the object incrementally instead of
+  // passing `title: undefined`, which is not the same as an absent key here.
+  const result: ReturnType<typeof inferSkeleton> = { shape, ...detail }
   const title = firstTitle(raw)
-  return title === undefined ? { shape } : { shape, title }
+  if (title !== undefined) result.title = title
+  return result
 }

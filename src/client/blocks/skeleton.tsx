@@ -16,7 +16,13 @@ import type { SkeletonShape } from '../streaming-shape.ts'
 const INLINE_SHAPES: ReadonlySet<SkeletonShape> = new Set<SkeletonShape>(['control', 'rule'])
 
 /** Replace a half-written spec with a placeholder of the same shape. */
-export function GenuiSkeleton({ shape, title }: { shape: SkeletonShape; title?: string }) {
+export function GenuiSkeleton({ shape, title, columns, chartKind, lines }: {
+  shape: SkeletonShape
+  title?: string
+  columns?: number
+  chartKind?: string
+  lines?: number
+}) {
   return (
     // The skeleton replaces the code block OUTSIDE the block root, so it has to
     // carry `.block` itself: that is where the `--dsl-g-*` tokens are declared.
@@ -27,7 +33,12 @@ export function GenuiSkeleton({ shape, title }: { shape: SkeletonShape; title?: 
         data-genui-skeleton={shape} role="status"
         aria-label={title === undefined ? '正在生成界面' : `正在生成界面：${title}`}>
         {title !== undefined ? <span className={css.skeletonHeading}>{title}</span> : null}
-        <SkeletonBody shape={shape} />
+        <SkeletonBody
+          shape={shape}
+          {...(columns === undefined ? {} : { columns })}
+          {...(chartKind === undefined ? {} : { chartKind })}
+          {...(lines === undefined ? {} : { lines })}
+        />
       </div>
     </div>
   )
@@ -35,22 +46,43 @@ export function GenuiSkeleton({ shape, title }: { shape: SkeletonShape; title?: 
 
 /** Placeholder body per shape: it should read as "a table is arriving", not as
  *  "something is loading". Widths are fixed so nothing reflows on swap. */
-export function SkeletonBody({ shape }: { shape: SkeletonShape }) {
+export function SkeletonBody({ shape, columns, chartKind, lines }: {
+  shape: SkeletonShape
+  columns?: number
+  chartKind?: string
+  lines?: number
+}) {
   switch (shape) {
-    case 'table':
+    case 'table': {
+      // The declared column count is the one size hint a table gives away
+      // early: three columns should not render a five-column placeholder.
+      const count = Math.min(Math.max(columns ?? 3, 1), 8)
+      const widths = Array.from({ length: count }, (_, i) => (i === 0 ? '26%' : `${Math.round(56 / count)}%`))
       return (
         <span className={css.skeletonTable}>
           <span className={css.skeletonRowHead}>
-            <span style={{ width: '22%' }} /><span style={{ width: '34%' }} /><span style={{ width: '18%' }} />
+            {widths.map((width, i) => <span key={i} style={{ width }} />)}
           </span>
-          {[0, 1, 2, 3].map(i => (
-            <span className={css.skeletonRow} key={i}>
-              <span style={{ width: '22%' }} /><span style={{ width: '34%' }} /><span style={{ width: '18%' }} />
+          {[0, 1, 2, 3].map(row => (
+            <span className={css.skeletonRow} key={row}>
+              {widths.map((width, i) => <span key={i} style={{ width }} />)}
             </span>
           ))}
         </span>
       )
+    }
     case 'chart':
+      // A donut announces a circle; bars would promise the wrong ending.
+      if (chartKind === 'donut' || chartKind === 'pie') {
+        return (
+          <span className={css.skeletonDonut}>
+            <span className={css.skeletonRing} />
+            <span className={css.skeletonLegend}>
+              <span style={{ width: '64%' }} /><span style={{ width: '46%' }} /><span style={{ width: '54%' }} />
+            </span>
+          </span>
+        )
+      }
       return (
         <span className={css.skeletonChart}>
           <span className={css.skeletonAxis} />
@@ -78,14 +110,19 @@ export function SkeletonBody({ shape }: { shape: SkeletonShape }) {
           <span style={{ width: '20%', height: 8 }} />
         </span>
       )
-    case 'text':
+    case 'text': {
+      // Paragraph length is knowable: it is the characters already written.
+      // Widths taper like real text so the block does not look like a bar chart.
+      const count = Math.min(Math.max(lines ?? 3, 1), 6)
+      const widths = ['92%', '96%', '88%', '94%', '70%', '54%']
       return (
         <span className={css.skeletonRows}>
-          <span style={{ width: '92%', height: 10 }} />
-          <span style={{ width: '78%', height: 10 }} />
-          <span style={{ width: '54%', height: 10 }} />
+          {Array.from({ length: count }, (_, i) => (
+            <span key={i} style={{ width: widths[i]!, height: 10 }} />
+          ))}
         </span>
       )
+    }
     case 'diagram':
       return (
         <span className={css.skeletonDiagram}>
