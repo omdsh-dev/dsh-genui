@@ -58,11 +58,18 @@ function splitStatValue(value: string): {
   const match = /^([+\-−]?[\d.,]+(?:[eE][+\-]?\d+)?)\s*(.*)$/.exec(value.trim())
   if (match === null || match[1] === undefined) return { num: value, unit: '', numeric: undefined, decimals: 0 }
   const raw = match[1]
-  const plain = raw.replace(/[,，]/g, '')
+  // A comma is a thousands separator only in the unambiguous grouped shape
+  // (`1,234`, `1,632.80`). Anywhere else it is a decimal separator — ru/de/fr
+  // write `1,6328` — and stripping it would silently multiply the metric by a
+  // power of ten and drop the fraction. Such values are rendered verbatim
+  // (numeric === undefined) instead of being reparsed and re-printed.
+  const hasComma = /[,，]/.test(raw)
+  const grouped = /^[+\-−]?\d{1,3}(?:[,，]\d{3})+(?:\.\d+)?$/.test(raw)
+  const plain = grouped ? raw.replace(/[,，]/g, '') : raw
   const parsed = Number(plain)
-  // Commas are thousands separators in a number, but a grouped metric like
-  // "1,2" is not worth animating — keep it static.
-  const numeric = Number.isFinite(parsed) && !/[eE]/.test(plain) ? parsed : undefined
+  const numeric = (!hasComma || grouped) && Number.isFinite(parsed) && !/[eE]/.test(plain)
+    ? parsed
+    : undefined
   const decimals = plain.includes('.') ? (plain.split('.')[1] ?? '').length : 0
   return { num: raw, unit: match[2] ?? '', numeric, decimals: Math.min(decimals, 4) }
 }
