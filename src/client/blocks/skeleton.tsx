@@ -13,7 +13,7 @@ import type { SkeletonShape } from '../streaming-shape.ts'
 
 /** Shapes that are an object, not a block: they get no elevated surface, because
  *  a lone button or a divider does not become a card when it finishes. */
-const INLINE_SHAPES: ReadonlySet<SkeletonShape> = new Set<SkeletonShape>(['control', 'rule', 'generic'])
+const INLINE_SHAPES: ReadonlySet<SkeletonShape> = new Set<SkeletonShape>(['control', 'rule'])
 
 /** Replace a half-written spec with a placeholder of the same shape. */
 export function GenuiSkeleton({ shape, title, columns, chartKind, lines }: {
@@ -145,18 +145,6 @@ export function SkeletonBody({ shape, columns, chartKind, lines }: {
       return <span className={css.skeletonControl} />
     case 'rule':
       return <span className={css.skeletonRule} />
-    case 'generic':
-      // Nothing is known yet — not even the component family, and not even that
-      // it will be a panel. So this state draws NO surface: just three dots
-      // saying "text is being written". Drawing a box here promised a card the
-      // next frame usually contradicted.
-      return (
-        <span className={css.skeletonDots} aria-hidden="true">
-          <span className={css.skeletonDot} />
-          <span className={css.skeletonDot} />
-          <span className={css.skeletonDot} />
-        </span>
-      )
     case 'card':
     default:
       // A card's children are unknown from the prefix alone, so the placeholder

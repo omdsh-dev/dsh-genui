@@ -67,40 +67,21 @@ describe('streaming skeleton', () => {
     }
   })
 
-  it('uses the neutral shape while the component type is unknown', async () => {
+  it('shows nothing — and keeps the stock block — while the type is unknown', async () => {
+    // No `type` yet means no honest shape. A placeholder here is a guess that the
+    // next frame replaces, and covering the body with a wrong guess is worse than
+    // leaving it: the stock code block stays, nothing is mounted.
     const r = row('k2')
-    r.appendChild(stockCodeBlock('{"items":[{"ty', 'dsh-ui'))
+    const block = stockCodeBlock('{"items":[{"ty', 'dsh-ui')
+    r.appendChild(block)
     document.body.appendChild(r)
     const send = vi.fn()
     const dispose = installDomFenceRenderer(makeCtx('s2', send), send)
     try {
       await tick()
-      expect(r.querySelector('[data-genui-skeleton]')?.getAttribute('data-genui-skeleton')).toBe('generic')
-    } finally {
-      dispose()
-    }
-  })
-})
-
-describe('neutral placeholder', () => {
-  it('shows no structure when nothing is known yet', async () => {
-    // Before the first `"type"` arrives there is no honest shape to promise:
-    // any rows here are a guess the next frame contradicts.
-    const r = row('k3')
-    r.appendChild(stockCodeBlock('{"items":[', 'dsh-ui'))
-    document.body.appendChild(r)
-    const send = vi.fn()
-    const dispose = installDomFenceRenderer(makeCtx('s3', send), send)
-    try {
-      await tick()
-      const skeleton = r.querySelector('[data-genui-skeleton]')!
-      expect(skeleton.getAttribute('data-genui-skeleton')).toBe('generic')
-      // Three dots, and nothing that suggests a panel: no surface class, no
-      // rows, no heading. The wrapper itself is the only other element.
-      expect(skeleton.querySelectorAll('[class*="skeletonDots"] > span').length).toBe(3)
-      expect(skeleton.textContent).toBe('')
-      // The dots wrapper plus its three dots — and nothing else.
-      expect(skeleton.querySelectorAll('span').length).toBe(4)
+      expect(r.querySelector('[data-genui-skeleton]')).toBeNull()
+      expect(block.style.display).not.toBe('none')
+      expect(block.hasAttribute('data-genui-rendered')).toBe(false)
     } finally {
       dispose()
     }

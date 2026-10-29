@@ -1250,9 +1250,14 @@ export function installDomFenceRenderer(
         }
         return
       }
-      // Streaming, spec-shaped, nothing renderable yet: show the skeleton
-      // rather than a wall of half-written JSON.
-      payload = <GenuiSkeleton {...inferSkeleton(raw)} />
+      // Streaming, spec-shaped, nothing renderable yet. If the first component
+      // type is already readable, show a placeholder shaped like it; otherwise
+      // show NOTHING and keep the stock code block: a shape we cannot infer is a
+      // guess, and a guess that gets replaced one frame later is worse than the
+      // raw body it covers.
+      const next = inferSkeleton(raw)
+      if (next.shape === 'generic') return
+      payload = <GenuiSkeleton {...next} />
     }
     clearDiagnostic(block)
     // Mount FIRST, hide AFTER (issue #19): the stock block is only ever
