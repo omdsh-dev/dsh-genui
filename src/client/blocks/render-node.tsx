@@ -208,7 +208,48 @@ function showsNothing(node: GenuiNode): boolean {
   }
 }
 
+/**
+ * Render a node, applying its layout gate first.
+ *
+ * `when` hides the node; `enableWhen` keeps it on screen but inert. The inert
+ * wrapper covers the whole subtree with the HTML `inert` attribute plus
+ * `pointer-events: none`, so every control inside it — including ones added
+ * later — stops responding without each component having to know about the
+ * gate. `disabledReason` says what unlocks it; a disabled control with no
+ * explanation is a dead end.
+ */
 export function renderNode(
+  node: GenuiNode,
+  key: number,
+  onAction: GenuiBlockProps['onAction'] | undefined,
+  depth = 0,
+  answers?: AnswersState,
+  path = `items[${key}]`,
+): ReactNode {
+  const rendered = renderNodeBody(node, key, onAction, depth, answers, path)
+  if (rendered === null || node.enableWhen === undefined) return rendered
+  // Without block state the condition cannot be evaluated: stay enabled rather
+  // than disable a control for a reason the renderer cannot see.
+  if (answers === undefined || evaluateWhen(node.enableWhen, answers)) return rendered
+  return (
+    <div key={key} className={css.nodeGate} data-genui-gated="" aria-disabled="true" {...{ inert: '' }}>
+      {rendered}
+      <span className={css.nodeGateReason}>{renderInline(node.disabledReason ?? t('block.gateReason'), false)}</span>
+    </div>
+  )
+}
+
+/**
+ * Render a node, applying its layout gate first.
+ *
+ * `when` hides the node; `enableWhen` keeps it on screen but inert. The inert
+ * wrapper covers the whole subtree with the HTML `inert` attribute plus
+ * `pointer-events: none`, so every control inside it — including ones added
+ * later — stops responding without each component having to know about the
+ * gate. `disabledReason` says what unlocks it; a disabled control with no
+ * explanation is a dead end.
+ */
+function renderNodeBody(
   node: GenuiNode,
   key: number,
   onAction: GenuiBlockProps['onAction'] | undefined,

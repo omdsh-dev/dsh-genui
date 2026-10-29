@@ -38,6 +38,16 @@ export interface GenuiLayoutHints {
   span?: number
   /** Render this node only while the condition holds (see {@link GenuiWhen}). */
   when?: GenuiWhen
+  /**
+   * Render this node, but disabled, unless the condition holds. Different from
+   * `when`: the reader still SEES the control (so the form's shape is stable and
+   * the requirement is discoverable) and `disabledReason` explains what unlocks
+   * it. Use `when` for a branch that does not apply at all, `enableWhen` for a
+   * step that applies but is not yet reachable.
+   */
+  enableWhen?: GenuiWhen
+  /** One line shown with a disabled node: what unlocks it. */
+  disabledReason?: string
 }
 
 export type GenuiNode = (

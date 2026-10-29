@@ -272,9 +272,13 @@ function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | 
   const raw = obj(value)
   const span = int(raw?.span, 2, 12)
   const when = repairWhen(raw?.when)
+  const enableWhen = repairWhen(raw?.enableWhen)
+  const disabledReason = str(raw?.disabledReason, 200)
   const extras = {
     ...(span === undefined ? {} : { span }),
     ...(when === undefined ? {} : { when }),
+    ...(enableWhen === undefined ? {} : { enableWhen }),
+    ...(disabledReason === undefined ? {} : { disabledReason }),
   }
   return Object.keys(extras).length === 0 ? node : ({ ...node, ...extras } as GenuiNode)
 }
@@ -2222,16 +2226,16 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
     errors.push(`${at}: missing string 'type'`)
     return
   }
-  // `when` is valid on any node, so it is checked before the per-type switch.
-  if (v.when !== undefined) {
-    const when = obj(v.when)
-    if (when === undefined) errors.push(`${at}.when: must be an object`)
-    else {
-      if (typeof when.field !== 'string' || when.field.trim() === '') errors.push(`${at}.when.field: requires a field id or group (string)`)
-      if (enu(when.op, WHEN_OPS) === undefined) errors.push(`${at}.when.op: must be one of ${WHEN_OPS.join(' / ')}`)
-      if ((when.op === 'in' || when.op === 'not-in') && !Array.isArray(when.value)) {
-        errors.push(`${at}.when.value: '${String(when.op)}' requires an array`)
-      }
+  // `when` / `enableWhen` are valid on any node, so they are checked before the
+  // per-type switch.
+  for (const key of ['when', 'enableWhen'] as const) {
+    if (v[key] === undefined) continue
+    const when = obj(v[key])
+    if (when === undefined) { errors.push(`${at}.${key}: must be an object`); continue }
+    if (typeof when.field !== 'string' || when.field.trim() === '') errors.push(`${at}.${key}.field: requires a field id or group (string)`)
+    if (enu(when.op, WHEN_OPS) === undefined) errors.push(`${at}.${key}.op: must be one of ${WHEN_OPS.join(' / ')}`)
+    if ((when.op === 'in' || when.op === 'not-in') && !Array.isArray(when.value)) {
+      errors.push(`${at}.${key}.value: '${String(when.op)}' requires an array`)
     }
   }
   const isStr = (name: string): void => { if (v[name] !== undefined && typeof v[name] !== 'string') errors.push(`${at}: '${name}' must be a string`) }

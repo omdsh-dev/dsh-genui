@@ -372,6 +372,7 @@ export const ZH: Record<keyof typeof EN, string> = {
   'block.compareAfter': '改动后',
   'block.compareOpen': '放大查看 {name}',
   'block.compareHint': '拖动对比',
+  'block.gateReason': '先填完上面的条件。',
   'block.choices': '选一个',
   'block.choices.recommended': '推荐',
   'block.choices.unavailable': '不可选',

@@ -158,6 +158,41 @@ body[data-ds-dark-theme] .panel {
   margin-bottom: var(--dsl-g-gap-sm);
 }
 
+/* A node gated by `enableWhen`: still on screen (the requirement stays
+   discoverable) but inert — the attribute blocks focus and input, and
+   pointer-events covers browsers without `inert`. Dimmed, not hidden. */
+.nodeGate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-xs);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.nodeGateReason {
+  font-size: var(--dsl-g-font-meta);
+  color: var(--dsw-alias-label-tertiary);
+  pointer-events: none;
+}
+
+/* A node gated by `enableWhen`: still on screen (the requirement stays
+   discoverable) but inert — the attribute blocks focus and input, and
+   pointer-events covers browsers without `inert`. Dimmed, not hidden. */
+.nodeGate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-xs);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.nodeGateReason {
+  font-size: var(--dsl-g-font-meta);
+  color: var(--dsw-alias-label-tertiary);
+  pointer-events: none;
+}
+
+
 /* ---------- layout primitives ---------- */
 
 .col { display: flex; flex-direction: column; gap: var(--dsl-g-gap-md); min-width: 0; }

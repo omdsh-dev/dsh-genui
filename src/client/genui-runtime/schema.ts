@@ -158,7 +158,9 @@ const recordSchema = (
   aliases: Readonly<Record<string, string>> = {},
 ): ComponentRecordSchema => ({ required, fields, enums, nested, aliases })
 
-const nodeFields = { type: 'string', span: 'number', when: 'object' } as const
+const nodeFields = {
+  type: 'string', span: 'number', when: 'object', enableWhen: 'object', disabledReason: 'string',
+} as const
 
 /** Conditional visibility carried by any node: `{ field, op, value? }`. */
 const whenSchema = recordSchema(['field', 'op'], {
@@ -460,7 +462,7 @@ const RAW_COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
 export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = Object.fromEntries(
   Object.entries(RAW_COMPONENT_SCHEMAS).map(([type, base]) => [type, {
     ...base,
-    nested: { ...base.nested, when: whenSchema },
+    nested: { ...base.nested, when: whenSchema, enableWhen: whenSchema },
   }]),
 )
 

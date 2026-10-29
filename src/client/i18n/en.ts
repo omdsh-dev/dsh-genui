@@ -377,6 +377,7 @@ export const EN = {
   'block.compareAfter': 'After',
   'block.compareOpen': 'Open {name} larger',
   'block.compareHint': 'Drag to compare',
+  'block.gateReason': 'Fill in the fields above first.',
   'block.choices': 'Pick one',
   'block.choices.recommended': 'Recommended',
   'block.choices.unavailable': 'Unavailable',
