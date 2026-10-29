@@ -2,7 +2,7 @@
 // `choices`: a decision list. The contract worth pinning is that the trade-off
 // travels WITH the option (that is the reason the node exists — `radio` options
 // are bare strings), and that submitting never claims the work is done.
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { GenuiActionContext } from '../src/client/action-context.ts'
@@ -96,11 +96,13 @@ describe('ChoicesNode', () => {
     expect(container.textContent).toContain(t('block.choices.sent'))
   })
 
-  it('stays local when no action is declared', () => {
+  it('stays local when no action is declared, and says so', () => {
     const { container } = renderWithAction({ ...base, action: undefined })
     fireEvent.click(container.querySelectorAll<HTMLInputElement>('input')[0]!)
     fireEvent.click(container.querySelector<HTMLButtonElement>('button')!)
-    expect(container.textContent).toContain(t('block.choices.sent'))
+    // The label must describe what happened: a local record is not a delivery.
+    expect(container.textContent).toContain(t('block.choices.localOnly'))
+    expect(container.textContent).not.toContain(t('block.choices.sent'))
   })
 })
 
@@ -146,6 +148,24 @@ describe('choices as a paper question (what retires radio)', () => {
       answer: '方案 A',
       options: ['方案 A', '方案 B'],
     })
+  })
+})
+
+describe('a submit that cannot send', () => {
+  it('never claims the choice was sent when the spec carries no action', () => {
+    // Repro of a real report: the block said "已发送" while nothing left the page.
+    const { container } = render(<ChoicesNode node={{ ...base, action: undefined }} />)
+    fireEvent.click(container.querySelectorAll<HTMLInputElement>('input')[0]!)
+    fireEvent.click(screen.getByRole('button', { name: '就这么定' }))
+    expect(container.textContent).toContain(t('block.choices.localOnly'))
+    expect(container.textContent).not.toContain(t('block.choices.sent'))
+  })
+
+  it('is a validation error for the model to write submit without action', () => {
+    const result = processGenuiSpec({
+      items: [{ type: 'choices', submit: '先做这个', items: [{ label: 'A' }, { label: 'B' }] }],
+    })
+    expect(result.errors.join(' ')).toContain('requires action')
   })
 })
 

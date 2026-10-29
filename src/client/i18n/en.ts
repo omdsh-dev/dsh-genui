@@ -385,6 +385,7 @@ export const EN = {
   'block.choices.multiHint': 'Pick any that apply.',
   'block.choices.maxHint': 'Pick up to {max}.',
   'block.choices.count': '{count} selected',
+  'block.choices.localOnly': 'Kept locally · nothing was sent',
   'block.choices.sent': 'Sent · you can still change it',
 
   // -------------------------------------------------------- error text

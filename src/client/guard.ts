@@ -2272,6 +2272,12 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
         break
       }
       if (v.items.length > 8) errors.push(`${at}: 'choices' keeps at most 8 options`)
+      // A submit button that sends nothing is a trap: the reader clicks, the UI
+      // says "sent", and no request exists. Local-only selection needs no button.
+      if (typeof v.submit === 'string' && v.submit.trim() !== ''
+        && (typeof v.action !== 'string' || v.action.trim() === '')) {
+        errors.push(`${at}: 'choices' with submit requires action — drop submit for a purely local selection`)
+      }
       v.items.slice(0, 8).forEach((item: unknown, index: number) => {
         const choice = obj(item)
         if (choice === undefined || typeof choice.label !== 'string' || choice.label.trim() === '') {

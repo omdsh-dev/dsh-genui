@@ -380,6 +380,7 @@ export const ZH: Record<keyof typeof EN, string> = {
   'block.choices.multiHint': '可多选。',
   'block.choices.maxHint': '最多选 {max} 项。',
   'block.choices.count': '已选 {count} 项',
+  'block.choices.localOnly': '只在本地记录 · 没有发送',
   'block.choices.sent': '已发送 · 仍可修改',
 
   // -------------------------------------------------------- error text

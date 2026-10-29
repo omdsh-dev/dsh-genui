@@ -133,7 +133,11 @@ export function ChoicesNode({ node, onAction, answers }: {
         )}
         <span className={css.status} role="status" aria-live="polite">
           {submitted
-            ? t('block.choices.sent')
+            ? (node.action === undefined || node.action === ''
+              // Older fences can still carry a submit with no action: say what
+              // actually happened instead of claiming a delivery that never was.
+              ? t('block.choices.localOnly')
+              : t('block.choices.sent'))
             : selected.length === 0
               ? hint
               : `${t('block.choices.count', { count: String(selected.length) })} · ${hint}`}
