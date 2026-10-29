@@ -23,8 +23,8 @@
    Light mode uses no tint at all — see the token block below for why. */
 body[data-ds-dark-theme] .block,
 body[data-ds-dark-theme] .panel {
-  --dsl-g-surface: color-mix(in srgb, var(--dsw-alias-label-primary) 4%,
-    var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, transparent))));
+  --dsl-g-surface: var(--dsh-genui-surface, color-mix(in srgb, var(--dsw-alias-label-primary) 4%,
+    var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, transparent)))));
   --dsl-g-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.24), 0 8px 24px rgba(0, 0, 0, 0.18);
   /* A hue over a near-black page loses more contrast than the same hue over
      white (the base colour is already dark), so the surface wash needs a
@@ -121,8 +121,17 @@ body[data-ds-dark-theme] .panel {
      #159 as "every card is grey". The 1px border keeps its 12% weight and is
      drawn over the surface, so on white it resolves to a quiet #e2e2e3
      hairline instead of 0.10.0's #cdcdce. */
-  --dsl-g-surface: var(--dsw-alias-bg-layer-2,
-    var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, #fff)));
+  /* `--dsh-genui-surface` is the skin's hook: a wallpaper / glass theme that
+     clears the host canvas can pin the surface (any colour, alpha allowed)
+     once on `:root` and get it everywhere. Without this indirection a skin
+     value is silently shadowed — this declaration lives on .block/.panel, so
+     the cascade never lets a :root one through.
+     Known limit (issue #398): with the default chain the surface is exactly
+     the host's layer colour. If a skin makes THAT colour translucent, the
+     inside of cards follows it; callout/tone washes stay readable because
+     they sit on top of the surface rather than replacing it. */
+  --dsl-g-surface: var(--dsh-genui-surface, var(--dsw-alias-bg-layer-2,
+    var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, #fff))));
   /* Borders separate, shadows lift (design standard: "shadows over borders"):
      the outline stays quiet and the layered shadow carries the depth, with the
      first layer at the documented minimum `0 1px 3px rgba(0,0,0,0.10)`. */
@@ -1143,10 +1152,27 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   background: var(--dsl-g-surface);
   box-shadow: var(--dsl-g-shadow-card);
 }
-.calloutInfo { background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent); }
-.calloutSuccess { background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent); }
-.calloutWarning { background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent); }
-.calloutError { background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent); }
+/* Tone = a wash ON TOP of the surface, never a replacement for it. Writing the
+   tint into `background` reset background-color to transparent, so on a canvas
+   that is not opaque (a wallpaper / glass skin) the callout showed the page
+   pattern through its own text (issue #398). `.callout` keeps the opaque
+   surface; the hue is painted over it as an image. */
+.calloutInfo {
+  --dsl-callout-wash: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-callout-wash), var(--dsl-callout-wash));
+}
+.calloutSuccess {
+  --dsl-callout-wash: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-callout-wash), var(--dsl-callout-wash));
+}
+.calloutWarning {
+  --dsl-callout-wash: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-callout-wash), var(--dsl-callout-wash));
+}
+.calloutError {
+  --dsl-callout-wash: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-callout-wash), var(--dsl-callout-wash));
+}
 .calloutInfo .calloutTitle { color: var(--dsw-alias-state-business-primary, #4f8ef7); }
 .calloutSuccess .calloutTitle { color: var(--dsw-alias-state-success-primary, #2f9e6b); }
 .calloutWarning .calloutTitle { color: var(--dsw-alias-state-warn-primary, #b8860b); }
@@ -1485,11 +1511,24 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   background: color-mix(in srgb, var(--dsw-alias-label-primary) 4%, transparent);
 }
 
-/* Card surface tones: tint + colored title, no bars. */
-.cardInfo { background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent); }
-.cardSuccess { background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent); }
-.cardWarning { background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent); }
-.cardDanger { background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent); }
+/* Card surface tones: tint + colored title, no bars. Same rule as the callout
+   tones above — the wash layers over the card's own surface (issue #398). */
+.cardInfo {
+  --dsl-card-wash: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-card-wash), var(--dsl-card-wash));
+}
+.cardSuccess {
+  --dsl-card-wash: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-card-wash), var(--dsl-card-wash));
+}
+.cardWarning {
+  --dsl-card-wash: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-card-wash), var(--dsl-card-wash));
+}
+.cardDanger {
+  --dsl-card-wash: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-card-wash), var(--dsl-card-wash));
+}
 .cardInfo > .cardTitle { color: var(--dsw-alias-state-business-primary, #4f8ef7); }
 .cardSuccess > .cardTitle { color: var(--dsw-alias-state-success-primary, #2f9e6b); }
 .cardWarning > .cardTitle { color: var(--dsw-alias-state-warn-primary, #b8860b); }
