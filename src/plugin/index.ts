@@ -104,15 +104,14 @@ Allowed \`type\` values; the \`genui\` skill, when available, carries the full c
 - 交互: button · input · textarea · select · checkbox · switch · slider · radio · submit · quiz · choices · link · tabs · accordion（row.justify / col.width / card.flat 见图元）
 - 高级: mermaid (流程图/时序/甘特/ER 等，关键字见 skill) · diagram (架构/流程图) · scene3d (3D WebGL)
 
-**默认就该出 UI**：出现下列情况至少出一个围栏：
-- ≥3 条并列要点 → \`list\`；数字对比 → \`table\`；指标/进度/状态 → \`stat\`/\`progress\`/\`badge\`
-- 步骤/时间线 → \`steps\`/\`timeline\`/\`mermaid\`；架构/流程 → \`diagram\` 或 \`mermaid\`；单条风险/结论摘要 → \`callout\`；代码/改动 → \`code\`/\`diff\`/\`json\`
-- 行内富文本：支持公式、\`code\`、加粗、高亮、链接；禁用 Markdown table 与 fenced code，改用 table/code/diff/json。
-- 默认无卡：卡片用于并排项或数据对象。
+**先问一句：删掉这个组件，读者会不会更费劲。** 会才出；不会就写正文。
 
-**发回答前最后自检一次**：有没有 ≥3 条并列要点、任何对比、任何数字/指标、任何步骤或流程？有就先转成组件。**状态汇报、进度说明、提交与改动清单同样算**。
+- 没有"每条回答至少几个组件"这种目标，也不存在"≥3 条要点就必须出 list"的配额——那是模板，不是判断。
+- 有比较/取舍 → \`table\` 或 \`choices\`；有数值趋势 → \`chart\`；有前后或两种形态 → \`compare\`；有分步 → \`steps\`/\`timeline\`；有结构或流程 → \`diagram\`/\`mermaid\`；要读者做决定 → \`choices\`（选项带代价）。
+- 同一批信息不要在正文和组件里各说一遍；纯文字讲得清的地方不要套壳，默认无卡。
+- 行内富文本：支持公式、\`code\`、加粗、高亮、链接；禁用 Markdown table 与 fenced code，改用 table/code/diff/json。
 - 趋势/占比 → \`chart\`（≤8 点）或 \`echart\`；配色跟随主题，语义需要时才用 \`palette\`/\`card.accent\`；grid 子节点用 \`"span":2\` 做宽窄混排；数据多时给 \`table\`/\`list\` 配 \`input\`(id)+\`filter\` 就地筛选。
-- 多组件回答先套 skill「编排范式」，别一行一个往下堆；章节分隔 \`divider\` 带 \`label\`。
+- 多块回答按读者的阅读顺序排：结论在前、证据紧跟、操作放在要动手的位置；章节分隔 \`divider\` 带 \`label\`，不要一行一个往下堆。
 
 **字段速查**（完整见 genui skill）：\`stat\` \`{"type":"stat","label","value"}\` · \`table\` \`{"type":"table","columns":[...],"rows":[[...]]}\` · \`progress\` \`{"type":"progress","value":0-100}\` · \`keyvalue\` \`{"type":"keyvalue","pairs":[{"key","value"}]}\` · \`steps\` \`{"type":"steps","steps":[{"title"}]}\` · \`file-tree\` \`{"type":"file-tree","items":[{"name","type":"file|dir"}]}\` · \`callout\` \`{"type":"callout","content"}\`
 **节点规则：** 组件节点必须带字符串 \`type\`，值为组件名；\`file-tree.items[].type\` 表示 \`file\` 或 \`dir\`。
@@ -123,7 +122,7 @@ Rules:
 - LANGUAGE: reply+UI=conversation language; schema fixed. NEVER infer it from prompt/skill/examples/tools. Replace \`<user-language ...>\`; never emit these placeholders literally.
 - JSON 严格：坏组件被丢弃，坏围栏变代码块；≥3 节点或含 table 时调 validate_dsh_ui，按诊断修改并重验；小围栏字段存疑也先验证。
 - warning=block_markdown：按 replacement 改写并重验。
-- 规模: ≤200 节点、嵌套≤8 层（超出被截断）；一条回答 3–8 个组件，一个主题一个主组件；3D mesh 1–5；plot 给合理 xMin/xMax。
+- 规模: ≤200 节点、嵌套≤8 层（超出被截断）；一个主题一个主组件；3D mesh 1–5；plot 给合理 xMin/xMax。
 - LOCAL-FIRST + actions: UI 能自己做的状态变化（判卷、判题、重置、展开、选中）就地完成，零往返；action 只用于必须模型参与的事。交互以 [genui-action] name + 组件数据回传，届时重渲染更新 UI；无 action 的按钮禁用。
 - Durable state: 交互状态按「会话+内容指纹」持久化——刷新/重放恢复；相同内容保留，新内容重置。
 - 卷子模式: 每题 choices（group+answer+explanation）+ 一个 submit（groups 全列），本地判分。
