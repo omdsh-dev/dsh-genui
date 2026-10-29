@@ -184,6 +184,22 @@ describe('surface elevation contract', () => {
     expect(css).toMatch(/--dsl-g-surface: var\(--dsh-genui-surface, color-mix\(in srgb, var\(--dsw-alias-label-primary\) 4%,/)
   })
 
+  it('keeps the table and flat fills opt-in (issue #398)', () => {
+    // Both components are surface-less by design: a table is a bare data grid,
+    // a flat card is a printed block. On a canvas that is not opaque a skin can
+    // raise them, but the DEFAULT must stay exactly what it is today — a
+    // variable whose fallback resolved to the host layer would silently turn
+    // every table into a panel.
+    const css = readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
+    const table = /\.tableWrap\s*\{([^}]*)\}/.exec(css)
+    expect(table, '.tableWrap rule must exist').not.toBeNull()
+    expect(table![1]).toMatch(/background: var\(--dsh-genui-surface-table, transparent\)/)
+    expect(table![1], 'the fallback must not be the resolved surface').not.toMatch(/--dsh-genui-surface-table, var\(/)
+    const flat = /\.card\.cardFlat\s*\{([^}]*)\}/.exec(css)
+    expect(flat, '.card.cardFlat rule must exist').not.toBeNull()
+    expect(flat![1]).toMatch(/background: var\(--dsh-genui-surface-flat, color-mix\(in srgb, var\(--dsw-alias-label-primary\) 2\.5%, transparent\)\)/)
+  })
+
   it('puts cards on the elevated host layer, not the page layer', () => {
     const css = readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
     // Dark theme: page 21,21,23 → layer-1 35,35,36 (only 14 units: "a black

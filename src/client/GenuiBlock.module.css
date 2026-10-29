@@ -815,6 +815,10 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 .tableWrap {
   border-radius: var(--dsl-g-radius-control);
   border: 1px solid var(--dsl-g-border-surface);
+  /* A table is a bare data grid by default (hairline box + 2.5% zebra). The
+     fill is opt-in for skins whose canvas is not opaque: they set this to
+     var(--dsh-genui-surface) to turn the grid into a panel (issue #398). */
+  background: var(--dsh-genui-surface-table, transparent);
   /* A table whose nowrap cells exceed the column width must scroll, not clip
      (mirrors the shell markdown table's .tableScroll pattern). */
   overflow-x: auto;
@@ -2784,10 +2788,13 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 
 /* `card.flat`: a printed block, not a floating card. Figures in the reference
    style are drawn flat — elevation on every nested panel was what made the
-   first pass read as a stack of chips. */
+   first pass read as a stack of chips.
+   The faint wash is the design, so the fill stays opt-in: a skin that clears
+   the canvas can raise it to a real surface without every host losing the
+   printed look (issue #398). */
 .card.cardFlat {
   box-shadow: none;
-  background: color-mix(in srgb, var(--dsw-alias-label-primary) 2.5%, transparent);
+  background: var(--dsh-genui-surface-flat, color-mix(in srgb, var(--dsw-alias-label-primary) 2.5%, transparent));
   border-color: var(--dsl-g-border);
 }
 

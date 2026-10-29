@@ -336,7 +336,17 @@ Every surface resolves through one chain: `--dsl-g-surface` → `--dsh-genui-sur
 body[data-ds-dark-theme] { --dsh-genui-surface: rgba(32, 32, 34, 0.54); }
 ```
 
-`callout` and toned `card` washes are painted *over* that surface, so they stay readable on any canvas. `card.flat` and `table` are intentionally surface-less (a printed block, a bare data grid) and will show a non-opaque page through — wrap them in a `card` or set `--dsh-genui-surface` if your skin needs them filled (issue #398).
+`callout` and toned `card` washes are painted *over* that surface, so they stay readable on any canvas. `card.flat` and `table` are surface-less by design (a printed block, a bare data grid) and would show a non-opaque page through — they fill only when a skin asks for it:
+
+```css
+:root {
+  --dsh-genui-surface: rgba(255, 255, 255, 0.58);      /* cards, callouts, controls */
+  --dsh-genui-surface-flat: var(--dsh-genui-surface);  /* card.flat */
+  --dsh-genui-surface-table: var(--dsh-genui-surface); /* table */
+}
+```
+
+Leaving the last two unset keeps today's look (transparent table, 2.5% printed flat card); pointing them at `var(--dsh-genui-surface)` gives all three one fill. Wrapping a table in a `card` fills it too, since the parent surface shows through (issue #398).
 
 ---
 
