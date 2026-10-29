@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { COMPONENT_SCHEMAS } from '../src/client/genui-runtime/schema.ts'
 import { inferSkeleton } from '../src/client/streaming-shape.ts'
 
 /** The placeholder should look like the component that is arriving. */
@@ -29,5 +30,15 @@ describe('inferSkeleton', () => {
 
   it('has no title when none was written', () => {
     expect(inferSkeleton('{"items":[{"type":"table","columns":').title).toBeUndefined()
+  })
+})
+
+describe('coverage', () => {
+  it('decides a shape for every whitelisted component type', () => {
+    // A new component must not silently inherit the neutral placeholder: the
+    // skeleton would then be back to "something is loading" for that type.
+    const unmapped = Object.keys(COMPONENT_SCHEMAS)
+      .filter(type => inferSkeleton(`{"items":[{"type":"${type}"`).shape === 'generic')
+    expect(unmapped).toEqual([])
   })
 })

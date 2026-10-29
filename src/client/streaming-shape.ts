@@ -28,6 +28,8 @@ export type SkeletonShape =
   | 'diagram'
   | 'code'
   | 'media'
+  | 'control'
+  | 'rule'
   | 'generic'
 
 /** First component type → placeholder shape. Unknown types stay generic. */
@@ -44,6 +46,14 @@ const SHAPE_BY_TYPE: Readonly<Record<string, SkeletonShape>> = {
   input: 'keyvalue', textarea: 'keyvalue', select: 'keyvalue', slider: 'keyvalue',
   checkbox: 'keyvalue', radio: 'keyvalue', switch: 'keyvalue', submit: 'keyvalue',
   choices: 'list', quiz: 'list', compare: 'media',
+  // Small single-object components: a pill is the honest placeholder for a
+  // button/link/icon, not a stack of paragraphs.
+  button: 'control', link: 'control', icon: 'control', avatar: 'control',
+  arrow: 'control', breadcrumb: 'control', copy: 'control',
+  // Hairlines carry no content; a rule says "a line arrives here".
+  divider: 'rule', spacer: 'rule',
+  hero: 'media', carousel: 'media', map: 'media', svg: 'media',
+  blocks: 'card', grid: 'card',
 }
 
 /** The `type` of the first component written, if it is already readable. */

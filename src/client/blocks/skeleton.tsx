@@ -99,6 +99,10 @@ export function SkeletonBody({ shape }: { shape: SkeletonShape }) {
       )
     case 'media':
       return <span className={css.skeletonMedia} />
+    case 'control':
+      return <span className={css.skeletonControl} />
+    case 'rule':
+      return <span className={css.skeletonRule} />
     case 'card':
     case 'generic':
     default:

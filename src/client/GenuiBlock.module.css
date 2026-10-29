@@ -2093,6 +2093,9 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   border-radius: var(--dsl-g-radius-control);
 }
 
+.skeletonControl { display: block; width: 132px; height: 30px; border-radius: var(--dsl-g-radius-control); }
+.skeletonRule { display: block; width: 100%; height: 1px; border-radius: 1px; }
+
 .skeletonTitle,
 .skeletonBars > span,
 .skeletonBlock,
@@ -2105,7 +2108,9 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 .skeletonStat > span,
 .skeletonDiagram > span,
 .skeletonLink,
-.skeletonMedia {
+.skeletonMedia,
+.skeletonControl,
+.skeletonRule {
   background: linear-gradient(
     90deg,
     color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent) 0%,
@@ -2129,7 +2134,8 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   .skeletonAxis,
   .skeletonStat > span,
   .skeletonDiagram > span,
-  .skeletonMedia { animation: none; }
+  .skeletonMedia,
+  .skeletonControl { animation: none; }
 }
 
 /* ---------- staggered reveal ---------- */
