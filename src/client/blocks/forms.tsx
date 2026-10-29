@@ -78,6 +78,8 @@ export function correctLabelOf(m: RadioSubmissionMember): string | undefined {
   return m.answer
 }
 
+const EMPTY_KEYS: ReadonlySet<string> = new Set()
+
 /** 汇总当前 block 的表单状态，并根据 resolver 的结果提交或本地判卷。 */
 export function SubmitNode({ node, onAction, answers }: {
   node: GenuiSubmit
@@ -85,11 +87,17 @@ export function SubmitNode({ node, onAction, answers }: {
   answers?: AnswersState | undefined
 }) {
   const t = useT()
-  const recorded = answers?.answers ?? {}
-  const multiRecorded = answers?.multiAnswers ?? {}
-  const fields = answers?.fields ?? {}
+  // Values under a false `when` condition are invisible to the reader, so they
+  // are invisible to the submit too: excluded from the payload and from the
+  // required set (a hidden field must not look unanswered).
+  const hidden = answers?.hidden ?? EMPTY_KEYS
+  const visible = <T,>(record: Readonly<Record<string, T>>): Record<string, T> =>
+    Object.fromEntries(Object.entries(record).filter(([key]) => !hidden.has(key)))
+  const recorded = visible(answers?.answers ?? {})
+  const multiRecorded = visible(answers?.multiAnswers ?? {})
+  const fields = visible(answers?.fields ?? {})
   const validFields = Object.fromEntries(Object.entries(fields).filter(([id]) => !answers?.invalidNumericFields.has(id)))
-  const expected = node.groups
+  const expected = node.groups?.filter(group => !hidden.has(group))
   // One shared notion of "filled fields" for answered/ready/payload: non-blank
   // values only, secrets (password inputs) never collected into submit.
   const filledFields = Object.fromEntries(
@@ -99,7 +107,7 @@ export function SubmitNode({ node, onAction, answers }: {
     : resolveSubmitState({
       registry: answers.registry,
       ...(expected === undefined ? {} : { groups: expected }),
-      state: { answers: recorded, multiAnswers: multiRecorded, fields: validFields, secretFields: answers.secretFields },
+      state: { answers: recorded, multiAnswers: multiRecorded, fields: validFields, secretFields: answers.secretFields, hidden },
     })
   const { scope, answered, total } = resolved
   const canSendAction = node.action !== undefined && onAction !== undefined

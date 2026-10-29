@@ -8,6 +8,7 @@ import { type ReactNode, useEffect, useState, type CSSProperties } from 'react'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import { renderInline } from '../inline.ts'
+import { evaluateWhen } from '../conditions.ts'
 import { classifyLinkTarget } from '../file-link.ts'
 import { FileLink } from '../file-link-context.tsx'
 import { t } from '../i18n/index.ts'
@@ -223,6 +224,10 @@ export function renderNode(
   // of which read as "failed to load" rather than "nothing to show". The spec
   // still validates; only the paint is suppressed.
   if (showsNothing(node)) return null
+  // Conditional visibility: a node carrying `when` renders only while the
+  // condition holds. Without block state (export/panel) there is nothing to read,
+  // so the node stays visible rather than silently dropping content.
+  if (node.when !== undefined && answers !== undefined && !evaluateWhen(node.when, answers)) return null
   // Depth guard: a pathological spec must never recurse past the limit
   // (stack overflow / DOM explosion). The fence path already repairs specs
   // against the same limit; this is the belt-and-suspenders for direct

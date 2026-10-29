@@ -53,6 +53,9 @@ export interface AnswersState {
   secretFields: ReadonlySet<string>
   /** Numeric fields whose visible draft is not a valid decimal value. */
   invalidNumericFields: ReadonlySet<string>
+  /** Field ids / answer groups currently hidden by a `when` condition. Their
+   * values never enter a submit payload and never make a submit look unanswered. */
+  hidden: ReadonlySet<string>
   registry: SubmissionRegistry
   /** True after a local grading: questions are locked until 重新作答. */
   locked: boolean

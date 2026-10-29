@@ -59,6 +59,10 @@ export interface ComponentSchema {
 
 
 /** Canonical enum domains shared by schema validation and repair. */
+/** Comparison operators a `when` condition can use (kept with the other
+ * runtime enums: `spec.ts` imports this module, so the list lives here). */
+export const WHEN_OPS = ['eq', 'neq', 'in', 'not-in', 'gt', 'gte', 'lt', 'lte', 'empty', 'not-empty', 'checked'] as const
+
 export const TEXT_SIZES = ['display', 'h1', 'h2', 'h3', 'body', 'muted', 'caption'] as const
 export const TEXT_ALIGNS = ['left', 'center', 'right'] as const
 export const BUTTON_TONES = ['primary', 'danger', 'success', 'ghost'] as const
@@ -154,7 +158,12 @@ const recordSchema = (
   aliases: Readonly<Record<string, string>> = {},
 ): ComponentRecordSchema => ({ required, fields, enums, nested, aliases })
 
-const nodeFields = { type: 'string', span: 'number' } as const
+const nodeFields = { type: 'string', span: 'number', when: 'object' } as const
+
+/** Conditional visibility carried by any node: `{ field, op, value? }`. */
+const whenSchema = recordSchema(['field', 'op'], {
+  field: 'string', op: 'string', value: 'unknown',
+}, {}, { op: WHEN_OPS })
 
 const chartDatumSchema = recordSchema(['label', 'value'], {
   label: 'string',
@@ -304,7 +313,7 @@ export const SPEC_SCHEMA = GENUI_SPEC_SCHEMA
  * interfaces: the registry is also consumed at runtime by normalization and
  * diagnostics, where erased interfaces are unavailable.
  */
-export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
+const RAW_COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   // Thin connector for figures; the `↓` text glyph was the only option before.
   arrow: schema([], { ...nodeFields, dir: 'string', length: 'number', label: 'string' }, { direction: 'dir' }, { enums: { dir: ARROW_DIRS } }),
   accordion: schema(['items'], { ...nodeFields, items: 'array' }, {}, { nested: { items: accordionHolderSchema } }),
@@ -443,5 +452,16 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   timeline: schema(['items'], { ...nodeFields, items: 'array' }, {}, { nested: { items: timelineRecordSchema } }),
   video: schema(['src'], { ...nodeFields, src: 'string', alt: 'string', poster: 'string', loop: 'boolean', muted: 'boolean', aspectRatio: 'string' }, { url: 'src', link: 'src' }, { enums: { aspectRatio: MEDIA_ASPECT_RATIOS } }),
 } as const
+
+/**
+ * Every node can carry a `when` condition, so the record schema is attached to
+ * each component once here instead of being repeated in forty literal entries.
+ */
+export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = Object.fromEntries(
+  Object.entries(RAW_COMPONENT_SCHEMAS).map(([type, base]) => [type, {
+    ...base,
+    nested: { ...base.nested, when: whenSchema },
+  }]),
+)
 
 export const GENUI_NATIVE_TYPES: ReadonlySet<string> = new Set(Object.keys(COMPONENT_SCHEMAS))

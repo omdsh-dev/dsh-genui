@@ -8,13 +8,36 @@
  * v1 interactivity is client-side only: buttons, tabs, checkboxes, and inputs
  * are operable, but events do NOT flow back to the model.
  */
-import { COMPONENT_SCHEMAS, GENUI_NATIVE_TYPES } from './genui-runtime/schema.ts'
+import { COMPONENT_SCHEMAS, GENUI_NATIVE_TYPES, WHEN_OPS } from './genui-runtime/schema.ts'
 
 /** One node in the component tree. */
 /** Layout hints accepted by every node: `span` is how many columns the node
  *  occupies as a direct child of a `grid` (bento layouts). */
+/** Comparison operators a `when` condition can use. */
+export type GenuiWhenOp = typeof WHEN_OPS[number]
+
+/**
+ * Show a node only while another field holds a value. The field is read from
+ * the block's own state (`input/select/slider/textarea` by `id`; `radio`,
+ * `checkbox` and `choices` by `group`), so a decision tree needs no model round
+ * trip: picking "公司" reveals the tax-id field immediately.
+ *
+ * Hidden nodes are not rendered, and their values are excluded from the sibling
+ * `submit` payload — a hidden field must never submit a stale value the reader
+ * cannot see.
+ */
+export interface GenuiWhen {
+  /** Field id or answer group to read. */
+  field: string
+  op: GenuiWhenOp
+  /** Comparison target: a scalar for eq/neq/gt/…, a list for in/not-in. */
+  value?: string | number | boolean | (string | number)[]
+}
+
 export interface GenuiLayoutHints {
   span?: number
+  /** Render this node only while the condition holds (see {@link GenuiWhen}). */
+  when?: GenuiWhen
 }
 
 export type GenuiNode = (
@@ -74,7 +97,7 @@ export type GenuiNode = (
   | GenuiArrow
 ) & GenuiLayoutHints
 
-  | GenuiEChart
+  | (GenuiEChart & GenuiLayoutHints)
 
 /** A map is a local location picker, never an implicit action or geocoder. */
 export interface GenuiMapLocation {

@@ -18,10 +18,10 @@
  * - The whole spec carries a node budget; once exhausted, remaining siblings
  *   are elided.
  */
-import type { GenuiComparePanel, GenuiComputed, GenuiComputedFormat, GenuiComputedRef, GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSeries, GenuiScene3D, GenuiSpec, GenuiDiagram, GenuiDiagramTheme, GenuiDiagramKind } from './spec.ts'
+import type { GenuiWhen, GenuiComparePanel, GenuiComputed, GenuiComputedFormat, GenuiComputedRef, GenuiFileTreeNode, GenuiList, GenuiNode, GenuiPlot, GenuiPlotSeries, GenuiScene3D, GenuiSpec, GenuiDiagram, GenuiDiagramTheme, GenuiDiagramKind } from './spec.ts'
 import { isComponentRoot, wrapSingleComponentRoot } from './spec.ts'
 import {
-  BADGE_TONES, BUTTON_TONES, CALLOUT_TONES, CARD_TONES, CHART_KINDS, CHOICE_MODES, COMPARE_MODES, COMPONENT_SCHEMAS, HERO_TONES,
+  BADGE_TONES, BUTTON_TONES, CALLOUT_TONES, CARD_TONES, CHART_KINDS, CHOICE_MODES, COMPARE_MODES, COMPONENT_SCHEMAS, HERO_TONES, WHEN_OPS,
   DIAGRAM_EDGE_KINDS, DIAGRAM_KINDS, DIAGRAM_NODE_TYPES, DIAGRAM_ROUTES, DIAGRAM_VARIANTS,
   ECHART_PRESETS, FILE_TYPES, GENUI_NATIVE_TYPES, GENUI_SPEC_SCHEMA, INPUT_TYPES,
   ARROW_DIRS, BLOCKS_VARIANTS, BLOCK_CELL_TONES, ICON_TONES, MEDIA_ASPECT_RATIOS, MESH_SHAPES, PLOT_KINDS, PROGRESS_VARIANTS, ROW_JUSTIFY, TABLE_CELL_TYPES, TEXT_ALIGNS, TEXT_SIZES, TEXT_TONES,
@@ -263,14 +263,39 @@ function sparkValues(v: unknown): number[] | undefined {
   return out.length >= 2 ? out : undefined
 }
 
-/** Layout hints are component-agnostic: `span` survives repair on ANY node
- *  (the renderer applies it inside a grid). Kept out of the per-case switches
- *  so a new component type cannot forget it. */
+/** Layout hints are component-agnostic: `span` and `when` survive repair on ANY
+ *  node (the renderer applies them inside a layout / before paint). Kept out of
+ *  the per-case switches so a new component type cannot forget them. */
 function repairNode(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | null {
   const node = repairNodeFields(value, ctx, depth)
   if (node === null) return null
-  const span = int(obj(value)?.span, 2, 12)
-  return span === undefined ? node : ({ ...node, span } as GenuiNode)
+  const raw = obj(value)
+  const span = int(raw?.span, 2, 12)
+  const when = repairWhen(raw?.when)
+  const extras = {
+    ...(span === undefined ? {} : { span }),
+    ...(when === undefined ? {} : { when }),
+  }
+  return Object.keys(extras).length === 0 ? node : ({ ...node, ...extras } as GenuiNode)
+}
+
+/** Repair a `when` clause; a malformed one is dropped (node stays visible). */
+function repairWhen(value: unknown): GenuiWhen | undefined {
+  const v = obj(value)
+  if (v === undefined) return undefined
+  const field = str(v.field, 80)
+  const op = enu(v.op, WHEN_OPS)
+  if (field === undefined || op === undefined) return undefined
+  const raw = v.value
+  const value_ = Array.isArray(raw)
+    ? (raw.length > 0 && raw.length <= 12
+      ? raw.filter(entry => typeof entry === 'string' || typeof entry === 'number')
+        .map(entry => (typeof entry === 'number' ? entry : str(entry, 120) ?? ''))
+        .filter(entry => entry !== '')
+      : undefined)
+    : (typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean' ? raw : undefined)
+  const value2 = Array.isArray(value_) && value_.length === 0 ? undefined : value_
+  return { field, op, ...(value2 === undefined ? {} : { value: value2 }) }
 }
 
 function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiNode | null {
@@ -2196,6 +2221,18 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
   if (typeof type !== 'string') {
     errors.push(`${at}: missing string 'type'`)
     return
+  }
+  // `when` is valid on any node, so it is checked before the per-type switch.
+  if (v.when !== undefined) {
+    const when = obj(v.when)
+    if (when === undefined) errors.push(`${at}.when: must be an object`)
+    else {
+      if (typeof when.field !== 'string' || when.field.trim() === '') errors.push(`${at}.when.field: requires a field id or group (string)`)
+      if (enu(when.op, WHEN_OPS) === undefined) errors.push(`${at}.when.op: must be one of ${WHEN_OPS.join(' / ')}`)
+      if ((when.op === 'in' || when.op === 'not-in') && !Array.isArray(when.value)) {
+        errors.push(`${at}.when.value: '${String(when.op)}' requires an array`)
+      }
+    }
   }
   const isStr = (name: string): void => { if (v[name] !== undefined && typeof v[name] !== 'string') errors.push(`${at}: '${name}' must be a string`) }
   const isNum = (name: string): void => { if (v[name] !== undefined && (typeof v[name] !== 'number' || !Number.isFinite(v[name]))) errors.push(`${at}: '${name}' must be a finite number`) }

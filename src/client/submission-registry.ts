@@ -37,6 +37,8 @@ export interface SubmitInteractionState {
   multiAnswers: Record<string, string[]>
   fields: Record<string, string>
   secretFields: ReadonlySet<string>
+  /** Field ids / groups hidden by a `when` condition: out of scope entirely. */
+  hidden?: ReadonlySet<string>
 }
 
 export interface ResolvedSubmitState {
@@ -152,15 +154,20 @@ export function resolveSubmitState({ registry, groups, state }: {
   groups?: string[]
   state: SubmitInteractionState
 }): ResolvedSubmitState {
-  const hasUnknownMember = groups?.some(key => !registry.members.has(key)) ?? false
+  // Hidden members are out of scope entirely: a control the reader cannot see
+  // must neither count toward completion nor keep the submit disabled.
+  const hidden = state.hidden ?? new Set<string>()
+  // A member is identified by its own key (a group, or a field id).
+  const isHidden = (member: SubmissionMember): boolean => hidden.has(member.key)
+  const hasUnknownMember = groups?.some(key => !registry.members.has(key) && !hidden.has(key)) ?? false
   const scope = groups === undefined
-    ? [...registry.members.values()].filter(member => isSubmissionMemberAnswered(member, state))
+    ? [...registry.members.values()].filter(member => !isHidden(member) && isSubmissionMemberAnswered(member, state))
     : groups.flatMap(key => {
       const member = registry.members.get(key)
       return member === undefined ? [] : [member]
     })
   const answered = scope.filter(member => isSubmissionMemberAnswered(member, state)).length
-  const total = groups?.length ?? scope.length
+  const total = groups === undefined ? scope.length : groups.filter(key => !hidden.has(key)).length
   const scopeKeys = new Set(scope.map(member => member.key))
   const hasOutOfScopePayload = Object.keys(state.answers).some(key => !scopeKeys.has(key))
     || Object.keys(state.multiAnswers).some(key => !scopeKeys.has(key))
