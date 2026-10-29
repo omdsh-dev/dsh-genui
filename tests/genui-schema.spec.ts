@@ -352,7 +352,7 @@ describe('GenUI runtime schema normalization', () => {
       .toContain("items[0]: type 'table' requires columns (array)")
   })
 
-  it('warns for native unknown fields but keeps custom nodes opaque', () => {
+  it('warns for native unknown fields and rejects unsupported types without interpreting their payload', () => {
     const native = diagnoseUnknownGenuiFields({ items: [
       { type: 'callout', content: 'x', typo: true },
       { type: 'custom-widget', typo: true, nested: { type: 'callout', kind: 'error' } },
@@ -363,10 +363,10 @@ describe('GenUI runtime schema normalization', () => {
       { type: 'callout', content: 'x', typo: true },
       { type: 'custom-widget', typo: true },
     ] })
-    expect(result.errors).toEqual([])
+    expect(result.errors.join(' ')).toContain("unknown type 'custom-widget'")
     expect(result.warnings.some(warning => warning.path === 'items[0].typo')).toBe(true)
     expect(result.warnings.some(warning => warning.path.includes('items[1]'))).toBe(false)
-    expect(result.repaired?.items[1]).toEqual({ type: 'custom-widget', typo: true })
+    expect(result.repaired?.items).toEqual([{ type: 'callout', content: 'x' }])
   })
 
   it('warns about unknown fields inside renderer-reachable table details', () => {
@@ -425,7 +425,8 @@ describe('GenUI runtime schema normalization', () => {
     ] })
     expect(custom.declaredNativeCount).toBe(1)
     expect(custom.renderedNativeCount).toBe(0)
-    expect(custom.renderedTotalCount).toBe(1)
+    expect(custom.renderedTotalCount).toBe(0)
+    expect(custom.errors.join(' ')).toContain("unknown type 'custom-widget'")
     expect(custom.errors.some(error => error.includes('declared 1, rendered 0'))).toBe(true)
 
     const tree = processGenuiSpec({ items: [

@@ -84,7 +84,7 @@ describe('submission registry', () => {
     expect(processGenuiSpec({ items: [{ type: 'submit', label: 'Send', groups: ['missing'] }] }).errors)
       .toContain("items[0].groups[0]: submit.groups references unknown submission member 'missing'")
     expect(processGenuiSpec({ items: [
-      { type: 'custom-renderer', payload: 'opaque' },
+      { type: 'text', content: 'Supported sibling' },
       { type: 'submit', label: 'Send', action: 'send', groups: ['missing'] },
     ] }).errors).toContain("items[1].groups[0]: submit.groups references unknown submission member 'missing'")
     expect(validateGenuiSpec({ items: [

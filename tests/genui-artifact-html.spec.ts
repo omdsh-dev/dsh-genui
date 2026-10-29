@@ -88,9 +88,11 @@ describe('standalone HTML serialization', () => {
     expect(artifact.spec.items[0]).toMatchObject({ src: '/attachments/foo.png' })
   })
 
-  it('rejects custom renderers before fetching standalone bundles', async () => {
-    const artifact = createGenuiArtifact({ items: [{ type: 'weather', temp: 20 }] } as unknown as GenuiSpec)
-    await expect(buildStandaloneHtml(artifact)).rejects.toMatchObject({ code: 'unsupported-custom-component' })
+  it('rejects unsupported components as invalid artifacts before fetching bundles', async () => {
+    // Bypass the creation gate to check the standalone loader's own boundary.
+    const artifact = createGenuiArtifact({ items: [{ type: 'text', content: 'valid' }] })
+    artifact.spec = { items: [{ type: 'weather', temp: 20 }] } as unknown as GenuiSpec
+    await expect(buildStandaloneHtml(artifact)).rejects.toMatchObject({ code: 'artifact-invalid' })
   })
 
   it('retries bundle fetching after a failed request', async () => {

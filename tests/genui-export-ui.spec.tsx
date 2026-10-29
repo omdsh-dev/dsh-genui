@@ -3,6 +3,7 @@ import { URL as NodeURL } from 'node:url'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { ExportableGenuiBlock } from '../src/client/artifact/ExportableGenuiBlock.tsx'
+import { ErrorBoundary } from '../src/client/ErrorBoundary.tsx'
 import { renderGenuiFence } from '../src/client/fence-render.tsx'
 import { GenuiPanel } from '../src/client/panel.tsx'
 import { applyPanelOperation, clearSessionPanel } from '../src/client/panel-store.ts'
@@ -72,12 +73,10 @@ describe('artifact export entry points', () => {
     expect(document.querySelector('[data-genui-template-preview] [data-genui-export]')).toBeNull()
   })
 
-  it('explains why custom components prevent HTML export while keeping JSON available', () => {
-    render(<ExportableGenuiBlock spec={{ items: [{ type: 'weather', temp: 20 }] } as never} />)
-    fireEvent.click(screen.getByRole('button', { name: '导出' }))
-    expect((screen.getByRole('menuitem', { name: 'HTML' }) as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByRole('menuitem', { name: 'GenUI JSON' })).toBeTruthy()
-    expect(screen.getByText(/自定义组件 weather/)).toBeTruthy()
+  it('isolates invalid content and never offers an export of unsupported components', () => {
+    render(<ErrorBoundary><ExportableGenuiBlock spec={{ items: [{ type: 'weather', temp: 20 }] } as never} /></ErrorBoundary>)
+    expect(screen.getByRole('alert').textContent).toContain('invalid GenUI spec')
+    expect(screen.queryByRole('button', { name: '导出' })).toBeNull()
   })
 
   it('does not render status text after a successful export', async () => {

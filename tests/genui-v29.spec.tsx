@@ -252,8 +252,7 @@ describe('v11: table master-detail rows', () => {
         type: 'table',
         columns: ['A'],
         rows: [['1']],
-        // A known type missing its required fields repairs away; unknown types
-        // are opaque by policy and would be kept, so this uses the former.
+        // A known type missing its required fields repairs away.
         details: [[{ type: 'stat' }]],
       }],
     })!

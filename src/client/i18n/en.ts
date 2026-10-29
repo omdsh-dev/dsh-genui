@@ -393,6 +393,7 @@ export const EN = {
   'err.boundary.fence': 'this interface',
   'err.boundary.body': '⚠️ {label} failed to render (isolated — the rest of the reply is unaffected)',
   'err.fieldValidation': 'GenUI field validation failed: {errors}',
+  'err.unknownType': 'Unsupported component: {type}. Correct the component type and resend.',
   'err.chartValidation': 'chart field validation failed: {errors}',
   'err.fenceKeptAsCode': '⚠️ dsh-ui {diagnostic} — the fence stays a code block; fix it and resend.',
   'err.fenceParse': '⚠️ dsh-ui fence JSON failed to parse {diagnostic} — the fence stays a code block; ask the model to fix the JSON and resend.',

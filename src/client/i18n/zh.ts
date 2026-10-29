@@ -388,6 +388,7 @@ export const ZH: Record<keyof typeof EN, string> = {
   'err.boundary.fence': '该界面',
   'err.boundary.body': '⚠️ {label}渲染失败（已隔离，不影响其他内容）',
   'err.fieldValidation': 'GenUI 字段验证失败：{errors}',
+  'err.unknownType': '不支持的组件：{type}。请修正组件类型后重新发送。',
   'err.chartValidation': 'chart 字段验证失败：{errors}',
   'err.fenceKeptAsCode': '⚠️ dsh-ui {diagnostic} —— 围栏保持为代码块；请修正后重发。',
   'err.fenceParse': '⚠️ dsh-ui fence JSON 解析失败 {diagnostic} —— 围栏保持为代码块；请让模型检查并修复 JSON 后重发。',

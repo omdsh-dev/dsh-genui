@@ -21,7 +21,8 @@
  *
  */
 import type { GenuiSpec } from './spec.ts'
-import { countGenuiNodes, processGenuiSpec } from './guard.ts'
+import { countGenuiNodes, isRenderableProcess, processGenuiSpec } from './guard.ts'
+import { obj } from './genui-runtime/value-utils.ts'
 import { GENUI_LIMITS } from './genui-runtime/index.ts'
 import { fingerprint } from './interaction-store.ts'
 import { mergePanelSpecs } from '../shared/panel-merge.ts'
@@ -171,43 +172,100 @@ function stateOf(sessionId: string): SessionPanelState {
   let state = emptyState()
   try {
     const stored = readPanelStorage().sessions[sessionId]
-    if (stored !== undefined) {
-      state = {
-        baseIdentity: null,
-        stateIdentity: stored.stateIdentity ?? (stored.snapshot == null ? null : fingerprint(JSON.stringify(stored.snapshot))),
+    if (stored !== undefined && obj(stored) !== undefined) {
+      const snapshot = stored.snapshot === null ? null : checkedPanelSpec(stored.snapshot)
+      const local = stored.local == null ? null : checkedPanelSpec(stored.local)
+      // An invalid snapshot must not keep a barrier that prevents valid history
+      // from rebuilding it. An explicit user clear does keep its barrier.
+      if (snapshot === null && stored.snapshot !== null) {
+        console.warn('[genui] Invalid saved panel ignored; valid history can rebuild this session.')
+        if (local !== null) {
+          state.local = state.snapshot = local
+          state.baseIdentity = state.stateIdentity = fingerprint(JSON.stringify(local))
+          state.localBarrier = state.replayBarrier = state.maxSeenSeq = storedSeq(stored.localBarrier)
+        }
+        sessions.set(sessionId, state)
+        return state
+      }
+      const stateIdentity = snapshot === null ? null : typeof stored.stateIdentity === 'string'
+        ? stored.stateIdentity : fingerprint(JSON.stringify(snapshot))
+      const maxSeenSeq = storedSeq(stored.maxSeenSeq)
+      const restoredState: SessionPanelState = {
+        baseIdentity: stateIdentity,
+        stateIdentity,
         ops: new Map(),
         invalid: new Map(),
         seen: new Map(),
         overflow: null,
-        local: stored.local ?? null,
-        localBarrier: stored.localBarrier ?? -1,
-        replayBarrier: stored.maxSeenSeq ?? -1,
-        maxSeenSeq: stored.maxSeenSeq ?? -1,
-        snapshot: stored.snapshot ?? null,
+        local: snapshot,
+        localBarrier: storedSeq(stored.localBarrier),
+        replayBarrier: maxSeenSeq,
+        maxSeenSeq,
+        snapshot,
       }
-      if (stored.pending !== undefined) {
-        state.baseIdentity = stored.pending.baseIdentity
-        state.ops = new Map(stored.pending.ops.map(op => [op.sourceId, op]))
-        state.seen = new Map(stored.pending.ops.map(op => [op.sourceId, op.order]))
-        state.replayBarrier = stored.pending.replayBarrier
-        const restored = fold(state, null)!
-        state.snapshot = restored.snapshot
-        state.stateIdentity = restored.stateIdentity
-        state.invalid = restored.invalid
-        state.ops = new Map(restored.kept.map(op => [op.sourceId, op]))
-        state.overflow = stored.pending.overflow
-        if (state.overflow !== null) state.seen.set(state.overflow.sourceId, state.overflow.order)
-      } else {
-        // 后续追加项应基于已恢复快照继续处理，不能沿用旧的本地覆盖内容。
-        state.local = state.snapshot
-        state.baseIdentity = state.stateIdentity
+      const pending = stored.pending
+      if (obj(pending) !== undefined && Array.isArray(pending?.ops)
+        && pending.ops.every(isStoredOperation)
+        && (pending.overflow === null || isStoredOperation(pending.overflow))
+        && Number.isSafeInteger(pending.replayBarrier) && pending.replayBarrier >= -1
+        && (pending.baseIdentity === null || typeof pending.baseIdentity === 'string')
+        && (stored.local == null || local !== null)) {
+        const pendingState: SessionPanelState = {
+          ...restoredState, local, baseIdentity: pending.baseIdentity,
+          ops: new Map(pending.ops.map(op => [op.sourceId, op])),
+          seen: new Map(pending.ops.map(op => [op.sourceId, op.order])),
+          replayBarrier: pending.replayBarrier, overflow: pending.overflow,
+        }
+        const restored = fold(pendingState, null)!
+        // Shape-valid but incomplete history must not erase a valid snapshot.
+        if (samePanelSpec(restored.snapshot, snapshot)) {
+          Object.assign(restoredState, pendingState, {
+            snapshot: restored.snapshot, stateIdentity: restored.stateIdentity,
+            invalid: restored.invalid, ops: new Map(restored.kept.map(op => [op.sourceId, op])),
+            overflow: restored.overflow,
+          })
+          if (restoredState.overflow !== null) restoredState.seen.set(restoredState.overflow.sourceId, restoredState.overflow.order)
+        }
       }
+      // Commit only a completely constructed state. Malformed pending data
+      // falls back to the valid snapshot as the next append's base.
+      state = restoredState
     }
   } catch {
     // storage unreadable: behave like a fresh session
   }
   sessions.set(sessionId, state)
   return state
+}
+
+function storedSeq(value: unknown): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= -1 ? value : -1
+}
+
+/** Preserve identity for already-canonical inputs; never publish raw aliases. */
+function canonicalPanelSpec(original: unknown, canonical: GenuiSpec): GenuiSpec {
+  return samePanelSpec(original, canonical) ? original as GenuiSpec : canonical
+}
+
+function samePanelSpec(a: unknown, b: unknown): boolean {
+  const sortedKeys = (_key: string, value: unknown) => obj(value) === undefined ? value
+    : Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)))
+  return JSON.stringify(a, sortedKeys) === JSON.stringify(b, sortedKeys)
+}
+
+function checkedPanelSpec(value: unknown): GenuiSpec | null {
+  const processed = processGenuiSpec(value)
+  return processed.errors.length === 0 && processed.spec !== null && !exceedsPanelBudget(processed.spec)
+    ? canonicalPanelSpec(value, processed.spec) : null
+}
+
+function isStoredOperation(value: unknown): value is PanelOperation {
+  const op = obj(value)
+  if (op === undefined || typeof op.sourceId !== 'string' || op.sourceId === ''
+    || !Array.isArray(op.order) || op.order.length !== 3
+    || !op.order.every(n => typeof n === 'number' && Number.isSafeInteger(n))
+    || (op.mode !== 'replace' && op.mode !== 'append')) return false
+  return isRenderableProcess(processGenuiSpec(op.spec, { panelOperation: op.mode }))
 }
 
 function compareOrder(a: PanelOrder, b: PanelOrder): number {
@@ -239,13 +297,14 @@ function fold(state: SessionPanelState, extra: PanelOperation | null): FoldResul
   if (state.overflow !== null && state.overflow.order[0] > state.localBarrier && state.overflow.order[0] > state.replayBarrier) ops.push(state.overflow)
   if (extra !== null) ops.push(extra)
   ops.sort((a, b) => compareOrder(a.order, b.order))
+  const checked = new Map(ops.map(op => [op, processGenuiSpec(op.spec, { panelOperation: op.mode })]))
   // The latest VALID replace resets everything before it; start the fold
   // there. (A replace beyond the node budget — only reachable with
   // non-default limits — never becomes the base.)
   let start = 0
   for (let i = 0; i < ops.length; i++) {
     const op = ops[i]!
-    if (op.mode === 'replace' && !exceedsPanelBudget(op.spec)) start = i
+    if (op.mode === 'replace' && checked.get(op)!.errors.length === 0 && !exceedsPanelBudget(op.spec)) start = i
   }
   let snapshot: GenuiSpec | null = state.local
   let stateIdentity = state.baseIdentity
@@ -257,6 +316,12 @@ function fold(state: SessionPanelState, extra: PanelOperation | null): FoldResul
   for (let i = start; i < ops.length; i++) {
     const op = ops[i]!
     if (op.order[0] > maxSeenSeq) maxSeenSeq = op.order[0]
+    const validation = checked.get(op)!
+    if (!isRenderableProcess(validation)) {
+      invalid.set(op.sourceId, validation.errors.join('；') || 'invalid panel spec')
+      continue
+    }
+    const canonical = canonicalPanelSpec(op.spec, validation.spec!)
     if (op.mode === 'replace') {
       if (exceedsPanelBudget(op.spec)) {
         // Pathological replace beyond the node budget: rejected like any
@@ -265,8 +330,8 @@ function fold(state: SessionPanelState, extra: PanelOperation | null): FoldResul
         continue
       }
       overflow = null
-      snapshot = op.spec
-      stateIdentity = fingerprint(JSON.stringify(op.spec))
+      snapshot = canonical
+      stateIdentity = fingerprint(JSON.stringify(canonical))
       kept.length = 0
       appendCount = 0
       kept.push(op)
@@ -274,8 +339,9 @@ function fold(state: SessionPanelState, extra: PanelOperation | null): FoldResul
     }
     // Each append is gated independently against the current snapshot — a
     // rejection never retroactively drops ops that already fit.
-    const merged = mergePanelSpecs(snapshot, op.spec)
+    const merged = mergePanelSpecs(snapshot, canonical)
     if (appendCount >= limits.maxAppends
+      || exceedsPanelBudget(op.spec)
       || exceedsPanelBudget(merged)) {
       if (overflow === null || compareOrder(op.order, overflow.order) < 0) overflow = op
       continue
@@ -284,20 +350,21 @@ function fold(state: SessionPanelState, extra: PanelOperation | null): FoldResul
     kept.push(op)
     // 检查完整文档，不单独检查追加增量。暂存未通过检查的操作，供迟到的较早基项重新计算；
     // 该操作不会改变当前有效内容。
-    const validation = processGenuiSpec(merged)
-    if (validation.errors.length > 0 || validation.spec === null) {
-      invalid.set(op.sourceId, validation.errors.join('；') || 'invalid panel spec')
+    const mergedValidation = processGenuiSpec(merged)
+    if (mergedValidation.errors.length > 0 || mergedValidation.spec === null) {
+      invalid.set(op.sourceId, mergedValidation.errors.join('；') || 'invalid panel spec')
       continue
     }
     if (snapshot === null) stateIdentity = fingerprint(JSON.stringify(op.spec))
-    snapshot = merged
+    snapshot = canonicalPanelSpec(merged, mergedValidation.spec)
   }
   if (extra !== null) {
     const sameSet = kept.length === state.ops.size
       && kept.every(op => state.ops.get(op.sourceId)?.mode === op.mode)
       && ((overflow === null && state.overflow === null)
         || (overflow !== null && state.overflow !== null && overflow.sourceId === state.overflow.sourceId))
-    if (sameSet) return null
+    if (sameSet && invalid.size === state.invalid.size
+      && [...invalid].every(([id, error]) => state.invalid.get(id) === error)) return null
   }
   return { snapshot, stateIdentity, kept, invalid, overflow, maxSeenSeq }
 }
@@ -353,6 +420,7 @@ export function applyPanelOperation(sessionId: string, op: PanelOperation): Pane
   const changed = state.snapshot !== result.snapshot || state.invalid.size !== result.invalid.size
     || [...result.invalid].some(([sourceId, error]) => state.invalid.get(sourceId) !== error)
   commit(state, result, sessionId)
+  state.seen.set(op.sourceId, op.order)
   if (changed) for (const fn of listeners) fn()
   return status
 }
@@ -389,6 +457,11 @@ function diagnosePanelBlocked(sessionId: string, op: PanelOperation, state: Sess
  * into the override as usual.
  */
 export function setLocalPanel(sessionId: string, spec: GenuiSpec | null): void {
+  if (spec !== null) {
+    const checked = checkedPanelSpec(spec)
+    if (checked === null) return
+    spec = checked
+  }
   const state = stateOf(sessionId)
   const barrier = state.maxSeenSeq
   // A clear when local is already null is still a change when the barrier

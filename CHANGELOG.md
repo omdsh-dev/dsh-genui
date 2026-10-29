@@ -4,6 +4,7 @@
 
 ### 修复
 
+- 未知或 PascalCase 组件类型不再被校验工具误报为有效或已渲染；缺少 `tabs[].items` 会得到字段错误。面板写入和恢复经过同一校验，坏缓存不会覆盖有效快照，追加操作继续支持乱序计算引用；补齐 `card.body` / `grid.columns` 别名诊断（#390）。
 - 宿主画布不再是不透明纯色时（背景图 / 玻璃态皮肤），`callout` 与带 `tone` 的 `card` 的语义底色改为叠在实心表面之上的一层染色，不再把表面替换成半透明 wash，正文不会被背景花纹透穿（#398）。深色主题下这两类表面因此比之前亮一层（染色基准从页面色变为卡面色），属观感调整。
 - 新增 `--dsh-genui-surface` 覆盖变量：皮肤可在 `:root` / `body` 一次性指定表面色（允许带 alpha），不必再改宿主的 `--dsw-alias-bg-layer-*`。此前在 `:root` 覆盖 `--dsl-g-surface` 会被 `.block` 自身的声明遮蔽而静默失效。
 - `table` 与 `card.flat` 增加按需填充变量 `--dsh-genui-surface-table`（默认 `transparent`）和 `--dsh-genui-surface-flat`（默认 2.5% 淡色）：默认观感完全不变，非不透明画布上的皮肤可把两者指向 `var(--dsh-genui-surface)` 升级为实底（#398）。

@@ -85,22 +85,24 @@ describe('empty tabs (issue #215)', () => {
     }],
   })
 
-  it('normalizes a missing tab items field to an empty array before validation', () => {
+  it('reports missing tab items instead of inventing an empty tab, while repair keeps valid tabs', () => {
     const processed = processGenuiSpec(JSON.parse(raw))
 
-    expect(processed.errors).toEqual([])
-    expect(validateGenuiSpec(processed.normalized).ok).toBe(true)
+    expect(processed.errors).toContain('items[0].tabs[1].items must be an array')
+    expect(validateGenuiSpec(processed.normalized).ok).toBe(false)
     expect(processed.repaired?.items[0]).toEqual({
       type: 'tabs',
       tabs: [
         { label: 'A', items: [{ type: 'text', content: 'a' }] },
-        { label: 'B', items: [] },
       ],
     })
   })
 
-  it('renders a fence whose only root node is tabs with an empty tab', () => {
-    expect(fenceSpec(raw)).toEqual({
+  it('renders explicitly empty tabs but leaves a missing-items-only root for correction', () => {
+    expect(fenceSpec(raw)).toBeNull()
+    const explicit = JSON.parse(raw)
+    explicit.items[0].tabs[1].items = []
+    expect(fenceSpec(JSON.stringify(explicit))).toEqual({
       items: [{
         type: 'tabs',
         tabs: [

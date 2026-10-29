@@ -237,9 +237,8 @@ describe('validate_dsh_ui tool', () => {
     expect(value).not.toContain('next=emit_repaired_fence')
   })
 
-  it('allows opaque custom fields and correctly escaped quotes', async () => {
+  it('accepts correctly escaped quotes in supported components', async () => {
     const value = String(await vtool.execute({ spec: { items: [
-      { type: 'custom-widget', payload: { title: '私有字段' } },
       { type: 'text', content: '含有 "引号" 的正文' },
     ] } }))
     expect(value).toContain('status=valid')
@@ -317,7 +316,6 @@ describe('validate_dsh_ui tool', () => {
       { type: 'echart', option: { type: 'text', content: '```data```' } },
       { type: 'text', content: 'foo | bar' },
       { type: 'text', content: 'A | B\n普通第二行' },
-      { type: 'custom-widget', content: '```opaque```' },
     ] } }))
     expect(value).toContain('status=valid')
     expect(value).toContain('next=emit_fence')

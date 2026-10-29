@@ -1,5 +1,5 @@
 /** GenUI runtime diagnostics for aliases and unknown fields. */
-import { COMPONENT_SCHEMAS, GENUI_SPEC_SCHEMA } from './schema.ts'
+import { getComponentSchema, GENUI_SPEC_SCHEMA } from './schema.ts'
 import { isComponentRoot } from '../spec.ts'
 import type { ComponentRecordSchema, ComponentSchema } from './schema.ts'
 import { isTableDetailReachable } from '../table-details.ts'
@@ -29,7 +29,7 @@ function isNode(value: unknown): value is Record<string, unknown> {
 function visitNativeNodes(value: unknown, path: string, visit: (node: Record<string, unknown>, path: string, schema: ComponentSchema) => void): void {
   if (!isNode(value)) return
   const type = value.type as string
-  const definition = COMPONENT_SCHEMAS[type]
+  const definition = getComponentSchema(type)
   if (definition === undefined) return
   visit(value, path, definition)
   const children = (child: unknown, childPath: string): void => visitNativeNodes(child, childPath, visit)

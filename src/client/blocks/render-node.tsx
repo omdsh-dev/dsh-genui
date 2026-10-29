@@ -271,8 +271,7 @@ function renderNodeBody(
   if (node.when !== undefined && answers !== undefined && !evaluateWhen(node.when, answers)) return null
   // Depth guard: a pathological spec must never recurse past the limit
   // (stack overflow / DOM explosion). The fence path already repairs specs
-  // against the same limit; this is the belt-and-suspenders for direct
-  // GenuiBlock use and plugin-registered custom renderers.
+  // against the same limit; this also protects direct GenuiBlock use.
   if (depth > GENUI_LIMITS.maxDepth) return null
 
   switch (node.type) {
@@ -630,7 +629,7 @@ function renderNodeBody(
     case 'diagram': return <DiagramNode key={key} node={node} />
 
     case 'echart': return <EChartNode key={key} node={node} />
-    default: return null
+    default: return <div key={key} role="alert" data-genui-error>{t('err.unknownType', { type: String((node as { type: string }).type) })}</div>
   }
 }
 

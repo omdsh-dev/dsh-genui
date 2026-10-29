@@ -333,7 +333,7 @@ const RAW_COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   callout: schema(['content'], { ...nodeFields, title: 'string', content: 'string', tone: 'string' }, { kind: 'tone', text: 'content', body: 'content', desc: 'content' }, { enums: { tone: CALLOUT_TONES }, valueAliases: { tone: { danger: 'error', warn: 'warning' } } }),
   // `flat` drops the elevation/shadow: figure panels must read as printed
   // blocks, not as floating cards (the reference diagrams are drawn flat).
-  card: schema(['items'], { ...nodeFields, title: 'string', eyebrow: 'string', items: 'nodes', tone: 'string', accent: 'string', flat: 'boolean' }, { label: 'title', content: 'items' }, { enums: { tone: CARD_TONES } }),
+  card: schema(['items'], { ...nodeFields, title: 'string', eyebrow: 'string', items: 'nodes', tone: 'string', accent: 'string', flat: 'boolean' }, { label: 'title', content: 'items', body: 'items' }, { enums: { tone: CARD_TONES } }),
   carousel: schema(['items'], { ...nodeFields, items: 'nodes', title: 'string', itemWidth: 'number', gap: 'number' }, { children: 'items' }),
   'image-group': schema(['items'], { ...nodeFields, items: 'array', title: 'string' }, {}, { nested: { items: imageGroupItemSchema } }),
   // Both sides are required: a "compare" with one side is a single image, and
@@ -404,7 +404,7 @@ const RAW_COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
     enums: { preset: ECHART_PRESETS },
   }),
   'file-tree': schema(['items'], { ...nodeFields, items: 'array' }, { nodes: 'items' }, { nested: { items: fileTreeNodeSchema } }),
-  grid: schema(['items'], { ...nodeFields, cols: 'number', items: 'nodes' }),
+  grid: schema(['items'], { ...nodeFields, cols: 'number', items: 'nodes' }, { columns: 'cols' }),
   // Figure primitives (v12). `blocks` exists so models stop hand-writing SVG
   // coordinates for block diagrams; `icon` gives them the bundled glyph set
   // instead of reaching for emoji. Both accept the field names models guess
@@ -467,3 +467,8 @@ export const COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = Obje
 )
 
 export const GENUI_NATIVE_TYPES: ReadonlySet<string> = new Set(Object.keys(COMPONENT_SCHEMAS))
+
+/** Look up only registered components, never Object.prototype properties. */
+export function getComponentSchema(type: string): ComponentSchema | undefined {
+  return Object.hasOwn(COMPONENT_SCHEMAS, type) ? COMPONENT_SCHEMAS[type] : undefined
+}

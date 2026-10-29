@@ -237,11 +237,10 @@ describe('repairGenuiSpec: node-level healing', () => {
     expect((spec!.items[0] as { type: string }).type).toBe('chart')
   })
 
-  it('passes unknown node types through untouched (custom components)', () => {
+  it('drops unsupported node types because the renderer has no custom component registry', () => {
     const custom = { type: 'my-widget', flavor: 'pink', data: { a: [1, 2] } }
     const spec = repairGenuiSpec({ items: [custom] })
-    expect(spec!.items).toHaveLength(1)
-    expect(spec!.items[0]).toEqual(custom)
+    expect(spec!.items).toEqual([])
   })
 
   it('sanitizes raw scalars inside collections', () => {
@@ -514,7 +513,7 @@ describe('validateGenuiSpec: diagnostics', () => {
     expect(result.errors.join('\n')).toContain(`${GENUI_LIMITS.maxNodes} nodes`)
   })
 
-  it('flags unknown types as custom-renderer warnings', () => {
+  it('rejects unknown types with a component diagnostic', () => {
     const result = validateGenuiSpec({ items: [{ type: 'my-widget' }] })
     expect(result.ok).toBe(false)
     expect(result.errors.join('\n')).toContain("unknown type 'my-widget'")

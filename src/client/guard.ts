@@ -10,8 +10,7 @@
  * chunks arrive, so streaming re-renders stay consistent.
  *
  * Policy:
- * - Unknown node `type`s pass through untouched (plugin-registered custom
- *   components via `registerGenuiComponent` are opaque to this package).
+ * - Unsupported node types are rejected by validation and dropped by repair.
  * - Known types: required fields must have the right type or the node is
  *   dropped; numbers are clamped into range; strings truncated; arrays
  *   sliced to their caps; containers recursed with a depth budget.
@@ -23,7 +22,7 @@ import { isComponentRoot, wrapSingleComponentRoot } from './spec.ts'
 import {
   BADGE_TONES, BUTTON_TONES, CALLOUT_TONES, CARD_TONES, CHART_KINDS, CHOICE_MODES, COMPARE_MODES, COMPONENT_SCHEMAS, HERO_TONES, WHEN_OPS,
   DIAGRAM_EDGE_KINDS, DIAGRAM_KINDS, DIAGRAM_NODE_TYPES, DIAGRAM_ROUTES, DIAGRAM_VARIANTS,
-  ECHART_PRESETS, FILE_TYPES, GENUI_NATIVE_TYPES, GENUI_SPEC_SCHEMA, INPUT_TYPES,
+  ECHART_PRESETS, FILE_TYPES, GENUI_NATIVE_TYPES, GENUI_SPEC_SCHEMA, INPUT_TYPES, getComponentSchema,
   ARROW_DIRS, BLOCKS_VARIANTS, BLOCK_CELL_TONES, ICON_TONES, MEDIA_ASPECT_RATIOS, MESH_SHAPES, PLOT_KINDS, PROGRESS_VARIANTS, ROW_JUSTIFY, TABLE_CELL_TYPES, TEXT_ALIGNS, TEXT_SIZES, TEXT_TONES,
 } from './genui-runtime/schema.ts'
 import type { ComponentFieldKind, ComponentRecordSchema, ComponentSchema } from './genui-runtime/schema.ts'
@@ -894,9 +893,7 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
       }
     }
     default:
-      // Plugin-registered custom node types are opaque to the guard: pass
-      // through unchanged (the renderer's default branch resolves them).
-      return value as GenuiNode
+      return null
   }
 }
 
@@ -1020,7 +1017,7 @@ function repairTabs(v: unknown, ctx: RepairCtx, depth: number): Array<{ label: s
     const rawItems = o.items !== undefined ? o.items
       : o.content !== undefined ? (Array.isArray(o.content) ? o.content : [o.content])
       : undefined
-    out.push({ label, items: repairItems(rawItems, ctx, depth + 1) })
+    if (Array.isArray(rawItems)) out.push({ label, items: repairItems(rawItems, ctx, depth + 1) })
   }
   return out
 }
@@ -1701,6 +1698,13 @@ export function validateGenuiChartSemantics(value: unknown): string[] {
 /** 延后围栏中的追加项引用检查，由面板按顺序合并后执行。 */
 interface GenuiValidationOptions {
   deferPanelReferences?: boolean
+  /** The store already knows the operation mode independently of fence routing. */
+  panelOperation?: 'replace' | 'append'
+}
+
+function deferPanelReferences(spec: GenuiSpec, options: GenuiValidationOptions): boolean {
+  return options.panelOperation === 'append'
+    || (options.deferPanelReferences === true && spec.panel === true && spec.append === true)
 }
 
 /**
@@ -1765,7 +1769,7 @@ export function validateCanonicalGenuiSpec(value: unknown, options: GenuiValidat
   const repaired = repairCanonicalGenuiSpec(v)
   if (repaired !== null) {
     // 追加项是增量；等较早的字段与公式可用后，再由面板顺序合并流程检查外部引用。
-    const append = options.deferPanelReferences === true && repaired.panel === true && repaired.append === true
+    const append = deferPanelReferences(repaired, options)
     const graph = buildComputedGraph(repaired.computed ?? [], getComputedInputIds(repaired), new Set(), append)
     for (const [id, error] of Object.entries(graph.errors)) errors.push(`spec.computed.${id}: ${error}`)
     validateComputedReferences(repaired.title, repaired.items, new Set((repaired.computed ?? []).map(field => field.id)), errors, append)
@@ -1795,7 +1799,7 @@ export function validateCanonicalGenuiSpec(value: unknown, options: GenuiValidat
   // Submission membership follows the rendered tree: policy-elided fields
   // cannot conflict with visible fields or require unavailable groups.
   if (errors.length === 0 && repaired !== null) errors.push(...analyzeSubmissionRegistry(repaired,
-    options.deferPanelReferences === true && repaired.panel === true && repaired.append === true).diagnostics)
+    deferPanelReferences(repaired, options)).diagnostics)
   if (repaired !== null) {
     for (const id of getDuplicateComputedInputIds(repaired)) {
       errors.push(`spec.items contains duplicate input field ID '${id}'`)
@@ -1821,6 +1825,8 @@ export function validateGenuiSpec(value: unknown): GenuiValidation {
 }
 
 export interface GenuiProcessResult {
+  /** Preserve the panel-delta validation mode when retrying partial repair. */
+  deferPanelReferences?: boolean
   /** Canonical alias-normalized input value. */
   value: unknown
   /** Alias-normalized value, provided as an explicit descriptive alias. */
@@ -1841,7 +1847,7 @@ export interface GenuiProcessResult {
   declaredNativeCount: number
   /** Native nodes present after repair, excluding custom and file-tree data. */
   renderedNativeCount: number
-  /** All rendered component nodes, including opaque custom nodes. */
+  /** All supported component nodes present after repair. */
   renderedTotalCount: number
 }
 
@@ -1850,8 +1856,7 @@ export interface GenuiProcessResult {
  *
  * The pipeline normalizes aliases, applies the existing deterministic repair
  * and security filters, validates the canonical input, and reports native
- * declarations that disappeared during repair. Custom nodes stay opaque and
- * do not participate in native unknown-field diagnostics.
+ * declarations that disappeared during repair. Unsupported types are errors.
  *
  * @param value - Raw GenUI spec or bare component.
  * @returns Canonical input, repaired output, diagnostics, and node counts.
@@ -1877,13 +1882,10 @@ export function processGenuiSpec(value: unknown, options: GenuiValidationOptions
   const uncappedPolicyNodeCount = countDeclaredGenuiNodes(normalized.value, GENUI_LIMITS.maxNodes + 1, { familyCaps: false, carouselCaps: true })
   const renderedNativeCount = repaired === null ? 0 : countRenderedNativeGenuiNodes(repaired)
   const renderedTotalCount = repaired === null ? 0 : countGenuiNodes(repaired)
-  // The shared public validator preserves its historical diagnostic for an
-  // unknown type. The processing pipeline is renderer-aware by contract:
-  // custom nodes stay opaque and must not fail native schema validation.
-  const errors = validation.errors.filter(error => !error.includes(': unknown type '))
+  const errors = [...validation.errors]
   if (repaired !== null && errors.length === 0) {
     errors.push(...analyzeSubmissionRegistry(repaired,
-      options.deferPanelReferences === true && repaired.panel === true && repaired.append === true).diagnostics)
+      deferPanelReferences(repaired, options)).diagnostics)
   }
   if (declaredNativeCount > renderedNativeCount) {
     errors.push(`repair dropped ${declaredNativeCount - renderedNativeCount} declared native node(s): declared ${declaredNativeCount}, rendered ${renderedNativeCount}`)
@@ -1925,6 +1927,7 @@ export function processGenuiSpec(value: unknown, options: GenuiValidationOptions
     })
   }
   return {
+    ...(options.deferPanelReferences === true ? { deferPanelReferences: true } : {}),
     value: normalized.value,
     normalized: normalized.value,
     repaired,
@@ -2064,7 +2067,7 @@ export function partialRepairGenuiSpec(processed: GenuiProcessResult): GenuiSpec
     indexes.sort((a, b) => b - a)
     for (const index of indexes) array.splice(index, 1)
   }
-  const retry = processGenuiSpec(pruned)
+  const retry = processGenuiSpec(pruned, { deferPanelReferences: processed.deferPanelReferences === true })
   if (!isRenderableProcess(retry) || retry.renderedNativeCount === 0) return null
   return retry.spec
 }
@@ -2530,18 +2533,14 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       isNum('height')
       break
     default:
-      // Registered native types (icon/blocks/arrow/…) reach here because this
-      // switch is a second, hand-written table. Falling through to "unknown
-      // type" made validateGenuiSpec() answer false for perfectly valid specs
-      // — the render pipeline only survived because processGenuiSpec filters
-      // that one error string. Consult the schema instead: anything registered
-      // is validated by validateRegistryFields below, and only genuinely
-      // unregistered types are reported as custom-renderer unknowns.
+      // Registered types without hand-written checks use the schema below.
       if (!Object.hasOwn(COMPONENT_SCHEMAS, type)) {
-        errors.push(`${at}: unknown type '${type}' (custom renderer?)`)
+        const lower = type.toLowerCase()
+        const hint = GENUI_NATIVE_TYPES.has(lower) ? `; use '${lower}'` : '; use a type from COMPONENT_SCHEMAS'
+        errors.push(`${at}: unknown type '${type}'${hint}`)
       }
   }
-  const definition = COMPONENT_SCHEMAS[type]
+  const definition = getComponentSchema(type)
   if (definition !== undefined) {
     validateRegistryFields(v, at, definition, errors)
   }

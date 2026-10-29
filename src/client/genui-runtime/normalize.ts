@@ -1,5 +1,5 @@
 /** Deterministic GenUI alias and structural normalization. */
-import { COMPONENT_SCHEMAS } from './schema.ts'
+import { getComponentSchema } from './schema.ts'
 import type { ComponentRecordSchema } from './schema.ts'
 import { isComponentRoot } from '../spec.ts'
 import type { GenuiDiagnostic } from './diagnostics.ts'
@@ -79,7 +79,7 @@ function statMetricsOf(
 }
 
 function normalizeAliasFields(value: Record<string, unknown>, path: string, type: string, warnings: GenuiDiagnostic[]): Record<string, unknown> {
-  const definition = COMPONENT_SCHEMAS[type]
+  const definition = getComponentSchema(type)
   if (definition === undefined) return value
   const out: Record<string, unknown> = { ...value }
   for (const [alias, canonical] of Object.entries(definition.aliases)) {
@@ -102,7 +102,7 @@ function normalizeAliasFields(value: Record<string, unknown>, path: string, type
   for (const [field, values] of Object.entries(definition.valueAliases)) {
     const written = out[field]
     if (typeof written !== 'string') continue
-    const canonical = values[written]
+    const canonical = Object.hasOwn(values, written) ? values[written] : undefined
     if (canonical === undefined || canonical === written) continue
     out[field] = canonical
     warnings.push({
@@ -187,8 +187,8 @@ function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[]
   const candidate = record(value)
   if (type === undefined || candidate === undefined) return value
   const node = typeof candidate.type === 'string' ? candidate : { ...candidate, type }
-  const definition = COMPONENT_SCHEMAS[type]
-  // Custom nodes are opaque by contract: don't inspect or rewrite their data.
+  const definition = getComponentSchema(type)
+  // Keep unsupported input intact for the validator's type/path diagnostic.
   if (definition === undefined) return node
   const out = normalizeAliasFields(node, path, type, warnings)
   // Nested data records (keyvalue pairs, file-tree items, …) carry their own
@@ -311,11 +311,11 @@ function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[]
           canonical: 'items',
         })
       }
-      normalizedHolder.items = Array.isArray(normalizedHolder.items)
-        ? normalizedHolder.items.map((child, childIndex) => normalizeNodeValue(child, `${path}.tabs[${index}].items[${childIndex}]`))
-        : normalizedHolder.items === undefined
-          ? []
+      if (normalizedHolder.items !== undefined) {
+        normalizedHolder.items = Array.isArray(normalizedHolder.items)
+          ? normalizedHolder.items.map((child, childIndex) => normalizeNodeValue(child, `${path}.tabs[${index}].items[${childIndex}]`))
           : [normalizeNodeValue(normalizedHolder.items, `${path}.tabs[${index}].items[0]`)]
+      }
       return normalizedHolder
     })
   } else if (type === 'accordion' && Array.isArray(out.items)) {

@@ -252,11 +252,12 @@ describe('GenUI v2 interactive plot', () => {
 })
 
 describe('unknown GenUI component types', () => {
-  it('renders nothing for an unregistered unknown type', () => {
+  it('keeps an unsupported-only fence as visible source with a diagnostic', () => {
     const { container } = render(<MarkdownText text={fenced({ items: [
       { type: 'not-a-real-type', anything: true },
     ] })} />)
-    // Renders the block but no content from the unknown node.
-    expect(container.querySelector('[data-genui]')).not.toBeNull()
+    expect(container.querySelector('[data-genui]')).toBeNull()
+    expect(container.textContent).toContain('not-a-real-type')
+    expect(container.querySelector('[role="alert"]')).not.toBeNull()
   })
 })
