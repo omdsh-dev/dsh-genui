@@ -37,6 +37,8 @@ body[data-ds-dark-theme] .panel {
 
 .block,
 .panel {
+  /* The layout breakpoints below key off THIS box's width, not the window's. */
+  container-type: inline-size;
   /* ── design tokens (design system v2) ──
      Declared on both the inline fence root and the session panel root: the
      panel header sits OUTSIDE the inner .block, so without the shared
@@ -179,11 +181,18 @@ body[data-ds-dark-theme] .panel {
    This keys off the CONTAINER, not the window: the same reply renders in a
    1100px chat column and a 320px side panel at the same window size, and a
    window breakpoint handed the narrow case the desktop layout.
-   `.block` / `.panel` declare the container (see the bottom of this file). */
-@media (max-width: 560px) {
+   `.block` / `.panel` declare the container below. */
+@container (max-width: 560px) {
   .grid { grid-template-columns: 1fr !important; }
+  /* A bento span was computed for a multi-column grid; on one column it would
+     push its child past the edge. */
+  .grid > [class*="gridSpan"] { grid-column: auto !important; }
   .row { flex-wrap: wrap; }
   .row > .card { flex-basis: 100%; }
+  /* A wrapped child must own the line. Percentage columns carry an inline
+     `flex: 0 1 50%`, which outranks a plain flex-basis rule; without this reset
+     a half-width block sits alone on its line with dead space beside it. */
+  .row > * { flex: 1 1 100% !important; }
 }
 .spacer { flex: 1; }
 .divider {

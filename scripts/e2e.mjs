@@ -323,8 +323,14 @@ try {
     await galleryConversation?.verifyComputed({ page, browser, artifactsDir })
     // Percentage columns divide the space remaining after the row gap. Exercise
     // the installed renderer, including min-content pressure from a long code line.
-    for (const width of [500, 280]) {
-      for (const shares of [[50, 50], [40, 60]]) {
+    // The collapse follows the CONTAINER: above 560px the percentage split
+    // applies, at or below it every child owns its line.
+    for (const { width, shares, split } of [
+      { width: 700, shares: [50, 50], split: true },
+      { width: 700, shares: [40, 60], split: true },
+      { width: 500, shares: [50, 50], split: false },
+      { width: 280, shares: [40, 60], split: false },
+    ]) {
         await page.evaluate(({ width, shares }) => {
           const fixture = document.createElement('div')
           fixture.setAttribute('data-column-width-smoke', '')
@@ -358,14 +364,20 @@ try {
         })
         assert.equal(geometry.width, width)
         assert.ok(geometry.scrollWidth <= width + 1, `百分比列不能溢出：${JSON.stringify({ width, shares, geometry })}`)
-        for (const [index, share] of shares.entries()) {
-          const expected = (width - geometry.gap) * share / 100
-          assert.ok(Math.abs(geometry.columns[index] - expected) < 1, `百分比列应按 ${shares.join('/')} 分配可用宽度：${JSON.stringify(geometry)}`)
+        if (split) {
+          for (const [index, share] of shares.entries()) {
+            const expected = (width - geometry.gap) * share / 100
+            assert.ok(Math.abs(geometry.columns[index] - expected) < 1, `百分比列应按 ${shares.join('/')} 分配可用宽度：${JSON.stringify(geometry)}`)
+          }
+        } else {
+          // Container query: the row wraps and each child claims the whole line.
+          for (const column of geometry.columns) {
+            assert.ok(Math.abs(column - width) < 1, `窄容器应让每列独占一行：${JSON.stringify({ width, shares, geometry })}`)
+          }
         }
         await fixture.evaluate(element => element.remove())
-      }
     }
-    log('百分比列 50/50、40/60 在 500px 和 280px 容器中比例正确且无横向溢出')
+    log('百分比列：宽容器按份额分配，窄容器（≤560px）每列独占一行且无横向溢出')
     // Reuse the visual smoke's DOM fence channel with a deterministic primitive fixture.
     // This exercises the installed tarball against the actual host, without a model call.
     await page.evaluate(() => {
