@@ -96,11 +96,23 @@ describe('tier-2 structural repair (settled messages only)', () => {
     expect(document.body.textContent).toContain('半截')
   })
 
-  it('never applies structural repair while streaming', () => {
+  it('renders a complete prefix while streaming, without structural repair', () => {
+    // A finished table row is a usable prefix: the reader sees one row instead
+    // of raw JSON. What must NOT happen while streaming is fabricating the
+    // missing structure of the tail (that is tier-2, settled messages only) —
+    // the prefix ends BEFORE the stray closer, so no repair is applied.
     render(<div data-streaming="true">{renderGenuiFence(STRAY_CLOSER, 't3')}</div>)
     expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.queryByRole('note')).toBeNull()
-    expect(document.body.textContent).toContain('rows')
+    expect(document.querySelector('table')).not.toBeNull()
+    expect(document.body.textContent).toContain('1')
+  })
+
+  it('keeps a body with no complete prefix raw while streaming', () => {
+    // Nothing has closed yet: there is no honest prefix to render.
+    render(<div data-streaming="true">{renderGenuiFence(BROKEN, 't4')}</div>)
+    expect(document.body.textContent).toContain('半截')
+    expect(document.querySelector('table')).toBeNull()
   })
 
   // The exact real-world failure that motivated this repair: a long table
