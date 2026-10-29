@@ -2100,6 +2100,21 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   padding: var(--dsl-g-gap-sm) 0;
 }
 
+/* Neutral state: one full-width sweep, no internal geometry. */
+.skeletonNeutral {
+  display: block;
+  height: 46px;
+  border-radius: var(--dsl-g-radius-control);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--dsw-alias-label-primary) 5%, transparent) 0%,
+    color-mix(in srgb, var(--dsw-alias-label-primary) 13%, transparent) 50%,
+    color-mix(in srgb, var(--dsw-alias-label-primary) 5%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  animation: dsl-skeleton 1.8s ease-in-out infinite;
+}
+
 /* Donut charts arrive as a ring: the legend sits beside it, like the real one. */
 .skeletonDonut { display: flex; align-items: center; gap: var(--dsl-g-gap-lg); }
 .skeletonRing {
@@ -2153,7 +2168,8 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   100% { background-position: -200% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .skeletonRing { animation: none; }
+  .skeletonRing,
+  .skeletonNeutral { animation: none; }
   .skeletonTitle,
   .skeletonBars > span,
   .skeletonBlock,

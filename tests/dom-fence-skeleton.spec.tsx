@@ -81,3 +81,26 @@ describe('streaming skeleton', () => {
     }
   })
 })
+
+describe('neutral placeholder', () => {
+  it('shows no structure when nothing is known yet', async () => {
+    // Before the first `"type"` arrives there is no honest shape to promise:
+    // any rows here are a guess the next frame contradicts.
+    const r = row('k3')
+    r.appendChild(stockCodeBlock('{"items":[', 'dsh-ui'))
+    document.body.appendChild(r)
+    const send = vi.fn()
+    const dispose = installDomFenceRenderer(makeCtx('s3', send), send)
+    try {
+      await tick()
+      const skeleton = r.querySelector('[data-genui-skeleton]')!
+      expect(skeleton.getAttribute('data-genui-skeleton')).toBe('generic')
+      const body = skeleton.querySelector('[class*="skeletonNeutral"]')
+      expect(body).not.toBeNull()
+      // No fake rows, no fake block, no fake title.
+      expect(skeleton.querySelectorAll('span').length).toBe(1)
+    } finally {
+      dispose()
+    }
+  })
+})

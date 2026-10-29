@@ -145,8 +145,13 @@ export function SkeletonBody({ shape, columns, chartKind, lines }: {
       return <span className={css.skeletonControl} />
     case 'rule':
       return <span className={css.skeletonRule} />
-    case 'card':
     case 'generic':
+      // Nothing is known yet — not even the component family. Any internal
+      // structure here is a guess that the next frame usually contradicts, so
+      // the neutral state shows ONE quiet sweep and nothing else. It reads as
+      // "an area is arriving", not as "a card with two lines is arriving".
+      return <span className={css.skeletonNeutral} />
+    case 'card':
     default:
       // A card's children are unknown from the prefix alone, so the placeholder
       // promises a heading + a couple of lines + one detail block, which is what
