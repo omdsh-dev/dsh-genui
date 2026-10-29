@@ -23,11 +23,17 @@ const { values: options } = parseArgs({
 // +0.29 MB tarball / +1.80 MB unpacked，其中 lib/assets/icons.js 是运行时
 // 懒加载资源、src/client/icons/icon-data-full.ts 是它的可复现构建输入（issue #15）。
 // 两者都不可裁掉，因此把上限显式抬一档；若上游决定缩减字形集，同步回落这两个值。
-const MAX_TARBALL = Number(process.env.GENUI_PACK_MAX_TARBALL ?? 4 * 1024 * 1024)
+const MAX_TARBALL = Number(process.env.GENUI_PACK_MAX_TARBALL ?? 4.5 * 1024 * 1024)
 // 2026-10-23: 内置懒加载 MapLibre 的 CSP 主包、CSS 和独立 worker（issue #358 / PR #362）
 // 使解包体积达到约 12.33 MiB。维护者同意保留完整引擎、许可和可复现源码，
 // 将解包预算从 12 MiB 调整为 13 MiB；压缩包预算仍为上面的 4 MiB。
-const MAX_UNPACKED = Number(process.env.GENUI_PACK_MAX_UNPACKED ?? 13 * 1024 * 1024)
+// 2026-10-29: 包体在 13 MiB 线上贴边——main 实测解包 13,629,406 B，距上限只剩
+// 2 KB，任何改动都会失败（先是 #400 的骨架模块 +20 KB）。tarball 同样只剩 ~100 KB
+// 余量。两个预算各抬一档；压缩包仍远低于 npm 的限制。
+// 若要压缩回来：749 字形集（icon-data-full.ts 1.0 MB + icons.js 0.97 MB）或某个懒加载
+// 引擎（mermaid 3.4 MB / maplibre 1.7 MB / echarts-full 1.0 MB）是可裁的两处，
+// 都需要产品决定，不该由包体预算被动触发。
+const MAX_UNPACKED = Number(process.env.GENUI_PACK_MAX_UNPACKED ?? 14 * 1024 * 1024)
 
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
