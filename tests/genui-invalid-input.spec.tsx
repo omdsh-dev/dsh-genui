@@ -52,6 +52,15 @@ describe('invalid GenUI input (#390)', () => {
     await expect(createRenderUiTool().execute({ spec })).rejects.toThrow()
   })
 
+  it.each(['Card', 'Tabs', 'custom-widget', 'constructor', '__proto__'])('rejects bare unsupported root %s even when it has valid children', async type => {
+    const spec = { type, items: [{ type: 'text', content: 'child' }] }
+    const result = processGenuiSpec(spec)
+    expect(isRenderableProcess(result)).toBe(false)
+    expect(result.errors.join(' ')).toContain(`unknown type '${type}'`)
+    expect(resolveFence(JSON.stringify(spec), { settled: true }).spec).toBeNull()
+    expect(String(await createValidateDshUiTool().execute({ spec }))).toContain('status=invalid')
+  })
+
   it('distinguishes missing tab items from an explicit empty array and a supported alias', async () => {
     expect(processGenuiSpec(missingItems).errors.join(' ')).toContain('items')
     expect(isRenderableProcess(processGenuiSpec(missingItems))).toBe(false)

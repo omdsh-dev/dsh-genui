@@ -1155,15 +1155,16 @@ export function parseGenuiSpec(raw: string): GenuiSpec | null {
  * both readings are components. A whitelisted `type` therefore wins over the
  * envelope reading — `{"type":"steps","items":[{"title":"…"}]}` is a bare
  * steps node, never a spec whose `items` are the step records (issue #172).
- * A non-native `type` keeps the envelope reading, so a stray `type` field
- * (`{"type":"genui","items":[…]}`) cannot swallow a real spec root.
+ * Only the explicit `genui` document marker and the dual native `stack`
+ * envelope keep the envelope reading. Unknown component names must reach
+ * validation instead of silently rendering only their children.
  */
 export function isComponentRoot(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false
-  const v = value as { type?: unknown; items?: unknown }
+  const v = value as { type?: unknown; items?: unknown; children?: unknown }
   if (typeof v.type !== 'string' || v.type === '') return false
   if (!Array.isArray(v.items)) return true
-  return GENUI_NATIVE_TYPES.has(v.type)
+  return v.type !== 'genui' && !(v.type === 'stack' && Array.isArray(v.children))
 }
 
 /**
