@@ -11,6 +11,10 @@
 import css from '../GenuiBlock.module.css'
 import type { SkeletonShape } from '../streaming-shape.ts'
 
+/** Shapes that are an object, not a block: they get no elevated surface, because
+ *  a lone button or a divider does not become a card when it finishes. */
+const INLINE_SHAPES: ReadonlySet<SkeletonShape> = new Set<SkeletonShape>(['control', 'rule'])
+
 /** Replace a half-written spec with a placeholder of the same shape. */
 export function GenuiSkeleton({ shape, title }: { shape: SkeletonShape; title?: string }) {
   return (
@@ -19,7 +23,8 @@ export function GenuiSkeleton({ shape, title }: { shape: SkeletonShape; title?: 
     // Without it every gap/padding/radius resolved to nothing and the
     // placeholder painted as a hard-edged rectangle — the "毛坯" look.
     <div className={css.block}>
-      <div className={css.skeleton} data-genui-skeleton={shape} role="status"
+      <div className={`${css.skeleton} ${INLINE_SHAPES.has(shape) ? css.skeletonInline : ''}`}
+        data-genui-skeleton={shape} role="status"
         aria-label={title === undefined ? '正在生成界面' : `正在生成界面：${title}`}>
         {title !== undefined ? <span className={css.skeletonHeading}>{title}</span> : null}
         <SkeletonBody shape={shape} />

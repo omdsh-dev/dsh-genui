@@ -2093,6 +2093,13 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   border-radius: var(--dsl-g-radius-control);
 }
 
+/* An object placeholder (button/divider) has no surface: it is not a block. */
+.skeletonInline {
+  background: none;
+  border-color: transparent;
+  padding: var(--dsl-g-gap-sm) 0;
+}
+
 .skeletonControl { display: block; width: 132px; height: 30px; border-radius: var(--dsl-g-radius-control); }
 .skeletonRule { display: block; width: 100%; height: 1px; border-radius: 1px; }
 
