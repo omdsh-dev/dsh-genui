@@ -654,6 +654,7 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
         ...opt('types', types),
         ...opt('total', v.total === true ? true : undefined),
         ...opt('export', v.export === true ? true : undefined),
+        ...opt('wrap', v.wrap === true ? true : undefined),
         ...opt('filter', str(v.filter, 64)),
         ...opt('filterColumn', int(v.filterColumn, 0, GENUI_LIMITS.maxTableCols - 1)),
         ...opt('sortField', str(v.sortField, 64)),

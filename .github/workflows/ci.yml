@@ -189,12 +189,17 @@ jobs:
       - name: Check host content font size in real browser
         run: node scripts/check-content-font-size-browser.mjs
 
+      - name: Check optional table wrapping in real browser
+        run: node scripts/check-table-wrap-browser.mjs
+
       - name: Archive newline browser evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: text-newlines-browser
-          path: .e2e-artifacts/text-newlines/
+          path: |
+            .e2e-artifacts/text-newlines/
+            .e2e-artifacts/table-wrap/
           if-no-files-found: ignore
 
   windows-pack:

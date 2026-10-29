@@ -848,6 +848,25 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   line-height: 1.5;
   vertical-align: middle;
 }
+/* `table.wrap: true` — prose layout: the table tracks the container and every
+   cell wraps, so a column of full sentences reads in place instead of
+   stretching the table into a horizontal scrollbar (#382). Opt-in because the
+   data-table voice above (nowrap + horizontal scroll on overflow, #326) is
+   still the right shape for short values.
+
+   `anywhere` lets long identifiers participate in intrinsic sizing; the
+   readable column floor prevents #326's one-glyph columns. When those floors
+   exceed the container, the existing wrapper scrolls. Direct ownership keeps
+   a detail's nested table independent. :where keeps explicit newline/code
+   whitespace rules below more specific than this default prose rule. */
+.tableWrapProse > .table { width: 100%; min-width: 0; table-layout: auto; }
+.tableWrapProse > .table > * > :where(tr) > * {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  min-width: 6em;
+  vertical-align: top;
+}
 /* The first column is the row's name: give it the weight of a label so a
    table reads as "these rows, these values" instead of a uniform grid. */
 .table td:first-child { font-weight: 600; }
@@ -892,10 +911,17 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
    automatic minimum size collapses, the column can then be sized below its
    content, and the still-unbroken text is painted over the next column (#280).
    Keep the cell's own line-breaking contract for every table section. */
-.table > thead > tr > th:not(.tdCode):not(.tdMultiline) .inlineCode,
-.table > tbody > tr:not(.detailRow) > td:not(.tdCode):not(.tdMultiline) .inlineCode,
-.table > tfoot > tr > td:not(.tdCode):not(.tdMultiline) .inlineCode {
+.tableWrap:not(.tableWrapProse) > .table > thead > tr > th:not(.tdCode):not(.tdMultiline) .inlineCode,
+.tableWrap:not(.tableWrapProse) > .table > tbody > tr:not(.detailRow) > td:not(.tdCode):not(.tdMultiline) .inlineCode,
+.tableWrap:not(.tableWrapProse) > .table > tfoot > tr > td:not(.tdCode):not(.tdMultiline) .inlineCode {
   white-space: pre;
+}
+/* Host markdown makes code chips inline-flex. Prose cells need an inline box
+   that can break across lines while retaining spaces and copied newlines. */
+.tableWrapProse > .table > * > :where(tr:not(.detailRow)) > * .inlineCode {
+  display: inline;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 /* Rich-text owners must paint the real newlines kept by renderInline. Scope
    this to prose/labels: table data keeps nowrap and code keeps pre-wrap. For
