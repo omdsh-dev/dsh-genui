@@ -2208,29 +2208,10 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   .skeletonControl { animation: none; }
 }
 
-/* ---------- skeleton → component cross-fade ----------
-   The mount point carries a `view-transition-name`; these rules tune how the
-   two snapshots hand over. The outgoing skeleton leads slightly and the arriving
-   component settles up from 98%, so the change reads as one object resolving
-   rather than as two objects swapping. Wildcard selectors keep this working for
-   every concurrent fence (each gets its own name). */
-::view-transition-group(*.genui-stream) {
-  animation-duration: 260ms;
-  animation-timing-function: cubic-bezier(0.22, 0.8, 0.24, 1);
-}
-::view-transition-old(*.genui-stream) {
-  animation-duration: 180ms;
-  animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
-}
-::view-transition-new(*.genui-stream) {
-  animation-duration: 260ms;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-}
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(*.genui-stream),
-  ::view-transition-old(*.genui-stream),
-  ::view-transition-new(*.genui-stream) { animation: none; }
-}
+/* The skeleton → component transition is animated in the DOM channel
+   (dom-fence: swapWithTransition) so it stays contained to the block: a
+   document-level View Transition cross-faded the whole page, which made the
+   prose below appear twice mid-flight. */
 
 /* ---------- staggered reveal ---------- */
 
