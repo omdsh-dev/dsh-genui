@@ -202,6 +202,11 @@ jobs:
         env:
           BROWSER_BIN: google-chrome
 
+      - name: Check step marker line height in real browser
+        run: node scripts/check-steps-marker-browser.mjs
+        env:
+          BROWSER_BIN: google-chrome
+
       - name: Archive newline browser evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -212,6 +217,7 @@ jobs:
             .e2e-artifacts/table-wrap/
             .e2e-artifacts/blocks-theme/
             .e2e-artifacts/interaction-state/
+            .e2e-artifacts/steps-marker/
           if-no-files-found: ignore
 
   windows-pack:

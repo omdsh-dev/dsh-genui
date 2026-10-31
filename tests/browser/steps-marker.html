@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Issue 410: step marker line height</title>
+  <style>
+    body { margin: 0; padding: 20px; }
+    main { max-width: 940px; margin: auto; }
+    h1 { font-size: 22px; }
+    h2, h3 { font-size: 14px; }
+    .cases { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+    section { min-width: 0; }
+    #results { display: none; }
+    @media (max-width: 600px) { .cases { grid-template-columns: minmax(0, 1fr); } }
+  </style>
+</head>
+<body>
+  <main><h1>步骤角标 · 合成回归示例</h1><div id="root"></div></main>
+  <pre id="results">pending</pre><pre id="browser-errors"></pre>
+  <script>
+    window.addEventListener('error', event => { document.getElementById('browser-errors').textContent += event.message + '\n' })
+    window.addEventListener('unhandledrejection', event => { document.getElementById('browser-errors').textContent += String(event.reason) + '\n' })
+  </script>
+  <script type="module" src="/tests/browser/steps-marker.tsx"></script>
+</body>
+</html>

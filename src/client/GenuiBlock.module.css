@@ -1261,6 +1261,7 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   display: grid;
   place-items: center;
   font-size: var(--dsl-g-font-meta);
+  line-height: 1;
   font-weight: 700;
   flex-shrink: 0;
   background: var(--dsl-g-surface);
