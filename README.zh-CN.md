@@ -78,7 +78,7 @@ https://github.com/user-attachments/assets/f5db33ec-7471-4d4a-a85b-79c9962ab4ef
 ### 1. 环境准备
 
 安装前请确认满足以下条件：
-- **DSH 版本**：`^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`。安装包浏览器验收覆盖 `0.2.0-rc.1`、`0.2.1-rc.3` 与 npm 精确安装的 `0.2.2-alpha.2`；npm `next` 的 `0.2.1-rc.4` 单独执行公开接口、完整单元测试与构建检查。alpha 宿主要求 **Node.js >=24.9.0**，图片集合、计算字段和地图使用官方本地回放验收；第三方侧栏接入在 rc.3 上验收。
+- **DSH 版本**：`^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`。安装包浏览器验收覆盖 `0.2.0-rc.1`、`0.2.1-rc.3` 与 npm 精确安装的 `0.2.1-rc.5`（当前 `latest` / `next`）和 `0.2.2-alpha.2`；保留 `0.2.1-rc.4` 单独执行公开接口、完整单元测试与构建检查。alpha 宿主要求 **Node.js >=24.9.0**，图片集合、计算字段和地图使用官方本地回放验收；第三方侧栏接入在 rc.3 上验收。
 - **pnpm 处于 PATH 中**：`dsh plugin` 底层依赖 pnpm。如尚未安装，请执行 `corepack enable` 或 `npm i -g pnpm`，之后**重新打开终端**，确认 `pnpm -v` 可正常输出。
 
 ### 2. 一键安装与激活
@@ -285,15 +285,16 @@ dsh plugin --profile web add link:$PWD
 ```sh
 pnpm run check           # 类型检查 + 单元测试 + 构建
 pnpm run test            # 运行 Vitest 测试套件
-pnpm run check:host-api dsh-v0.2.1-rc.3  # 检查当前发布版 DSH 的公开接口
-pnpm run check:host-api dsh-v0.2.1-rc.4  # 检查 npm next；与源码宿主浏览器验收分开
+pnpm run check:host-api dsh-v0.2.1-rc.3  # 检查保留的 rc.3 宿主公开接口
+pnpm run check:host-api dsh-v0.2.1-rc.4  # 检查此前的 rc.4 公开接口
+pnpm run check:host-api dsh-v0.2.1-rc.5  # 检查当前 npm latest / next 接口、完整测试与构建
 pnpm run check:host-api dsh-v0.2.2-alpha.2  # 检查受支持的 npm alpha 接口、完整测试与构建
 node scripts/verify-pack.mjs --keep  # 生成并打包校验 tarball
 ```
 
 ### 端到端 E2E 验证
 
-CI 与发布任务通过 `node scripts/prepare-published-host.mjs 0.2.2-alpha.2` 从 npm 安装精确版本，在独立 web profile 中验收插件安装包。此通道使用 `DSH_HOST_LAYOUT=registry`、`DSH_HOST_VERSION=0.2.2-alpha.2` 和脚本返回的 `DSH_ROOT`、`DSH_BIN`；源码宿主通道继续固定到对应官方标签。alpha 的接口、图片集合与计算字段、Linux 地图检查全部通过后才发布 npm。
+CI 与发布任务通过 `node scripts/prepare-published-host.mjs 0.2.2-alpha.2` 从 npm 安装精确版本，在独立 web profile 中验收插件安装包。此通道使用 `DSH_HOST_LAYOUT=registry`、`DSH_HOST_VERSION=0.2.2-alpha.2` 和脚本返回的 `DSH_ROOT`、`DSH_BIN`；源码宿主通道继续固定到对应官方标签。同一 registry 通道也安装 `0.2.1-rc.5`，对应设置 `DSH_HOST_VERSION=0.2.1-rc.5`。当前 RC 与 alpha 的接口、图片集合与计算字段、Linux 地图检查全部通过后才发布 npm。动作使用官方本地回放；Android 真机及原 Windows Desktop 环境仍需单独验收。
 
 - **视觉回归 E2E（无需模型 API Key）**：
   ```sh

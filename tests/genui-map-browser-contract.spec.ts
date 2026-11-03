@@ -203,7 +203,7 @@ describe('Map real-browser acceptance contract (no browser launched)', () => {
   })
   it('preserves the source host matrix and adds exact published alpha coverage', async () => {
     const workflow = parse(await readFile('.github/workflows/ci.yml', 'utf8'))
-    expect(Object.keys(workflow.jobs)).toEqual(['check', 'browser-text-newlines', 'windows-pack', 'published-alpha'])
+    expect(Object.keys(workflow.jobs)).toEqual(['check', 'browser-text-newlines', 'windows-pack', 'published-alpha', 'published-current'])
     expect(workflow.permissions).toBeUndefined()
     expect(workflow.jobs.check.strategy.matrix.include.map((lane: { 'host-ref': string }) => lane['host-ref']))
       .toEqual(['dsh-v0.2.0-rc.1', 'dsh-v0.2.1-rc.3', 'dsh-v0.2.1-rc.3'])
@@ -217,12 +217,20 @@ describe('Map real-browser acceptance contract (no browser launched)', () => {
     const alpha = workflow.jobs['published-alpha'].steps
     expect(alpha.find((s: { name?: string }) => s.name === 'Install exact published alpha host').run).toContain('prepare-published-host.mjs 0.2.2-alpha.2')
     expect(alpha.find((s: { name?: string }) => s.name === 'Alpha packed Map browser acceptance').run).toContain('--smoke --map --install tarball')
+    const current = workflow.jobs['published-current'].steps
+    expect(current.find((s: { name?: string }) => s.name === 'Install exact published current host').run).toContain('prepare-published-host.mjs 0.2.1-rc.5')
+    for (const name of ['Current packed gallery and computed acceptance', 'Current packed Map browser acceptance']) {
+      const acceptance = current.find((s: { name?: string }) => s.name === name)
+      expect(acceptance.run).toContain('steps.pack.outputs.sha256')
+      expect(acceptance.env.DSH_HOST_VERSION).toBe('0.2.1-rc.5')
+      expect(acceptance['continue-on-error']).not.toBe(true)
+    }
   })
   it('requires successful alpha API and packed browser acceptance before npm publication', async () => {
     const workflow = parse(await readFile('.github/workflows/release.yml', 'utf8'))
     const steps = workflow.jobs.publish.steps
     const publish = steps.findIndex((s: { name?: string }) => s.name === 'Publish to npm')
-    for (const name of ['Check published alpha API', 'Install exact published alpha host', 'Alpha packed gallery and computed acceptance', 'Alpha packed Map browser acceptance']) {
+    for (const name of ['Check published alpha API', 'Install exact published alpha host', 'Alpha packed gallery and computed acceptance', 'Alpha packed Map browser acceptance', 'Check published current API', 'Install exact published current host', 'Current packed gallery and computed acceptance', 'Current packed Map browser acceptance']) {
       const index = steps.findIndex((s: { name?: string }) => s.name === name)
       expect(index).toBeGreaterThanOrEqual(0)
       expect(index).toBeLessThan(publish)
