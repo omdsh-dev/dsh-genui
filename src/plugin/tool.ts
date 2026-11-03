@@ -376,6 +376,13 @@ export function createValidateDshUiTool(): ToolDefinition {
         // FIXED JSON instead of asking it to re-author the fix — re-writing
         // the whole fence by hand is where the next typo comes from.
         const repaired = completeFenceJson(raw)
+        if (repaired?.unconsumedText !== undefined) {
+          return validationProtocol([
+            'status=invalid', 'error=unconsumed_content', ...bracketDiagnostic(raw),
+            'required=close_fence_before_following_content',
+            'preserve_unconsumed_content=true', 'next=fix_and_revalidate',
+          ])
+        }
         if (repaired !== null) {
           const repairedValue = JSON.parse(repaired.text) as unknown
           const processed = processRenderableValue(repairedValue)

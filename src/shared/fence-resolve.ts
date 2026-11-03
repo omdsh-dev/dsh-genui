@@ -16,6 +16,8 @@ export interface FenceResolveOptions {
 
 /** 一次围栏候选正文经过规格守卫后的结果。 */
 export interface FenceResolution {
+  /** Original text that a prefix-only rendering would hide. */
+  readonly unconsumedText?: string
   /** 参与本次规格处理的解析值；没有可解析值时为 null。 */
   readonly value: unknown | null
   /** 规格守卫输出的诊断；没有可解析值时为 null。 */
@@ -51,6 +53,13 @@ function unresolvedFence(): FenceResolution {
  * @returns 通过规格守卫的渲染 spec；正文无法渲染时返回 null。
  */
 export function resolveFence(raw: string, options: FenceResolveOptions): FenceResolution {
+  // Partial parsing is intentionally permissive while streaming. At settle,
+  // a renderable prefix alone is not a complete delivery: the DOM channel
+  // hides the WHOLE code block. Keep it visible if repair would drop its tail.
+  const completed = options.settled ? completeFenceJson(raw) : null
+  if (completed?.unconsumedText !== undefined) {
+    return { ...unresolvedFence(), unconsumedText: completed.unconsumedText }
+  }
   const parsed = parsePartialGenuiSpec(raw)
   let resolution = parsed === null ? unresolvedFence() : resolveParsedFence(parsed)
   if (resolution.spec !== null) return resolution
@@ -62,7 +71,6 @@ export function resolveFence(raw: string, options: FenceResolveOptions): FenceRe
   }
   if (resolution.spec !== null || !options.settled) return resolution
 
-  const completed = completeFenceJson(raw)
   if (completed === null) return resolution
   const reparsed = parsePartialGenuiSpec(completed.text)
   return reparsed === null ? unresolvedFence() : resolveParsedFence(reparsed)
