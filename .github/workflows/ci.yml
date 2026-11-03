@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Superseded PR commits can stop; main and manual runs keep unique groups.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   check:
     strategy:
