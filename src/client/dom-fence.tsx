@@ -210,11 +210,13 @@ const TAG_TEXT_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-genu
 const IGNORED_MUTATION_SCOPE = `${SURFACE_EXCLUDES}, [data-composer-seat], [data-composer-input]`
 /** Host attributes used by discovery, language lookup, and mounted-block repair. */
 const FENCE_ATTRIBUTES = ['data-streaming', 'class', 'style', 'data-code-block-content', 'data-code-block-banner',
-  'data-chat-anchor-key', 'data-chat-flow-key', 'data-chat-flow-kind', 'data-chat-node-key',
+  'data-chat-anchor-key', 'data-chat-flow', 'data-chat-flow-key', 'data-chat-flow-kind', 'data-chat-node-key',
   'data-chat-group-part', 'data-tool', 'data-sidebar-chat', 'data-sidebar-right-session',
   'data-sidebar-right-panel', 'data-panel-conversation', 'data-plugin-panel', 'data-genui-svg-fence', 'data-genui-surface']
 /** Re-check transcript roots so session-view replacement cannot detach the observer. */
 const ROOT_WATCH_MS = 200
+/** Retry a temporarily unavailable ChatSnapshot binding without sweeping mounted fences. */
+const SOURCE_RETRY_MS = 1000
 /** Full mount maintenance is a safety net; DOM and source notifications drive normal work. */
 const FULL_MAINTENANCE_MS = 15_000
 /** Rotate through host rows to catch eligibility changes the observer cannot see. */
@@ -1077,7 +1079,7 @@ export function installDomFenceRenderer(
       invalidateDocumentTopology()
     }
     if (sessionId !== undefined && unsubscribeChat === undefined) {
-      unsubscribeChat = chatSourceOf(ctx, sessionId)?.subscribe(() => {
+      const unsubscribe = chatSourceOf(ctx, sessionId)?.subscribe(() => {
         // The source is a discovery trigger of its own: the transcript can be
         // on screen before its rows exist in the snapshot, and only the source
         // can name an unlabelled surface dsh-ui.
@@ -1085,6 +1087,11 @@ export function installDomFenceRenderer(
         documentOrdinalsDirty = true
         schedule()
       })
+      if (unsubscribe !== undefined) {
+        unsubscribeChat = unsubscribe
+        sourceChanged = true
+        documentOrdinalsDirty = true
+      }
     }
   }
 
@@ -1736,8 +1743,12 @@ export function installDomFenceRenderer(
     })
     : undefined
 
+  let observedRoots: ParentNode[] = []
+
   function handleMutations(records: MutationRecord[]): void {
     if (disposed || records.length === 0) return
+    const documentFallback = observedRoots.length === 1 && observedRoots[0] === document
+    let observerRootsMayHaveChanged = false
     // A container the host emptied is repair work wherever it sits, and the
     // removal is the only record that carries it: mark those first.
     let relevant = false
@@ -1768,6 +1779,24 @@ export function installDomFenceRenderer(
     // plugin commit must not turn an unrelated subtree into maintenance work.
     for (const record of records) {
       const element = record.target instanceof Element ? record.target : record.target.parentElement
+
+      if (record.type === 'attributes'
+        && ((documentFallback && record.attributeName === 'data-chat-flow')
+          || (!documentFallback
+            && observedRoots.includes(record.target as ParentNode)
+            && (record.attributeName === 'data-chat-flow' || record.attributeName === 'data-chat-flow-kind')))) {
+        observerRootsMayHaveChanged = true
+      }
+      if (documentFallback && record.type === 'childList') {
+        for (const node of [...record.addedNodes, ...record.removedNodes]) {
+          if (!(node instanceof Element)) continue
+          if (node.matches(CHAT_FLOW_ROOT)
+            || (node.childElementCount > 0 && node.querySelector(CHAT_FLOW_ROOT) !== null)) {
+            observerRootsMayHaveChanged = true
+            break
+          }
+        }
+      }
 
       // A host can reset the inline hide on an already-mounted code block.
       // Observe only the style attribute in transcript roots and repair only
@@ -1813,11 +1842,13 @@ export function installDomFenceRenderer(
       markOwnedSubtree(record.target)
       markDirty(record.target, true)
     }
-    if (!relevant) return
-    // Pre-paint surgery stays synchronous, but only for affected roots.
-    // Keep their dirty flags for the subsequent React maintenance sweep.
-    repairSurgery(Array.from(dirtyMounts), Array.from(dirtyDiagnostics))
-    schedule()
+    if (relevant) {
+      // Pre-paint surgery stays synchronous, but only for affected roots.
+      // Keep their dirty flags for the subsequent React maintenance sweep.
+      repairSurgery(Array.from(dirtyMounts), Array.from(dirtyDiagnostics))
+      schedule()
+    }
+    if (observerRootsMayHaveChanged) refreshObserverRoots()
   }
 
   const observerOptions: MutationObserverInit = {
@@ -1830,7 +1861,6 @@ export function installDomFenceRenderer(
     characterData: true,
   }
   const observer = new MutationObserver(handleMutations)
-  let observedRoots: ParentNode[] = []
 
   /** Observe outer transcript roots and standalone assistant rows (for side chats). */
   function findObserverRoots(): ParentNode[] {
@@ -1902,9 +1932,18 @@ export function installDomFenceRenderer(
   // Bind the initial roots before the initial full discovery pass.
   refreshObserverRoots(false)
   const rootWatchInterval = window.setInterval(() => {
-    if (document.hidden) return
+    if (document.hidden || (observedRoots.length === 1 && observedRoots[0] === document)) return
     refreshObserverRoots()
   }, ROOT_WATCH_MS)
+  const sourceRetryInterval = typeof ctx.get === 'function'
+    ? window.setInterval(() => {
+      if (document.hidden || unsubscribeChat !== undefined) return
+      const sessionId = activeChatSession ?? lastAvailableSessionId
+      if (sessionId === undefined) return
+      syncChatSubscription(sessionId)
+      if (unsubscribeChat !== undefined) schedule()
+    }, SOURCE_RETRY_MS)
+    : undefined
   const maintenanceInterval = window.setInterval(() => {
     if (document.hidden) return
     sweep(true)
@@ -1941,6 +1980,7 @@ export function installDomFenceRenderer(
     observer.disconnect()
     document.removeEventListener('visibilitychange', onVisibilityChange)
     window.clearInterval(rootWatchInterval)
+    if (sourceRetryInterval !== undefined) window.clearInterval(sourceRetryInterval)
     window.clearInterval(maintenanceInterval)
     window.clearInterval(rotationInterval)
     unsubscribeSessions?.()
