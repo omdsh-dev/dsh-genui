@@ -158,6 +158,89 @@ describe('installDomFenceRenderer', () => {
     } finally { dispose() }
   })
 
+  it('observes the outermost transcript root and ignores unrelated page mutations', async () => {
+    const transcript = document.createElement('div')
+    transcript.setAttribute('data-chat-flow', '')
+    const firstGroup = document.createElement('div')
+    firstGroup.setAttribute('data-chat-flow', '')
+    const secondGroup = document.createElement('div')
+    secondGroup.setAttribute('data-chat-flow', '')
+    const firstRow = assistantRow('outer-root-first')
+    const firstBlock = stockCodeBlock(VALID_SPEC, 'dsh-ui')
+    firstRow.append(firstBlock)
+    firstGroup.append(firstRow)
+    const secondRow = assistantRow('outer-root-second')
+    secondGroup.append(secondRow)
+    transcript.append(firstGroup, secondGroup)
+    const independentTranscript = document.createElement('div')
+    independentTranscript.setAttribute('data-chat-flow', '')
+    const independentRow = assistantRow('independent-transcript-root')
+    independentTranscript.append(independentRow)
+    const unrelated = document.createElement('div')
+    document.body.append(transcript, independentTranscript, unrelated)
+
+    const dispose = installDomFenceRenderer(makeModernCtx('outer-root-session'), () => {})
+    try {
+      expect(await waitFor(() => firstRow.querySelector('.genui-dom-fence')?.textContent?.includes('你好，世界') === true)).toBe(true)
+      await tick(80)
+      const frames = vi.spyOn(window, 'requestAnimationFrame')
+      unrelated.textContent = 'toast updated'
+      await tick(80)
+      expect(frames).not.toHaveBeenCalled()
+
+      const secondBlock = stockCodeBlock(VALID_SPEC, 'dsh-ui')
+      secondRow.append(secondBlock)
+      expect(await waitFor(() => secondRow.querySelector('.genui-dom-fence')?.textContent?.includes('你好，世界') === true)).toBe(true)
+
+      const independentBlock = stockCodeBlock(VALID_SPEC.replace('你好，世界', '独立根节点'), 'dsh-ui')
+      independentRow.append(independentBlock)
+      expect(await waitFor(() => independentRow.querySelector('.genui-dom-fence')?.textContent?.includes('独立根节点') === true)).toBe(true)
+      expect(frames).toHaveBeenCalled()
+    } finally { dispose() }
+  })
+
+  it('rebinds the observer and discovers fences when the transcript root is replaced', async () => {
+    const firstRoot = document.createElement('div')
+    firstRoot.setAttribute('data-chat-flow', '')
+    const firstRow = assistantRow('replaced-root-first')
+    const firstBlock = stockCodeBlock(VALID_SPEC, 'dsh-ui')
+    firstRow.append(firstBlock)
+    firstRoot.append(firstRow)
+    document.body.append(firstRoot)
+
+    const dispose = installDomFenceRenderer(makeModernCtx('replaced-root-session'), () => {})
+    try {
+      expect(await waitFor(() => firstRow.querySelector('.genui-dom-fence')?.textContent?.includes('你好，世界') === true)).toBe(true)
+
+      const nextRoot = document.createElement('div')
+      nextRoot.setAttribute('data-chat-flow', '')
+      const nextRow = assistantRow('replaced-root-second')
+      const nextBlock = stockCodeBlock(VALID_SPEC.replace('你好，世界', '新会话围栏'), 'dsh-ui')
+      nextRow.append(nextBlock)
+      nextRoot.append(nextRow)
+      firstRoot.replaceWith(nextRoot)
+
+      expect(await waitFor(() => nextRow.querySelector('.genui-dom-fence')?.textContent?.includes('新会话围栏') === true)).toBe(true)
+      expect(await waitFor(() => firstBlock.style.display === '' && !firstBlock.hasAttribute('data-genui-rendered'))).toBe(true)
+    } finally { dispose() }
+  })
+
+  it('discovers standalone sidebar assistant rows while a main transcript root exists', async () => {
+    const transcript = document.createElement('div')
+    transcript.setAttribute('data-chat-flow', '')
+    const sidebar = document.createElement('div')
+    sidebar.setAttribute('data-sidebar-chat', '')
+    document.body.append(transcript, sidebar)
+
+    const dispose = installDomFenceRenderer(makeModernCtx('sidebar-root-session'), () => {})
+    try {
+      const row = assistantRow('sidebar-outside-transcript')
+      row.append(stockCodeBlock(VALID_SPEC, 'dsh-ui'))
+      sidebar.append(row)
+      expect(await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('你好，世界') === true)).toBe(true)
+    } finally { dispose() }
+  })
+
   it.each(['characterData', 'childList'] as const)('does not revisit mounted fences for composer-only %s changes, but handles mixed batches', async (mutation) => {
     const row = assistantRow('composer-isolation')
     const block = stockCodeBlock(VALID_SPEC, 'dsh-ui')
