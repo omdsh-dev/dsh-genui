@@ -162,7 +162,14 @@ function quoteCanClose(raw: string, index: number, key: boolean, scopes: JsonSco
   const skipSpace = (): void => { while (cursor < limit && isJsonSpace(raw[cursor])) cursor++ }
   skipSpace()
   if (cursor >= limit) return true
-  if (key) return jsonStructureAt(raw, cursor) === ':'
+  if (key) {
+    const next = jsonStructureAt(raw, cursor)
+    const scope = scopes[scopes.length - 1]
+    // A malformed member name may end at its object's closer even without a
+    // colon. Keep that syntax error visible instead of absorbing later nodes
+    // into the key and manufacturing a valid but semantically corrupted JSON.
+    return next === ':' || (scope?.closer === '}' && next === '}')
+  }
   let scopeIndex = scopes.length - 1
   if (jsonStructureAt(raw, cursor) === ':') return false
   while (raw[cursor] === '}' || raw[cursor] === ']') {
