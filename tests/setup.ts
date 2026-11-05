@@ -17,6 +17,50 @@ if (typeof globalThis.requestAnimationFrame !== 'function') {
   globalThis.cancelAnimationFrame = (id: number) => clearTimeout(id)
 }
 
+// Node 26 ships an experimental `localStorage` global that stays undefined
+// unless `--localstorage-file` is passed, and its presence shadows jsdom 25's
+// Storage: `window.localStorage` is undefined too. The suite persists durable
+// block state through localStorage, so provide a spec-compatible in-memory
+// Storage when the environment does not supply one.
+if (typeof globalThis.localStorage === 'undefined') {
+  const data = new Map<string, string>()
+  const storage = new Proxy({} as Storage, {
+    get(_target, prop) {
+      if (prop === 'length') return data.size
+      if (prop === 'clear') return (): void => { data.clear() }
+      if (prop === 'getItem') return (key: string): string | null => data.get(key) ?? null
+      if (prop === 'key') return (index: number): string | null => [...data.keys()][index] ?? null
+      if (prop === 'removeItem') return (key: string): void => { data.delete(key) }
+      if (prop === 'setItem') return (key: string, value: string): void => { data.set(key, String(value)) }
+      return typeof prop === 'string' ? data.get(prop) : undefined
+    },
+    set(_target, prop, value) {
+      if (typeof prop === 'string') data.set(prop, String(value))
+      return true
+    },
+    has(_target, prop) {
+      return typeof prop === 'string' && data.has(prop)
+    },
+    deleteProperty(_target, prop) {
+      if (typeof prop === 'string') data.delete(prop)
+      return true
+    },
+    ownKeys() {
+      return [...data.keys()]
+    },
+    getOwnPropertyDescriptor(_target, prop) {
+      if (typeof prop === 'string' && data.has(prop)) {
+        return { value: data.get(prop), enumerable: true, configurable: true, writable: true }
+      }
+      return undefined
+    },
+  })
+  Object.defineProperty(globalThis, 'localStorage', { value: storage, configurable: true })
+  if (typeof window !== 'undefined') {
+    Object.defineProperty(window, 'localStorage', { value: storage, configurable: true })
+  }
+}
+
 // jsdom lacks PointerEvent: the panel resize drag and pointer interactions
 // in general rely on it. A MouseEvent subclass carries pointerId/pointerType
 // so fireEvent.pointerDown/pointerMove/pointerUp behave like the browser.
