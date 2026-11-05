@@ -221,6 +221,14 @@ const SWEEP_MS = 1000
  * a once-deferred scan also runs to completion to avoid starvation. This is
  * not a hard frame-time cap. Remaining candidates wait for the next sweep. */
 const SWEEP_BUDGET_MS = 8
+/** 批量接管预算（ms）：待接管队列里堆着多条围栏，说明正处在会话切换/历史
+ * 加载这种「一次出现几十条」的场景。此时每轮仍只给 8ms 会让接管被帧率拖住
+ * （每个围栏的 React 挂载本身就要几十毫秒，一帧只够一条，而浏览器还要排队
+ * 绘制），30 条围栏实测要近 5 秒。这种情况下把预算放宽到 40ms，让一帧多推进
+ * 几条——用户此时本来就在等页面加载，短暂的主线程占用远好过几秒的空白。 */
+const BULK_SWEEP_BUDGET_MS = 40
+/** 队列超过这个长度就按批量场景处理。1-2 条是流式写的常态，不该放宽预算。 */
+const BULK_TAKEOVER_THRESHOLD = 4
 /** Rows re-checked by {@link rotationSweep}, and how many slow ticks apart
  * those passes run. The observer sees structure, text, and `data-streaming`,
  * so the belt-and-braces pass only has to cover changes it cannot see — in
@@ -432,12 +440,15 @@ function labelTextOf(block: Element): string {
  * @param raw - 未修改的围栏正文。
  * @returns 正文能按原有 GenUI 规范直接识别时返回 true。
  */
-function isGenericGenuiFence(block: Element, raw: string): boolean {
-  const row = block.closest<HTMLElement>(ASSISTANT_FLOW_ROW)
-  if (row === null || row.dataset.chatGroupPart === 'reasoning') return false
-  // domLanguageOf 已反转（#258）：banner 是已知真实语言 ⇒ 不是通用块；空标签或
-  // 本地化通用词 ⇒ null，进入内容校验。这里不再要求标题命中任何白名单。
-  if (domLanguageOf(block) !== null || !block.querySelector('[data-code-block-banner]')) return false
+/** 正文解析缓存：同一段围栏正文会在每一轮扫描里被反复解析校验（发现、序号
+ * 计算、接管各一次），一个 30 条围栏的会话每帧要做几十次 JSON.parse + 规范
+ * 校验 + 两次 JSON.stringify，切会话时接管时间因此随围栏数非线性恶化。
+ * 按正文文本缓存「这段正文是不是合规 GenUI 规范」，命中即跳过解析。
+ * 上限 500 条并整表清空：正文有界，会话长度无界。 */
+const genericFenceBodyCache = new Map<string, boolean>()
+
+/** 解析一段围栏正文是否符合 GenUI 规范。与前缀匹配无关，纯文本判定。 */
+function parseGenericFenceBody(raw: string): boolean {
   const repaired = repairFenceJson(raw)
   const candidate = repaired === null ? raw : repaired.text
   let value: unknown
@@ -456,6 +467,24 @@ function isGenericGenuiFence(block: Element, raw: string): boolean {
   }
   if (!validateCanonicalGenuiSpec(value).ok || diagnoseUnknownGenuiFields(value).length > 0) return false
   return JSON.stringify(normalizeGenuiSpec(value).value) === JSON.stringify(value)
+}
+
+function isGenericGenuiBody(raw: string): boolean {
+  const cached = genericFenceBodyCache.get(raw)
+  if (cached !== undefined) return cached
+  const result = parseGenericFenceBody(raw)
+  if (genericFenceBodyCache.size >= 500) genericFenceBodyCache.clear()
+  genericFenceBodyCache.set(raw, result)
+  return result
+}
+
+function isGenericGenuiFence(block: Element, raw: string): boolean {
+  const row = block.closest<HTMLElement>(ASSISTANT_FLOW_ROW)
+  if (row === null || row.dataset.chatGroupPart === 'reasoning') return false
+  // domLanguageOf 已反转（#258）：banner 是已知真实语言 ⇒ 不是通用块；空标签或
+  // 本地化通用词 ⇒ null，进入内容校验。这里不再要求标题命中任何白名单。
+  if (domLanguageOf(block) !== null || !block.querySelector('[data-code-block-banner]')) return false
+  return isGenericGenuiBody(raw)
 }
 
 /** 读取宿主代码块或纯文本标签中的围栏正文。 */
@@ -1342,6 +1371,12 @@ export function installDomFenceRenderer(
       }
     }
     if (!structural) return
+    // 廉价预筛：整棵子树里既没有 <pre>、也没有 tag-text 形态的 <dsh-ui> 时，
+    // 它不可能含有围栏。会话切换时宿主把整篇 transcript 的每个消息行都标成
+    // dirty，其中绝大多数是纯文本与工具卡片——对它们逐个跑 findFenceCandidates
+    // 是纯浪费，也是批量接管慢的主要来源。下级节点后插入 pre 时会再次触发
+    // mutation，所以这里跳过不会漏掉围栏。
+    if (element.querySelector('pre') === null && !(element.textContent ?? '').includes('<dsh-ui>')) return
     // A changed node can carry a fence the node itself is not inside yet: a row
     // or a wrapper that arrived whole. `includeScope` makes the scan cover the
     // node and its descendants, so no shape depends on the rotation pass.
@@ -1712,7 +1747,8 @@ export function installDomFenceRenderer(
       sourceChanged = false
       requeueAwaitingSource()
     }
-    const deadline = performance.now() + SWEEP_BUDGET_MS
+    const budget = pendingCandidates.size > BULK_TAKEOVER_THRESHOLD ? BULK_SWEEP_BUDGET_MS : SWEEP_BUDGET_MS
+    const deadline = performance.now() + budget
     resolveDirtyTargets(deadline)
     drainCandidates(deadline)
     keepDraining()
