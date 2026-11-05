@@ -23,6 +23,14 @@
  * @module @changfenhuang/dsh-genui/shared/fence-repair
  */
 
+/** A repaired JSON value plus any original source it could not consume. */
+export interface FenceJsonRepair {
+  text: string
+  repairs: number
+  /** Original content outside the adopted JSON root. Never silently discard it. */
+  unconsumedText?: string
+}
+
 /** A fence body counts as complete when it parses as a whole JSON value. */
 export function isCompleteJson(raw: string): boolean {
   try {
@@ -364,11 +372,11 @@ function originalJsonPrefix(raw: string): string | null {
  * iterative scan, not a recursive parser; no engine-specific error offset is
  * needed. Fixed attempts/lookahead give O(n) time and O(n) working storage.
  */
-function scanFenceJson(raw: string, complete: boolean): { text: string; repairs: number } | null {
+function scanFenceJson(raw: string, complete: boolean): FenceJsonRepair | null {
   // A genuine original root is authoritative. Never reinterpret its closing
   // quote to absorb a second object or prose, even during speculative repair.
   const original = originalJsonPrefix(raw)
-  if (original !== null) return complete ? { text: original, repairs: 1 } : null
+  if (original !== null) return complete ? repairedPrefix(original, 1, raw.slice(original.length)) : null
   const pending: number[][] = [[]]
   let prefix: { text: string; repairs: number; rawEnd: number } | null = null
   for (let attempt = 0; attempt < MAX_QUOTE_ATTEMPTS && pending.length > 0; attempt++) {
@@ -403,8 +411,12 @@ function scanFenceJson(raw: string, complete: boolean): { text: string; repairs:
   }
   // Balanced-prefix adoption remains strictly tier-2 / settled-only, and only
   // after whole-body repair attempts have failed.
-  if (prefix !== null) return { text: prefix.text, repairs: prefix.repairs }
+  if (prefix !== null) return repairedPrefix(prefix.text, prefix.repairs, raw.slice(prefix.rawEnd))
   return null
+}
+
+function repairedPrefix(text: string, repairs: number, remainder: string): FenceJsonRepair {
+  return remainder.trim() === '' ? { text, repairs } : { text, repairs, unconsumedText: remainder }
 }
 
 /**
@@ -699,7 +711,7 @@ function rewriteTetrisTableColumns(raw: string): { text: string; repairs: number
  * failed, and re-scanning the raw text could not compose the repairs.
  * Adopted only when the completed body parses as whole JSON.
  */
-export function completeFenceJson(raw: string): { text: string; repairs: number } | null {
+export function completeFenceJson(raw: string): FenceJsonRepair | null {
   try {
     JSON.parse(raw)
     return null
@@ -720,7 +732,11 @@ export function completeFenceJson(raw: string): { text: string; repairs: number 
     }
     const scanned = completeFenceJson(shaped.text)
     if (scanned === null) return null
-    return { text: scanned.text, repairs: scanned.repairs + shaped.repairs }
+    // Shape repair may change offsets. Keep an exact original suffix when
+    // possible; otherwise retain the whole original input for a safe fallback.
+    const remainder = scanned.unconsumedText
+    return repairedPrefix(scanned.text, scanned.repairs + shaped.repairs,
+      remainder === undefined ? '' : raw.endsWith(remainder) ? remainder : raw)
   }
   return scanFenceJson(raw, true)
 }
