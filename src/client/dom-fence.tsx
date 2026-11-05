@@ -1831,10 +1831,10 @@ export function installDomFenceRenderer(
     characterData: true,
   }
   const observer = new MutationObserver(handleMutations)
-  let observedRoots: Node[] = []
+  let observedRoots: ParentNode[] = []
 
   /** Observe outer transcript roots and standalone assistant rows (for side chats). */
-  function findObserverRoots(): Node[] {
+  function findObserverRoots(): ParentNode[] {
     const candidates = Array.from(document.querySelectorAll<HTMLElement>(`${CHAT_FLOW_ROOT}, ${ASSISTANT_FLOW_ROW}`))
     const flowRoots = candidates.filter(candidate => {
       if (!candidate.matches(CHAT_FLOW_ROOT) || candidate.closest(IGNORED_MUTATION_SCOPE) !== null) return false
@@ -1846,7 +1846,7 @@ export function installDomFenceRenderer(
     // Preserve bare projections and older hosts that do not expose a transcript root.
     if (flowRoots.length === 0) return [document]
 
-    const roots: Node[] = [...flowRoots]
+    const roots: ParentNode[] = [...flowRoots]
     for (const candidate of candidates) {
       if (!candidate.matches(ASSISTANT_FLOW_ROW)) continue
       if (candidate.closest(CHAT_FLOW_ROOT) !== null) continue
@@ -1857,7 +1857,7 @@ export function installDomFenceRenderer(
     return roots
   }
 
-  function sameObserverRoots(left: readonly Node[], right: readonly Node[]): boolean {
+  function sameObserverRoots(left: readonly ParentNode[], right: readonly ParentNode[]): boolean {
     return left.length === right.length && left.every(root => right.includes(root))
   }
 
