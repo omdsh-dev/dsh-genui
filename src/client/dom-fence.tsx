@@ -224,11 +224,10 @@ const ROTATION_MS = 5_000
  * a once-deferred scan also runs to completion to avoid starvation. This is
  * not a hard frame-time cap. Remaining candidates wait for the next sweep. */
 const SWEEP_BUDGET_MS = 8
-/** Rows re-checked by {@link rotationSweep}, and how many slow ticks apart
- * those passes run. The observer sees structure, text, and `data-streaming`,
- * so the belt-and-braces pass only has to cover changes it cannot see — in
- * slices, and rarely: it re-queries every row in the document, which on a
- * large transcript costs more than the work it guards. */
+/** Rows re-checked by {@link rotationSweep} on each five-second pass.
+ * The observer sees structure, text, and `data-streaming`, so the backstop
+ * only covers changes it cannot see — in slices, rather than scanning every
+ * row in the document on each maintenance pass. */
 const ROTATION_ROWS = 24
 /** Upper bound on nodes awaiting discovery. A larger set means a re-render
  * storm; the rotation pass picks those blocks up on its own schedule. */
