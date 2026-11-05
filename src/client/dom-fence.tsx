@@ -1725,7 +1725,7 @@ export function installDomFenceRenderer(
     if (disposed || document.hidden || rafId !== null) return
     rafId = requestAnimationFrame(() => {
       rafId = null
-      if (disposed) return
+      if (disposed || document.hidden) return
       sweep()
     })
   }
