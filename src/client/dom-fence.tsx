@@ -69,7 +69,7 @@ import { resolveViewedSessionId } from './session-resolver.ts'
 import { validateCanonicalGenuiSpec } from './guard.ts'
 import { diagnoseUnknownGenuiFields } from './genui-runtime/diagnostics.ts'
 import { normalizeGenuiSpec } from './genui-runtime/normalize.ts'
-import { sourceFencesOfAssistant, sourceLanguageAt } from './source-fence.ts'
+import { sourceFencesOfAssistant, sourceLanguageAt, type SourceFence } from './source-fence.ts'
 import { normalizeFenceLanguage } from '../shared/fence-language.ts'
 
 /** 优先用宿主代码块内容的语义标记定位包装节点；隐藏语言或改变类名不能阻断
@@ -718,6 +718,42 @@ export function sourceLanguageOf(ctx: Context, block: Element): string | null | 
   return sourceLanguageAt(chat, nodeKey, index)
 }
 
+/** 两段围栏正文是否指向同一段围栏：流式期间 DOM 与快照的正文长度不同，
+ * 但只要一方是另一方的前缀，就还是同一段。 */
+function sameFenceBody(value: string, raw: string): boolean {
+  const left = value.trim()
+  const right = raw.trim()
+  if (left === '' || right === '') return false
+  if (left === right) return true
+  return left.length < right.length ? right.startsWith(left) : left.startsWith(right)
+}
+
+/**
+ * 按正文匹配快照围栏，序号只作兜底。
+ *
+ * 宿主会隐去它不认识的语言（`dsh-ui` 在 DOM 里是本地化通用标题「代码块」），
+ * 所以流式期间语言只能来自快照；而 DOM 序号与快照围栏序号在「快照滞后」
+ * 「两侧枚举规则不同」「一条消息被拆成多个 text block」时会错位，取到错的
+ * 语言或 undefined——表现为围栏停在代码块上，直到回复结束才靠内容识别兜底
+ * 接管。正文匹配不受序号影响。
+ *
+ * @param fences - 该 assistant 消息在快照中的围栏，按文档顺序。
+ * @param raw - DOM 代码块正文。
+ * @param index - 宿主代码块在该行内的序号，正文匹配失败时回退使用。
+ * @returns 命中的围栏；正文与序号都无对应时返回 undefined。
+ */
+function resolveFenceByBody(fences: readonly SourceFence[], raw: string, index: number): SourceFence | undefined {
+  const byIndex = index >= 0 ? fences[index] : undefined
+  if (byIndex !== undefined && sameFenceBody(byIndex.value, raw)) return byIndex
+  let best: { fence: SourceFence; length: number } | undefined
+  for (const fence of fences) {
+    if (!sameFenceBody(fence.value, raw)) continue
+    const length = Math.min(fence.value.trim().length, raw.trim().length)
+    if (best === undefined || length > best.length) best = { fence, length }
+  }
+  return best?.fence ?? byIndex
+}
+
 /** Cache each row's Markdown parse for one sweep and retain confirmed opening-line languages per host block. */
 function createSourceLanguageResolver(ctx: Context): {
   beginSweep: () => void
@@ -776,9 +812,7 @@ function createSourceLanguageResolver(ctx: Context): {
         fences = sourceFencesOfAssistant(assistantNode.data.blocks)
         parsedNodes.set(nodeKey, fences)
       }
-      const index = hostFenceIndexOf(row, block)
-      if (index < 0) return undefined
-      const fence = fences[index]
+      const fence = resolveFenceByBody(fences, rawOf(block), hostFenceIndexOf(row, block))
       const language = fence?.lang
       if (fence !== undefined && fence.openingLineComplete) {
         stableLanguages.set(block, { sessionId: activeSessionId, nodeKey, language: fence.lang })
@@ -1041,6 +1075,11 @@ export function installDomFenceRenderer(
   const deferredScans = new WeakSet<Node>()
   /** Rows already consumed from the transcript tail by the rotation pass. */
   let rotationNext = 0
+  /** dirtyTargets 溢出后置位：下一轮 sweep 直接全量重扫一次。
+   * 会话切换时宿主一次渲染整篇 transcript，512 条上限瞬间打满，之后的节点
+   * 进不了队列，只能等 rotationSweep 的「每 5 秒扫 24 行」——实测 7 条围栏
+   * 要 35 秒才全部出现。全量发现是一次线性查询，几十毫秒即可覆盖全篇。 */
+  let overflowRescan = false
 
   /** Apply both plugin contexts to every actual GenUI root render. */
   function wrapFenceNode(node: ReactNode, context: GenuiFenceContext, handler: GenuiActionHandler, streaming: boolean): ReactNode {
@@ -1439,7 +1478,10 @@ export function installDomFenceRenderer(
     if (element.closest(IGNORED_MUTATION_SCOPE) !== null) return
     const known = dirtyTargets.get(node)
     if (known === undefined) {
-      if (dirtyTargets.size >= DIRTY_TARGET_LIMIT) return
+      if (dirtyTargets.size >= DIRTY_TARGET_LIMIT) {
+        overflowRescan = true
+        return
+      }
       dirtyTargets.set(node, structural)
       return
     }
@@ -1617,14 +1659,17 @@ export function installDomFenceRenderer(
         const { key, context } = contextOf(anchor, block, settled, true)
         const node = mount.language === 'svg' ? renderSvgFence(raw, key) : renderResolvedFenceNode(raw, key, context)
         if (node === null) {
-          if (mount.skeleton && !settled) {
-            // Still streaming and still incomplete: keep the skeleton mounted
-            // (no React re-render needed) and wait for the next chunk.
+          if (!settled) {
+            // 流式期间正文暂时解析不出完整组件：保留当前已渲染的内容
+            // （骨架屏或上一次的完整状态），不把代码块放回来。此前只在骨架屏
+            // 时保留，一旦首次挂载已出过组件，之后每跨一个组件边界都会
+            // unmountBlock → 代码块重新可见 → 再挂回去，观感就是「围栏停在
+            // 代码块上很久才变成界面」。
             mount.lastRaw = raw
             mount.lastSettled = settled
             continue
           }
-          // Settled, or no longer spec-shaped: restore the raw code block.
+          // Settled and unrepairable: restore the raw code block.
           unmountBlock(block)
           continue
         }
@@ -1711,6 +1756,13 @@ export function installDomFenceRenderer(
     if (sourceChanged) {
       sourceChanged = false
       requeueAwaitingSource()
+    }
+    // 溢出补扫：单次全量查询不计入 SWEEP_BUDGET_MS（那里限的是发现/接管的
+    // 推进节奏），与初始扫描同口径。
+    if (overflowRescan) {
+      overflowRescan = false
+      const discovered = findFenceCandidates()
+      for (let index = discovered.length - 1; index >= 0; index -= 1) enqueueCandidate(discovered[index])
     }
     const deadline = performance.now() + SWEEP_BUDGET_MS
     resolveDirtyTargets(deadline)
