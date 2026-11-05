@@ -918,6 +918,7 @@ export function installDomFenceRenderer(
   let rafId: number | null = null
   let activeChatSession: SessionId | undefined
   let unsubscribeChat: (() => void) | undefined
+  let sourceRetryTimer: number | null = null
   const sourceLanguages = createSourceLanguageResolver(ctx)
   // The fallback identity uses document order. Keep topology separate from
   // eligibility: a source update can change a language without adding DOM,
@@ -1061,6 +1062,22 @@ export function installDomFenceRenderer(
   const sessionIdOf = (): SessionId | undefined => sessionIdOfForSource(ctx)
   let lastAvailableSessionId = sessionIdOf()
 
+  /** Retry a missing ChatSnapshot binding only while that session still needs one. */
+  function scheduleSourceRetry(): void {
+    if (disposed || document.hidden || typeof ctx.get !== 'function'
+      || unsubscribeChat !== undefined || sourceRetryTimer !== null) return
+    if (activeChatSession === undefined && lastAvailableSessionId === undefined) return
+    sourceRetryTimer = window.setTimeout(() => {
+      sourceRetryTimer = null
+      if (disposed || document.hidden || unsubscribeChat !== undefined) return
+      const sessionId = activeChatSession ?? lastAvailableSessionId
+      if (sessionId === undefined) return
+      syncChatSubscription(sessionId)
+      if (unsubscribeChat !== undefined) schedule()
+      else scheduleSourceRetry()
+    }, SOURCE_RETRY_MS)
+  }
+
   /** Keep a mounted fence's React identity stable while Cordis temporarily denies session access. */
   function sessionIdForRender(preserveWhenUnavailable: boolean): SessionId | undefined {
     const sourceSession = sourceSessionOf(ctx)
@@ -1074,6 +1091,10 @@ export function installDomFenceRenderer(
     if (sessionId !== activeChatSession) {
       unsubscribeChat?.()
       unsubscribeChat = undefined
+      if (sourceRetryTimer !== null) {
+        window.clearTimeout(sourceRetryTimer)
+        sourceRetryTimer = null
+      }
       activeChatSession = sessionId
       fullMaintenance = true
       invalidateDocumentTopology()
@@ -1091,6 +1112,12 @@ export function installDomFenceRenderer(
         unsubscribeChat = unsubscribe
         sourceChanged = true
         documentOrdinalsDirty = true
+        if (sourceRetryTimer !== null) {
+          window.clearTimeout(sourceRetryTimer)
+          sourceRetryTimer = null
+        }
+      } else {
+        scheduleSourceRetry()
       }
     }
   }
@@ -1935,15 +1962,6 @@ export function installDomFenceRenderer(
     if (document.hidden || (observedRoots.length === 1 && observedRoots[0] === document)) return
     refreshObserverRoots()
   }, ROOT_WATCH_MS)
-  const sourceRetryInterval = typeof ctx.get === 'function'
-    ? window.setInterval(() => {
-      if (document.hidden || unsubscribeChat !== undefined) return
-      const sessionId = activeChatSession ?? lastAvailableSessionId
-      if (sessionId === undefined) return
-      syncChatSubscription(sessionId)
-      if (unsubscribeChat !== undefined) schedule()
-    }, SOURCE_RETRY_MS)
-    : undefined
   const maintenanceInterval = window.setInterval(() => {
     if (document.hidden) return
     sweep(true)
@@ -1961,6 +1979,7 @@ export function installDomFenceRenderer(
     fullMaintenance = true
     invalidateDocumentTopology()
     schedule()
+    if (unsubscribeChat === undefined) scheduleSourceRetry()
   }
   document.addEventListener('visibilitychange', onVisibilityChange)
 
@@ -1980,7 +1999,7 @@ export function installDomFenceRenderer(
     observer.disconnect()
     document.removeEventListener('visibilitychange', onVisibilityChange)
     window.clearInterval(rootWatchInterval)
-    if (sourceRetryInterval !== undefined) window.clearInterval(sourceRetryInterval)
+    if (sourceRetryTimer !== null) window.clearTimeout(sourceRetryTimer)
     window.clearInterval(maintenanceInterval)
     window.clearInterval(rotationInterval)
     unsubscribeSessions?.()
