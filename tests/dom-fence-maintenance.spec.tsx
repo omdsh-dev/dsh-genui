@@ -223,14 +223,15 @@ it('maintains a removed-only body change, language changes, and streaming settle
   } finally { dispose() }
 })
 
-it('repairs a host style reset immediately through the observer', async () => {
+it('repairs a host style reset immediately without revisiting unrelated mounts', async () => {
   const f = fixture(1)
-  document.body.append(f.row)
+  const untouched = fixture(2)
+  document.body.append(f.row, untouched.row)
   const dispose = installDomFenceRenderer(context(), () => {})
   try {
-    await until(() => replacement(f)?.childElementCount ? true : false)
+    await until(() => replacement(f)?.childElementCount && replacement(untouched)?.childElementCount ? true : false)
     await tick(80)
-    const reads = vi.spyOn(f.block, 'querySelectorAll')
+    const reads = vi.spyOn(untouched.block, 'querySelectorAll')
     f.block.style.display = ''
     await until(() => f.block.style.display === 'none')
     expect(reads).not.toHaveBeenCalled()
