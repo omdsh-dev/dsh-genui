@@ -208,7 +208,7 @@ const TAG_TEXT_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-genu
  * of work per key.
  */
 const IGNORED_MUTATION_SCOPE = `${SURFACE_EXCLUDES}, [data-composer-seat], [data-composer-input]`
-/** Host attributes used by discovery, language lookup and fallback row order. */
+/** Host attributes used by discovery, language lookup, and mounted-block repair. */
 const FENCE_ATTRIBUTES = ['data-streaming', 'class', 'style', 'data-code-block-content', 'data-code-block-banner',
   'data-chat-anchor-key', 'data-chat-flow-key', 'data-chat-flow-kind', 'data-chat-node-key',
   'data-chat-group-part', 'data-tool', 'data-sidebar-chat', 'data-sidebar-right-session',
@@ -230,7 +230,6 @@ const SWEEP_BUDGET_MS = 8
  * slices, and rarely: it re-queries every row in the document, which on a
  * large transcript costs more than the work it guards. */
 const ROTATION_ROWS = 24
-const ROTATION_TICKS = 5
 /** Upper bound on nodes awaiting discovery. A larger set means a re-render
  * storm; the rotation pass picks those blocks up on its own schedule. */
 const DIRTY_TARGET_LIMIT = 512
@@ -1456,10 +1455,10 @@ export function installDomFenceRenderer(
    * Belt-and-braces pass for what the observer cannot see: it watches
    * structure, text, and `data-streaming`, so a host that re-classes an
    * existing block into a code surface fires nothing at all. Rows are
-   * re-checked in slices on the slow tick, so the transcript is covered over a
-   * rotation instead of by one full-document scan per sweep. A host without
-   * rows (a bare span in a projection) has nothing stable to rotate over and
-   * stays covered by the mutation path alone.
+   * re-checked in slices on the five-second rotation interval, so the
+   * transcript is covered over a rotation instead of by one full-document
+   * scan per maintenance pass. A host without rows (a bare span in a
+   * projection) stays covered by the mutation path and full maintenance.
    */
   function rotationSweep(deadline: number): void {
     const rows = document.querySelectorAll<HTMLElement>(FLOW_ROW)
@@ -1723,7 +1722,7 @@ export function installDomFenceRenderer(
   }
 
   const schedule = (): void => {
-    if (disposed || rafId !== null) return
+    if (disposed || document.hidden || rafId !== null) return
     rafId = requestAnimationFrame(() => {
       rafId = null
       if (disposed) return
@@ -1898,7 +1897,7 @@ export function installDomFenceRenderer(
         }
       }
     }
-    if (addedRoots.length > 0 || removedRoots.length > 0) schedule()
+    if (scanAdded && (addedRoots.length > 0 || removedRoots.length > 0)) schedule()
   }
 
   // Bind the initial roots before the initial full discovery pass.
