@@ -172,8 +172,12 @@ describe('installDomFenceRenderer', () => {
     const secondRow = assistantRow('outer-root-second')
     secondGroup.append(secondRow)
     transcript.append(firstGroup, secondGroup)
+    const independentTranscript = document.createElement('div')
+    independentTranscript.setAttribute('data-chat-flow', '')
+    const independentRow = assistantRow('independent-transcript-root')
+    independentTranscript.append(independentRow)
     const unrelated = document.createElement('div')
-    document.body.append(transcript, unrelated)
+    document.body.append(transcript, independentTranscript, unrelated)
 
     const dispose = installDomFenceRenderer(makeModernCtx('outer-root-session'), () => {})
     try {
@@ -187,6 +191,10 @@ describe('installDomFenceRenderer', () => {
       const secondBlock = stockCodeBlock(VALID_SPEC, 'dsh-ui')
       secondRow.append(secondBlock)
       expect(await waitFor(() => secondRow.querySelector('.genui-dom-fence')?.textContent?.includes('你好，世界') === true)).toBe(true)
+
+      const independentBlock = stockCodeBlock(VALID_SPEC.replace('你好，世界', '独立根节点'), 'dsh-ui')
+      independentRow.append(independentBlock)
+      expect(await waitFor(() => independentRow.querySelector('.genui-dom-fence')?.textContent?.includes('独立根节点') === true)).toBe(true)
       expect(frames).toHaveBeenCalled()
     } finally { dispose() }
   })
