@@ -2359,14 +2359,24 @@ function validateChartNode(v: Record<string, unknown>, at: string, errors: strin
 }
 
 /** Validate table rows before repair can silently remove malformed cells. */
-function validateTableRows(value: unknown, at: string, errors: string[]): void {
+function validateTableRows(value: unknown, columns: unknown, at: string, errors: string[]): void {
   if (!Array.isArray(value)) return
+  // A row shorter than the header drops its trailing cells during repair, so
+  // every later cell shifts into the wrong column and the reader sees a table
+  // ranked by the wrong field. Only a declared header can be shifted under,
+  // which is why the check keys on it: a headerless body derives neutral
+  // column names (列1/列2/…), so a short row there reads as incomplete rather
+  // than as values filed under someone else's heading.
+  const expected = Array.isArray(columns) && columns.length > 0 ? columns.length : undefined
   for (let rowIndex = 0; rowIndex < value.length; rowIndex++) {
     const row = value[rowIndex]
     if (obj(row) !== undefined) continue
     if (!Array.isArray(row)) {
       errors.push(`${at}[${rowIndex}] must be an array or object`)
       continue
+    }
+    if (expected !== undefined && row.length !== expected) {
+      errors.push(`${at}[${rowIndex}] has ${row.length} cells but the table has ${expected} columns; every row must have exactly ${expected} cells`)
     }
     for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
       const cell = row[cellIndex]
@@ -2608,7 +2618,7 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
           walk(detail, depth + 1, `${at}.details[${i}]`)
         }
       }
-      validateTableRows(v.rows, `${at}.rows`, errors)
+      validateTableRows(v.rows, v.columns, `${at}.rows`, errors)
       break
     case 'chart':
       validateChartNode(v, at, errors)

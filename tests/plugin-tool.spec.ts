@@ -556,6 +556,25 @@ describe('validate_dsh_ui tool', () => {
     expect(value).not.toContain('next=emit_repaired_fence')
   })
 
+  it('reports a seven-column table row that carries six cells as a repairable error', async () => {
+    const value = String(await vtool.execute({
+      spec: {
+        items: [{
+          type: 'table',
+          columns: ['排名', '收费站', '所属路段', '通行费收入', '占总额', '车流量', '单次均费'],
+          rows: [['1', '南宁东', '南宁至隆安', '28,556.1', '11.97%', '475.4']],
+        }],
+      },
+    }))
+    expect(value).toContain('status=invalid')
+    expect(value).toContain('error=invalid_table_rows')
+    expect(value).toContain('items[0].rows[0] has 6 cells but the table has 7 columns')
+    expect(value).toContain('fix=')
+    expect(value).toContain('next=fix_and_revalidate')
+    // The model gets a repair instruction, not an aborted turn.
+    expect(value).not.toContain('next=emit_repaired_fence')
+  })
+
   it('allows unknown chart extension fields but native repair ignores them', async () => {
     const raw = {
       items: [{

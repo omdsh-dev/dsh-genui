@@ -18,6 +18,35 @@ describe('GenUI runtime schema normalization', () => {
     expect(repairGenuiSpec({ items: [{ type: 'grid', items: [] }] })?.items[0]).toEqual({ type: 'grid', cols: 1, items: [] })
   })
 
+  it('rejects a table row whose cell count differs from the declared columns', () => {
+    // The demo case: seven headers, six cells per row. Repair drops nothing,
+    // so every later cell would render one column to the left.
+    const sixOfSeven = {
+      items: [{
+        type: 'table',
+        columns: ['排名', '收费站', '所属路段', '通行费收入', '占总额', '车流量', '单次均费'],
+        rows: [['1', '南宁东', '南宁至隆安', '28,556.1', '11.97%', '475.4']],
+      }],
+    }
+    expect(validateGenuiSpec(sixOfSeven).errors)
+      .toContain('items[0].rows[0] has 6 cells but the table has 7 columns; every row must have exactly 7 cells')
+    expect(processGenuiSpec(sixOfSeven).errors)
+      .toContain('items[0].rows[0] has 6 cells but the table has 7 columns; every row must have exactly 7 cells')
+
+    // A longer row is the same defect from the other side.
+    expect(validateGenuiSpec({
+      items: [{ type: 'table', columns: ['A', 'B'], rows: [['1', '2', '3']] }],
+    }).errors).toContain('items[0].rows[0] has 3 cells but the table has 2 columns; every row must have exactly 2 cells')
+
+    // Aligned rows stay valid, and a body-declared header defines the width.
+    expect(validateGenuiSpec({
+      items: [{ type: 'table', columns: ['A', 'B'], rows: [['1', '2'], ['3', '4']] }],
+    }).ok).toBe(true)
+    expect(validateGenuiSpec({
+      items: [{ type: 'table', rows: [['A', 'B'], ['1', '2']] }],
+    }).ok).toBe(true)
+  })
+
   it('validates every root field kind from the root runtime schema', () => {
     for (const [field, value, message] of [
       ['panel', 'yes', 'spec.panel must be a boolean'],
