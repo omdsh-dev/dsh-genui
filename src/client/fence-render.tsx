@@ -86,6 +86,7 @@ function processSemanticFailure(resolution: FenceResolution): string | null {
  */
 export function describeFenceFailure(raw: string, options: { settled?: boolean } = {}): string | null {
   const resolution = resolveFence(raw, { settled: options.settled ?? true })
+  if (resolution.unconsumedText !== undefined) return t('err.fenceTrailingContent')
   if (resolution.spec !== null) return null
   const processDiagnostic = processSemanticFailure(resolution)
   if (processDiagnostic !== null) {

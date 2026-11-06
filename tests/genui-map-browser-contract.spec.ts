@@ -226,6 +226,26 @@ describe('Map real-browser acceptance contract (no browser launched)', () => {
       expect(acceptance['continue-on-error']).not.toBe(true)
     }
   })
+  it('pins the alpha host Cordis family before npm installation', async () => {
+    const source = await readFile('scripts/prepare-published-host.mjs', 'utf8')
+    const versions = [
+      ['@deepseek-ai/cordis', '4.0.6-alpha.1'],
+      ['@deepseek-ai/cosmokit', '1.8.7-alpha.1'],
+      ['@deepseek-ai/cordis-plugin-group', '1.0.6-alpha.1'],
+      ['@deepseek-ai/cordis-plugin-hmr', '1.0.21-alpha.1'],
+      ['@deepseek-ai/cordis-plugin-include', '1.0.11-alpha.1'],
+      ['@deepseek-ai/cordis-plugin-loader', '1.0.7-alpha.1'],
+      ['@deepseek-ai/cordis-plugin-logger-console', '1.0.6-alpha.1'],
+      ['@deepseek-ai/cordis-plugin-timer', '1.1.8-alpha.1'],
+      ['@deepseek-ai/schemastery', '3.18.6-alpha.1'],
+    ]
+    const selection = source.indexOf('const overrides = HOST_DEPENDENCY_OVERRIDES[version]')
+    const install = source.indexOf("execFileSync('pnpm', ['add'")
+    expect(selection).toBeGreaterThan(0)
+    expect(selection).toBeLessThan(install)
+    expect(source).toContain('...(overrides === undefined ? {} : { overrides })')
+    for (const [name, version] of versions) expect(source).toContain(`'${name}': '${version}'`)
+  })
   it('requires successful alpha API and packed browser acceptance before npm publication', async () => {
     const workflow = parse(await readFile('.github/workflows/release.yml', 'utf8'))
     const steps = workflow.jobs.publish.steps

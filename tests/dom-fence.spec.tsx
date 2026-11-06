@@ -428,10 +428,10 @@ describe('installDomFenceRenderer', () => {
     } finally { dispose() }
   })
 
-  it('takes over a generic banner whose body is a spec followed by trailing junk', async () => {
+  it('keeps a generic fence visible when its JSON has unconsumed trailing content', async () => {
     // Real sample: the model leaked its tool-call template after the JSON and
     // never closed the fence, so the host rendered everything as one code block.
-    // Content recognition must cut back to the balanced root instead of giving up.
+    // Content recognition can identify the spec, but must not hide its tail.
     const body = '{"items":[{"type":"table","columns":["观察项"],"rows":[["RL3b 转 pass"]]}]}'
     const leaker = `${body}\n</x> parameter>\n</x> invoke>\n</x> calls>`
     const row = assistantRow('generic-trailing-junk')
@@ -440,8 +440,10 @@ describe('installDomFenceRenderer', () => {
     document.body.appendChild(row)
     const dispose = installDomFenceRenderer(makeModernCtx('generic-session'), () => {})
     try {
-      expect(await waitFor(() => block.hasAttribute('data-genui-rendered'))).toBe(true)
-      expect(await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('RL3b 转 pass') === true)).toBe(true)
+      expect(await waitFor(() => row.querySelector('[role=alert]') !== null)).toBe(true)
+      expect(block.style.display).not.toBe('none')
+      expect(block.textContent).toContain(leaker)
+      expect(row.querySelector('.genui-dom-fence')).toBeNull()
     } finally { dispose() }
   })
 

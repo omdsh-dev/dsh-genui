@@ -33,16 +33,18 @@ describe('tier-2: trailing junk after a complete root value', () => {
     expect(completed!.text).toContain('并覆盖\\"不带开关')
   })
 
-  it('settled resolution renders it; streaming resolution does not', () => {
+  it('keeps the source visible instead of silently discarding the tail', () => {
     // Only a settled reply may use tier-2 (context.source exists in the client).
-    expect(resolveFence(QUOTES_AND_JUNK, { settled: true }).spec).not.toBeNull()
+    expect(resolveFence(QUOTES_AND_JUNK, { settled: true }).spec).toBeNull()
+    expect(resolveFence(QUOTES_AND_JUNK, { settled: true }).unconsumedText).toBe('</p>')
     expect(resolveFence(QUOTES_AND_JUNK, { settled: false }).spec).toBeNull()
   })
 
-  it('trims arbitrary trailing prose, not just an HTML tag', () => {
+  it('returns trailing prose separately so callers cannot silently discard it', () => {
     const raw = '{"items":[{"type":"text","content":"好"}],"title":"尾随文字"}这是一句解释。'
     const completed = completeFenceJson(raw)
     expect(completed).not.toBeNull()
+    expect(completed!.unconsumedText).toBe('这是一句解释。')
     expect(JSON.parse(completed!.text)).toEqual({ items: [{ type: 'text', content: '好' }], title: '尾随文字' })
   })
 
