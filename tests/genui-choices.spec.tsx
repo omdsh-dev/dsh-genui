@@ -86,6 +86,11 @@ describe('ChoicesNode', () => {
     expect(container.textContent).not.toContain(t('block.choices.sent'))
   })
 
+  it('keeps checkboxes for a local multi-select list without a group', () => {
+    const { container } = render(<ChoicesNode node={{ ...base, mode: 'multi', max: 2, items: base.items.slice(0, 2) }} />)
+    expect([...container.querySelectorAll<HTMLInputElement>('input')].map(input => input.type)).toEqual(['checkbox', 'checkbox'])
+  })
+
   it('multi mode toggles and respects the cap', () => {
     const { container } = renderWithAction({ ...base, mode: 'multi', max: 2, items: base.items.slice(0, 2) })
     const inputs = container.querySelectorAll<HTMLInputElement>('input')
@@ -136,6 +141,26 @@ describe('choices as a paper question (what retires radio)', () => {
     const inputs = container.querySelectorAll<HTMLInputElement>('input')
     expect(inputs[0]?.disabled).toBe(true)
     expect(inputs[1]?.checked).toBe(true)
+  })
+
+  it('renders single-select controls even when the spec carries mode: multi', () => {
+    const answers = { answers: {}, multiAnswers: {}, fields: {}, secretFields: new Set(), invalidNumericFields: new Set(), registry: { members: new Map() }, locked: false, round: 0, setAnswer: vi.fn() } as never
+    const { container } = render(<ChoicesNode node={{ ...paper, mode: 'multi', max: 2 }} answers={answers} />)
+    const inputs = [...container.querySelectorAll<HTMLInputElement>('input')]
+    // A grouped list is graded from exactly one answer (submission-registry
+    // registers it as kind 'radio'), so checkbox rows would promise a
+    // multi-select that can never be recorded.
+    expect(inputs.map(input => input.type)).toEqual(['radio', 'radio'])
+    expect(container.querySelector('[role="radiogroup"]')).not.toBeNull()
+    expect(container.querySelector('[role="group"]')).toBeNull()
+    expect(container.querySelector('[data-genui-choices]')?.getAttribute('data-choice-mode')).toBe('single')
+  })
+
+  it('stays single-select in an export/panel context without block state', () => {
+    // No `answers` provider: the condition above keys on `group`, not on
+    // `paper`, so an exported document shows the same single-select contract.
+    const { container } = render(<ChoicesNode node={{ ...paper, mode: 'multi', max: 2 }} />)
+    expect([...container.querySelectorAll<HTMLInputElement>('input')].map(input => input.type)).toEqual(['radio', 'radio'])
   })
 
   it('is eligible for local grading through the submission registry', () => {
