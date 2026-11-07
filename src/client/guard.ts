@@ -793,8 +793,11 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
       return { type: 'diff', diffs }
     }
     case 'json': {
-      // Any JSON value is acceptable; only the node itself is validated.
-      if (!('value' in v)) return null
+      // Any JSON value is acceptable as long as the JSON tree can draw it:
+      // a deeper value overflows the block fingerprints (`JSON.stringify`) and
+      // the tree recursion at render time, so drop the node here instead of
+      // handing an unserializable payload to the renderer.
+      if (!('value' in v) || jsonValueTooDeep(v.value, GENUI_LIMITS.maxJsonDepth)) return null
       return { type: 'json', value: v.value }
     }
     case 'code': {
@@ -977,6 +980,23 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
 
 /* ---------------- per-type sub-repairers ---------------- */
 
+/** Whether an untrusted JSON payload nests deeper than the JSON tree can show.
+ *  Iterative on purpose: the value is model input, so a recursive depth check
+ *  would just move the stack overflow into the guard itself. */
+function jsonValueTooDeep(value: unknown, limit: number): boolean {
+  const stack: Array<[unknown, number]> = [[value, 0]]
+  while (stack.length > 0) {
+    const [current, depth] = stack.pop()!
+    if (depth > limit) return true
+    if (Array.isArray(current)) {
+      for (const entry of current) stack.push([entry, depth + 1])
+    } else if (current !== null && typeof current === 'object') {
+      for (const entry of Object.values(current)) stack.push([entry, depth + 1])
+    }
+  }
+  return false
+}
+
 function repairStrings(v: unknown, cap: number, strCap: number): string[] | undefined {
   if (!Array.isArray(v)) return undefined
   const out: string[] = []
@@ -989,11 +1009,15 @@ function repairStrings(v: unknown, cap: number, strCap: number): string[] | unde
       // 格式错用到 select/radio 的 options）——提取可读字段，而不是静默丢
       // 掉整个选项，让用户看到「选项没列举出来」的空列表。
       const o = item as Record<string, unknown>
-      const s = typeof o.label === 'string' ? o.label
+      const label = typeof o.label === 'string' ? o.label
         : typeof o.value === 'string' ? o.value
         : typeof o.title === 'string' ? o.title
-        : JSON.stringify(item)
-      out.push(s.slice(0, strCap))
+        : undefined
+      // A junk object falls back to its JSON text as the label; an over-deep
+      // one cannot be stringified at all, so drop that option instead of
+      // throwing out of repair.
+      if (label === undefined && jsonValueTooDeep(item, GENUI_LIMITS.maxJsonDepth)) continue
+      out.push((label ?? JSON.stringify(item)).slice(0, strCap))
     }
   }
   return out
@@ -2608,6 +2632,9 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       break
     case 'json':
       if (!('value' in v)) errors.push(`${at}: type 'json' requires value`)
+      else if (jsonValueTooDeep(v.value, GENUI_LIMITS.maxJsonDepth)) {
+        errors.push(`${at}.value nesting depth exceeds JSON limit ${GENUI_LIMITS.maxJsonDepth}; flatten or split the value`)
+      }
       break
     case 'code':
       if (typeof v.code !== 'string') errors.push(`${at}: type 'code' requires code (string)`)
