@@ -1,0 +1,11 @@
+{
+  "id": "atlas-breadcrumb",
+  "category": "atlas",
+  "note": "breadcrumb：当前位置路径，纯展示，不发 action。",
+  "zh": { "title": "breadcrumb · 你在哪一层", "items": [
+    { "type": "breadcrumb", "items": ["组件", "容器", "看板"] }
+  ] },
+  "en": { "title": "breadcrumb · which level you are on", "items": [
+    { "type": "breadcrumb", "items": ["Components", "Containers", "Board"] }
+  ] }
+}

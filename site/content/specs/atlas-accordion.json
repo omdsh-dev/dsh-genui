@@ -1,0 +1,17 @@
+{
+  "id": "atlas-accordion",
+  "category": "atlas",
+  "note": "accordion：两项折叠分组，展开在本地，默认收起。",
+  "zh": { "title": "accordion · 逐条展开", "items": [
+    { "type": "accordion", "items": [
+      { "title": "为什么用折叠", "items": [{ "type": "text", "size": "body", "content": "同一主题的多段内容，读者可以只展开自己关心的那条。" }] },
+      { "title": "展开会发请求吗", "items": [{ "type": "text", "size": "body", "content": "不会。展开状态是本地 UI 状态，零模型往返。" }] }
+    ] }
+  ] },
+  "en": { "title": "accordion · expand one by one", "items": [
+    { "type": "accordion", "items": [
+      { "title": "Why fold it", "items": [{ "type": "text", "size": "body", "content": "For several sections on one subject, the reader opens only the one they care about." }] },
+      { "title": "Does expanding send a request?", "items": [{ "type": "text", "size": "body", "content": "No. Expansion is local UI state with zero model round trips." }] }
+    ] }
+  ] }
+}

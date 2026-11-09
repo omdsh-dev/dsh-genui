@@ -1,0 +1,17 @@
+{
+  "id": "atlas-popover",
+  "category": "atlas",
+  "note": "popover：点开/悬停的补充说明，支持键盘焦点、Escape 与外部点击关闭。",
+  "zh": { "title": "popover · 补充说明不占版面", "items": [
+    { "type": "row", "items": [
+      { "type": "popover", "label": "什么是白名单", "content": "渲染器只认已注册的节点类型，遇到未知类型会告警并丢弃该节点，不会执行任意 HTML。", "trigger": "click", "placement": "top" },
+      { "type": "popover", "label": "悬停试试", "content": "悬停触发同样支持 Escape 关闭与焦点返回。", "trigger": "hover", "placement": "bottom" }
+    ] }
+  ] },
+  "en": { "title": "popover · context without spending layout", "items": [
+    { "type": "row", "items": [
+      { "type": "popover", "label": "What is a whitelist", "content": "The renderer only accepts registered node types; an unknown type warns and drops that node instead of running arbitrary HTML.", "trigger": "click", "placement": "top" },
+      { "type": "popover", "label": "Try hovering", "content": "Hover triggering also supports Escape to close and focus restoration.", "trigger": "hover", "placement": "bottom" }
+    ] }
+  ] }
+}

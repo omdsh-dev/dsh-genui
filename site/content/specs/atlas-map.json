@@ -1,0 +1,25 @@
+{
+  "id": "atlas-map",
+  "category": "atlas",
+  "note": "重引擎：map（按需加载 maplibre.js，约 1.6MB，离线坐标底图）。合成坐标，路线仅示意；内容刻意保持两条地点。",
+  "zh": { "title": "map · 在候选里挑一个", "items": [
+    { "type": "map", "title": "候选地点（合成示例）", "id": "atlas-map-site", "height": 220, "zoom": 13, "center": [12.49, 41.89],
+      "locations": [
+        { "id": "a", "label": "地点 A", "coordinates": [12.49, 41.89] },
+        { "id": "b", "label": "地点 B", "coordinates": [12.51, 41.9] }
+      ],
+      "routes": [{ "id": "r", "label": "示意路线，非导航", "coordinates": [[12.49, 41.89], [12.5, 41.895], [12.51, 41.9]] }]
+    },
+    { "type": "text", "size": "caption", "content": "合成坐标，不代表真实地点；不调用地理编码或导航服务。" }
+  ] },
+  "en": { "title": "map · pick one candidate", "items": [
+    { "type": "map", "title": "Candidate sites (synthetic)", "id": "atlas-map-site", "height": 220, "zoom": 13, "center": [12.49, 41.89],
+      "locations": [
+        { "id": "a", "label": "Site A", "coordinates": [12.49, 41.89] },
+        { "id": "b", "label": "Site B", "coordinates": [12.51, 41.9] }
+      ],
+      "routes": [{ "id": "r", "label": "Illustrative route, not navigation", "coordinates": [[12.49, 41.89], [12.5, 41.895], [12.51, 41.9]] }]
+    },
+    { "type": "text", "size": "caption", "content": "Synthetic coordinates, not real places; no geocoder or routing service is called." }
+  ] }
+}

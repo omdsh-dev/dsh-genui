@@ -1,0 +1,11 @@
+{
+  "id": "atlas-editor",
+  "category": "atlas",
+  "note": "editor：纯文本编辑区，内容实时同步到所在区块，刷新可恢复；带 id 时可被 submit 收集。",
+  "zh": { "title": "editor · 就地改一稿", "items": [
+    { "type": "editor", "id": "reply-draft", "label": "回复草稿", "value": "把这段结论改成给非技术同事看的一句话：\n这周合入 40 项，两个模块需要关注。", "placeholder": "继续编辑", "rows": 4 }
+  ] },
+  "en": { "title": "editor · draft right here", "items": [
+    { "type": "editor", "id": "reply-draft", "label": "Reply draft", "value": "Rewrite this conclusion for a non-technical colleague:\n40 items merged this week; two modules need attention.", "placeholder": "Keep editing", "rows": 4 }
+  ] }
+}

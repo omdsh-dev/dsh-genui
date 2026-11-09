@@ -1,0 +1,23 @@
+{
+  "id": "atlas-button",
+  "category": "atlas",
+  "note": "button：四种 tone。带 action 才可点（站内为本地演示，只做“已触发”反馈）；不带 action 渲染为禁用态。",
+  "zh": { "title": "button · 四种语义档位", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "button", "label": "主操作", "tone": "primary", "action": "demo-primary" },
+      { "type": "button", "label": "成功", "tone": "success", "action": "demo-success" },
+      { "type": "button", "label": "危险", "tone": "danger", "action": "demo-danger" },
+      { "type": "button", "label": "幽灵", "tone": "ghost", "icon": "↗", "action": "demo-ghost" }
+    ] },
+    { "type": "text", "size": "caption", "content": "没有 action 的按钮是禁用态：宁可点不动，也不假装能点。" }
+  ] },
+  "en": { "title": "button · four semantic tones", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "button", "label": "Primary", "tone": "primary", "action": "demo-primary" },
+      { "type": "button", "label": "Success", "tone": "success", "action": "demo-success" },
+      { "type": "button", "label": "Danger", "tone": "danger", "action": "demo-danger" },
+      { "type": "button", "label": "Ghost", "tone": "ghost", "icon": "↗", "action": "demo-ghost" }
+    ] },
+    { "type": "text", "size": "caption", "content": "A button without an action renders disabled: better unclickable than pretending." }
+  ] }
+}

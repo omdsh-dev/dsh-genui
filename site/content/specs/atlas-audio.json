@@ -1,0 +1,13 @@
+{
+  "id": "atlas-audio",
+  "category": "atlas",
+  "note": "audio：原生控制条，用户主动播放。音源用仓库自带 assets/demo.mp4（浏览器读取其音轨），不自动播放。",
+  "zh": { "title": "audio · 主动播放，不自动响", "items": [
+    { "type": "audio", "src": "assets/img/demo.mp4", "alt": "仓库演示录像的音轨", "loop": false },
+    { "type": "text", "size": "caption", "content": "只接受 http(s) 或同源相对地址；没有播放按钮就自己加载是禁止的。" }
+  ] },
+  "en": { "title": "audio · play on purpose, never autoplay", "items": [
+    { "type": "audio", "src": "assets/img/demo.mp4", "alt": "Audio track of the repo demo recording", "loop": false },
+    { "type": "text", "size": "caption", "content": "Only http(s) or same-origin relative URLs; nothing starts playing on its own." }
+  ] }
+}

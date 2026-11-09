@@ -1,0 +1,169 @@
+{
+  "id": "surface-table",
+  "category": "surface",
+  "note": "表格面：与 surface-chart 共用同一份“一周交付”示例数据。input.filter 本地即时过滤 + 表头点击排序 + types(bar/delta/badge/num) + 行内 details 钻取 + 第二张表 group 分组与合计行。零模型往返。",
+  "zh": {
+    "title": "一周交付 · 表格面",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "示例数据，非真实指标。同一份数据在这里是表格，在图表面里是一张图——排版由内容决定，不由组件决定。"
+      },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          { "type": "stat", "label": "本周合入", "value": "40", "delta": "+8.1%" },
+          { "type": "stat", "label": "推进均值", "value": "65%" },
+          { "type": "stat", "label": "风险模块", "value": "2" }
+        ]
+      },
+      {
+        "type": "input",
+        "label": "筛选模块 / 状态",
+        "placeholder": "输入关键字，表格本地过滤",
+        "id": "delivery-filter"
+      },
+      {
+        "type": "table",
+        "columns": ["模块", "负责人", "本周合入", "较上周", "里程碑", "状态"],
+        "types": ["text", "text", "num", "delta", "bar", "badge"],
+        "filter": "delivery-filter",
+        "rows": [
+          ["渲染器 runtime", "林澈", "12", "+18%", "86", "正常"],
+          ["组件词汇", "周湄", "9", "+12%", "74", "正常"],
+          ["无障碍", "徐岸", "5", "+25%", "68", "关注"],
+          ["文档", "顾言", "7", "-8%", "61", "关注"],
+          ["导出页面", "陈迟", "4", "+33%", "52", "风险"],
+          ["性能预算", "苏禾", "3", "-25%", "47", "风险"]
+        ],
+        "details": [
+          [
+            {
+              "type": "keyvalue",
+              "pairs": [
+                { "key": "本周重点", "value": "流式骨架屏 + 空容器折叠" },
+                { "key": "里程碑", "value": "rc 候选 · 10 月 30 日" }
+              ]
+            },
+            { "type": "text", "size": "body", "content": "展开行只放这一行自己的信息，不塞无关图表。" }
+          ],
+          null,
+          null,
+          null,
+          [
+            { "type": "progress", "value": 52, "target": 80, "label": "导出页面进度", "valueLabel": "52% / 目标 80%" }
+          ],
+          null
+        ]
+      },
+      {
+        "type": "table",
+        "columns": ["分组 · 模块", "本周合入", "占比"],
+        "types": ["group", "num", "num"],
+        "total": true,
+        "rows": [
+          ["渲染与组件", "", ""],
+          ["渲染器 runtime", "12", "30%"],
+          ["组件词汇", "9", "23%"],
+          ["质量与文档", "", ""],
+          ["无障碍", "5", "13%"],
+          ["文档", "7", "18%"],
+          ["分发与预算", "", ""],
+          ["导出页面", "4", "10%"],
+          ["性能预算", "3", "6%"]
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "表格负责逐行核对",
+        "content": "排序、过滤、分组折叠、展开明细、合计全部在浏览器里完成。读者不需要等一次新的模型回复。"
+      }
+    ]
+  },
+  "en": {
+    "title": "One week of delivery · table surface",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Sample data, not real metrics. The same dataset is a table here and a chart in the chart surface — layout follows the content, not the component list."
+      },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          { "type": "stat", "label": "Merged this week", "value": "40", "delta": "+8.1%" },
+          { "type": "stat", "label": "Mean milestone", "value": "65%" },
+          { "type": "stat", "label": "At-risk modules", "value": "2" }
+        ]
+      },
+      {
+        "type": "input",
+        "label": "Filter by module or status",
+        "placeholder": "Type to filter the table locally",
+        "id": "delivery-filter"
+      },
+      {
+        "type": "table",
+        "columns": ["Module", "Owner", "Merged", "WoW", "Milestone", "Status"],
+        "types": ["text", "text", "num", "delta", "bar", "badge"],
+        "filter": "delivery-filter",
+        "rows": [
+          ["Runtime", "Lin Che", "12", "+18%", "86", "Healthy"],
+          ["Vocabulary", "Zhou Mei", "9", "+12%", "74", "Healthy"],
+          ["Accessibility", "Xu An", "5", "+25%", "68", "Watch"],
+          ["Docs", "Gu Yan", "7", "-8%", "61", "Watch"],
+          ["Export page", "Chen Chi", "4", "+33%", "52", "At risk"],
+          ["Perf budget", "Su He", "3", "-25%", "47", "At risk"]
+        ],
+        "details": [
+          [
+            {
+              "type": "keyvalue",
+              "pairs": [
+                { "key": "Focus", "value": "Streaming skeletons + empty-container folding" },
+                { "key": "Milestone", "value": "rc candidate · Oct 30" }
+              ]
+            },
+            { "type": "text", "size": "body", "content": "An expanded row holds only that row's own detail — never an unrelated chart." }
+          ],
+          null,
+          null,
+          null,
+          [
+            { "type": "progress", "value": 52, "target": 80, "label": "Export page progress", "valueLabel": "52% / target 80%" }
+          ],
+          null
+        ]
+      },
+      {
+        "type": "table",
+        "columns": ["Group · module", "Merged", "Share"],
+        "types": ["group", "num", "num"],
+        "total": true,
+        "rows": [
+          ["Rendering & components", "", ""],
+          ["Runtime", "12", "30%"],
+          ["Vocabulary", "9", "23%"],
+          ["Quality & docs", "", ""],
+          ["Accessibility", "5", "13%"],
+          ["Docs", "7", "18%"],
+          ["Distribution & budget", "", ""],
+          ["Export page", "4", "10%"],
+          ["Perf budget", "3", "6%"]
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "The table is for line-by-line checking",
+        "content": "Sorting, filtering, collapsing groups, expanding details and the totals row all happen in the browser. The reader never waits for another model reply."
+      }
+    ]
+  }
+}

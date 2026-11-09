@@ -1,0 +1,19 @@
+{
+  "id": "atlas-list",
+  "category": "atlas",
+  "note": "list：字符串或 {title,desc} 混排；行内可嵌节点（这里嵌了一个 badge）。",
+  "zh": { "title": "list · 三种列表项混排", "items": [
+    { "type": "list", "items": [
+      { "title": "带描述的一项", "desc": "标题在上、说明在下，适合要点 + 依据" },
+      "只有一行文字的项",
+      { "type": "badge", "label": "行内节点也能放", "tone": "accent" }
+    ] }
+  ] },
+  "en": { "title": "list · three kinds of item", "items": [
+    { "type": "list", "items": [
+      { "title": "An item with a description", "desc": "Title above, explanation below — a point plus its reason" },
+      "An item with one line only",
+      { "type": "badge", "label": "Inline nodes work too", "tone": "accent" }
+    ] }
+  ] }
+}

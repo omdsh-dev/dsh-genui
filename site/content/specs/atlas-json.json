@@ -1,0 +1,11 @@
+{
+  "id": "atlas-json",
+  "category": "atlas",
+  "note": "json：结构化 JSON 树查看器，适合展示原始数据而不是渲染它。",
+  "zh": { "title": "json · 看原文，不渲染", "items": [
+    { "type": "json", "value": { "format": "dsh-genui", "version": 1, "presentation": { "locale": "zh", "theme": "dark" }, "spec": { "items": [{ "type": "stat" }] } } }
+  ] },
+  "en": { "title": "json · read the source, do not render it", "items": [
+    { "type": "json", "value": { "format": "dsh-genui", "version": 1, "presentation": { "locale": "en", "theme": "dark" }, "spec": { "items": [{ "type": "stat" }] } } }
+  ] }
+}
