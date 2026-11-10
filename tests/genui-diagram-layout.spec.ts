@@ -30,7 +30,8 @@ function nodeXs(diagram: GenuiDiagram): number[] {
 describe('horizontal diagram edge-label spacing', () => {
   it('measures CJK, Latin, mixed text, and emoji graphemes with the renderer typography', () => {
     expect(edgeLabelMetrics('中文测试')).toEqual({ textWidth: 33.5, boxWidth: 41.5 })
-    expect(edgeLabelMetrics('ABCDEFGHIJKLMN')).toEqual({ textWidth: 118.5, boxWidth: 126.5 })
+    expect(edgeLabelMetrics('实时同步到下游并写入归档库里')).toEqual({ textWidth: 118.5, boxWidth: 126.5 })
+    expect(edgeLabelMetrics('ABCDEFGHIJKLMN')).toEqual({ textWidth: 73.7, boxWidth: 81.7 })
     expect(edgeLabelMetrics('ABCDE')).toEqual({ textWidth: 26, boxWidth: 34 })
     expect(edgeLabelMetrics('A中B').textWidth).toBeCloseTo(18.6)
     expect(edgeLabelMetrics('A👩‍💻B').textWidth).toBeCloseTo(18.6)
@@ -42,7 +43,7 @@ describe('horizontal diagram edge-label spacing', () => {
   })
 
   it('expands only the gap required by a long adjacent label', () => {
-    const diagram = createDiagram('timeline', [{ from: 'a', to: 'b', label: 'ABCDEFGHIJKLMN' }])
+    const diagram = createDiagram('timeline', [{ from: 'a', to: 'b', label: '实时同步到下游并写入归档库里' }])
     const layout = resolveLayout(diagram)
     expect(nodeXs(diagram)).toEqual([40, 308, 468])
     expect(layout.width).toBe(636)
@@ -58,7 +59,7 @@ describe('horizontal diagram edge-label spacing', () => {
   })
 
   it('widens only the gaps containing long labels and keeps the canvas at the calculated bounds', () => {
-    const label = 'ABCDEFGHIJKLMN'
+    const label = '实时同步到下游并写入归档库里'
     const diagram: GenuiDiagram = {
       type: 'diagram',
       kind: 'timeline',
@@ -75,13 +76,13 @@ describe('horizontal diagram edge-label spacing', () => {
 
   it('keeps the nine-node limit while sizing all eight labelled gaps', () => {
     const manyNodes = Array.from({ length: 9 }, (_unused, index) => ({ id: `node-${index}`, label: `Node ${index}` }))
-    const manyEdges = Array.from({ length: 8 }, (_unused, index) => ({ from: `node-${index}`, to: `node-${index + 1}`, label: 'ABCDEFGHIJKLMN' }))
+    const manyEdges = Array.from({ length: 8 }, (_unused, index) => ({ from: `node-${index}`, to: `node-${index + 1}`, label: '实时同步到下游并写入归档库里' }))
     const diagram: GenuiDiagram = { type: 'diagram', kind: 'timeline', nodes: manyNodes, edges: manyEdges }
     expect(resolveLayout(diagram).width).toBe(2352)
   })
 
   it('allocates separate slots for multiple labels connecting the same adjacent nodes', () => {
-    const label = 'ABCDEFGHIJKLMN'
+    const label = '实时同步到下游并写入归档库里'
     const layout = resolveLayout(createDiagram('timeline', [
       { from: 'a', to: 'b', label },
       { from: 'b', to: 'a', label },
@@ -105,13 +106,13 @@ describe('horizontal diagram edge-label spacing', () => {
 
   it('does not change the spacing for non-adjacent edges', () => {
     expect(nodeXs(createDiagram('timeline', [
-      { from: 'a', to: 'c', label: 'ABCDEFGHIJKLMN' },
+      { from: 'a', to: 'c', label: '实时同步到下游并写入归档库里' },
     ]))).toEqual([40, 200, 360])
   })
 
   it('keeps zone membership unchanged when widening a gap would move a node out', () => {
     const diagram = createDiagram('timeline', [
-      { from: 'a', to: 'b', label: 'ABCDEFGHIJKLMN' },
+      { from: 'a', to: 'b', label: '实时同步到下游并写入归档库里' },
     ], [{ label: 'DATA', x: 230, y: 0, w: 100, h: 150 }])
     const layout = resolveLayout(diagram)
     expect(nodeXs(diagram)).toEqual([40, 200, 360])
@@ -120,7 +121,7 @@ describe('horizontal diagram edge-label spacing', () => {
 
   it('rejects a candidate whose label mask would overlap a zone title plate', () => {
     const diagram = createDiagram('timeline', [
-      { from: 'a', to: 'b', label: 'ABCDEFGHIJKLMN' },
+      { from: 'a', to: 'b', label: '实时同步到下游并写入归档库里' },
     ], [{ label: 'DATA', x: 134, y: 48, w: 100, h: 100 }])
     const layout = resolveLayout(diagram)
     expect(nodeXs(diagram)).toEqual([40, 200, 360])
