@@ -28,10 +28,11 @@ function nodeXs(diagram: GenuiDiagram): number[] {
 }
 
 describe('horizontal diagram edge-label spacing', () => {
-  it('measures CJK, Latin, and grapheme clusters with the renderer typography', () => {
+  it('measures CJK, Latin, mixed text, and emoji graphemes with the renderer typography', () => {
     expect(edgeLabelMetrics('中文测试')).toEqual({ textWidth: 33.5, boxWidth: 41.5 })
     expect(edgeLabelMetrics('ABCDEFGHIJKLMN')).toEqual({ textWidth: 118.5, boxWidth: 126.5 })
     expect(edgeLabelMetrics('ABCDE')).toEqual({ textWidth: 26, boxWidth: 34 })
+    expect(edgeLabelMetrics('A中B').textWidth).toBeCloseTo(18.6)
     expect(edgeLabelMetrics('A👩‍💻B').textWidth).toBeCloseTo(18.6)
   })
 
