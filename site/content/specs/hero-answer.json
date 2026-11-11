@@ -1,0 +1,81 @@
+{
+  "id": "hero-answer",
+  "category": "hero",
+  "note": "Hero reply panel. One weekly delivery answer rendered as a live interface: a quiet title, three KPI stats, a five-day trend, and the one risk line. Sized to fit the hero panel without scrolling at 1440px.",
+  "zh": {
+    "gap": 14,
+    "items": [
+      { "type": "text", "size": "h3", "content": "本周交付概览" },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          {
+            "type": "stat",
+            "label": "已完成",
+            "value": "18",
+            "delta": "+6",
+            "spark": [8, 11, 9, 14, 13, 17, 18]
+          },
+          { "type": "stat", "label": "平均周期", "value": "3.4 天", "delta": "-0.6" },
+          { "type": "stat", "label": "延期", "value": "2", "delta": "-1" }
+        ]
+      },
+      {
+        "type": "chart",
+        "kind": "line",
+        "data": [
+          { "label": "周一", "value": 2 },
+          { "label": "周二", "value": 4 },
+          { "label": "周三", "value": 3 },
+          { "label": "周四", "value": 5 },
+          { "label": "周五", "value": 4 }
+        ]
+      },
+      {
+        "type": "text",
+        "size": "caption",
+        "tone": "warning",
+        "content": "支付链路联调延期 2 天，是本周唯一风险项"
+      }
+    ]
+  },
+  "en": {
+    "gap": 14,
+    "items": [
+      { "type": "text", "size": "h3", "content": "Weekly delivery overview" },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          {
+            "type": "stat",
+            "label": "Shipped",
+            "value": "18",
+            "delta": "+6",
+            "spark": [8, 11, 9, 14, 13, 17, 18]
+          },
+          { "type": "stat", "label": "Cycle time", "value": "3.4 d", "delta": "-0.6" },
+          { "type": "stat", "label": "Slipped", "value": "2", "delta": "-1" }
+        ]
+      },
+      {
+        "type": "chart",
+        "kind": "line",
+        "data": [
+          { "label": "Mon", "value": 2 },
+          { "label": "Tue", "value": 4 },
+          { "label": "Wed", "value": 3 },
+          { "label": "Thu", "value": 5 },
+          { "label": "Fri", "value": 4 }
+        ]
+      },
+      {
+        "type": "text",
+        "size": "caption",
+        "tone": "warning",
+        "content": "Payments integration slipped two days — the only risk this week"
+      }
+    ]
+  }
+}

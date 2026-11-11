@@ -1,0 +1,177 @@
+{
+  "id": "surface-chart",
+  "category": "surface",
+  "note": "图表面：与 surface-table 共用同一份“一周交付”示例数据——6 个模块、本周 40 次合入、上周 37 次。统计卡 + 分组柱（本周/上周）+ 环形占比，bento 用 span:2 让主图占宽。零模型往返。",
+  "zh": {
+    "title": "一周交付 · 图表面",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "示例数据，非真实指标。上一张表里的 6 行数字，在这里是一张图——同一个数据集，换成读者需要“看结构”时用的界面。"
+      },
+      {
+        "type": "grid",
+        "cols": 4,
+        "items": [
+          { "type": "stat", "label": "本周合入", "value": "40", "delta": "+8.1%", "spark": [31, 34, 29, 36, 37, 40] },
+          { "type": "stat", "label": "上周合入", "value": "37" },
+          { "type": "stat", "label": "推进均值", "value": "65%" },
+          { "type": "stat", "label": "风险模块", "value": "2", "delta": "-1" }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          {
+            "type": "card",
+            "span": 2,
+            "eyebrow": "趋势",
+            "title": "每个模块的本周与上周",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "bars",
+                "data": [],
+                "series": [
+                  {
+                    "label": "本周",
+                    "data": [
+                      { "label": "渲染", "value": 12 },
+                      { "label": "词汇", "value": 9 },
+                      { "label": "无障碍", "value": 5 },
+                      { "label": "文档", "value": 7 },
+                      { "label": "导出", "value": 4 },
+                      { "label": "性能", "value": 3 }
+                    ]
+                  },
+                  {
+                    "label": "上周",
+                    "data": [
+                      { "label": "渲染", "value": 10 },
+                      { "label": "词汇", "value": 8 },
+                      { "label": "无障碍", "value": 4 },
+                      { "label": "文档", "value": 8 },
+                      { "label": "导出", "value": 3 },
+                      { "label": "性能", "value": 4 }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "占比",
+            "title": "交付构成",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "donut",
+                "data": [
+                  { "label": "渲染与组件", "value": 21 },
+                  { "label": "质量与文档", "value": 12 },
+                  { "label": "分发与预算", "value": 7 }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "图表负责看结构与差距",
+        "content": "并排柱看清每个模块的涨落，环图看清三类的构成比例。表格里那两行“风险”在图上是最矮的两根柱——同一批数据，两种读法。"
+      }
+    ]
+  },
+  "en": {
+    "title": "One week of delivery · chart surface",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Sample data, not real metrics. The six rows from the previous table become one figure here — the same dataset, re-laid out for a reader who needs to see structure."
+      },
+      {
+        "type": "grid",
+        "cols": 4,
+        "items": [
+          { "type": "stat", "label": "Merged this week", "value": "40", "delta": "+8.1%", "spark": [31, 34, 29, 36, 37, 40] },
+          { "type": "stat", "label": "Last week", "value": "37" },
+          { "type": "stat", "label": "Mean milestone", "value": "65%" },
+          { "type": "stat", "label": "At-risk modules", "value": "2", "delta": "-1" }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          {
+            "type": "card",
+            "span": 2,
+            "eyebrow": "Trend",
+            "title": "This week vs last week, per module",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "bars",
+                "data": [],
+                "series": [
+                  {
+                    "label": "This week",
+                    "data": [
+                      { "label": "Runtime", "value": 12 },
+                      { "label": "Vocabulary", "value": 9 },
+                      { "label": "A11y", "value": 5 },
+                      { "label": "Docs", "value": 7 },
+                      { "label": "Export", "value": 4 },
+                      { "label": "Perf", "value": 3 }
+                    ]
+                  },
+                  {
+                    "label": "Last week",
+                    "data": [
+                      { "label": "Runtime", "value": 10 },
+                      { "label": "Vocabulary", "value": 8 },
+                      { "label": "A11y", "value": 4 },
+                      { "label": "Docs", "value": 8 },
+                      { "label": "Export", "value": 3 },
+                      { "label": "Perf", "value": 4 }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "Share",
+            "title": "Where the work went",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "donut",
+                "data": [
+                  { "label": "Rendering & components", "value": 21 },
+                  { "label": "Quality & docs", "value": 12 },
+                  { "label": "Distribution & budget", "value": 7 }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "The chart is for structure and gaps",
+        "content": "Grouped bars show which module rose or fell; the ring shows how the three groups compose. The two at-risk rows from the table are the two shortest bars here — one dataset, two readings."
+      }
+    ]
+  }
+}

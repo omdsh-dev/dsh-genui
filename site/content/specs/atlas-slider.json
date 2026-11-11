@@ -1,0 +1,11 @@
+{
+  "id": "atlas-slider",
+  "category": "atlas",
+  "note": "slider：数值滑动条，拖动时实时显示数值并合并成一次动作；带 id 的值进 submit 的 fields。",
+  "zh": { "title": "slider · 连续数值，不是输入框", "items": [
+    { "type": "slider", "label": "风险预留比例", "min": 0, "max": 30, "step": 1, "value": 10, "id": "atlas-reserve" }
+  ] },
+  "en": { "title": "slider · a continuous number, not a text field", "items": [
+    { "type": "slider", "label": "Risk reserve", "min": 0, "max": 30, "step": 1, "value": 10, "id": "atlas-reserve" }
+  ] }
+}

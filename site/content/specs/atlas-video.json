@@ -1,0 +1,21 @@
+{
+  "id": "atlas-video",
+  "category": "atlas",
+  "note": "video：原生控制条、不自动播放；素材为仓库自带 assets/demo.mp4 与 demo-thumb.png（固定 commit 的 raw 地址）。",
+  "zh": { "title": "video · 演示录像，手动播放", "items": [
+    { "type": "video",
+      "src": "assets/img/demo.mp4",
+      "poster": "assets/img/demo-thumb.jpg",
+      "alt": "仓库自带演示录像",
+      "aspectRatio": "16:9"
+    }
+  ] },
+  "en": { "title": "video · a demo recording you start yourself", "items": [
+    { "type": "video",
+      "src": "assets/img/demo.mp4",
+      "poster": "assets/img/demo-thumb.jpg",
+      "alt": "The demo recording that ships with the repo",
+      "aspectRatio": "16:9"
+    }
+  ] }
+}

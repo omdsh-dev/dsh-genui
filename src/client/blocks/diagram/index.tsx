@@ -15,7 +15,7 @@ import type { GenuiDiagram } from '../../spec.ts'
 import type { AnswersState } from '../state.ts'
 import { GENUI_LIMITS } from '../../genui-runtime/index.ts'
 import { resolveLayout } from './layout.ts'
-import { routeEdge, labelGeometry, type Box } from './geometry.ts'
+import { routeEdge, labelGeometry, edgeLabelMetrics, EDGE_LABEL_FONT_SIZE, EDGE_LABEL_LETTER_SPACING, type Box } from './geometry.ts'
 import { resolvePalette, nodeTreatment, edgeStroke, inkAt } from './theme.ts'
 import { t, type GenuiTextKey } from '../../i18n/index.ts'
 
@@ -95,13 +95,15 @@ function renderNodeBox(
 }
 
 /** Render one routed edge: path, optional label mask + text. */
-function renderEdge(edge: { from: Box; to: Box; label?: string | undefined; kind?: string | undefined }, key: number, palette: ReturnType<typeof resolvePalette>, markerId: string): React.ReactNode {
+function renderEdge(edge: { from: Box; to: Box; label?: string | undefined; kind?: string | undefined; labelCx?: number | undefined }, key: number, palette: ReturnType<typeof resolvePalette>, markerId: string): React.ReactNode {
   const routed = routeEdge(edge.from, edge.to)
   const stroke = edgeStroke(edge.kind, palette)
   const dashed = edge.kind === 'dashed'
   // Accent arrows are the focal signal: slightly heavier stroke (1.4).
   const width = edge.kind === 'accent' ? 1.4 : 1.2
   const lg = labelGeometry(routed.a, routed.b)
+  const labelMetrics = edge.label === undefined ? undefined : edgeLabelMetrics(edge.label)
+  const labelCx = edge.labelCx ?? lg.cx
   return (
     <g key={key}>
       <path
@@ -112,17 +114,27 @@ function renderEdge(edge: { from: Box; to: Box; label?: string | undefined; kind
         strokeDasharray={dashed ? '5,4' : undefined}
         markerEnd={`url(#${markerId})`}
       />
-      {edge.label !== undefined && (
+      {edge.label !== undefined && labelMetrics !== undefined && (
         <g>
           <rect
-            x={lg.cx - (edge.label.length * 5 + 8) / 2}
+            x={labelCx - labelMetrics.boxWidth / 2}
             y={lg.maskY}
-            width={edge.label.length * 5 + 8}
+            width={labelMetrics.boxWidth}
             height={12}
             rx={2}
             fill={palette.paper}
           />
-          <text x={lg.cx} y={lg.maskY + 9} fill={palette.soft} fontSize={8} fontFamily={FONT_MONO} textAnchor="middle" letterSpacing={0.5}>{edge.label}</text>
+          <text
+            x={labelCx}
+            y={lg.maskY + 9}
+            fill={palette.soft}
+            fontSize={EDGE_LABEL_FONT_SIZE}
+            fontFamily={FONT_MONO}
+            textAnchor="middle"
+            letterSpacing={EDGE_LABEL_LETTER_SPACING}
+            textLength={labelMetrics.textWidth}
+            lengthAdjust="spacingAndGlyphs"
+          >{edge.label}</text>
         </g>
       )}
     </g>
@@ -324,7 +336,7 @@ export function DiagramNode({ node, answers }: { node: GenuiDiagram; answers?: A
             const from = byId.get(e.fromId)
             const to = byId.get(e.toId)
             if (from === undefined || to === undefined) return null
-            return renderEdge({ from, to, label: e.edge.label, kind: e.edge.kind }, i, palette, markerFor(e.edge.kind, uid))
+            return renderEdge({ from, to, label: e.edge.label, kind: e.edge.kind, labelCx: e.labelCx }, i, palette, markerFor(e.edge.kind, uid))
           })}
         </g>
         {/* nodes after edges */}

@@ -1,0 +1,19 @@
+{
+  "id": "atlas-scene3d",
+  "category": "atlas",
+  "note": "重引擎：scene3d（按需加载 three.js，约 700KB）。mesh 1–5 个，可拖拽旋转、滚轮缩放；内容刻意只留两个。",
+  "zh": { "title": "scene3d · 两个基本体", "items": [
+    { "type": "scene3d", "title": "拖拽旋转", "ambient": 1, "meshes": [
+      { "shape": "box", "color": "#e6d3ac", "position": [-0.9, 0, 0], "rotation": [0.4, 0.7, 0] },
+      { "shape": "sphere", "color": "#7fb98a", "position": [0.9, 0, 0] }
+    ] },
+    { "type": "text", "size": "caption", "content": "只在内容本身是几何/空间时才用；mesh 越多越慢。" }
+  ] },
+  "en": { "title": "scene3d · two primitives", "items": [
+    { "type": "scene3d", "title": "Drag to orbit", "ambient": 1, "meshes": [
+      { "shape": "box", "color": "#e6d3ac", "position": [-0.9, 0, 0], "rotation": [0.4, 0.7, 0] },
+      { "shape": "sphere", "color": "#7fb98a", "position": [0.9, 0, 0] }
+    ] },
+    { "type": "text", "size": "caption", "content": "Use only when the content is genuinely spatial; more meshes mean more work." }
+  ] }
+}

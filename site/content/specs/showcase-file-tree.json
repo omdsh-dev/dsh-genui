@@ -1,0 +1,189 @@
+{
+  "id": "showcase-file-tree",
+  "category": "showcase",
+  "note": "file-tree 展示真实仓库结构（路径取自 src/ 实际布局），目录行点击本地折叠；右侧 card+keyvalue 标注四个关键入口文件。",
+  "zh": {
+    "title": "一次渲染要经过的文件",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "目录可以逐层点开。下面这棵树是仓库当前的真实结构，不是示意。"
+      },
+      {
+        "type": "file-tree",
+        "items": [
+          {
+            "name": "src",
+            "type": "dir",
+            "children": [
+              {
+                "name": "client",
+                "type": "dir",
+                "children": [
+                  { "name": "spec.ts", "type": "file" },
+                  { "name": "guard.ts", "type": "file" },
+                  { "name": "GenuiBlock.tsx", "type": "file" },
+                  {
+                    "name": "genui-runtime",
+                    "type": "dir",
+                    "children": [
+                      { "name": "schema.ts", "type": "file" },
+                      { "name": "limits.ts", "type": "file" },
+                      { "name": "normalize.ts", "type": "file" }
+                    ]
+                  },
+                  {
+                    "name": "artifact",
+                    "type": "dir",
+                    "children": [
+                      { "name": "create.ts", "type": "file" },
+                      { "name": "parse.ts", "type": "file" },
+                      { "name": "portability.ts", "type": "file" },
+                      { "name": "html.ts", "type": "file" }
+                    ]
+                  },
+                  {
+                    "name": "blocks",
+                    "type": "dir",
+                    "children": [
+                      { "name": "render-node.tsx", "type": "file" },
+                      { "name": "charts.tsx", "type": "file" },
+                      { "name": "choices.tsx", "type": "file" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "plugin",
+                "type": "dir",
+                "children": [
+                  { "name": "tool.ts", "type": "file" },
+                  { "name": "dsh-go-native.ts", "type": "file" }
+                ]
+              },
+              {
+                "name": "shared",
+                "type": "dir",
+                "children": [
+                  { "name": "fence-language.ts", "type": "file" },
+                  { "name": "fence-repair.ts", "type": "file" }
+                ]
+              }
+            ]
+          },
+          { "name": "SKILL.md", "type": "file" },
+          { "name": "README.md", "type": "file" }
+        ]
+      },
+      {
+        "type": "card",
+        "title": "四个关键入口",
+        "items": [
+          {
+            "type": "keyvalue",
+            "pairs": [
+              { "key": "规格语言", "value": "src/client/spec.ts" },
+              { "key": "校验与修复", "value": "src/client/guard.ts" },
+              { "key": "节点表", "value": "src/client/genui-runtime/schema.ts" },
+              { "key": "独立页导出", "value": "src/client/artifact/html.ts" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "en": {
+    "title": "The files one render passes through",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Directories expand in place. This tree is the repository's current structure, not an illustration."
+      },
+      {
+        "type": "file-tree",
+        "items": [
+          {
+            "name": "src",
+            "type": "dir",
+            "children": [
+              {
+                "name": "client",
+                "type": "dir",
+                "children": [
+                  { "name": "spec.ts", "type": "file" },
+                  { "name": "guard.ts", "type": "file" },
+                  { "name": "GenuiBlock.tsx", "type": "file" },
+                  {
+                    "name": "genui-runtime",
+                    "type": "dir",
+                    "children": [
+                      { "name": "schema.ts", "type": "file" },
+                      { "name": "limits.ts", "type": "file" },
+                      { "name": "normalize.ts", "type": "file" }
+                    ]
+                  },
+                  {
+                    "name": "artifact",
+                    "type": "dir",
+                    "children": [
+                      { "name": "create.ts", "type": "file" },
+                      { "name": "parse.ts", "type": "file" },
+                      { "name": "portability.ts", "type": "file" },
+                      { "name": "html.ts", "type": "file" }
+                    ]
+                  },
+                  {
+                    "name": "blocks",
+                    "type": "dir",
+                    "children": [
+                      { "name": "render-node.tsx", "type": "file" },
+                      { "name": "charts.tsx", "type": "file" },
+                      { "name": "choices.tsx", "type": "file" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "plugin",
+                "type": "dir",
+                "children": [
+                  { "name": "tool.ts", "type": "file" },
+                  { "name": "dsh-go-native.ts", "type": "file" }
+                ]
+              },
+              {
+                "name": "shared",
+                "type": "dir",
+                "children": [
+                  { "name": "fence-language.ts", "type": "file" },
+                  { "name": "fence-repair.ts", "type": "file" }
+                ]
+              }
+            ]
+          },
+          { "name": "SKILL.md", "type": "file" },
+          { "name": "README.md", "type": "file" }
+        ]
+      },
+      {
+        "type": "card",
+        "title": "Four entry points that matter",
+        "items": [
+          {
+            "type": "keyvalue",
+            "pairs": [
+              { "key": "Spec language", "value": "src/client/spec.ts" },
+              { "key": "Validation and repair", "value": "src/client/guard.ts" },
+              { "key": "Node registry", "value": "src/client/genui-runtime/schema.ts" },
+              { "key": "Standalone export", "value": "src/client/artifact/html.ts" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

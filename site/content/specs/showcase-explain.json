@@ -1,0 +1,81 @@
+{
+  "id": "showcase-explain",
+  "category": "showcase",
+  "note": "分步解释：steps 讲四个阶段，code 给一段真实的迷你围栏，blocks 泳道图说明每个阶段做哪一步（columns 固定列、— 为空格）；一个焦点（blocks 图）。",
+  "zh": {
+    "title": "一块围栏怎么变成界面",
+    "gap": 14,
+    "items": [
+      {
+        "type": "steps",
+        "current": 4,
+        "steps": [
+          { "title": "识别围栏", "desc": "正文里出现 ```dsh-ui 代码块，语言标记就已足够" },
+          { "title": "解析 JSON", "desc": "只做标点级容错；结构错误不会被猜" },
+          { "title": "归一化与校验", "desc": "别名转规范字段、未知字段告警、预算与深度上限" },
+          { "title": "渲染节点", "desc": "白名单节点逐个映射到 DOM，没有任意 HTML 路径" }
+        ]
+      },
+      {
+        "type": "code",
+        "lang": "json",
+        "code": "{\"title\":\"一次交付\",\"items\":[{\"type\":\"stat\",\"label\":\"本周合入\",\"value\":\"40\"},{\"type\":\"chart\",\"kind\":\"donut\",\"data\":[{\"label\":\"渲染\",\"value\":21},{\"label\":\"质量\",\"value\":12}]}]}"
+      },
+      {
+        "type": "blocks",
+        "title": "每个阶段各做一步",
+        "columns": 4,
+        "rows": [
+          { "label": "解析", "cells": ["识别围栏", "读取 JSON", "归一化", "—"] },
+          { "label": "校验", "cells": ["—", "字段类型", "枚举范围", "节点预算"] },
+          { "label": "渲染", "cells": ["—", "—", "挂载容器", "映射节点"] }
+        ],
+        "caption": "横轴是四个步骤，纵轴是三个阶段；「—」表示该阶段不处理这一步。"
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "容错有边界",
+        "content": "缺括号、错括号这类结构错误不会被修——渲染器宁可显示源码和诊断，也不猜你想写什么。"
+      }
+    ]
+  },
+  "en": {
+    "title": "How one fence becomes an interface",
+    "gap": 14,
+    "items": [
+      {
+        "type": "steps",
+        "current": 4,
+        "steps": [
+          { "title": "Find the fence", "desc": "A ```dsh-ui code block in the reply body; the language tag is enough" },
+          { "title": "Parse the JSON", "desc": "Only punctuation-level repair; structural errors are never guessed" },
+          { "title": "Normalize and validate", "desc": "Aliases to canonical fields, unknown-field warnings, budget and depth caps" },
+          { "title": "Render the nodes", "desc": "Whitelisted nodes map to the DOM one by one, with no arbitrary-HTML path" }
+        ]
+      },
+      {
+        "type": "code",
+        "lang": "json",
+        "code": "{\"title\":\"One delivery\",\"items\":[{\"type\":\"stat\",\"label\":\"Merged this week\",\"value\":\"40\"},{\"type\":\"chart\",\"kind\":\"donut\",\"data\":[{\"label\":\"Rendering\",\"value\":21},{\"label\":\"Quality\",\"value\":12}]}]}"
+      },
+      {
+        "type": "blocks",
+        "title": "One step per stage",
+        "columns": 4,
+        "rows": [
+          { "label": "Parse", "cells": ["Find fence", "Read JSON", "Normalize", "—"] },
+          { "label": "Validate", "cells": ["—", "Field types", "Enum ranges", "Node budget"] },
+          { "label": "Render", "cells": ["—", "—", "Mount container", "Map nodes"] }
+        ],
+        "caption": "Columns are the four steps, rows are the three stages; the dash marks a step a stage does not handle."
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "Repair has a boundary",
+        "content": "Missing or mismatched brackets are never repaired — the renderer would rather show the source and a diagnostic than guess what you meant."
+      }
+    ]
+  }
+}

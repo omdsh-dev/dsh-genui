@@ -78,7 +78,7 @@ https://github.com/user-attachments/assets/f5db33ec-7471-4d4a-a85b-79c9962ab4ef
 ### 1. Prerequisites
 
 Ensure your environment meets the following requirements:
-- **DSH Version**: `^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`. Packed browser acceptance covers `0.2.0-rc.1`, `0.2.1-rc.3` and the exact npm hosts `0.2.1-rc.5` (current `latest` / `next`) and `0.2.2-alpha.2`; the earlier `0.2.1-rc.4` retains separate public-API, full-unit-suite and build checks. The alpha host requires **Node.js >=24.9.0**. Its gallery, computed-field and Map acceptance uses official local replay; third-party sidebar integration is checked on rc.3.
+- **DSH Version**: `^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`. Packed browser acceptance covers `0.2.0-rc.1`, `0.2.1-rc.3` and the exact npm hosts `0.2.2-rc.1` (current `latest` / `next`) and `0.2.2-alpha.2`; `0.2.1-rc.4` and `0.2.1-rc.5` retain separate public-API, full-unit-suite and build checks. The current RC and alpha hosts require **Node.js >=24.9.0**. Its gallery, computed-field and Map acceptance uses official local replay; third-party sidebar integration is checked on rc.3.
 - **pnpm on PATH**: The `dsh plugin` CLI requires pnpm. If missing: run `corepack enable` or `npm i -g pnpm`, then **open a new terminal** and confirm `pnpm -v` prints a version number.
 
 ### 2. Install & Activate
@@ -288,14 +288,15 @@ pnpm run check           # Type checks + full unit test suite + build
 pnpm run test            # Run Vitest unit tests
 pnpm run check:host-api dsh-v0.2.1-rc.3  # Check the retained rc.3 host API
 pnpm run check:host-api dsh-v0.2.1-rc.4  # Check the earlier rc.4 API
-pnpm run check:host-api dsh-v0.2.1-rc.5  # Check the current npm latest / next API, full suite and build
+pnpm run check:host-api dsh-v0.2.1-rc.5  # Check the earlier rc.5 API, full suite and build
+pnpm run check:host-api dsh-v0.2.2-rc.1  # Check the current npm latest / next API, full suite and build
 pnpm run check:host-api dsh-v0.2.2-alpha.2  # Check the supported npm alpha API, full suite and build
 node scripts/verify-pack.mjs --keep  # Verify and inspect npm tarball
 ```
 
 ### End-to-End (E2E) Testing
 
-CI and the release workflow install `0.2.2-alpha.2` from npm with `node scripts/prepare-published-host.mjs 0.2.2-alpha.2`, then verify the packed plugin in a fresh web profile. This lane uses `DSH_HOST_LAYOUT=registry` and `DSH_HOST_VERSION=0.2.2-alpha.2` with the returned `DSH_ROOT` and `DSH_BIN`; the source-host lanes remain pinned to their official tags. The same registry-host lane also installs `0.2.1-rc.5`, with `DSH_HOST_VERSION=0.2.1-rc.5`. Both current RC and alpha API, gallery/computed and Linux Map checks must pass before npm publication. Actions use official local replay; Android device and original Windows Desktop acceptance remain separate.
+CI and the release workflow install `0.2.2-alpha.2` from npm with `node scripts/prepare-published-host.mjs 0.2.2-alpha.2`, then verify the packed plugin in a fresh web profile. This lane uses `DSH_HOST_LAYOUT=registry` and `DSH_HOST_VERSION=0.2.2-alpha.2` with the returned `DSH_ROOT` and `DSH_BIN`; the source-host lanes remain pinned to their official tags. The same registry-host lane also installs `0.2.2-rc.1`, with `DSH_HOST_VERSION=0.2.2-rc.1`. Registry-host checks pin Cordis framework dependencies to the versions recorded in each host’s published manifest so later dependency resolution cannot change the host graph. Both current RC and alpha API, gallery/computed and Linux Map checks must pass before npm publication. Actions use official local replay; Android device and original Windows Desktop acceptance remain separate.
 
 - **Visual E2E Smoke (No Model API Key Required)**:
   ```sh

@@ -1,0 +1,51 @@
+{
+  "id": "atlas-progress",
+  "category": "atlas",
+  "note": "progress：条形与环形两种，target 在轨道上标出目标刻度。",
+  "zh": {
+    "title": "progress · 有目标的进度",
+    "items": [
+      {
+        "type": "progress",
+        "value": 78,
+        "target": 90,
+        "label": "发布就绪度",
+        "valueLabel": "78% / 目标 90%"
+      },
+      {
+        "type": "row",
+        "items": [
+          {
+            "type": "progress",
+            "variant": "ring",
+            "value": 62,
+            "label": "文档覆盖"
+          }
+        ]
+      }
+    ]
+  },
+  "en": {
+    "title": "progress · progress against a target",
+    "items": [
+      {
+        "type": "progress",
+        "value": 78,
+        "target": 90,
+        "label": "Release readiness",
+        "valueLabel": "78% / target 90%"
+      },
+      {
+        "type": "row",
+        "items": [
+          {
+            "type": "progress",
+            "variant": "ring",
+            "value": 62,
+            "label": "Docs coverage"
+          }
+        ]
+      }
+    ]
+  }
+}

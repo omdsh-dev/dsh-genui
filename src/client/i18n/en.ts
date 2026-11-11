@@ -397,6 +397,7 @@ export const EN = {
   'block.choices.maxHint': 'Pick up to {max}.',
   'block.choices.count': '{count} selected',
   'block.choices.localOnly': 'Kept locally · nothing was sent',
+  'block.choices.noAction': 'This card cannot send your selection to the model',
   'block.choices.sent': 'Sent · you can still change it',
   'block.datePicker.start': 'Start date',
   'block.datePicker.end': 'End date',
