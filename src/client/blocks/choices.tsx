@@ -37,7 +37,12 @@ export function ChoicesNode({ node, onAction, answers }: {
   const localOnly = !paper && (node.action === undefined || node.action.trim() === '')
   const locked = paper && answers?.locked === true
   const mode = node.mode ?? 'single'
-  const max = mode === 'multi' ? Math.max(1, Math.min(node.max ?? node.items.length, node.items.length)) : 1
+  // A grouped list is a paper question graded from one answer
+  // (submission-registry registers it as kind 'radio'), so it is single-select
+  // even when the spec says `mode: 'multi'`. Present what is actually graded
+  // instead of a checkbox row whose second pick can never be recorded.
+  const single = group !== undefined || mode === 'single'
+  const max = single ? 1 : Math.max(1, Math.min(node.max ?? node.items.length, node.items.length))
   const items = useMemo(() => node.items.slice(0, MAX_OPTIONS), [node.items])
   const [localSelected, setLocalSelected] = useState<readonly string[]>([])
   const [submitted, setSubmitted] = useState(false)
@@ -59,11 +64,11 @@ export function ChoicesNode({ node, onAction, answers }: {
     setSubmitted(false)
     setLocalSelected(previous => {
       if (previous.includes(label)) return previous.filter(item => item !== label)
-      if (mode === 'single') return [label]
+      if (single) return [label]
       if (previous.length >= max) return previous
       return [...previous, label]
     })
-  }, [answers, group, locked, max, mode, paper])
+  }, [answers, group, locked, max, single, paper])
 
   const submit = (): void => {
     if (selected.length === 0 || node.action === undefined || node.action.trim() === '') return
@@ -71,20 +76,24 @@ export function ChoicesNode({ node, onAction, answers }: {
     send?.(node.action, {
       question: node.prompt ?? node.title ?? '',
       selected: [...selected],
-      mode,
+      // A grouped paper question is graded as one answer, so report the mode
+      // that is actually presented rather than a `multi` that never applies.
+      mode: single ? 'single' : 'multi',
     })
   }
 
-  const hint = mode === 'multi' && node.max !== undefined
-    ? t('block.choices.maxHint', { max: String(max) })
-    : mode === 'multi' ? t('block.choices.multiHint') : t('block.choices.singleHint')
+  const hint = single
+    ? t('block.choices.singleHint')
+    : node.max !== undefined
+      ? t('block.choices.maxHint', { max: String(max) })
+      : t('block.choices.multiHint')
 
   return (
-    <section className={css.choices} data-genui-choices data-choice-mode={mode} aria-labelledby={`${name}-title`}>
+    <section className={css.choices} data-genui-choices data-choice-mode={single ? 'single' : 'multi'} aria-labelledby={`${name}-title`}>
       <h3 className={css.title} id={`${name}-title`}>{renderInline(node.title ?? t('block.choices'))}</h3>
       {node.prompt !== undefined && <p className={css.prompt}>{renderInline(node.prompt)}</p>}
 
-      <div className={css.list} role={mode === 'single' ? 'radiogroup' : 'group'} aria-labelledby={`${name}-title`}>
+      <div className={css.list} role={single ? 'radiogroup' : 'group'} aria-labelledby={`${name}-title`}>
         {items.map((item, index) => {
           const active = selected.includes(item.label)
           const unavailable = item.disabled === true || locked
@@ -97,8 +106,8 @@ export function ChoicesNode({ node, onAction, answers }: {
             >
               <input
                 className={css.control}
-                type={mode === 'single' ? 'radio' : 'checkbox'}
-                name={mode === 'single' ? `${name}-group` : undefined}
+                type={single ? 'radio' : 'checkbox'}
+                name={single ? `${name}-group` : undefined}
                 checked={active}
                 disabled={unavailable}
                 onChange={() => toggle(item.label)}
