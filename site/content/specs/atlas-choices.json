@@ -1,0 +1,19 @@
+{
+  "id": "atlas-choices",
+  "category": "atlas",
+  "note": "choices：要读者做决定的列表，每项自带代价（hint）与证据（meta）；提交需要 action，纯本地选择就别写 submit。",
+  "zh": { "title": "choices · 每个选项自带代价", "items": [
+    { "type": "choices", "title": "先做哪个", "prompt": "只剩一个迭代，选一个方向", "items": [
+      { "label": "补齐导出页", "hint": "两天，能解锁分享场景", "meta": "P1", "recommended": true },
+      { "label": "打磨图表", "hint": "一天，收益只在长报告里", "meta": "P2" },
+      { "label": "重写文档", "hint": "三天，且要等 API 冻结", "meta": "P2", "disabled": true, "reason": "API 还没冻结" }
+    ] }
+  ] },
+  "en": { "title": "choices · every option carries its cost", "items": [
+    { "type": "choices", "title": "What ships first", "prompt": "One iteration left — pick one direction", "items": [
+      { "label": "Finish the export page", "hint": "Two days, unlocks sharing", "meta": "P1", "recommended": true },
+      { "label": "Polish the charts", "hint": "One day, only pays off in long reports", "meta": "P2" },
+      { "label": "Rewrite the docs", "hint": "Three days, and blocked on the API freeze", "meta": "P2", "disabled": true, "reason": "API not frozen yet" }
+    ] }
+  ] }
+}

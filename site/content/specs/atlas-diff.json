@@ -1,0 +1,17 @@
+{
+  "id": "atlas-diff",
+  "category": "atlas",
+  "note": "diff：文件改动并排显示，oldText 为 null 表示新增文件；字段名是 diffs。",
+  "zh": { "title": "diff · 改了什么，一眼对上", "items": [
+    { "type": "diff", "diffs": [
+      { "path": "src/client/spec.ts", "oldText": "size?: 'h1' | 'h2' | 'h3' | 'body'", "newText": "size?: 'display' | 'h1' | 'h2' | 'h3' | 'body' | 'muted' | 'caption'" },
+      { "path": "src/client/blocks/compare.tsx", "oldText": null, "newText": "export const CompareNode = memo(function CompareNode({ node }: { node: GenuiCompare }) { ... })" }
+    ] }
+  ] },
+  "en": { "title": "diff · what changed, side by side", "items": [
+    { "type": "diff", "diffs": [
+      { "path": "src/client/spec.ts", "oldText": "size?: 'h1' | 'h2' | 'h3' | 'body'", "newText": "size?: 'display' | 'h1' | 'h2' | 'h3' | 'body' | 'muted' | 'caption'" },
+      { "path": "src/client/blocks/compare.tsx", "oldText": null, "newText": "export const CompareNode = memo(function CompareNode({ node }: { node: GenuiCompare }) { ... })" }
+    ] }
+  ] }
+}

@@ -1,0 +1,119 @@
+{
+  "id": "showcase-risk",
+  "category": "showcase",
+  "note": "风险摘要构图：card.tone=warning 统一底色 + list 逐项风险，keyvalue 给影响面与回滚窗口，progress 给缓解进度，callout 收束唯一阻塞项。示例数据。",
+  "zh": {
+    "title": "发布前最后一次风险复盘",
+    "gap": 14,
+    "items": [
+      {
+        "type": "card",
+        "tone": "warning",
+        "title": "风险摘要",
+        "items": [
+          {
+            "type": "list",
+            "items": [
+              { "title": "导出页面样式漂移", "desc": "独立页与宿主主题变量不同步时，卡片底色差一档" },
+              { "title": "重引擎首帧抖动", "desc": "mermaid 与 three.js 首次加载时高度未定" },
+              { "title": "窄屏表格横向滚动", "desc": "六列以上在 390px 下需要横向滚动" }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 2,
+        "items": [
+          {
+            "type": "card",
+            "flat": true,
+            "title": "影响面",
+            "items": [
+              {
+                "type": "keyvalue",
+                "pairs": [
+                  { "key": "受影响节点", "value": "artifact / mermaid / scene3d / table" },
+                  { "key": "回滚窗口", "value": "24 小时" },
+                  { "key": "复核人", "value": "渲染器 + 文档" }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "flat": true,
+            "title": "缓解进度",
+            "items": [
+              { "type": "progress", "value": 60, "target": 100, "label": "三项风险", "valueLabel": "3 项中 2 项有方案" },
+              { "type": "text", "size": "caption", "content": "示例数据：60% 表示三项里两项已定方案。" }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "warning",
+        "title": "唯一阻塞项",
+        "content": "导出页面的主题变量必须在构建期确定，不能留到运行时读宿主。其余两项可以带着发布。"
+      }
+    ]
+  },
+  "en": {
+    "title": "Last risk review before release",
+    "gap": 14,
+    "items": [
+      {
+        "type": "card",
+        "tone": "warning",
+        "title": "Risk summary",
+        "items": [
+          {
+            "type": "list",
+            "items": [
+              { "title": "Export page style drift", "desc": "When the standalone page and host theme tokens diverge, card surfaces differ by one step" },
+              { "title": "Heavy engine first-frame jump", "desc": "mermaid and three.js have no height until first load" },
+              { "title": "Table scroll on narrow screens", "desc": "Six or more columns need horizontal scroll at 390px" }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 2,
+        "items": [
+          {
+            "type": "card",
+            "flat": true,
+            "title": "Blast radius",
+            "items": [
+              {
+                "type": "keyvalue",
+                "pairs": [
+                  { "key": "Nodes affected", "value": "artifact / mermaid / scene3d / table" },
+                  { "key": "Rollback window", "value": "24 hours" },
+                  { "key": "Reviewers", "value": "Renderer + docs" }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "flat": true,
+            "title": "Mitigation progress",
+            "items": [
+              { "type": "progress", "value": 60, "target": 100, "label": "Three risks", "valueLabel": "2 of 3 have a plan" },
+              { "type": "text", "size": "caption", "content": "Sample data: 60% means two of three items have a decided plan." }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "warning",
+        "title": "The one blocking item",
+        "content": "Export theme variables must be decided at build time rather than read from the host at runtime. The other two can ship as known issues."
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "atlas-submit",
+  "category": "atlas",
+  "note": "submit：聚合按钮，groups 列出必填成员；纯 radio/choices 范围且带 answer 时在本地判卷。这里演示字段收集。",
+  "zh": { "title": "submit · 一次收集所有字段", "items": [
+    { "type": "input", "label": "发布代号", "placeholder": "例如 aurora", "id": "release-code" },
+    { "type": "submit", "label": "提交发布", "action": "submit-release", "groups": ["release-code"] }
+  ] },
+  "en": { "title": "submit · collect every field at once", "items": [
+    { "type": "input", "label": "Release code", "placeholder": "e.g. aurora", "id": "release-code" },
+    { "type": "submit", "label": "Submit release", "action": "submit-release", "groups": ["release-code"] }
+  ] }
+}

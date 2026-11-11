@@ -1,0 +1,87 @@
+{
+  "id": "showcase-pr",
+  "category": "showcase",
+  "note": "代码评审构图：一段围栏源码 + diff 两处改动（新增字段与新增节点注册）+ 结论 callout。内容是示例，不代表某次真实提交。",
+  "zh": {
+    "title": "改动评审 · 示例",
+    "gap": 14,
+    "items": [
+      {
+        "type": "row",
+        "wrap": true,
+        "items": [
+          { "type": "badge", "label": "已评审", "tone": "success", "icon": "✓" },
+          { "type": "badge", "label": "2 个文件", "tone": "accent" },
+          { "type": "badge", "label": "无破坏性变更", "tone": "success" }
+        ]
+      },
+      {
+        "type": "code",
+        "lang": "ts",
+        "code": "// 围栏里多一个渲染器，回答就多一种界面\ntype GenuiNode = GenuiText | GenuiTable | GenuiChart | GenuiChoices"
+      },
+      {
+        "type": "diff",
+        "diffs": [
+          {
+            "path": "src/client/genui-runtime/schema.ts",
+            "oldText": "choices: schema([], {\n  title: 'string',\n  items: 'array',\n})",
+            "newText": "choices: schema([], {\n  title: 'string',\n  prompt: 'string',\n  mode: 'string',\n  items: 'array',\n  group: 'string',\n  answer: 'unknown',\n  explanation: 'string',\n})"
+          },
+          {
+            "path": "src/client/guard.ts",
+            "oldText": null,
+            "newText": "if (typeof v.submit === 'string' && typeof v.action !== 'string') {\n  errors.push(`${at}: 'choices' with submit requires action`)\n}"
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "success",
+        "title": "通过，但记一条",
+        "content": "新增字段必须同时登记进 repair 的字段表，否则归一化后会被静默丢弃——这是这类改动最常见的回归点。"
+      }
+    ]
+  },
+  "en": {
+    "title": "Change review · example",
+    "gap": 14,
+    "items": [
+      {
+        "type": "row",
+        "wrap": true,
+        "items": [
+          { "type": "badge", "label": "Reviewed", "tone": "success", "icon": "✓" },
+          { "type": "badge", "label": "2 files", "tone": "accent" },
+          { "type": "badge", "label": "No breaking change", "tone": "success" }
+        ]
+      },
+      {
+        "type": "code",
+        "lang": "ts",
+        "code": "// One more renderer in the fence, one more kind of interface\ntype GenuiNode = GenuiText | GenuiTable | GenuiChart | GenuiChoices"
+      },
+      {
+        "type": "diff",
+        "diffs": [
+          {
+            "path": "src/client/genui-runtime/schema.ts",
+            "oldText": "choices: schema([], {\n  title: 'string',\n  items: 'array',\n})",
+            "newText": "choices: schema([], {\n  title: 'string',\n  prompt: 'string',\n  mode: 'string',\n  items: 'array',\n  group: 'string',\n  answer: 'unknown',\n  explanation: 'string',\n})"
+          },
+          {
+            "path": "src/client/guard.ts",
+            "oldText": null,
+            "newText": "if (typeof v.submit === 'string' && typeof v.action !== 'string') {\n  errors.push(`${at}: 'choices' with submit requires action`)\n}"
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "success",
+        "title": "Approved, with one note",
+        "content": "A new field must also be registered in repair's field table, or it is silently dropped after normalization — the most common regression in this kind of change."
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "atlas-steps",
+  "category": "atlas",
+  "note": "steps：阶段清单，current 之前的步骤用强调色；适合“分几步 / 到第几步”。",
+  "zh": { "title": "steps · 到第几步了", "items": [
+    { "type": "steps", "current": 2, "steps": [
+      { "title": "起草", "desc": "写规格" },
+      { "title": "渲染", "desc": "画组件" },
+      { "title": "验收", "desc": "跑测试" }
+    ] }
+  ] },
+  "en": { "title": "steps · how far along", "items": [
+    { "type": "steps", "current": 2, "steps": [
+      { "title": "Draft", "desc": "Write the spec" },
+      { "title": "Render", "desc": "Draw the components" },
+      { "title": "Verify", "desc": "Run the checks" }
+    ] }
+  ] }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "atlas-badge",
+  "category": "atlas",
+  "note": "badge：四种语义档位，一句状态；不要拿它当按钮。",
+  "zh": { "title": "badge · 状态用胶囊，不用段落", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "badge", "label": "正常", "tone": "success" },
+      { "type": "badge", "label": "关注", "tone": "warn" },
+      { "type": "badge", "label": "风险", "tone": "danger" },
+      { "type": "badge", "label": "强调", "tone": "accent", "icon": "★" }
+    ] }
+  ] },
+  "en": { "title": "badge · state as a pill, not a paragraph", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "badge", "label": "Healthy", "tone": "success" },
+      { "type": "badge", "label": "Watch", "tone": "warn" },
+      { "type": "badge", "label": "At risk", "tone": "danger" },
+      { "type": "badge", "label": "Key", "tone": "accent", "icon": "★" }
+    ] }
+  ] }
+}

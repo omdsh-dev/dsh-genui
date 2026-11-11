@@ -34,6 +34,7 @@ export function ChoicesNode({ node, onAction, answers }: {
   // `submit` can collect and grade it. Local mode keeps its own state and can
   // fire its own action.
   const paper = group !== undefined && answers !== undefined
+  const localOnly = !paper && (node.action === undefined || node.action.trim() === '')
   const locked = paper && answers?.locked === true
   const mode = node.mode ?? 'single'
   // A grouped list is a paper question graded from one answer
@@ -70,15 +71,15 @@ export function ChoicesNode({ node, onAction, answers }: {
   }, [answers, group, locked, max, single, paper])
 
   const submit = (): void => {
-    if (selected.length === 0) return
+    if (selected.length === 0 || node.action === undefined || node.action.trim() === '') return
     setSubmitted(true)
-    if (node.action !== undefined && node.action !== '') {
-      send?.(node.action, {
-        question: node.prompt ?? node.title ?? '',
-        selected: [...selected],
-        mode: single ? 'single' : 'multi',
-      })
-    }
+    send?.(node.action, {
+      question: node.prompt ?? node.title ?? '',
+      selected: [...selected],
+      // A grouped paper question is graded as one answer, so report the mode
+      // that is actually presented rather than a `multi` that never applies.
+      mode: single ? 'single' : 'multi',
+    })
   }
 
   const hint = single
@@ -132,7 +133,7 @@ export function ChoicesNode({ node, onAction, answers }: {
           <button
             type="button"
             className={css.submit}
-            disabled={selected.length === 0}
+            disabled={selected.length === 0 || localOnly}
             onClick={submit}
           >
             {node.submit}
@@ -149,6 +150,9 @@ export function ChoicesNode({ node, onAction, answers }: {
               ? hint
               : `${t('block.choices.count', { count: String(selected.length) })} · ${hint}`}
         </span>
+        {localOnly && (
+          <span className={css.localWarning} role="note">{t('block.choices.noAction')}</span>
+        )}
       </div>
     </section>
   )
