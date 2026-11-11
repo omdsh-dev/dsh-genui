@@ -1,0 +1,19 @@
+{
+  "id": "atlas-date-picker",
+  "category": "atlas",
+  "note": "date-picker：原生日期控件，single/range；日期必须真实存在，带 id 时进 submit 的 fields。",
+  "zh": { "title": "date-picker · 原生日历，不自己造", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "date-picker", "label": "生效日期", "mode": "single", "value": "2026-12-01", "min": "2026-11-01", "max": "2027-12-31", "id": "effective-at" },
+      { "type": "date-picker", "label": "观察窗口", "mode": "range", "value": "2026-12-01/2026-12-14", "id": "watch-window" }
+    ] },
+    { "type": "text", "size": "caption", "content": "范围模式的值是开始/结束两个 ISO 日期；非法日期不会被静默纠正。" }
+  ] },
+  "en": { "title": "date-picker · the native calendar, not a copy", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "date-picker", "label": "Effective date", "mode": "single", "value": "2026-12-01", "min": "2026-11-01", "max": "2027-12-31", "id": "effective-at" },
+      { "type": "date-picker", "label": "Observation window", "mode": "range", "value": "2026-12-01/2026-12-14", "id": "watch-window" }
+    ] },
+    { "type": "text", "size": "caption", "content": "Range mode holds two ISO dates joined by a slash; invalid dates are never silently corrected." }
+  ] }
+}

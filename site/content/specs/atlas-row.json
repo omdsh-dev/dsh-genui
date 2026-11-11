@@ -1,0 +1,25 @@
+{
+  "id": "atlas-row",
+  "category": "atlas",
+  "note": "row：横向排列，wrap 允许换行，justify 控制主轴对齐，spacer 把两端推开。",
+  "zh": { "title": "row · 一行放什么，怎么对齐", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "badge", "label": "不换行时挤在一起", "tone": "accent" },
+      { "type": "badge", "label": "wrap:true 后自动折行", "tone": "success" }
+    ] },
+    { "type": "row", "justify": "center", "items": [
+      { "type": "icon", "name": "Nodes", "tone": "info", "tile": true },
+      { "type": "text", "size": "h3", "content": "图头居中" }
+    ] }
+  ] },
+  "en": { "title": "row · what sits on one line, and how it aligns", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "badge", "label": "Cramped without wrapping", "tone": "accent" },
+      { "type": "badge", "label": "wrap:true wraps automatically", "tone": "success" }
+    ] },
+    { "type": "row", "justify": "center", "items": [
+      { "type": "icon", "name": "Nodes", "tone": "info", "tile": true },
+      { "type": "text", "size": "h3", "content": "A centred figure header" }
+    ] }
+  ] }
+}

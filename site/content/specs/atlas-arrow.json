@@ -1,0 +1,19 @@
+{
+  "id": "atlas-arrow",
+  "category": "atlas",
+  "note": "arrow：细线连接件，方向与长度可调；图里块与块之间用它，不要用文字箭头。",
+  "zh": { "title": "arrow · 块之间的细线连接", "items": [
+    { "type": "row", "justify": "center", "items": [
+      { "type": "card", "flat": true, "items": [{ "type": "text", "size": "caption", "content": "输入", "align": "center" }] },
+      { "type": "arrow", "dir": "right", "length": 48, "label": "归一化" },
+      { "type": "card", "flat": true, "items": [{ "type": "text", "size": "caption", "content": "输出", "align": "center" }] }
+    ] }
+  ] },
+  "en": { "title": "arrow · a hairline between blocks", "items": [
+    { "type": "row", "justify": "center", "items": [
+      { "type": "card", "flat": true, "items": [{ "type": "text", "size": "caption", "content": "Input", "align": "center" }] },
+      { "type": "arrow", "dir": "right", "length": 48, "label": "Normalize" },
+      { "type": "card", "flat": true, "items": [{ "type": "text", "size": "caption", "content": "Output", "align": "center" }] }
+    ] }
+  ] }
+}

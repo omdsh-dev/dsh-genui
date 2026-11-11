@@ -1,0 +1,21 @@
+{
+  "id": "atlas-echart",
+  "category": "atlas",
+  "note": "重引擎：echart（按需加载 echarts-core.js，约 588KB）。preset + data 即可，主题色跟随宿主；内容刻意保持三点。",
+  "zh": { "title": "echart · 按需加载的完整图表", "items": [
+    { "type": "echart", "preset": "bar", "title": "五组节点类型", "height": 220, "data": [
+      { "label": "布局", "value": 10 },
+      { "label": "展示", "value": 22 },
+      { "label": "交互", "value": 18 }
+    ] },
+    { "type": "text", "size": "caption", "content": "引擎只在出现 echart 节点时下载；轻量对比交给 chart。" }
+  ] },
+  "en": { "title": "echart · a full chart, loaded on demand", "items": [
+    { "type": "echart", "preset": "bar", "title": "Three of the five groups", "height": 220, "data": [
+      { "label": "Layout", "value": 10 },
+      { "label": "Display", "value": 22 },
+      { "label": "Interactive", "value": 18 }
+    ] },
+    { "type": "text", "size": "caption", "content": "The engine downloads only when an echart node appears; quick comparisons stay on chart." }
+  ] }
+}

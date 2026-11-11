@@ -1,0 +1,121 @@
+{
+  "id": "showcase-table-details",
+  "category": "showcase",
+  "note": "主表 + 明细：表格每行可展开，展开内容是同行的 keyvalue / progress / list / code，不是另一张总表。示例发布清单。",
+  "zh": {
+    "title": "发布清单：一行一件事",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "看总量在表头，看细节在展开行。展开的永远只是这一行自己的信息。"
+      },
+      {
+        "type": "table",
+        "columns": ["发布项", "负责人", "状态", "检查项"],
+        "types": ["text", "text", "badge", "num"],
+        "rows": [
+          ["渲染器产物", "林澈", "正常", "6 / 6"],
+          ["独立页导出", "顾言", "关注", "4 / 6"],
+          ["兼容矩阵", "周湄", "正常", "5 / 5"],
+          ["变更日志", "苏禾", "风险", "1 / 4"]
+        ],
+        "details": [
+          [
+            {
+              "type": "keyvalue",
+              "pairs": [
+                { "key": "产物", "value": "lib/index.js · lib/client.js · lib/assets/" },
+                { "key": "校验", "value": "tsc + vitest + 独立页检查" },
+                { "key": "耗时", "value": "41 秒" }
+              ]
+            },
+            { "type": "text", "size": "caption", "content": "产物是构建出来的，不进仓库；发布前必须重新构建一次。" }
+          ],
+          [
+            { "type": "progress", "value": 67, "target": 100, "label": "导出检查", "valueLabel": "4 / 6" },
+            { "type": "text", "size": "caption", "content": "剩下两项：外链图片与相对路径。" }
+          ],
+          [
+            {
+              "type": "list",
+              "items": [
+                { "title": "0.2.0-rc.1", "desc": "最低版本，接口检查通过" },
+                { "title": "0.2.1-rc.5", "desc": "当前版本，全量检查通过" }
+              ]
+            }
+          ],
+          [
+            { "type": "code", "lang": "bash", "code": "pnpm changelog --from v0.15.0 --to HEAD" },
+            { "type": "text", "size": "caption", "content": "缺三节：新增、修复、兼容性。" }
+          ]
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "warning",
+        "title": "发布前只剩一件事",
+        "content": "变更日志补齐即可放行；其余检查项已全部通过。"
+      }
+    ]
+  },
+  "en": {
+    "title": "Release checklist: one row, one thing",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Totals live in the header, detail lives in the expanded row — and an expanded row only ever carries its own information."
+      },
+      {
+        "type": "table",
+        "columns": ["Item", "Owner", "Status", "Checks"],
+        "types": ["text", "text", "badge", "num"],
+        "rows": [
+          ["Renderer artifacts", "Lin Che", "Healthy", "6 / 6"],
+          ["Standalone export", "Gu Yan", "Watch", "4 / 6"],
+          ["Compatibility matrix", "Zhou Mei", "Healthy", "5 / 5"],
+          ["Changelog", "Su He", "At risk", "1 / 4"]
+        ],
+        "details": [
+          [
+            {
+              "type": "keyvalue",
+              "pairs": [
+                { "key": "Artifacts", "value": "lib/index.js · lib/client.js · lib/assets/" },
+                { "key": "Checks", "value": "tsc + vitest + standalone check" },
+                { "key": "Duration", "value": "41s" }
+              ]
+            },
+            { "type": "text", "size": "caption", "content": "Artifacts are built, not committed; a release always rebuilds them first." }
+          ],
+          [
+            { "type": "progress", "value": 67, "target": 100, "label": "Export checks", "valueLabel": "4 / 6" },
+            { "type": "text", "size": "caption", "content": "The last two: remote images and relative paths." }
+          ],
+          [
+            {
+              "type": "list",
+              "items": [
+                { "title": "0.2.0-rc.1", "desc": "Lowest supported version, interface check passed" },
+                { "title": "0.2.1-rc.5", "desc": "Current version, full check passed" }
+              ]
+            }
+          ],
+          [
+            { "type": "code", "lang": "bash", "code": "pnpm changelog --from v0.15.0 --to HEAD" },
+            { "type": "text", "size": "caption", "content": "Three sections missing: added, fixed, compatibility." }
+          ]
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "warning",
+        "title": "One thing left before release",
+        "content": "Finish the changelog and it ships; every other check is already green."
+      }
+    ]
+  }
+}

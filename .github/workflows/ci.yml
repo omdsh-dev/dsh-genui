@@ -317,10 +317,12 @@ jobs:
       - name: Install plugin dependencies
         run: pnpm install --frozen-lockfile
       - name: Check published current API
+        run: pnpm run check:host-api dsh-v0.2.2-rc.1
+      - name: Check previous published RC API
         run: pnpm run check:host-api dsh-v0.2.1-rc.5
       - name: Install exact published current host
         id: host
-        run: node scripts/prepare-published-host.mjs 0.2.1-rc.5
+        run: node scripts/prepare-published-host.mjs 0.2.2-rc.1
       - name: Verify and pack plugin tarball
         id: pack
         run: node scripts/verify-pack.mjs --keep
@@ -330,14 +332,14 @@ jobs:
           DSH_ROOT: ${{ steps.host.outputs.root }}
           DSH_BIN: ${{ steps.host.outputs.bin }}
           DSH_HOST_LAYOUT: registry
-          DSH_HOST_VERSION: 0.2.1-rc.5
+          DSH_HOST_VERSION: 0.2.2-rc.1
       - name: Current packed Map browser acceptance
         run: node scripts/e2e.mjs --smoke --map --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
         env:
           DSH_ROOT: ${{ steps.host.outputs.root }}
           DSH_BIN: ${{ steps.host.outputs.bin }}
           DSH_HOST_LAYOUT: registry
-          DSH_HOST_VERSION: 0.2.1-rc.5
+          DSH_HOST_VERSION: 0.2.2-rc.1
       - name: Archive current browser evidence
         if: always()
         uses: actions/upload-artifact@v4

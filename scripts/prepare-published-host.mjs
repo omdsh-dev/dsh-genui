@@ -5,7 +5,7 @@ import { appendFile, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { satisfies } from 'semver'
+import { minVersion, satisfies } from 'semver'
 import { parse, stringify } from 'yaml'
 import { mergeExactVersionExceptions } from './host-dependency-policy.mjs'
 import { resolveExactHost } from './sidechat-acceptance/scripts/sidechat-host-contract.mjs'
@@ -15,9 +15,19 @@ assert.match(version ?? '', /^\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?$/, 'Exac
 const manifest = JSON.parse(execFileSync('pnpm', ['view', `@deepseek-ai/dsh@${version}`, '--json'], { encoding: 'utf8' }))
 assert.equal(manifest.version, version)
 assert.ok(satisfies(process.versions.node, manifest.engines?.node ?? '*'), 'Node must satisfy the selected host runtime')
+// Published workspace ranges can resolve different Cordis copies over time.
+// Use the versions recorded when this exact host was published, matching its
+// official workspace graph rather than mixing a newer loader/runtime into it.
+const overrides = Object.fromEntries(Object.entries(manifest.dependencies)
+  .filter(([name]) => name.startsWith('@deepseek-ai/cordis'))
+  .map(([name, range]) => {
+    const exact = minVersion(range)
+    assert.ok(exact, `Expected a versioned host dependency: ${name}`)
+    return [name, exact.version]
+  }))
 const root = await mkdtemp(join(tmpdir(), 'dsh-genui-published-host-'))
 await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'genui-published-host-acceptance', version: '0.0.0', private: true, type: 'module', packageManager: 'pnpm@11.7.0' }))
-await writeFile(join(root, 'pnpm-workspace.yaml'), stringify({ allowBuilds: {
+await writeFile(join(root, 'pnpm-workspace.yaml'), stringify({ overrides, allowBuilds: {
   esbuild: true,
   [`@deepseek-ai/dsh-subprocess-local@${version}`]: true,
   '@google/genai': false, koffi: false, 'node-pty': false, protobufjs: false,

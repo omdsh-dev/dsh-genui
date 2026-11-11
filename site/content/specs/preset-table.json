@@ -1,0 +1,365 @@
+{
+  "id": "preset-table",
+  "category": "playground",
+  "note": "表格预设：专用表格能力大集合——index/spark/ring/bar/badge 列类型、filter + sortField 绑定、export 复制、details 明细、group 分组 + total 合计。全部本地。",
+  "zh": {
+    "title": "表格能力全开",
+    "gap": 12,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "示例数据。表头可点排序，输入框即时过滤，右上角可复制 Markdown / CSV，首列箭头展开明细。"
+      },
+      {
+        "type": "row",
+        "wrap": true,
+        "items": [
+          {
+            "type": "input",
+            "label": "筛选服务",
+            "placeholder": "输入关键字",
+            "id": "tbl-filter"
+          },
+          {
+            "type": "select",
+            "label": "排序字段",
+            "options": [
+              "服务",
+              "近 6 期延迟",
+              "可用率",
+              "负载"
+            ],
+            "id": "tbl-sort"
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "export": true,
+        "filter": "tbl-filter",
+        "sortField": "tbl-sort",
+        "columns": [
+          "#",
+          "服务",
+          "近 6 期延迟",
+          "可用率",
+          "负载",
+          "状态"
+        ],
+        "types": [
+          "index",
+          "text",
+          "spark",
+          "ring",
+          "bar",
+          "badge"
+        ],
+        "rows": [
+          [
+            "1",
+            "API 网关",
+            "180,164,150,140,133,128",
+            "99.96",
+            "62",
+            "正常"
+          ],
+          [
+            "2",
+            "搜索",
+            "220,210,230,205,198,190",
+            "99.82",
+            "78",
+            "关注"
+          ],
+          [
+            "3",
+            "推荐",
+            "310,340,300,280,260,250",
+            "99.41",
+            "91",
+            "偏高"
+          ],
+          [
+            "4",
+            "鉴权",
+            "96,92,88,90,86,84",
+            "99.99",
+            "41",
+            "正常"
+          ],
+          [
+            "5",
+            "导出",
+            "410,380,360,340,330,320",
+            "98.70",
+            "88",
+            "偏高"
+          ]
+        ],
+        "details": [
+          [
+            {
+              "type": "keyvalue",
+              "pairs": [
+                {
+                  "key": "负责人",
+                  "value": "平台组"
+                },
+                {
+                  "key": "SLO",
+                  "value": "P95 < 150ms"
+                }
+              ]
+            },
+            {
+              "type": "progress",
+              "value": 62,
+              "target": 80,
+              "label": "负载水位",
+              "valueLabel": "62% / 目标 80%"
+            }
+          ],
+          null,
+          null,
+          null,
+          null
+        ]
+      },
+      {
+        "type": "table",
+        "columns": [
+          "分组 · 区域",
+          "Q1",
+          "Q2",
+          "Q3"
+        ],
+        "types": [
+          "group",
+          "num",
+          "num",
+          "num"
+        ],
+        "total": true,
+        "rows": [
+          [
+            "华东",
+            "",
+            "",
+            ""
+          ],
+          [
+            "上海",
+            "120",
+            "138",
+            "151"
+          ],
+          [
+            "杭州",
+            "96",
+            "104",
+            "118"
+          ],
+          [
+            "华北",
+            "",
+            "",
+            ""
+          ],
+          [
+            "北京",
+            "88",
+            "95",
+            "103"
+          ]
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "一张表能承载多少本地操作",
+        "content": "排序、过滤、分组折叠、明细展开、合计与导出都在浏览器里完成；数据是模型给的，操作不需要模型。"
+      }
+    ]
+  },
+  "en": {
+    "title": "Every table capability at once",
+    "gap": 12,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Sample data. Click a header to sort, type to filter, copy Markdown or CSV from the top right, expand a row from its chevron."
+      },
+      {
+        "type": "row",
+        "wrap": true,
+        "items": [
+          {
+            "type": "input",
+            "label": "Filter services",
+            "placeholder": "Type a keyword",
+            "id": "tbl-filter"
+          },
+          {
+            "type": "select",
+            "label": "Sort field",
+            "options": [
+              "Service",
+              "Last 6 P95",
+              "Uptime",
+              "Load"
+            ],
+            "id": "tbl-sort"
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "export": true,
+        "filter": "tbl-filter",
+        "sortField": "tbl-sort",
+        "columns": [
+          "#",
+          "Service",
+          "Last 6 P95",
+          "Uptime",
+          "Load",
+          "Status"
+        ],
+        "types": [
+          "index",
+          "text",
+          "spark",
+          "ring",
+          "bar",
+          "badge"
+        ],
+        "rows": [
+          [
+            "1",
+            "API gateway",
+            "180,164,150,140,133,128",
+            "99.96",
+            "62",
+            "Healthy"
+          ],
+          [
+            "2",
+            "Search",
+            "220,210,230,205,198,190",
+            "99.82",
+            "78",
+            "Watch"
+          ],
+          [
+            "3",
+            "Recs",
+            "310,340,300,280,260,250",
+            "99.41",
+            "91",
+            "High"
+          ],
+          [
+            "4",
+            "Auth",
+            "96,92,88,90,86,84",
+            "99.99",
+            "41",
+            "Healthy"
+          ],
+          [
+            "5",
+            "Export",
+            "410,380,360,340,330,320",
+            "98.70",
+            "88",
+            "High"
+          ]
+        ],
+        "details": [
+          [
+            {
+              "type": "keyvalue",
+              "pairs": [
+                {
+                  "key": "Owner",
+                  "value": "Platform"
+                },
+                {
+                  "key": "SLO",
+                  "value": "P95 < 150ms"
+                }
+              ]
+            },
+            {
+              "type": "progress",
+              "value": 62,
+              "target": 80,
+              "label": "Load",
+              "valueLabel": "62% / target 80%"
+            }
+          ],
+          null,
+          null,
+          null,
+          null
+        ]
+      },
+      {
+        "type": "table",
+        "columns": [
+          "Group · region",
+          "Q1",
+          "Q2",
+          "Q3"
+        ],
+        "types": [
+          "group",
+          "num",
+          "num",
+          "num"
+        ],
+        "total": true,
+        "rows": [
+          [
+            "East",
+            "",
+            "",
+            ""
+          ],
+          [
+            "Shanghai",
+            "120",
+            "138",
+            "151"
+          ],
+          [
+            "Hangzhou",
+            "96",
+            "104",
+            "118"
+          ],
+          [
+            "North",
+            "",
+            "",
+            ""
+          ],
+          [
+            "Beijing",
+            "88",
+            "95",
+            "103"
+          ]
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "How much local behaviour one table carries",
+        "content": "Sorting, filtering, group collapse, detail expansion, totals and export all run in the browser. The model supplies data; the reader's operations do not need the model."
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "atlas-grid",
+  "category": "atlas",
+  "note": "grid：列容器；子节点加 span:2 就是 bento 的基本型。cols 不要超过 12。",
+  "zh": { "title": "grid · span 是 bento 的唯一原语", "items": [
+    { "type": "grid", "cols": 3, "items": [
+      { "type": "card", "span": 2, "flat": true, "items": [{ "type": "text", "size": "h3", "content": "span:2 宽卡" }, { "type": "text", "size": "muted", "content": "占两列，放主图或主表。" }] },
+      { "type": "card", "flat": true, "items": [{ "type": "text", "size": "h3", "content": "span:1" }, { "type": "text", "size": "muted", "content": "占一列，放指标或摘要。" }] }
+    ] }
+  ] },
+  "en": { "title": "grid · span is the only bento primitive", "items": [
+    { "type": "grid", "cols": 3, "items": [
+      { "type": "card", "span": 2, "flat": true, "items": [{ "type": "text", "size": "h3", "content": "span:2 wide card" }, { "type": "text", "size": "muted", "content": "Two columns — for the main chart or table." }] },
+      { "type": "card", "flat": true, "items": [{ "type": "text", "size": "h3", "content": "span:1" }, { "type": "text", "size": "muted", "content": "One column — for a metric or summary." }] }
+    ] }
+  ] }
+}

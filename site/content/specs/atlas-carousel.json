@@ -1,0 +1,19 @@
+{
+  "id": "atlas-carousel",
+  "category": "atlas",
+  "note": "carousel：横向卡片轨道，焦点在轨道上时方向键/Home/End 导航；不自动播放，浏览不发 action。",
+  "zh": { "title": "carousel · 横向浏览，不打断对话", "items": [
+    { "type": "carousel", "title": "三种密度", "itemWidth": 260, "items": [
+      { "type": "card", "title": "紧凑", "items": [{ "type": "text", "size": "muted", "content": "只留结论一行。" }] },
+      { "type": "card", "title": "标准", "items": [{ "type": "text", "size": "muted", "content": "结论 + 一条证据。" }] },
+      { "type": "card", "title": "详尽", "items": [{ "type": "text", "size": "muted", "content": "结论 + 证据 + 下一步。" }] }
+    ] }
+  ] },
+  "en": { "title": "carousel · browse sideways without interrupting", "items": [
+    { "type": "carousel", "title": "Three densities", "itemWidth": 260, "items": [
+      { "type": "card", "title": "Compact", "items": [{ "type": "text", "size": "muted", "content": "The conclusion in one line." }] },
+      { "type": "card", "title": "Standard", "items": [{ "type": "text", "size": "muted", "content": "Conclusion plus one piece of evidence." }] },
+      { "type": "card", "title": "Detailed", "items": [{ "type": "text", "size": "muted", "content": "Conclusion, evidence and next step." }] }
+    ] }
+  ] }
+}
