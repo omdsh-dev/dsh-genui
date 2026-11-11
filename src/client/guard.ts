@@ -32,6 +32,7 @@ import type { GenuiDiagnostic } from './genui-runtime/diagnostics.ts'
 import { GENUI_LIMITS } from './genui-runtime/limits.ts'
 import { analyzeSubmissionRegistry } from './submission-registry.ts'
 import { isTableDetailReachable, prepareTableRows, tableRowsForDetails } from './table-details.ts'
+import { jsonLimitViolation, stringifyLimitedJson } from './genui-runtime/json-limits.ts'
 import { walkGenuiNodes } from './walk-spec.ts'
 import { color, enu, int, num, obj, opt, safeMediaSrc, str } from './genui-runtime/value-utils.ts'
 import { repairMap, validateMap } from './map-data.ts'
@@ -797,7 +798,7 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
       // a deeper value overflows the block fingerprints (`JSON.stringify`) and
       // the tree recursion at render time, so drop the node here instead of
       // handing an unserializable payload to the renderer.
-      if (!('value' in v) || jsonValueTooDeep(v.value, GENUI_LIMITS.maxJsonDepth)) return null
+      if (!('value' in v) || jsonLimitViolation(v.value) !== null) return null
       return { type: 'json', value: v.value }
     }
     case 'code': {
@@ -980,23 +981,6 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
 
 /* ---------------- per-type sub-repairers ---------------- */
 
-/** Whether an untrusted JSON payload nests deeper than the JSON tree can show.
- *  Iterative on purpose: the value is model input, so a recursive depth check
- *  would just move the stack overflow into the guard itself. */
-function jsonValueTooDeep(value: unknown, limit: number): boolean {
-  const stack: Array<[unknown, number]> = [[value, 0]]
-  while (stack.length > 0) {
-    const [current, depth] = stack.pop()!
-    if (depth > limit) return true
-    if (Array.isArray(current)) {
-      for (const entry of current) stack.push([entry, depth + 1])
-    } else if (current !== null && typeof current === 'object') {
-      for (const entry of Object.values(current)) stack.push([entry, depth + 1])
-    }
-  }
-  return false
-}
-
 function repairStrings(v: unknown, cap: number, strCap: number): string[] | undefined {
   if (!Array.isArray(v)) return undefined
   const out: string[] = []
@@ -1013,11 +997,10 @@ function repairStrings(v: unknown, cap: number, strCap: number): string[] | unde
         : typeof o.value === 'string' ? o.value
         : typeof o.title === 'string' ? o.title
         : undefined
-      // A junk object falls back to its JSON text as the label; an over-deep
-      // one cannot be stringified at all, so drop that option instead of
-      // throwing out of repair.
-      if (label === undefined && jsonValueTooDeep(item, GENUI_LIMITS.maxJsonDepth)) continue
-      out.push((label ?? JSON.stringify(item)).slice(0, strCap))
+      // 仅为缺少标签的对象执行受限 JSON 序列化，无法序列化的选项直接丢弃。
+      const text = label ?? stringifyLimitedJson(item)
+      if (text === undefined) continue
+      out.push(text.slice(0, strCap))
     }
   }
   return out
@@ -2632,8 +2615,13 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       break
     case 'json':
       if (!('value' in v)) errors.push(`${at}: type 'json' requires value`)
-      else if (jsonValueTooDeep(v.value, GENUI_LIMITS.maxJsonDepth)) {
-        errors.push(`${at}.value nesting depth exceeds JSON limit ${GENUI_LIMITS.maxJsonDepth}; flatten or split the value`)
+      else {
+        const violation = jsonLimitViolation(v.value)
+        if (violation === 'depth') {
+          errors.push(`${at}.value nesting depth exceeds JSON limit ${GENUI_LIMITS.maxJsonDepth}; flatten or split the value`)
+        } else if (violation === 'nodes') {
+          errors.push(`${at}.value node count exceeds JSON limit ${GENUI_LIMITS.maxJsonNodes}; split the value`)
+        }
       }
       break
     case 'code':

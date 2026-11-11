@@ -74,4 +74,6 @@ export const GENUI_LIMITS = {
    *  serialized by the block fingerprints (`JSON.stringify`) or drawn by the
    *  JSON tree without overflowing the stack. */
   maxJsonDepth: 32,
+  /** Maximum values traversed in one JSON payload, including its root. */
+  maxJsonNodes: 5000,
 } as const

@@ -265,6 +265,31 @@ describe('repairGenuiSpec: node-level healing', () => {
     expect(repairGenuiSpec({ items: [{ type: 'json', value: shallow }] })).toEqual({ items: [{ type: 'json', value: shallow }] })
   })
 
+  it('enforces the JSON node budget even when nesting is shallow', () => {
+    // 根数组也占用一个节点，因此仅有 maxJsonNodes - 1 个元素的数组恰好处于上限。
+    const acceptedValue = Array(GENUI_LIMITS.maxJsonNodes - 1).fill(1)
+    const accepted = processGenuiSpec({ items: [{ type: 'json', value: acceptedValue }] })
+    expect(accepted.errors).toEqual([])
+    expect(accepted.spec?.items[0]).toEqual({ type: 'json', value: acceptedValue })
+
+    const oversized = Array(GENUI_LIMITS.maxJsonNodes).fill(1)
+    const processed = processGenuiSpec({ items: [{ type: 'json', value: oversized }] })
+    expect(processed.errors).toContain(
+      `items[0].value node count exceeds JSON limit ${GENUI_LIMITS.maxJsonNodes}; split the value`,
+    )
+    expect(processed.renderedNativeCount).toBe(0)
+    expect(repairGenuiSpec({ items: [{ type: 'json', value: oversized }] })).toEqual({ items: [] })
+  })
+
+  it('drops an over-wide fallback option while retaining labelled options', () => {
+    const junk = { values: Array(GENUI_LIMITS.maxJsonNodes).fill(0) }
+    const processed = processGenuiSpec({
+      items: [{ type: 'select', options: ['a', junk, { label: '可选', values: junk.values }, 'b'] }],
+    })
+    expect(processed.errors).toEqual([])
+    expect(processed.spec?.items[0]).toEqual({ type: 'select', options: ['a', '可选', 'b'] })
+  })
+
   it('drops an over-deep object option instead of stringifying it', () => {
     const junk = (() => {
       let value: unknown = 1

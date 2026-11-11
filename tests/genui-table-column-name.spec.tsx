@@ -1,8 +1,9 @@
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { GenuiBlock } from '../src/client/GenuiBlock.tsx'
-import { repairGenuiSpec } from '../src/client/guard.ts'
+import { processGenuiSpec, repairGenuiSpec } from '../src/client/guard.ts'
 import { isGenuiSpec } from '../src/client/spec.ts'
+import { GENUI_LIMITS } from '../src/client/genui-runtime/index.ts'
 import { prepareTableRows } from '../src/client/table-details.ts'
 
 afterEach(cleanup)
@@ -58,6 +59,39 @@ describe('table column name alias (issue #315)', () => {
     expect(prepareTableRows({ columns: [column], rows: [['value']] })).toEqual({
       columns: [JSON.stringify(column)], rows: [['value']],
     })
+  })
+
+  it('handles a deeply nested object-row cell without throwing', () => {
+    let nested: unknown = 1
+    for (let i = 0; i < 5000; i++) nested = { child: nested }
+    const input = { items: [{ type: 'table', columns: ['payload', 'name'], rows: [{ payload: nested, name: 'kept' }] }] }
+    expect(() => processGenuiSpec(input)).not.toThrow()
+    const processed = processGenuiSpec(input)
+    expect(processed.errors).toEqual([])
+    expect(processed.spec?.items[0]).toEqual({
+      type: 'table', columns: ['payload', 'name'], rows: [['', 'kept']],
+    })
+  })
+
+  it('preserves column positions for deeply nested fallback headers', () => {
+    let nested: unknown = 1
+    for (let i = 0; i < 5000; i++) nested = { child: nested }
+    expect(prepareTableRows({ columns: [nested, 'name'], rows: [['value', 'kept']] })).toEqual({
+      columns: ['', 'name'], rows: [['value', 'kept']],
+    })
+    expect(prepareTableRows({ columns: ['name', nested], rows: [['kept', 'value']] })).toEqual({
+      columns: ['name', ''], rows: [['kept', 'value']],
+    })
+  })
+
+  it('bounds JSON fallback text for wide table cells and headers', () => {
+    const oversized = Array(GENUI_LIMITS.maxJsonNodes).fill(0)
+    expect(prepareTableRows({
+      columns: ['payload'], rows: [{ payload: { entries: oversized } }],
+    })).toEqual({ columns: ['payload'], rows: [['']] })
+    expect(prepareTableRows({
+      columns: [{ entries: oversized }], rows: [['kept']],
+    })).toEqual({ columns: [''], rows: [['kept']] })
   })
 
   it('uses name only after empty or invalid existing aliases and keeps the header limit', () => {

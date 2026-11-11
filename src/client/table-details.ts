@@ -1,4 +1,5 @@
 import { GENUI_LIMITS } from './genui-runtime/index.ts'
+import { stringifyLimitedJson } from './genui-runtime/json-limits.ts'
 import { GENUI_COMPUTED_CELL } from './spec.ts'
 import type { GenuiComputedCell, GenuiComputedRef } from './spec.ts'
 
@@ -97,7 +98,7 @@ function repairColumnValues(value: unknown): string[] {
         : typeof column.value === 'string' ? column.value
           : typeof column.title === 'string' ? column.title
             : typeof column.name === 'string' && column.name !== '' ? column.name
-              : JSON.stringify(item)
+              : stringifyLimitedJson(item) ?? ''
       columns.push(label.slice(0, 128))
     }
   }
@@ -169,7 +170,7 @@ function cellText(value: unknown): string | number | GenuiComputedRef | GenuiCom
     return { $computed: (value as Record<string, unknown>).$computed as string }
   }
   if (value === null || value === undefined) return ''
-  return JSON.stringify(value)
+  return stringifyLimitedJson(value) ?? ''
 }
 
 /** 验证只由 Computed 解析器生成的表格显示单元格。 */
@@ -188,5 +189,5 @@ function columnHeaderText(value: unknown): string {
   for (const key of ['title', 'label', 'key', 'dataIndex', 'name'] as const) {
     if (typeof column[key] === 'string' && column[key] !== '') return column[key]
   }
-  return JSON.stringify(value)
+  return stringifyLimitedJson(value) ?? ''
 }
