@@ -99,7 +99,7 @@ describe('ChoicesNode', () => {
 
   it('warns before selection when no action is declared and disables an invalid submit', () => {
     const { container, send } = renderWithAction({ ...base, action: undefined })
-    const button = screen.getByRole<HTMLButtonElement>('button', { name: '就这么定' })
+    const button = screen.getByRole('button', { name: '就这么定' }) as HTMLButtonElement
     expect(screen.getByRole('note').textContent).toBe(t('block.choices.noAction'))
     expect(button.disabled).toBe(true)
     fireEvent.click(container.querySelectorAll<HTMLInputElement>('input')[0]!)
