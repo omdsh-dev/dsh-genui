@@ -179,6 +179,19 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+.localWarning {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) 30%, transparent);
+  border-radius: var(--dsl-g-radius-control);
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) 12%, transparent);
+  color: var(--dsw-alias-state-warn-primary, #b8860b);
+  font-size: var(--dsl-g-font-title);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
 @container (max-width: 480px) {
   .row { flex-wrap: wrap; }
   .meta { padding-top: 0; }
