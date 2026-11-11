@@ -201,7 +201,7 @@ describe('Map real-browser acceptance contract (no browser launched)', () => {
     expect(await readFile(prepared.auditFile, 'utf8')).toBe('')
     expect(await readFile(patch[1].insert[0].name, 'utf8')).toContain('Refusing unexpected or extra model calls')
   })
-  it('preserves the source host matrix and adds exact published alpha coverage', async () => {
+  it('preserves older host coverage and requires exact latest RC browser acceptance', async () => {
     const workflow = parse(await readFile('.github/workflows/ci.yml', 'utf8'))
     expect(Object.keys(workflow.jobs)).toEqual(['check', 'browser-text-newlines', 'windows-pack', 'published-alpha', 'published-current'])
     expect(workflow.permissions).toBeUndefined()
@@ -218,23 +218,30 @@ describe('Map real-browser acceptance contract (no browser launched)', () => {
     expect(alpha.find((s: { name?: string }) => s.name === 'Install exact published alpha host').run).toContain('prepare-published-host.mjs 0.2.2-alpha.2')
     expect(alpha.find((s: { name?: string }) => s.name === 'Alpha packed Map browser acceptance').run).toContain('--smoke --map --install tarball')
     const current = workflow.jobs['published-current'].steps
-    expect(current.find((s: { name?: string }) => s.name === 'Install exact published current host').run).toContain('prepare-published-host.mjs 0.2.1-rc.5')
+    expect(current.find((s: { name?: string }) => s.name === 'Check published current API').run).toContain('check:host-api dsh-v0.2.2-rc.1')
+    expect(current.find((s: { name?: string }) => s.name === 'Check previous published RC API').run).toContain('check:host-api dsh-v0.2.1-rc.5')
+    expect(current.find((s: { name?: string }) => s.name === 'Install exact published current host').run).toContain('prepare-published-host.mjs 0.2.2-rc.1')
     for (const name of ['Current packed gallery and computed acceptance', 'Current packed Map browser acceptance']) {
       const acceptance = current.find((s: { name?: string }) => s.name === name)
       expect(acceptance.run).toContain('steps.pack.outputs.sha256')
-      expect(acceptance.env.DSH_HOST_VERSION).toBe('0.2.1-rc.5')
+      expect(acceptance.env.DSH_HOST_VERSION).toBe('0.2.2-rc.1')
       expect(acceptance['continue-on-error']).not.toBe(true)
     }
   })
-  it('requires successful alpha API and packed browser acceptance before npm publication', async () => {
+  it('requires successful older-host API and latest RC packed browser acceptance before npm publication', async () => {
     const workflow = parse(await readFile('.github/workflows/release.yml', 'utf8'))
     const steps = workflow.jobs.publish.steps
     const publish = steps.findIndex((s: { name?: string }) => s.name === 'Publish to npm')
-    for (const name of ['Check published alpha API', 'Install exact published alpha host', 'Alpha packed gallery and computed acceptance', 'Alpha packed Map browser acceptance', 'Check published current API', 'Install exact published current host', 'Current packed gallery and computed acceptance', 'Current packed Map browser acceptance']) {
+    for (const name of ['Check published alpha API', 'Install exact published alpha host', 'Alpha packed gallery and computed acceptance', 'Alpha packed Map browser acceptance', 'Check published current API', 'Check previous published RC API', 'Install exact published current host', 'Current packed gallery and computed acceptance', 'Current packed Map browser acceptance']) {
       const index = steps.findIndex((s: { name?: string }) => s.name === name)
       expect(index).toBeGreaterThanOrEqual(0)
       expect(index).toBeLessThan(publish)
       expect(steps[index]['continue-on-error']).not.toBe(true)
+    }
+    expect(steps.find((s: { name?: string }) => s.name === 'Check published current API').run).toContain('check:host-api dsh-v0.2.2-rc.1')
+    expect(steps.find((s: { name?: string }) => s.name === 'Install exact published current host').run).toContain('prepare-published-host.mjs 0.2.2-rc.1')
+    for (const name of ['Current packed gallery and computed acceptance', 'Current packed Map browser acceptance']) {
+      expect(steps.find((s: { name?: string }) => s.name === name).env.DSH_HOST_VERSION).toBe('0.2.2-rc.1')
     }
   })
   it('keeps Map mode separate from existing Gallery/Sidechat and validates before port probing', async () => {

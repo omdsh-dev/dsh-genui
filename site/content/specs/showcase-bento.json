@@ -1,0 +1,295 @@
+{
+  "id": "showcase-bento",
+  "category": "showcase",
+  "note": "Bento 主构图：4 列网格 + span:2 宽卡与 span:1 窄卡混排，stat.size=hero 只出现一次作为焦点。示例数据（与 surface-* 同一套）。",
+  "zh": {
+    "title": "一块看板的分区",
+    "gap": 14,
+    "items": [
+      {
+        "type": "grid",
+        "cols": 4,
+        "items": [
+          {
+            "type": "card",
+            "span": 2,
+            "eyebrow": "本周",
+            "title": "交付与节奏",
+            "items": [
+              {
+                "type": "stat",
+                "size": "hero",
+                "label": "本周合入",
+                "value": "40",
+                "delta": "+8.1%"
+              },
+              {
+                "type": "text",
+                "size": "muted",
+                "content": "六个模块，四十次合入，一次发布。示例数据。"
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "发布",
+            "title": "就绪度",
+            "items": [
+              {
+                "type": "progress",
+                "variant": "ring",
+                "value": 78,
+                "target": 90,
+                "valueLabel": "目标 90%"
+              },
+              {
+                "type": "text",
+                "size": "caption",
+                "content": "三项待办，一项阻塞。"
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "阻塞",
+            "title": "待办",
+            "items": [
+              {
+                "type": "list",
+                "items": [
+                  "变更日志",
+                  "回滚演练",
+                  "文档快照"
+                ]
+              },
+              {
+                "type": "badge",
+                "label": "发布前清空",
+                "tone": "danger"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 4,
+        "items": [
+          {
+            "type": "card",
+            "span": 3,
+            "eyebrow": "分布",
+            "title": "每个模块的推进",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "bars",
+                "data": [
+                  {
+                    "label": "渲染",
+                    "value": 86
+                  },
+                  {
+                    "label": "词汇",
+                    "value": 74
+                  },
+                  {
+                    "label": "无障碍",
+                    "value": 68
+                  },
+                  {
+                    "label": "文档",
+                    "value": 61
+                  },
+                  {
+                    "label": "导出",
+                    "value": 52
+                  },
+                  {
+                    "label": "性能",
+                    "value": 47
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "版本",
+            "title": "当前",
+            "items": [
+              {
+                "type": "keyvalue",
+                "pairs": [
+                  {
+                    "key": "版本",
+                    "value": "0.16.0"
+                  },
+                  {
+                    "key": "授权",
+                    "value": "MIT"
+                  },
+                  {
+                    "key": "界面语言",
+                    "value": "中文 / English"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "分区靠宽窄，不靠边框",
+        "content": "整块看板只有一个焦点：最左边那个大数字。其余卡片用 span 与留白让层级自然成立。"
+      }
+    ]
+  },
+  "en": {
+    "title": "How one board is divided",
+    "gap": 14,
+    "items": [
+      {
+        "type": "grid",
+        "cols": 4,
+        "items": [
+          {
+            "type": "card",
+            "span": 2,
+            "eyebrow": "This week",
+            "title": "Delivery and cadence",
+            "items": [
+              {
+                "type": "stat",
+                "size": "hero",
+                "label": "Merged this week",
+                "value": "40",
+                "delta": "+8.1%"
+              },
+              {
+                "type": "text",
+                "size": "muted",
+                "content": "Six modules, forty merges, one release. Sample data."
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "Release",
+            "title": "Readiness",
+            "items": [
+              {
+                "type": "progress",
+                "variant": "ring",
+                "value": 78,
+                "target": 90,
+                "valueLabel": "target 90%"
+              },
+              {
+                "type": "text",
+                "size": "caption",
+                "content": "Three open items, one blocking."
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "Blocked",
+            "title": "Open items",
+            "items": [
+              {
+                "type": "list",
+                "items": [
+                  "Changelog",
+                  "Rollback drill",
+                  "Docs snapshot"
+                ]
+              },
+              {
+                "type": "badge",
+                "label": "Clear before release",
+                "tone": "danger"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 4,
+        "items": [
+          {
+            "type": "card",
+            "span": 3,
+            "eyebrow": "Distribution",
+            "title": "Progress per module",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "bars",
+                "data": [
+                  {
+                    "label": "Runtime",
+                    "value": 86
+                  },
+                  {
+                    "label": "Vocabulary",
+                    "value": 74
+                  },
+                  {
+                    "label": "A11y",
+                    "value": 68
+                  },
+                  {
+                    "label": "Docs",
+                    "value": 61
+                  },
+                  {
+                    "label": "Export",
+                    "value": 52
+                  },
+                  {
+                    "label": "Perf",
+                    "value": 47
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "Version",
+            "title": "Current",
+            "items": [
+              {
+                "type": "keyvalue",
+                "pairs": [
+                  {
+                    "key": "Version",
+                    "value": "0.16.0"
+                  },
+                  {
+                    "key": "License",
+                    "value": "MIT"
+                  },
+                  {
+                    "key": "Locales",
+                    "value": "zh / en"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "Division comes from width, not borders",
+        "content": "The whole board has one focal point: the large figure on the left. Everything else earns hierarchy from span and whitespace."
+      }
+    ]
+  }
+}

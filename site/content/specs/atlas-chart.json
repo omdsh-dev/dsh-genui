@@ -1,0 +1,23 @@
+{
+  "id": "atlas-chart",
+  "category": "atlas",
+  "note": "chart：轻量原生 SVG 图表，bars/line/donut；≤8 点用它，多序列或大屏换 echart。",
+  "zh": { "title": "chart · 四点对比", "items": [
+    { "type": "chart", "kind": "bars", "data": [
+      { "label": "布局", "value": 10 },
+      { "label": "展示", "value": 22 },
+      { "label": "交互", "value": 18 },
+      { "label": "高级", "value": 7 }
+    ] },
+    { "type": "text", "size": "caption", "content": "五组白名单节点中的四组；图表数据来自 schema 注册表计数。" }
+  ] },
+  "en": { "title": "chart · four points", "items": [
+    { "type": "chart", "kind": "bars", "data": [
+      { "label": "Layout", "value": 10 },
+      { "label": "Display", "value": 22 },
+      { "label": "Interactive", "value": 18 },
+      { "label": "Advanced", "value": 7 }
+    ] },
+    { "type": "text", "size": "caption", "content": "Four of the five whitelist groups; counts come from the schema registry." }
+  ] }
+}

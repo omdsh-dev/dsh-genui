@@ -1,0 +1,131 @@
+{
+  "id": "showcase-tabs",
+  "category": "showcase",
+  "note": "重引擎：scene3d（按需加载 three.js）。tabs 三页：要点 / 3D / 源码；切页在本地，不吃模型回合。",
+  "zh": {
+    "title": "同一个回答，三页厚度",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "标签页适合“同一主题的三个深度”：先看结论，再看空间，最后看源码。切页完全是本地状态。"
+      },
+      {
+        "type": "tabs",
+        "tabs": [
+          {
+            "label": "要点",
+            "items": [
+              {
+                "type": "keyvalue",
+                "pairs": [
+                  { "key": "围栏标记", "value": "```dsh-ui" },
+                  { "key": "规格根", "value": "title / gap / computed / items" },
+                  { "key": "严格程度", "value": "结构错误不猜，字段错误告警" },
+                  { "key": "渲染路径", "value": "白名单节点 → DOM" }
+                ]
+              },
+              { "type": "progress", "value": 92, "target": 100, "label": "字段覆盖率", "valueLabel": "92%" }
+            ]
+          },
+          {
+            "label": "3D",
+            "items": [
+              {
+                "type": "scene3d",
+                "title": "三个基本体 · 拖拽旋转",
+                "ambient": 1,
+                "meshes": [
+                  { "shape": "box", "color": "#e6d3ac", "position": [-1.2, 0, 0], "rotation": [0.4, 0.7, 0] },
+                  { "shape": "sphere", "color": "#7fb98a" },
+                  { "shape": "cylinder", "color": "#d8a55c", "position": [1.2, 0, 0] }
+                ]
+              }
+            ]
+          },
+          {
+            "label": "源码",
+            "items": [
+              {
+                "type": "code",
+                "lang": "json",
+                "code": "{\"type\":\"tabs\",\"tabs\":[{\"label\":\"要点\",\"items\":[]},{\"label\":\"3D\",\"items\":[{\"type\":\"scene3d\",\"meshes\":[{\"shape\":\"box\"}]}]}]}"
+              },
+              { "type": "text", "size": "caption", "content": "空的标签页会按空数组处理，不会报错。" }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "标签页不是折叠",
+        "content": "tabs 让读者在同一位置切换三种深度；accordion 适合逐条展开。两个都是本地状态，刷新后按内容指纹恢复。"
+      }
+    ]
+  },
+  "en": {
+    "title": "One reply, three depths",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Tabs suit three depths of one subject: conclusion first, then space, then source. Switching is entirely local state."
+      },
+      {
+        "type": "tabs",
+        "tabs": [
+          {
+            "label": "Essentials",
+            "items": [
+              {
+                "type": "keyvalue",
+                "pairs": [
+                  { "key": "Fence tag", "value": "```dsh-ui" },
+                  { "key": "Spec root", "value": "title / gap / computed / items" },
+                  { "key": "Strictness", "value": "Structural errors are not guessed; field errors warn" },
+                  { "key": "Render path", "value": "Whitelisted node → DOM" }
+                ]
+              },
+              { "type": "progress", "value": 92, "target": 100, "label": "Field coverage", "valueLabel": "92%" }
+            ]
+          },
+          {
+            "label": "3D",
+            "items": [
+              {
+                "type": "scene3d",
+                "title": "Three primitives · drag to orbit",
+                "ambient": 1,
+                "meshes": [
+                  { "shape": "box", "color": "#e6d3ac", "position": [-1.2, 0, 0], "rotation": [0.4, 0.7, 0] },
+                  { "shape": "sphere", "color": "#7fb98a" },
+                  { "shape": "cylinder", "color": "#d8a55c", "position": [1.2, 0, 0] }
+                ]
+              }
+            ]
+          },
+          {
+            "label": "Source",
+            "items": [
+              {
+                "type": "code",
+                "lang": "json",
+                "code": "{\"type\":\"tabs\",\"tabs\":[{\"label\":\"Essentials\",\"items\":[]},{\"label\":\"3D\",\"items\":[{\"type\":\"scene3d\",\"meshes\":[{\"shape\":\"box\"}]}]}]}"
+              },
+              { "type": "text", "size": "caption", "content": "An empty tab is treated as an empty array, never an error." }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "Tabs are not accordions",
+        "content": "Tabs switch three depths in one place; accordion expands item by item. Both are local state, restored after refresh by content fingerprint."
+      }
+    ]
+  }
+}

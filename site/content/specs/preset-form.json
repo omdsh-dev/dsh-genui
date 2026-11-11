@@ -1,0 +1,119 @@
+{
+  "id": "preset-form",
+  "category": "playground",
+  "note": "表单预设：computed 公式字段（月薪×12、×税率）驱动 stat 与图表，input/slider/select/date-picker 全部带 id；when 条件显隐演示“选了主体才出现税号”。本地计算，零往返。",
+  "zh": {
+    "title": "预算测算",
+    "gap": 12,
+    "computed": [
+      { "id": "annual", "expr": "monthly*12", "format": { "locale": "zh-CN", "style": "currency", "currency": "CNY", "maximumFractionDigits": 0 } },
+      { "id": "tax", "expr": "annual*rate", "format": { "locale": "zh-CN", "style": "currency", "currency": "CNY", "maximumFractionDigits": 0 } },
+      { "id": "net", "expr": "annual-tax", "format": { "locale": "zh-CN", "style": "currency", "currency": "CNY", "maximumFractionDigits": 0 } }
+    ],
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "改动任一输入，下面的数字当场重算——公式写在规格里，由渲染器求值，不经过模型。"
+      },
+      {
+        "type": "grid",
+        "cols": 2,
+        "items": [
+          {
+            "type": "card",
+            "eyebrow": "输入",
+            "title": "测算条件",
+            "items": [
+              { "type": "input", "label": "月预算（元）", "inputType": "number", "value": "10000", "id": "monthly" },
+              { "type": "input", "label": "综合税率", "inputType": "number", "value": "0.1", "id": "rate" },
+              { "type": "select", "label": "主体", "options": ["公司主体", "个人主体", "海外主体"], "selected": 0, "id": "entity" },
+              { "type": "text", "size": "caption", "content": "税号仅在“公司主体”下出现。", "when": { "field": "entity", "op": "eq", "value": "公司主体" } },
+              { "type": "input", "label": "税号", "placeholder": "15–20 位统一社会信用代码", "id": "tax-id", "when": { "field": "entity", "op": "eq", "value": "公司主体" } }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "结果",
+            "title": "年度测算",
+            "items": [
+              { "type": "stat", "label": "年度预算", "value": "{{annual}}" },
+              { "type": "stat", "label": "年度税额", "value": "{{tax}}" },
+              { "type": "stat", "label": "净额", "value": "{{net}}" }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "chart",
+        "kind": "bars",
+        "data": [
+          { "label": "预算", "value": { "$computed": "annual" } },
+          { "label": "税额", "value": { "$computed": "tax" } },
+          { "label": "净额", "value": { "$computed": "net" } }
+        ]
+      },
+      { "type": "slider", "label": "风险预留比例", "min": 0, "max": 30, "step": 1, "value": 10, "id": "reserve" },
+      { "type": "date-picker", "label": "生效日期", "mode": "single", "value": "2026-12-01", "min": "2026-11-01", "max": "2027-12-31", "id": "effective" },
+      { "type": "textarea", "label": "备注", "placeholder": "给下一个读这份测算的人留一句", "rows": 3, "id": "note" },
+      { "type": "submit", "label": "提交测算", "action": "submit-budget", "groups": ["monthly", "rate", "entity", "note"] }
+    ]
+  },
+  "en": {
+    "title": "Budget planner",
+    "gap": 12,
+    "computed": [
+      { "id": "annual", "expr": "monthly*12", "format": { "locale": "en-US", "style": "currency", "currency": "USD", "maximumFractionDigits": 0 } },
+      { "id": "tax", "expr": "annual*rate", "format": { "locale": "en-US", "style": "currency", "currency": "USD", "maximumFractionDigits": 0 } },
+      { "id": "net", "expr": "annual-tax", "format": { "locale": "en-US", "style": "currency", "currency": "USD", "maximumFractionDigits": 0 } }
+    ],
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Change any input and the figures recompute on the spot — the formulas live in the spec and are evaluated by the renderer, never by the model."
+      },
+      {
+        "type": "grid",
+        "cols": 2,
+        "items": [
+          {
+            "type": "card",
+            "eyebrow": "Inputs",
+            "title": "Assumptions",
+            "items": [
+              { "type": "input", "label": "Monthly budget (USD)", "inputType": "number", "value": "10000", "id": "monthly" },
+              { "type": "input", "label": "Blended tax rate", "inputType": "number", "value": "0.1", "id": "rate" },
+              { "type": "select", "label": "Entity", "options": ["Company", "Individual", "Overseas"], "selected": 0, "id": "entity" },
+              { "type": "text", "size": "caption", "content": "The tax ID only appears for a company entity.", "when": { "field": "entity", "op": "eq", "value": "Company" } },
+              { "type": "input", "label": "Tax ID", "placeholder": "15–20 characters", "id": "tax-id", "when": { "field": "entity", "op": "eq", "value": "Company" } }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "Result",
+            "title": "Annual projection",
+            "items": [
+              { "type": "stat", "label": "Annual budget", "value": "{{annual}}" },
+              { "type": "stat", "label": "Annual tax", "value": "{{tax}}" },
+              { "type": "stat", "label": "Net", "value": "{{net}}" }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "chart",
+        "kind": "bars",
+        "data": [
+          { "label": "Budget", "value": { "$computed": "annual" } },
+          { "label": "Tax", "value": { "$computed": "tax" } },
+          { "label": "Net", "value": { "$computed": "net" } }
+        ]
+      },
+      { "type": "slider", "label": "Risk reserve", "min": 0, "max": 30, "step": 1, "value": 10, "id": "reserve" },
+      { "type": "date-picker", "label": "Effective date", "mode": "single", "value": "2026-12-01", "min": "2026-11-01", "max": "2027-12-31", "id": "effective" },
+      { "type": "textarea", "label": "Note", "placeholder": "Leave one line for the next reader", "rows": 3, "id": "note" },
+      { "type": "submit", "label": "Submit projection", "action": "submit-budget", "groups": ["monthly", "rate", "entity", "note"] }
+    ]
+  }
+}

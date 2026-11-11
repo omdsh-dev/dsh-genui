@@ -1,0 +1,211 @@
+{
+  "id": "showcase-map",
+  "category": "showcase",
+  "note": "重引擎：map（按需加载 maplibre.js，离线坐标底图）。合成示例地点，坐标非真实地点；路线只示意，不含导航信息。",
+  "zh": {
+    "title": "在回答里选一个地点",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "合成示例，坐标不代表真实地点。离线坐标地图本身就是浅色纸质底图，这是地图样式而非页面主题；它不连外部底图，也不请求定位权限。"
+      },
+      {
+        "type": "map",
+        "title": "候选地点（合成示例）",
+        "id": "candidate-site",
+        "height": 300,
+        "zoom": 13,
+        "center": [
+          12.49,
+          41.89
+        ],
+        "locations": [
+          {
+            "id": "a",
+            "label": "地点 A",
+            "coordinates": [
+              12.49,
+              41.89
+            ],
+            "description": "靠近主干道，示例说明"
+          },
+          {
+            "id": "b",
+            "label": "地点 B",
+            "coordinates": [
+              12.51,
+              41.9
+            ]
+          },
+          {
+            "id": "c",
+            "label": "地点 C",
+            "coordinates": [
+              12.47,
+              41.87
+            ]
+          }
+        ],
+        "routes": [
+          {
+            "id": "r1",
+            "label": "示意路线，非导航",
+            "coordinates": [
+              [
+                12.49,
+                41.89
+              ],
+              [
+                12.5,
+                41.895
+              ],
+              [
+                12.51,
+                41.9
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "type": "card",
+        "flat": true,
+        "title": "这份地图的边界",
+        "items": [
+          {
+            "type": "keyvalue",
+            "pairs": [
+              {
+                "key": "底图",
+                "value": "离线坐标，无街道数据"
+              },
+              {
+                "key": "路线",
+                "value": "内联 LineString，只做示意"
+              },
+              {
+                "key": "选择",
+                "value": "本地状态，独立提交按钮才发送"
+              },
+              {
+                "key": "降级",
+                "value": "WebGL 不可用时保留地点列表"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "不要把示意路线当导航",
+        "content": "渲染器不调用地理编码或导航服务，也不声称距离与耗时经过核实。它只做“在候选里挑一个”。"
+      }
+    ]
+  },
+  "en": {
+    "title": "Pick a location inside the reply",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Synthetic example — the coordinates are not real places. The offline coordinate basemap is a light paper surface by design, a map style rather than the page theme; it loads no external basemap and requests no geolocation."
+      },
+      {
+        "type": "map",
+        "title": "Candidate sites (synthetic)",
+        "id": "candidate-site",
+        "height": 300,
+        "zoom": 13,
+        "center": [
+          12.49,
+          41.89
+        ],
+        "locations": [
+          {
+            "id": "a",
+            "label": "Site A",
+            "coordinates": [
+              12.49,
+              41.89
+            ],
+            "description": "Near the main road — illustrative note"
+          },
+          {
+            "id": "b",
+            "label": "Site B",
+            "coordinates": [
+              12.51,
+              41.9
+            ]
+          },
+          {
+            "id": "c",
+            "label": "Site C",
+            "coordinates": [
+              12.47,
+              41.87
+            ]
+          }
+        ],
+        "routes": [
+          {
+            "id": "r1",
+            "label": "Illustrative route, not navigation",
+            "coordinates": [
+              [
+                12.49,
+                41.89
+              ],
+              [
+                12.5,
+                41.895
+              ],
+              [
+                12.51,
+                41.9
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "type": "card",
+        "flat": true,
+        "title": "The boundaries of this map",
+        "items": [
+          {
+            "type": "keyvalue",
+            "pairs": [
+              {
+                "key": "Basemap",
+                "value": "Offline coordinates, no street data"
+              },
+              {
+                "key": "Routes",
+                "value": "Inline LineString, illustrative only"
+              },
+              {
+                "key": "Selection",
+                "value": "Local state; sent only by an explicit submit"
+              },
+              {
+                "key": "Fallback",
+                "value": "Without WebGL the location list stays usable"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "Never read an illustrative route as navigation",
+        "content": "The renderer calls no geocoder or routing service and makes no claim that distance or duration was verified. It only helps pick one of the candidates."
+      }
+    ]
+  }
+}

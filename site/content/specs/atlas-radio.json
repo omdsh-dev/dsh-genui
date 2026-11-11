@@ -1,0 +1,13 @@
+{
+  "id": "atlas-radio",
+  "category": "atlas",
+  "note": "radio：legacy 控件，仅为兼容旧围栏；新内容用 choices（选项可带代价与证据）。",
+  "zh": { "title": "radio · 兼容保留的单选", "items": [
+    { "type": "radio", "label": "导出格式", "options": ["HTML", "Markdown", "JSON"], "selected": 0 },
+    { "type": "text", "size": "caption", "content": "新回答不要再写 radio：试卷与决策都改用 choices。" }
+  ] },
+  "en": { "title": "radio · the legacy single choice", "items": [
+    { "type": "radio", "label": "Export format", "options": ["HTML", "Markdown", "JSON"], "selected": 0 },
+    { "type": "text", "size": "caption", "content": "New replies should not use radio: papers and decisions both move to choices." }
+  ] }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "atlas-col",
+  "category": "atlas",
+  "note": "col：列容器，width 按百分比占行宽（1-100）；不写宽度时按内容撑开。",
+  "zh": { "title": "col · 按百分比分宽", "items": [
+    { "type": "row", "items": [
+      { "type": "col", "width": 38, "items": [{ "type": "text", "size": "h3", "content": "原因" }, { "type": "text", "size": "muted", "content": "宽度 38%" }] },
+      { "type": "col", "width": 62, "items": [{ "type": "text", "size": "h3", "content": "结果" }, { "type": "text", "size": "muted", "content": "宽度 62%，两列合计 100" }] }
+    ] }
+  ] },
+  "en": { "title": "col · split a row by percentage", "items": [
+    { "type": "row", "items": [
+      { "type": "col", "width": 38, "items": [{ "type": "text", "size": "h3", "content": "Cause" }, { "type": "text", "size": "muted", "content": "Width 38%" }] },
+      { "type": "col", "width": 62, "items": [{ "type": "text", "size": "h3", "content": "Effect" }, { "type": "text", "size": "muted", "content": "Width 62% — the pair adds up to 100" }] }
+    ] }
+  ] }
+}

@@ -1592,8 +1592,9 @@ describe('persisted replay barrier across page refresh (issue #4)', () => {
     document.body.appendChild(row3)
     let dispose = installDomFenceRenderer(makeCtx('sess-refresh', send), send)
     try {
-      await tick()
-      expect(getPanelSpec('sess-refresh')?.title).toBe('面板B')
+      // Takeover is frame-budgeted: wait for the state, not a 40 ms deadline
+      // that can expire while other test workers occupy the event loop.
+      expect(await waitFor(() => getPanelSpec('sess-refresh')?.title === '面板B')).toBe(true)
 
       // ── 刷新：内存态清空（localStorage 存活），新页面重装渲染器 ──
       dispose()
@@ -1613,8 +1614,7 @@ describe('persisted replay barrier across page refresh (issue #4)', () => {
       const blockC = stockCodeBlock(PANEL('面板C', 'C'), 'dsh-ui')
       row4.appendChild(blockC)
       document.body.appendChild(row4)
-      await tick()
-      expect(getPanelSpec('sess-refresh')?.title).toBe('面板C')
+      expect(await waitFor(() => getPanelSpec('sess-refresh')?.title === '面板C')).toBe(true)
     } finally {
       dispose()
     }

@@ -1,0 +1,227 @@
+{
+  "id": "showcase-charts",
+  "category": "showcase",
+  "note": "图表册：echart(preset radar，重引擎 echarts 按需加载) 作为焦点 span:2，配 donut / 多序列 line / 横向 bars。全部示例数据。",
+  "zh": {
+    "title": "四种读法，一组数据",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "示例数据。轻量 chart 适合 8 个点以内的对比；需要雷达、缩放或交互时换 echart，引擎按需下载。"
+      },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          {
+            "type": "card",
+            "span": 2,
+            "eyebrow": "能力分布",
+            "title": "五维对比：本轮 vs 上轮",
+            "items": [
+              {
+                "type": "echart",
+                "preset": "radar",
+                "height": 280,
+                "series": [
+                  {
+                    "label": "本轮",
+                    "data": [
+                      { "label": "视觉", "value": 86 },
+                      { "label": "可用", "value": 92 },
+                      { "label": "性能", "value": 74 },
+                      { "label": "采纳", "value": 88 },
+                      { "label": "稳定", "value": 90 }
+                    ]
+                  },
+                  {
+                    "label": "上轮",
+                    "data": [
+                      { "label": "视觉", "value": 62 },
+                      { "label": "可用", "value": 70 },
+                      { "label": "性能", "value": 58 },
+                      { "label": "采纳", "value": 61 },
+                      { "label": "稳定", "value": 72 }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "占比",
+            "title": "交付构成",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "donut",
+                "data": [
+                  { "label": "渲染与组件", "value": 21 },
+                  { "label": "质量与文档", "value": 12 },
+                  { "label": "分发与预算", "value": 7 }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 2,
+        "items": [
+          {
+            "type": "card",
+            "title": "多序列趋势",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "line",
+                "data": [],
+                "series": [
+                  { "label": "本周", "data": [{ "label": "一", "value": 8 }, { "label": "二", "value": 12 }, { "label": "三", "value": 9 }, { "label": "四", "value": 14 }] },
+                  { "label": "上周", "data": [{ "label": "一", "value": 6 }, { "label": "二", "value": 9 }, { "label": "三", "value": 7 }, { "label": "四", "value": 10 }] }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "title": "横向排行",
+            "items": [
+              {
+                "type": "chart",
+                "horizontal": true,
+                "data": [
+                  { "label": "组件词汇", "value": 60 },
+                  { "label": "交互节点", "value": 18 },
+                  { "label": "展示节点", "value": 22 },
+                  { "label": "布局节点", "value": 10 }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "同一主题只选一种图",
+        "content": "雷达看五个维度的形状，环图看构成比例，折线看走势，横条看排行——它们回答的是不同问题，不是同一批数字的四种画法。"
+      }
+    ]
+  },
+  "en": {
+    "title": "Four readings, one dataset",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Sample data. The lightweight chart covers comparisons up to about eight points; switch to echart for radar, zoom or richer interaction — its engine downloads on demand."
+      },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          {
+            "type": "card",
+            "span": 2,
+            "eyebrow": "Capability",
+            "title": "Five axes: this round vs last",
+            "items": [
+              {
+                "type": "echart",
+                "preset": "radar",
+                "height": 280,
+                "series": [
+                  {
+                    "label": "This round",
+                    "data": [
+                      { "label": "Visual", "value": 86 },
+                      { "label": "Usable", "value": 92 },
+                      { "label": "Perf", "value": 74 },
+                      { "label": "Adoption", "value": 88 },
+                      { "label": "Stable", "value": 90 }
+                    ]
+                  },
+                  {
+                    "label": "Last round",
+                    "data": [
+                      { "label": "Visual", "value": 62 },
+                      { "label": "Usable", "value": 70 },
+                      { "label": "Perf", "value": 58 },
+                      { "label": "Adoption", "value": 61 },
+                      { "label": "Stable", "value": 72 }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "Share",
+            "title": "Where the work went",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "donut",
+                "data": [
+                  { "label": "Rendering & components", "value": 21 },
+                  { "label": "Quality & docs", "value": 12 },
+                  { "label": "Distribution & budget", "value": 7 }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 2,
+        "items": [
+          {
+            "type": "card",
+            "title": "Multi-series trend",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "line",
+                "data": [],
+                "series": [
+                  { "label": "This week", "data": [{ "label": "Mon", "value": 8 }, { "label": "Tue", "value": 12 }, { "label": "Wed", "value": 9 }, { "label": "Thu", "value": 14 }] },
+                  { "label": "Last week", "data": [{ "label": "Mon", "value": 6 }, { "label": "Tue", "value": 9 }, { "label": "Wed", "value": 7 }, { "label": "Thu", "value": 10 }] }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "title": "Horizontal ranking",
+            "items": [
+              {
+                "type": "chart",
+                "horizontal": true,
+                "data": [
+                  { "label": "Component vocabulary", "value": 60 },
+                  { "label": "Interactive nodes", "value": 18 },
+                  { "label": "Display nodes", "value": 22 },
+                  { "label": "Layout nodes", "value": 10 }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "One chart per question",
+        "content": "The radar shows the shape of five dimensions, the ring shows composition, the line shows direction, the bars show rank — different questions, not four drawings of one number set."
+      }
+    ]
+  }
+}
