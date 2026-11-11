@@ -80,6 +80,7 @@ describe('ChoicesNode', () => {
       mode: 'single',
     })
     expect(container.textContent).toContain(t('block.choices.sent'))
+    expect(container.textContent).not.toContain(t('block.choices.noAction'))
 
     // Editing clears the "sent" line — the model acted on the previous answer.
     fireEvent.click(container.querySelectorAll<HTMLInputElement>('input')[0]!)
@@ -96,12 +97,16 @@ describe('ChoicesNode', () => {
     expect(container.textContent).toContain(t('block.choices.sent'))
   })
 
-  it('stays local when no action is declared, and says so', () => {
-    const { container } = renderWithAction({ ...base, action: undefined })
+  it('warns before selection when no action is declared and disables an invalid submit', () => {
+    const { container, send } = renderWithAction({ ...base, action: undefined })
+    const button = screen.getByRole('button', { name: '就这么定' }) as HTMLButtonElement
+    expect(screen.getByRole('note').textContent).toBe(t('block.choices.noAction'))
+    expect(button.disabled).toBe(true)
     fireEvent.click(container.querySelectorAll<HTMLInputElement>('input')[0]!)
-    fireEvent.click(container.querySelector<HTMLButtonElement>('button')!)
-    // The label must describe what happened: a local record is not a delivery.
-    expect(container.textContent).toContain(t('block.choices.localOnly'))
+    expect(container.querySelector<HTMLInputElement>('input')?.checked).toBe(true)
+    expect(button.disabled).toBe(true)
+    fireEvent.click(button)
+    expect(send).not.toHaveBeenCalled()
     expect(container.textContent).not.toContain(t('block.choices.sent'))
   })
 })
@@ -128,6 +133,7 @@ describe('choices as a paper question (what retires radio)', () => {
     expect(setAnswer).toHaveBeenCalledWith('q1', '方案 A')
     // The paper's own submit node collects it; this node must not render one.
     expect(container.querySelector('button')).toBeNull()
+    expect(container.textContent).not.toContain(t('block.choices.noAction'))
   })
 
   it('locks the rows once the paper is graded', () => {
@@ -152,13 +158,17 @@ describe('choices as a paper question (what retires radio)', () => {
 })
 
 describe('a submit that cannot send', () => {
-  it('never claims the choice was sent when the spec carries no action', () => {
-    // Repro of a real report: the block said "已发送" while nothing left the page.
-    const { container } = render(<ChoicesNode node={{ ...base, action: undefined }} />)
+  it('shows the local-only warning before any choice is made when submit is absent', () => {
+    const node: GenuiChoices = { ...base, submit: undefined, action: undefined }
+    const result = processGenuiSpec({ items: [node] })
+    expect(result.errors).toEqual([])
+    const { container, send } = renderWithAction(node)
+    expect(container.querySelector('button')).toBeNull()
+    expect(screen.getByRole('note').textContent).toBe(t('block.choices.noAction'))
     fireEvent.click(container.querySelectorAll<HTMLInputElement>('input')[0]!)
-    fireEvent.click(screen.getByRole('button', { name: '就这么定' }))
-    expect(container.textContent).toContain(t('block.choices.localOnly'))
-    expect(container.textContent).not.toContain(t('block.choices.sent'))
+    expect(container.querySelector<HTMLInputElement>('input')?.checked).toBe(true)
+    expect(screen.getByRole('note').textContent).toBe(t('block.choices.noAction'))
+    expect(send).not.toHaveBeenCalled()
   })
 
   it('is a validation error for the model to write submit without action', () => {
@@ -166,6 +176,7 @@ describe('a submit that cannot send', () => {
       items: [{ type: 'choices', submit: '先做这个', items: [{ label: 'A' }, { label: 'B' }] }],
     })
     expect(result.errors.join(' ')).toContain('requires action')
+    expect(result.errors.join(' ')).toContain('add a non-empty action')
   })
 })
 
