@@ -1,0 +1,13 @@
+{
+  "id": "atlas-textarea",
+  "category": "atlas",
+  "note": "textarea：多行文字；失焦与 Ctrl/Cmd+Enter 触发 action，仅有变化时才回传。",
+  "zh": { "title": "textarea · 多行备注", "items": [
+    { "type": "textarea", "label": "复核备注", "placeholder": "给下一位读这段数据的人留一句", "rows": 3, "id": "review-note" },
+    { "type": "text", "size": "caption", "content": "带 id 的值刷新后保留，并进 submit 的 fields。" }
+  ] },
+  "en": { "title": "textarea · a multi-line note", "items": [
+    { "type": "textarea", "label": "Review note", "placeholder": "Leave one line for the next reader of this data", "rows": 3, "id": "review-note" },
+    { "type": "text", "size": "caption", "content": "A value with an id survives refresh and joins the submit payload." }
+  ] }
+}

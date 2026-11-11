@@ -1,0 +1,11 @@
+{
+  "id": "atlas-hero",
+  "category": "atlas",
+  "note": "hero：封面块，超大数字 + 标题 + 副标题 + tone 渐变底；一块围栏最多一个，放最前。",
+  "zh": { "title": "hero · 一块围栏只有一个封面", "items": [
+    { "type": "hero", "label": "本周合入 · 示例", "value": "40", "delta": "+8.1%", "title": "六个模块，四十次合入", "subtitle": "示例数据。封面块负责定调：一个数字、一句判断，后面的组件都只是证据。", "tone": "accent" }
+  ] },
+  "en": { "title": "hero · one cover per fence", "items": [
+    { "type": "hero", "label": "Merged this week · sample", "value": "40", "delta": "+8.1%", "title": "Six modules, forty merges", "subtitle": "Sample data. The cover sets the tone: one figure, one judgement — everything after it is evidence.", "tone": "accent" }
+  ] }
+}

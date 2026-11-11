@@ -1,0 +1,23 @@
+{
+  "id": "atlas-plot",
+  "category": "atlas",
+  "note": "plot：原生 SVG 函数图，params 渲染成实时滑块（y 轴锁定），表达式走白名单求值器。",
+  "zh": { "title": "plot · 拖动参数，曲线即时变", "items": [
+    { "type": "plot", "title": "a · sin(bx)", "xMin": -3.14, "xMax": 6.28, "series": [
+      { "expr": "a*sin(b*x)", "label": "a·sin(bx)", "params": [
+        { "name": "a", "value": 1, "min": 0.2, "max": 2 },
+        { "name": "b", "value": 1, "min": 0.5, "max": 3 }
+      ] }
+    ] },
+    { "type": "text", "size": "caption", "content": "平移与缩放也在本地；表达式不支持任意 JavaScript。" }
+  ] },
+  "en": { "title": "plot · drag a parameter, the curve follows", "items": [
+    { "type": "plot", "title": "a · sin(bx)", "xMin": -3.14, "xMax": 6.28, "series": [
+      { "expr": "a*sin(b*x)", "label": "a·sin(bx)", "params": [
+        { "name": "a", "value": 1, "min": 0.2, "max": 2 },
+        { "name": "b", "value": 1, "min": 0.5, "max": 3 }
+      ] }
+    ] },
+    { "type": "text", "size": "caption", "content": "Pan and zoom are local too; expressions never run arbitrary JavaScript." }
+  ] }
+}

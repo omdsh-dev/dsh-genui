@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>genui renderer bridge — harness</title>
+<style>
+  /* Harness chrome only. The GenUI surface itself is styled by
+     ../assets/genui/theme.css (the vendored renderer variables) + the real renderer. */
+  @font-face{font-family:'Geist Sans';src:url('../assets/fonts/geist-sans-latin-400-normal.woff2') format('woff2');font-weight:400;font-display:swap}
+  @font-face{font-family:'Geist Sans';src:url('../assets/fonts/geist-sans-latin-500-normal.woff2') format('woff2');font-weight:500;font-display:swap}
+  @font-face{font-family:'Geist Sans';src:url('../assets/fonts/geist-sans-latin-600-normal.woff2') format('woff2');font-weight:600;font-display:swap}
+  @font-face{font-family:'Geist Mono';src:url('../assets/fonts/geist-mono-latin-400-normal.woff2') format('woff2');font-weight:400;font-display:swap}
+  @font-face{font-family:'Geist Mono';src:url('../assets/fonts/geist-mono-latin-500-normal.woff2') format('woff2');font-weight:500;font-display:swap}
+  :root{
+    color-scheme:dark;
+    --bg:#0a0a0b;--bg-2:#0e0f11;--surface:#131417;--surface-2:#191b1f;
+    --line:rgba(255,255,255,.075);--line-strong:rgba(255,255,255,.16);
+    --text:#f3f1ec;--text-2:#a9a7a1;--text-3:#6d6c68;--accent:#e6d3ac;--accent-soft:rgba(230,211,172,.12);
+    --ok:#7fb98a;--warn:#d8a55c;
+    /* Map the renderer's bridge placeholders onto the page tokens. */
+    --genui-bridge-line:var(--line-strong);--genui-bridge-surface:var(--surface);
+    --genui-bridge-text:var(--text-2);--genui-bridge-strong:var(--text);
+    --genui-bridge-text-3:var(--text-3);--genui-bridge-accent:var(--accent);
+    --genui-bridge-accent-soft:var(--accent-soft);
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg)}
+  body{margin:0;background:var(--bg);color:var(--text);font:400 15px/1.6 'Geist Sans',system-ui,-apple-system,'PingFang SC',sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  header.bar{position:sticky;top:0;z-index:50;background:rgba(10,10,11,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .bar__inner{display:flex;align-items:center;gap:18px;padding:12px 0;flex-wrap:wrap}
+  .bar__title{font-weight:600;letter-spacing:-.01em}
+  .bar__title span{color:var(--accent)}
+  .bar__status{font:11px/1.4 'Geist Mono',ui-monospace,monospace;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase}
+  .bar__status b{color:var(--text-2);font-weight:500}
+  .bar__buttons{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .btn{appearance:none;cursor:pointer;border:1px solid var(--line-strong);background:transparent;color:var(--text-2);
+    border-radius:999px;padding:6px 13px;font:500 12px/1.2 'Geist Mono',ui-monospace,monospace;letter-spacing:.02em}
+  .btn:hover{color:var(--text);border-color:var(--accent)}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn[aria-pressed="true"]{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+  main{padding:40px 0 96px}
+  .intro{max-width:760px;margin-bottom:40px}
+  .intro h1{font-size:34px;line-height:1.15;letter-spacing:-.03em;margin:0 0 12px;font-weight:600}
+  .intro p{color:var(--text-2);margin:0}
+  .intro code,.mono{font-family:'Geist Mono',ui-monospace,monospace;font-size:.9em;color:var(--accent)}
+  .demos{display:grid;gap:28px}
+  .demo{background:var(--bg-2);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .demo__head{display:flex;align-items:baseline;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .demo__kicker{font:11px/1.4 'Geist Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3)}
+  .demo__name{font-weight:500;color:var(--text)}
+  .demo__meta{margin-left:auto;font:11px/1.4 'Geist Mono',ui-monospace,monospace;color:var(--text-3)}
+  .demo__host{padding:20px}
+  .demo__host:empty{display:none}
+  .demo--invalid{display:none}
+  .wall{margin-top:8px;border-top:1px solid var(--line);padding-top:20px;display:grid;gap:24px}
+  .wall__head{font:11px/1.4 'Geist Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin:0}
+  .demo--invalid.is-on{display:block}
+  .log{margin-top:44px;border-top:1px solid var(--line);padding-top:20px}
+  .log h2{font:11px/1.4 'Geist Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);margin:0 0 10px}
+  .log__list{font:11px/1.7 'Geist Mono',ui-monospace,monospace;color:var(--text-3);max-height:220px;overflow:auto;white-space:pre-wrap}
+  @media (max-width:640px){.demo__host{padding:14px}main{padding-top:24px}}
+</style>
+<!-- The vendored renderer theme: --dsw-* variables only; the page owns body layout. -->
+<link rel="stylesheet" href="../assets/genui/theme.css">
+</head>
+<body>
+<header class="bar">
+  <div class="wrap bar__inner">
+    <div class="bar__title">genui<span>·</span>bridge <span class="bar__status" id="status">booting…</span></div>
+    <div class="bar__buttons">
+      <button class="btn" type="button" id="btn-zh" aria-pressed="true">中文</button>
+      <button class="btn" type="button" id="btn-en" aria-pressed="false">EN</button>
+      <button class="btn" type="button" id="btn-remount">remount</button>
+      <button class="btn" type="button" id="btn-unmount">unmount all</button>
+      <button class="btn" type="button" id="btn-invalid">invalid artifact</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="intro">
+    <h1>真实渲染器，挂载在任意静态页面。</h1>
+    <p>这个页面不是导出 HTML：它从 <code>assets/genui/</code> 按需加载插件构建出的
+    <code>standalone-runtime.js</code>，把 <code>dsh-genui</code> artifact 挂到普通 DOM 节点上。
+    每个方块都是渲染器画出来的。</p>
+  </div>
+
+  <div class="demos" id="demos">
+    <section class="demo" data-demo="demo-table">
+      <div class="demo__head">
+        <span class="demo__kicker">proof 01</span><span class="demo__name">native table</span>
+        <span class="demo__meta" id="meta-demo-table">no engine bundle</span>
+      </div>
+      <div class="demo__host" id="host-demo-table"></div>
+    </section>
+
+    <section class="demo" data-demo="demo-chart">
+      <div class="demo__head">
+        <span class="demo__kicker">proof 02</span><span class="demo__name">native chart</span>
+        <span class="demo__meta" id="meta-demo-chart">no engine bundle</span>
+      </div>
+      <div class="demo__host" id="host-demo-chart"></div>
+    </section>
+
+    <section class="demo" data-demo="demo-quiz">
+      <div class="demo__head">
+        <span class="demo__kicker">proof 03</span><span class="demo__name">quiz · local grading</span>
+        <span class="demo__meta" id="meta-demo-quiz">no engine bundle</span>
+      </div>
+      <div class="demo__host" id="host-demo-quiz"></div>
+    </section>
+
+    <section class="demo" data-demo="demo-mermaid">
+      <div class="demo__head">
+        <span class="demo__kicker">proof 04</span><span class="demo__name">mermaid · heavy engine</span>
+        <span class="demo__meta" id="meta-demo-mermaid">deferred</span>
+      </div>
+      <div class="demo__host" id="host-demo-mermaid"></div>
+    </section>
+
+    <section class="demo" data-demo="demo-echart">
+      <div class="demo__head">
+        <span class="demo__kicker">proof 05</span><span class="demo__name">echart · core engine</span>
+        <span class="demo__meta" id="meta-demo-echart">deferred</span>
+      </div>
+      <div class="demo__host" id="host-demo-echart"></div>
+    </section>
+
+    <section class="demo demo--invalid" data-demo="invalid" id="demo-invalid">
+      <div class="demo__head">
+        <span class="demo__kicker">error path</span><span class="demo__name">invalid artifact</span>
+        <span class="demo__meta">expected: explicit error UI, page keeps working</span>
+      </div>
+      <div class="demo__host" id="host-invalid"></div>
+    </section>
+
+    <section class="demo" data-demo="content-surface" id="demo-content" hidden>
+      <div class="demo__head">
+        <span class="demo__kicker">content spec</span><span class="demo__name" id="content-name">surface</span>
+        <span class="demo__meta" id="content-meta">from content/specs</span>
+      </div>
+      <div class="demo__host" id="host-content"></div>
+    </section>
+  </div>
+
+  <section class="log">
+    <h2>bridge events</h2>
+    <div class="log__list" id="log">(waiting)</div>
+  </section>
+</main>
+
+<script src="../assets/js/genui-bridge.js"></script>
+<script>
+(async function () {
+  'use strict'
+  const params = new URLSearchParams(location.search)
+  const auto = params.get('auto') === '1'
+  const locale = params.get('lang') === 'en' ? 'en' : 'zh'
+  document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en'
+  const statusEl = document.getElementById('status')
+  const logEl = document.getElementById('log')
+  const failures = []
+  const events = []
+  const expected = { mounted: 0, rendered: 0 }
+  let demosLoaded = false
+  let readyTimer = null
+
+  function log(line) {
+    events.push(line)
+    logEl.textContent = events.slice(-14).join('\n')
+  }
+  function meta(id, text) {
+    const el = document.getElementById('meta-' + id)
+    if (el) el.textContent = text
+  }
+  function kb(bytes) { return (bytes / 1024 / 1024 >= 1 ? (bytes / 1024 / 1024).toFixed(1) + ' MB' : Math.round(bytes / 1024) + ' KB') }
+  function refreshStatus() {
+    const state = GenuiBridge.state()
+    statusEl.innerHTML = 'runtime <b>' + (state.runtimeReady ? 'ready' : 'lazy') + '</b> · engines <b>' +
+      (state.engines.length ? state.engines.join('+') : 'none') + '</b> · mounted <b>' + state.mounted + '</b>'
+  }
+
+  for (const name of ['genui:loading', 'genui:mounted', 'genui:rendered', 'genui:error', 'genui:unmounted', 'genui:locale']) {
+    window.addEventListener(name, function (event) {
+      const detail = event.detail || {}
+      const id = detail.id || (detail.root && detail.root.id) || '?'
+      log(name.replace('genui:', '') + '  ' + id + (detail.assets && detail.assets.length ? '  [' + detail.assets.join(',') + ']' : ''))
+      if (name === 'genui:mounted') expected.mounted += 1
+      if (name === 'genui:rendered') expected.rendered += 1
+      if (name === 'genui:error') failures.push(detail.error && detail.error.message || 'error')
+      refreshStatus()
+      maybeReady()
+    })
+  }
+  window.addEventListener('error', function (event) { failures.push('pageerror: ' + (event.message || event.type)) })
+  window.addEventListener('unhandledrejection', function (event) { failures.push('unhandledrejection: ' + (event.reason && event.reason.message || event.reason)) })
+
+  GenuiBridge.configure({ locale: locale })
+  refreshStatus()
+
+  async function fetchJson(url) {
+    const response = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(), { cache: 'no-store' })
+    if (!response.ok) throw new Error(url + ': HTTP ' + response.status)
+    return response.json()
+  }
+
+  let demos = { specs: [] }
+  let content = { specs: [] }
+  try {
+    demos = await fetchJson('demo-artifacts.json')
+    demosLoaded = true
+  } catch (error) {
+    failures.push('demo-artifacts.json: ' + error.message)
+  }
+  try { content = await fetchJson('../assets/genui/artifacts.json') } catch (error) { /* site specs may not exist yet */ }
+
+  const byId = new Map(demos.specs.map(function (spec) { return [spec.id, spec] }))
+  const hosts = { 'demo-table': 'host-demo-table', 'demo-chart': 'host-demo-chart', 'demo-quiz': 'host-demo-quiz' }
+  const heavy = { 'demo-mermaid': 'host-demo-mermaid', 'demo-echart': 'host-demo-echart' }
+  const engineBytes = (demos.assets && demos.assets.engines) || {}
+
+  function describeAssets(assets) {
+    if (!assets || assets.length === 0) return 'no engine bundle'
+    return assets.map(function (name) {
+      const record = engineBytes[name]
+      return name + (record ? ' · ' + kb(record.bytes) : '')
+    }).join(' + ')
+  }
+
+  // 1. Instant demos: everything that needs no engine bundle (table / chart / quiz).
+  const instantJobs = []
+  for (const id of Object.keys(hosts)) {
+    const spec = byId.get(id)
+    if (!spec) { failures.push('missing demo spec ' + id); continue }
+    meta(id, describeAssets(spec.requiredAssets))
+    instantJobs.push(GenuiBridge.mount(document.getElementById(hosts[id]), spec, { locale: locale }).catch(function (error) {
+      failures.push(id + ': ' + error.message)
+    }))
+  }
+
+  // 2. Heavy demos: a user-triggered placeholder until the engine bundle is wanted.
+  const deferred = {}
+  for (const id of Object.keys(heavy)) {
+    const spec = byId.get(id)
+    if (!spec) { failures.push('missing demo spec ' + id); continue }
+    meta(id, 'deferred · ' + describeAssets(spec.requiredAssets))
+    deferred[id] = GenuiBridge.mountDeferred(document.getElementById(heavy[id]), spec, {
+      locale: locale,
+      title: locale === 'zh' ? '需要额外引擎' : 'Needs an extra engine',
+      meta: describeAssets(spec.requiredAssets),
+      trigger: 'click',
+    })
+  }
+
+  // 2b. Optional full-deck mode (?all=1): mount EVERY content spec from artifacts.json.
+  //     This is the end-to-end proof that the whole spec deck renders in the real runtime,
+  //     not just that build-site.mjs validated it.
+  const allSpecs = (content.specs || []).slice()
+  const allHosts = []
+  if (params.get('all') === '1' && allSpecs.length > 0) {
+    const wall = document.createElement('section')
+    wall.className = 'wall'
+    const wallHead = document.createElement('h2')
+    wallHead.className = 'wall__head'
+    wallHead.textContent = 'all content specs · ' + allSpecs.length
+    wall.append(wallHead)
+    document.getElementById('demos').append(wall)
+    for (const spec of allSpecs) {
+      const section = document.createElement('section')
+      section.className = 'demo'
+      section.dataset.demo = 'all-' + spec.id
+      section.dataset.allSpec = spec.id
+      const head = document.createElement('div')
+      head.className = 'demo__head'
+      head.innerHTML = '<span class="demo__kicker">' + spec.category + '</span><span class="demo__name">' + spec.id +
+        '</span><span class="demo__meta">' + describeAssets(spec.requiredAssets) + '</span>'
+      const host = document.createElement('div')
+      host.className = 'demo__host'
+      host.id = 'host-all-' + spec.id
+      section.append(head, host)
+      wall.append(section)
+      allHosts.push('host-all-' + spec.id)
+      GenuiBridge.mount(host, spec, { locale: locale }).catch(function (error) { failures.push(spec.id + ': ' + error.message) })
+    }
+  }
+
+  // 3. A real content spec, when the site has any (proves build-site.mjs output mounts unchanged).
+  const contentSpec = content.specs && content.specs[0]
+  if (contentSpec && params.get('all') !== '1') {
+    const section = document.getElementById('demo-content')
+    section.hidden = false
+    document.getElementById('content-name').textContent = contentSpec.id
+    document.getElementById('content-meta').textContent = contentSpec.category + ' · ' + describeAssets(contentSpec.requiredAssets)
+    GenuiBridge.mount(document.getElementById('host-content'), contentSpec, { locale: locale }).catch(function (error) {
+      failures.push(contentSpec.id + ': ' + error.message)
+    })
+  }
+
+  if (auto) {
+    // Screenshot mode: start every deferred demo, in parallel with the instant ones.
+    await Promise.all(Object.values(deferred).map(function (item) { return item.start().catch(function (error) { failures.push('deferred: ' + error.message) }) }))
+  }
+  await Promise.all(instantJobs)
+
+  // Harness API used by scripts/verify-harness.cjs (no console noise: it drives the same buttons).
+  function maybeReady() {
+    if (!demosLoaded) return
+    if (expected.rendered < expected.mounted) return
+    if (readyTimer !== null) clearTimeout(readyTimer)
+    readyTimer = setTimeout(function () {
+      document.documentElement.dataset.ready = failures.length === 0 ? '1' : '0'
+      document.documentElement.dataset.failures = String(failures.length)
+    }, 300)
+  }
+  // Safety net: mark ready even if some render never signals (e.g. zero demos).
+  setTimeout(function () {
+    if (document.documentElement.dataset.ready !== '1') {
+      document.documentElement.dataset.ready = failures.length === 0 ? '1' : '0'
+      document.documentElement.dataset.failures = String(failures.length)
+    }
+  }, 12000)
+
+  const actions = {
+    mountInvalid: function () {
+      document.getElementById('demo-invalid').classList.add('is-on')
+      const artifact = { format: 'dsh-genui', version: 1, spec: { items: [{ type: 'text', content: 'x' }] }, presentation: { locale: 'ja', theme: 'dark' } }
+      return GenuiBridge.mount(document.getElementById('host-invalid'), artifact, { locale: locale }).then(function () { return false }, function () { return true })
+    },
+    unmountAll: function () { GenuiBridge.unmountAll(); return GenuiBridge.state() },
+    remount: function (nextLocale) {
+      const spec = byId.get('demo-table')
+      return GenuiBridge.mount(document.getElementById('host-demo-table'), spec, { locale: nextLocale || locale })
+    },
+    setLocale: function (nextLocale) { return GenuiBridge.setLocale(nextLocale) },
+    startHeavy: function () {
+      return Promise.all(Object.values(deferred).map(function (item) { return item.start().catch(function () { return undefined }) }))
+    },
+    snapshot: function () {
+      return { failures: failures.slice(), events: events.slice(), state: GenuiBridge.state(), ready: document.documentElement.dataset.ready || null, deferred: Object.keys(deferred), allHosts: allHosts.slice(), contentSpecCount: allSpecs.length }
+    },
+  }
+  window.__harness = { actions: actions, failures: failures, events: events, get ready() { return document.documentElement.dataset.ready === '1' } }
+  maybeReady()
+  log(demosLoaded ? 'demo-artifacts loaded: ' + demos.specs.length + ' specs' : 'demo-artifacts missing')
+})()
+</script>
+</body>
+</html>

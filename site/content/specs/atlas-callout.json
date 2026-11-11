@@ -1,0 +1,11 @@
+{
+  "id": "atlas-callout",
+  "category": "atlas",
+  "note": "callout：单条强调/提醒，四种语义色；正文是 content，不是 text。",
+  "zh": { "title": "callout · 一条提醒", "items": [
+    { "type": "callout", "tone": "warning", "title": "结构错误不会被修", "content": "缺括号、错括号这类错误直接显示源码与诊断。\n行内标记照常解析：`code`、**加粗**、==高亮==。" }
+  ] },
+  "en": { "title": "callout · one reminder", "items": [
+    { "type": "callout", "tone": "warning", "title": "Structural errors are never repaired", "content": "Missing or mismatched brackets show the source and a diagnostic.\nInline markers still work: `code`, **bold**, ==mark==." }
+  ] }
+}

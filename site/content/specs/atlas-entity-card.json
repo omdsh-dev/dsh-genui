@@ -1,0 +1,37 @@
+{
+  "id": "atlas-entity-card",
+  "category": "atlas",
+  "note": "entity-card：实体摘要（图片/名称/描述/元数据/来源/操作按钮），按钮的 action 才回传。",
+  "zh": { "title": "entity-card · 一个对象的摘要卡", "items": [
+    { "type": "entity-card",
+      "name": "dsh-genui",
+      "image": "assets/img/media/genui-icon.svg",
+      "imageAlt": "GenUI 图标",
+      "description": "把 dsh-ui 围栏里的 JSON 渲染成可交互界面的 DSH 插件。",
+      "metadata": [
+        { "label": "版本", "value": "0.16.0" },
+        { "label": "授权", "value": "MIT" },
+        { "label": "节点", "value": "60 种" }
+      ],
+      "href": "https://github.com/omdsh-dev/dsh-genui",
+      "sourceLabel": "GitHub",
+      "actions": [{ "label": "查看文档", "action": "open-docs" }]
+    }
+  ] },
+  "en": { "title": "entity-card · a summary card for one object", "items": [
+    { "type": "entity-card",
+      "name": "dsh-genui",
+      "image": "assets/img/media/genui-icon.svg",
+      "imageAlt": "GenUI icon",
+      "description": "A DSH plugin that renders the JSON inside a dsh-ui fence as an interactive interface.",
+      "metadata": [
+        { "label": "Version", "value": "0.16.0" },
+        { "label": "License", "value": "MIT" },
+        { "label": "Nodes", "value": "60 types" }
+      ],
+      "href": "https://github.com/omdsh-dev/dsh-genui",
+      "sourceLabel": "GitHub",
+      "actions": [{ "label": "Open docs", "action": "open-docs" }]
+    }
+  ] }
+}

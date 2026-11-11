@@ -38,6 +38,61 @@ export interface Attach {
 
 const R = 8 // elbow radius (r=6 minimum allowed for tight layouts)
 
+/** Edge-label typography shared by layout and SVG rendering. */
+export const EDGE_LABEL_FONT_SIZE = 8
+export const EDGE_LABEL_LETTER_SPACING = 0.5
+const EDGE_LABEL_HORIZONTAL_PADDING = 4
+const EDGE_LABEL_LATIN_ADVANCE = EDGE_LABEL_FONT_SIZE * 0.6
+const EDGE_LABEL_WIDE_ADVANCE = EDGE_LABEL_FONT_SIZE
+const EDGE_LABEL_SEGMENTER = typeof Intl.Segmenter === 'undefined'
+  ? undefined
+  : new Intl.Segmenter('en', { granularity: 'grapheme' })
+
+export interface EdgeLabelMetrics {
+  /** Text advance including SVG letter spacing, in canvas pixels. */
+  textWidth: number
+  /** Opaque label-mask width including horizontal padding. */
+  boxWidth: number
+}
+
+/** East Asian wide/full-width characters and emoji occupy one em in the mono face. */
+function isWideCodePoint(codePoint: number): boolean {
+  return (
+    (codePoint >= 0x1100 && codePoint <= 0x11ff)
+    || (codePoint >= 0x2e80 && codePoint <= 0xa4cf)
+    || (codePoint >= 0xac00 && codePoint <= 0xd7af)
+    || (codePoint >= 0xf900 && codePoint <= 0xfaff)
+    || (codePoint >= 0xfe10 && codePoint <= 0xfe6f)
+    || (codePoint >= 0xff01 && codePoint <= 0xff60)
+    || (codePoint >= 0xffe0 && codePoint <= 0xffe6)
+    || (codePoint >= 0x1f000 && codePoint <= 0x1faff)
+    || (codePoint >= 0x20000 && codePoint <= 0x3fffd)
+  )
+}
+
+/**
+ * Measure labels using the 8px Geist Mono advance: 0.6em for Latin glyphs,
+ * 1em for CJK/full-width/emoji graphemes, plus the renderer's 0.5px tracking.
+ * SVG textLength applies this same measurement to the painted text, keeping
+ * the label mask and the rendered glyph run geometrically consistent.
+ */
+export function edgeLabelMetrics(label: string): EdgeLabelMetrics {
+  const graphemes = EDGE_LABEL_SEGMENTER === undefined
+    ? Array.from(label)
+    : Array.from(EDGE_LABEL_SEGMENTER.segment(label), item => item.segment)
+  const advances = graphemes.map(grapheme => {
+    for (const character of grapheme) {
+      if (isWideCodePoint(character.codePointAt(0) ?? 0)) return EDGE_LABEL_WIDE_ADVANCE
+    }
+    return EDGE_LABEL_LATIN_ADVANCE
+  })
+  const textWidth = Math.round((
+    advances.reduce((sum, advance) => sum + advance, 0)
+    + Math.max(0, advances.length - 1) * EDGE_LABEL_LETTER_SPACING
+  ) * 100) / 100
+  return { textWidth, boxWidth: textWidth + EDGE_LABEL_HORIZONTAL_PADDING * 2 }
+}
+
 function centerOf(b: Box): Point {
   return { x: b.x + b.w / 2, y: b.y + b.h / 2 }
 }

@@ -1,0 +1,499 @@
+{
+  "id": "showcase-kitchen-sink",
+  "category": "showcase",
+  "note": "全要素 bento：stat hero 为唯一焦点，其余容器/数据/交互各出现一次（table、donut、tabs、accordion、badges、copy、breadcrumb）。示例数据，含少量仓库事实。",
+  "zh": {
+    "title": "一块围栏能装下多少东西",
+    "gap": 14,
+    "items": [
+      {
+        "type": "grid",
+        "cols": 4,
+        "items": [
+          {
+            "type": "card",
+            "span": 2,
+            "eyebrow": "一眼",
+            "title": "本地优先",
+            "items": [
+              {
+                "type": "stat",
+                "size": "hero",
+                "label": "排序 / 过滤 / 判卷 / 折叠",
+                "value": "0",
+                "delta": "次往返"
+              },
+              {
+                "type": "text",
+                "size": "muted",
+                "content": "界面自己能做的，不让模型再做一遍。"
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "预算",
+            "title": "节点上限",
+            "items": [
+              {
+                "type": "progress",
+                "variant": "ring",
+                "value": 38,
+                "target": 100,
+                "valueLabel": "38 / 200"
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "引擎",
+            "title": "按需加载",
+            "items": [
+              {
+                "type": "list",
+                "items": [
+                  "mermaid",
+                  "three.js",
+                  "maplibre",
+                  "echarts"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          {
+            "type": "card",
+            "span": 2,
+            "eyebrow": "数据",
+            "title": "一行一个模块",
+            "items": [
+              {
+                "type": "table",
+                "columns": [
+                  "模块",
+                  "本周合入",
+                  "进度",
+                  "状态"
+                ],
+                "types": [
+                  "text",
+                  "num",
+                  "bar",
+                  "badge"
+                ],
+                "rows": [
+                  [
+                    "渲染器 runtime",
+                    "12",
+                    "86",
+                    "正常"
+                  ],
+                  [
+                    "组件词汇",
+                    "9",
+                    "74",
+                    "正常"
+                  ],
+                  [
+                    "文档",
+                    "7",
+                    "61",
+                    "关注"
+                  ],
+                  [
+                    "性能预算",
+                    "3",
+                    "47",
+                    "风险"
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "占比",
+            "title": "三类归属",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "donut",
+                "data": [
+                  {
+                    "label": "渲染",
+                    "value": 21
+                  },
+                  {
+                    "label": "质量",
+                    "value": 12
+                  },
+                  {
+                    "label": "分发",
+                    "value": 7
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 2,
+        "items": [
+          {
+            "type": "tabs",
+            "tabs": [
+              {
+                "label": "说明",
+                "items": [
+                  {
+                    "type": "text",
+                    "size": "body",
+                    "content": "标签页在本地切换，页面位置不变。"
+                  },
+                  {
+                    "type": "list",
+                    "items": [
+                      "结论先行",
+                      "证据随后"
+                    ]
+                  }
+                ]
+              },
+              {
+                "label": "规格",
+                "items": [
+                  {
+                    "type": "code",
+                    "lang": "json",
+                    "code": "{\"type\":\"grid\",\"cols\":4,\"items\":[{\"type\":\"stat\",\"size\":\"hero\",\"label\":\"本地优先\",\"value\":\"0\"}]}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "accordion",
+            "items": [
+              {
+                "title": "两级目录",
+                "items": [
+                  {
+                    "type": "file-tree",
+                    "items": [
+                      {
+                        "name": "src",
+                        "type": "dir",
+                        "children": [
+                          {
+                            "name": "spec.ts",
+                            "type": "file"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "title": "结构化原文",
+                "items": [
+                  {
+                    "type": "json",
+                    "value": {
+                      "type": "callout",
+                      "tone": "info",
+                      "content": "..."
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "row",
+        "wrap": true,
+        "items": [
+          {
+            "type": "badge",
+            "label": "MIT",
+            "tone": "success"
+          },
+          {
+            "type": "badge",
+            "label": "zh / en",
+            "tone": "accent"
+          },
+          {
+            "type": "copy",
+            "label": "复制围栏",
+            "text": "{\"items\":[{\"type\":\"stat\",\"label\":\"本地优先\",\"value\":\"0\"}]}"
+          },
+          {
+            "type": "breadcrumb",
+            "items": [
+              "组件",
+              "容器",
+              "看板"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "en": {
+    "title": "How much one fence can hold",
+    "gap": 14,
+    "items": [
+      {
+        "type": "grid",
+        "cols": 4,
+        "items": [
+          {
+            "type": "card",
+            "span": 2,
+            "eyebrow": "At a glance",
+            "title": "Local first",
+            "items": [
+              {
+                "type": "stat",
+                "size": "hero",
+                "label": "Sort / filter / grade / collapse",
+                "value": "0",
+                "delta": "round trips"
+              },
+              {
+                "type": "text",
+                "size": "muted",
+                "content": "What the interface can do itself, the model never redoes."
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "Budget",
+            "title": "Node cap",
+            "items": [
+              {
+                "type": "progress",
+                "variant": "ring",
+                "value": 38,
+                "target": 100,
+                "valueLabel": "38 / 200"
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "Engines",
+            "title": "Loaded on demand",
+            "items": [
+              {
+                "type": "list",
+                "items": [
+                  "mermaid",
+                  "three.js",
+                  "maplibre",
+                  "echarts"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          {
+            "type": "card",
+            "span": 2,
+            "eyebrow": "Data",
+            "title": "One row per module",
+            "items": [
+              {
+                "type": "table",
+                "columns": [
+                  "Module",
+                  "Merged",
+                  "Progress",
+                  "Status"
+                ],
+                "types": [
+                  "text",
+                  "num",
+                  "bar",
+                  "badge"
+                ],
+                "rows": [
+                  [
+                    "Runtime",
+                    "12",
+                    "86",
+                    "Healthy"
+                  ],
+                  [
+                    "Vocabulary",
+                    "9",
+                    "74",
+                    "Healthy"
+                  ],
+                  [
+                    "Docs",
+                    "7",
+                    "61",
+                    "Watch"
+                  ],
+                  [
+                    "Perf budget",
+                    "3",
+                    "47",
+                    "At risk"
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "eyebrow": "Share",
+            "title": "Three groups",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "donut",
+                "data": [
+                  {
+                    "label": "Render",
+                    "value": 21
+                  },
+                  {
+                    "label": "Quality",
+                    "value": 12
+                  },
+                  {
+                    "label": "Distro",
+                    "value": 7
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 2,
+        "items": [
+          {
+            "type": "tabs",
+            "tabs": [
+              {
+                "label": "About",
+                "items": [
+                  {
+                    "type": "text",
+                    "size": "body",
+                    "content": "Tabs switch locally; the page never moves."
+                  },
+                  {
+                    "type": "list",
+                    "items": [
+                      "Conclusion first",
+                      "Evidence after"
+                    ]
+                  }
+                ]
+              },
+              {
+                "label": "Spec",
+                "items": [
+                  {
+                    "type": "code",
+                    "lang": "json",
+                    "code": "{\"type\":\"grid\",\"cols\":4,\"items\":[{\"type\":\"stat\",\"size\":\"hero\",\"label\":\"Local first\",\"value\":\"0\"}]}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "accordion",
+            "items": [
+              {
+                "title": "Two-level tree",
+                "items": [
+                  {
+                    "type": "file-tree",
+                    "items": [
+                      {
+                        "name": "src",
+                        "type": "dir",
+                        "children": [
+                          {
+                            "name": "spec.ts",
+                            "type": "file"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "title": "Structured source",
+                "items": [
+                  {
+                    "type": "json",
+                    "value": {
+                      "type": "callout",
+                      "tone": "info",
+                      "content": "..."
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "row",
+        "wrap": true,
+        "items": [
+          {
+            "type": "badge",
+            "label": "MIT",
+            "tone": "success"
+          },
+          {
+            "type": "badge",
+            "label": "zh / en",
+            "tone": "accent"
+          },
+          {
+            "type": "copy",
+            "label": "Copy fence",
+            "text": "{\"items\":[{\"type\":\"stat\",\"label\":\"Local first\",\"value\":\"0\"}]}"
+          },
+          {
+            "type": "breadcrumb",
+            "items": [
+              "Components",
+              "Containers",
+              "Board"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

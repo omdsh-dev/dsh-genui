@@ -1,0 +1,15 @@
+{
+  "id": "atlas-divider",
+  "category": "atlas",
+  "note": "divider：章节分隔，label 给章节名；卡片内部与连续同主题之间不要用。",
+  "zh": { "title": "divider · 换章不换页", "items": [
+    { "type": "text", "size": "body", "content": "摘要讲结论。" },
+    { "type": "divider", "label": "明细" },
+    { "type": "text", "size": "body", "content": "分隔之后开始摆数据。" }
+  ] },
+  "en": { "title": "divider · a chapter break, not a page break", "items": [
+    { "type": "text", "size": "body", "content": "The summary states the conclusion." },
+    { "type": "divider", "label": "Details" },
+    { "type": "text", "size": "body", "content": "After the rule, the data starts." }
+  ] }
+}

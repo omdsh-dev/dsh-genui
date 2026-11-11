@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="284" height="64" viewBox="0 0 284 64" fill="none">
+  <title>GenUI</title>
+  <path d="M15 7H49C55.627 7 61 12.373 61 19V37C61 43.627 55.627 49 49 49H23L11.2 58.2C10.302 58.9 9 58.26 9 57.12V47.39C5.414 45.315 3 41.438 3 37V19C3 12.373 8.373 7 15 7Z" fill="#4D6BFE"/>
+  <g fill="#FFF">
+    <rect x="9" y="30" width="6" height="11" rx="1.7"/>
+    <rect x="17.5" y="24" width="6" height="17" rx="1.7"/>
+    <rect x="26" y="18" width="6" height="23" rx="1.7"/>
+    <rect x="36" y="19" width="19" height="4" rx="2"/>
+    <rect x="36" y="29" width="19" height="12" rx="3.5"/>
+  </g>
+  <g fill="#4D6BFE" transform="translate(77 6) scale(.92)">
+    <path d="M46 11 38 19C34.5 15 30.5 13 25 13C16 13 10 19.5 10 28.5C10 37.5 16 44 25 44C32.5 44 38 40 39.5 34H25V24H50V29C50 44 40 54 25 54C10.5 54 0 43 0 28.5C0 14 10.5 3 25 3C33.5 3 40.5 5.5 46 11Z"/>
+    <path transform="translate(56 12)" fill-rule="evenodd" d="M43 24H11C12 30 16 33 22 33C27 33 30 31 33 28L41 32C37 39 31 43 22 43C9 43 1 34 1 22C1 10 10 1 22 1C35 1 43 11 43 23V24ZM11 16H32C30 11 27 9 22 9C17 9 13 12 11 16Z"/>
+    <path transform="translate(105 13)" d="M0 41V20C0 8 7 0 19 0C31 0 38 8 38 20V41H27V20C27 14 24 11 19 11C14 11 11 14 11 20V41H0Z"/>
+    <path transform="translate(152 4)" d="M0 0H11V29C11 36 15 40 22 40C29 40 33 36 33 29V0H44V29C44 43 35 51 22 51C9 51 0 43 0 29V0Z"/>
+    <path transform="translate(207 4)" d="M0 0H11V50H0Z"/>
+  </g>
+</svg>
