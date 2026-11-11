@@ -6,6 +6,7 @@ import { t } from '../src/client/i18n/index.ts'
 import { afterEach, describe, expect, it } from 'vitest'
 import { GenuiBlock } from '../src/client/GenuiBlock.tsx'
 import { DiagramNode } from '../src/client/blocks/diagram/index.tsx'
+import { edgeLabelMetrics } from '../src/client/blocks/diagram/geometry.ts'
 import type { GenuiDiagram, GenuiSpec } from '../src/client/spec.ts'
 
 afterEach(cleanup)
@@ -37,6 +38,25 @@ describe('DiagramNode', () => {
     expect(text).toContain('Web')
     expect(text).toContain('Postgres')
     expect(text).toContain('WRITE')
+  })
+
+  it('uses the shared measured width for a long horizontal edge label', () => {
+    const label = '实时同步到下游并写入归档库里'
+    const spec: GenuiDiagram = {
+      type: 'diagram',
+      kind: 'timeline',
+      nodes: [{ id: 'a', label: '采集端' }, { id: 'b', label: '清洗端' }],
+      edges: [{ from: 'a', to: 'b', label }],
+    }
+    const { container } = render(<DiagramNode node={spec} />)
+    const text = Array.from(container.querySelectorAll('text')).find(item => item.textContent === label)
+    expect(text).not.toBeUndefined()
+    const metrics = edgeLabelMetrics(label)
+    expect(Number(text?.getAttribute('textLength'))).toBeCloseTo(metrics.textWidth)
+    expect(Number(text?.getAttribute('x'))).toBeCloseTo(238)
+    const mask = text?.parentElement?.querySelector('rect')
+    expect(Number(mask?.getAttribute('width'))).toBeCloseTo(metrics.boxWidth)
+    expect(Number(mask?.getAttribute('x'))).toBeCloseTo(238 - metrics.boxWidth / 2)
   })
 
   it('selects nodes with pointer and keyboard input, then shows the node details', () => {
