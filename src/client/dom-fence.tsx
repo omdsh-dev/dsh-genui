@@ -237,6 +237,10 @@ const DIRTY_TARGET_LIMIT = 512
 /** Contexts a fence can appear in: a code body, a surface class, or a
  * surface's content holder. Prose and layout changes fail this gate. */
 const CODE_CONTEXT = `pre, ${CODE_BLOCK_SELECTORS}, [data-code-block-content]`
+/** Fence markers checked on nodes added OUTSIDE every observed root (e2e
+ * fixtures and other bare projections are prepended to `body`). Only reached
+ * after the `dsh` text gate, and never asks the document. */
+const OUTSIDE_ROOT_FENCE_HINT = `${CODE_BLOCK_SELECTORS}, [data-code-block-content]`
 const NO_FILE_LINK_AVAILABILITY: FileLinkAvailability = {
   subscribe: () => () => {},
   getSnapshot: () => false,
@@ -1814,6 +1818,24 @@ export function installDomFenceRenderer(
             && (record.attributeName === 'data-chat-flow' || record.attributeName === 'data-chat-flow-kind')))) {
         observerRootsMayHaveChanged = true
       }
+      // Without the document root, a transcript branch that appears outside
+      // every observed root is invisible to this observer — that is how a
+      // node prepended to `body` (or moved out of the transcript) silently
+      // never got a fence taken over. An added/removed transcript root or a
+      // standalone assistant row inside an observed root rebinds the
+      // observer to it; anything landing outside the roots entirely never
+      // produces a record here and is covered by the body-level discovery
+      // observer instead.
+      if (!documentFallback && record.type === 'childList') {
+        for (const node of [...record.addedNodes, ...record.removedNodes]) {
+          if (!(node instanceof Element)) continue
+          if (node.matches(`${CHAT_FLOW_ROOT}, ${ASSISTANT_FLOW_ROW}`)
+            || node.querySelector(`${CHAT_FLOW_ROOT}, ${ASSISTANT_FLOW_ROW}`) !== null) {
+            observerRootsMayHaveChanged = true
+            break
+          }
+        }
+      }
       if (documentFallback && record.type === 'childList') {
         for (const node of [...record.addedNodes, ...record.removedNodes]) {
           if (!(node instanceof Element)) continue
@@ -1917,6 +1939,65 @@ export function installDomFenceRenderer(
     return left.length === right.length && left.every(root => right.includes(root))
   }
 
+  /** A subtree added outside every observed root that can hold a fence.
+   * Surface markers and the `<pre>` of the structural backstop are free; the
+   * promise is only that the caller already gated on `dsh` label text, so the
+   * label/tag-text checks below cost nothing on ordinary page chrome. */
+  function looksLikeBareFence(node: Element): boolean {
+    if (node.matches(OUTSIDE_ROOT_FENCE_HINT) || node.querySelector(OUTSIDE_ROOT_FENCE_HINT) !== null) return true
+    if (node.querySelector('pre') !== null) return true
+    if (node.tagName === 'SPAN' && isTakeoverTagText(node)) return true
+    if (node.querySelector('span') === null) return false
+    return [...node.querySelectorAll('span')].some(span => isTakeoverTagText(span))
+  }
+
+  /** An element carrying text a fence label or body could sit in. Layout and
+   * container churn outside the transcript skips the subtree scan above. */
+  function containsFenceText(node: Element): boolean {
+    return /dsh/iu.test(node.textContent ?? '')
+  }
+
+  /** Body-level discovery for fences that land OUTSIDE every observed root.
+   *
+   * A MutationObserver only reports mutations inside the nodes it observes,
+   * so while the transcript roots are bound a fixture prepended straight to
+   * `body` produces no record at all (not even a body record) — the e2e smoke
+   * fences stayed stock code blocks until the 15s failure. This second
+   * observer is bound to the body's direct-child list only (never `subtree`),
+   * with no attributes and no text: transcript renders, streaming, and
+   * composer input cost it nothing. A direct child of the body that is not
+   * (and does not wrap) an observed transcript root is exactly the outside
+   * case; the added node is then gated on fence markers and handed to the
+   * normal per-node discovery queue. Only direct children are inspected, so a
+   * deep page commit is still not re-read. */
+  function handleOutsideMutations(records: MutationRecord[]): void {
+    if (disposed) return
+    let found = false
+    for (const record of records) {
+      if (record.type !== 'childList') continue
+      for (const node of record.addedNodes) {
+        if (!(node instanceof Element)) continue
+        if (observedRoots.some(root => root === node || (root instanceof Element && node.contains(root)))) continue
+        if (containsFenceText(node) && looksLikeBareFence(node)) {
+          markDirty(node, true)
+          found = true
+        }
+      }
+    }
+    if (found) schedule()
+  }
+  const outsideObserver = new MutationObserver(handleOutsideMutations)
+  const outsideObserverOptions: MutationObserverInit = { childList: true }
+
+  /** Bind outside-root discovery to the body while transcript roots are observed. */
+  function refreshOutsideObserver(): void {
+    const pending = outsideObserver.takeRecords()
+    if (pending.length > 0) handleOutsideMutations(pending)
+    outsideObserver.disconnect()
+    if (observedRoots.length === 1 && observedRoots[0] === document) return
+    if (document.body !== null) outsideObserver.observe(document.body, outsideObserverOptions)
+  }
+
   /** Rebind only when the host adds, removes, or replaces an observed root. */
   function refreshObserverRoots(scanAdded = true): void {
     if (disposed) return
@@ -1936,6 +2017,7 @@ export function installDomFenceRenderer(
     observer.disconnect()
     observedRoots = nextRoots
     for (const root of observedRoots) observer.observe(root, observerOptions)
+    refreshOutsideObserver()
 
     if (removedRoots.length > 0) {
       // A removed root may contain mounted blocks that must be restored.
@@ -1997,6 +2079,7 @@ export function installDomFenceRenderer(
   return () => {
     disposed = true
     observer.disconnect()
+    outsideObserver.disconnect()
     document.removeEventListener('visibilitychange', onVisibilityChange)
     window.clearInterval(rootWatchInterval)
     if (sourceRetryTimer !== null) window.clearTimeout(sourceRetryTimer)

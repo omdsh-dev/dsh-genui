@@ -241,6 +241,46 @@ describe('installDomFenceRenderer', () => {
     } finally { dispose() }
   })
 
+  it('discovers a fence outside every transcript root while a root is observed', async () => {
+    // The e2e smoke fixtures prepend a bare `.md-code-block` straight to
+    // `body`: no chat row above it and no observed transcript root around it.
+    // A root-only observer never receives a record for that mutation (the
+    // node is outside every observed subtree), so the fixture stayed a stock
+    // code block until the 15s maintenance sweep.
+    const transcript = document.createElement('div')
+    transcript.setAttribute('data-chat-flow', '')
+    const row = assistantRow('outside-root-existing')
+    row.append(stockCodeBlock(VALID_SPEC, 'dsh-ui'))
+    transcript.append(row)
+    document.body.append(transcript)
+
+    const dispose = installDomFenceRenderer(makeModernCtx('outside-root-session'), () => {})
+    try {
+      expect(await waitFor(() => row.querySelector('.genui-dom-fence')?.textContent?.includes('你好，世界') === true)).toBe(true)
+      // Deep body churn outside the transcript must cost no document query.
+      const queries = vi.spyOn(document, 'querySelectorAll')
+      const chrome = document.createElement('div')
+      const unrelated = document.createElement('section')
+      unrelated.className = 'outside-root-unrelated'
+      unrelated.append(...Array.from({ length: 24 }, (_, index) => {
+        const cell = document.createElement('div')
+        cell.textContent = `page chrome ${index}`
+        return cell
+      }))
+      chrome.append(unrelated)
+      document.body.append(chrome)
+      await tick(80)
+      expect(queries.mock.calls).toEqual([])
+      queries.mockRestore()
+
+      const fixture = document.createElement('div')
+      fixture.setAttribute('data-external-fixture', '')
+      fixture.append(stockCodeBlock(VALID_SPEC.replace('你好，世界', '外部围栏'), 'dsh-ui'))
+      document.body.prepend(fixture)
+      expect(await waitFor(() => fixture.querySelector('.genui-dom-fence')?.textContent?.includes('外部围栏') === true)).toBe(true)
+    } finally { dispose() }
+  })
+
   it.each(['characterData', 'childList'] as const)('does not revisit mounted fences for composer-only %s changes, but handles mixed batches', async (mutation) => {
     const row = assistantRow('composer-isolation')
     const block = stockCodeBlock(VALID_SPEC, 'dsh-ui')
