@@ -51,18 +51,23 @@ function diagnostic(f: ReturnType<typeof fixture>) {
 }
 let slowSweep: (() => void) | undefined
 beforeEach(() => {
-  // jsdom's requestAnimationFrame is itself interval-backed: suppress ONLY
-  // the explicit 1000 ms safety sweep, leaving observer/rAF behavior real.
+  // jsdom's requestAnimationFrame is interval-backed. Suppress only the
+  // five-second rotation and fifteen-second safety sweep; keep root watching
+  // and observer/rAF behavior real.
   const realSetInterval = window.setInterval.bind(window)
   const realClearInterval = window.clearInterval.bind(window)
-  const excludedSweep = 2147483647
+  const excludedMaintenance = 2147483647
+  const excludedRotation = 2147483646
   vi.spyOn(window, 'setInterval').mockImplementation((handler, delay, ...args) => {
-    if (delay !== 1000) return realSetInterval(handler, delay, ...args)
-    slowSweep = handler as () => void
-    return excludedSweep
+    if (delay === 15_000) {
+      slowSweep = handler as () => void
+      return excludedMaintenance
+    }
+    if (delay === 5_000) return excludedRotation
+    return realSetInterval(handler, delay, ...args)
   })
   vi.spyOn(window, 'clearInterval').mockImplementation(id => {
-    if (id !== excludedSweep) realClearInterval(id)
+    if (id !== excludedMaintenance && id !== excludedRotation) realClearInterval(id)
   })
 })
 afterEach(() => { cleanup(); document.body.innerHTML = ''; slowSweep = undefined; vi.restoreAllMocks() })
@@ -218,7 +223,22 @@ it('maintains a removed-only body change, language changes, and streaming settle
   } finally { dispose() }
 })
 
-it('retains the full slow maintenance sweep for unobserved host changes', async () => {
+it('repairs a host style reset immediately without revisiting unrelated mounts', async () => {
+  const f = fixture(1)
+  const untouched = fixture(2)
+  document.body.append(f.row, untouched.row)
+  const dispose = installDomFenceRenderer(context(), () => {})
+  try {
+    await until(() => replacement(f)?.childElementCount && replacement(untouched)?.childElementCount ? true : false)
+    await tick(80)
+    const reads = vi.spyOn(untouched.block, 'querySelectorAll')
+    f.block.style.display = ''
+    await until(() => f.block.style.display === 'none')
+    expect(reads).not.toHaveBeenCalled()
+  } finally { dispose() }
+})
+
+it('retains a low-frequency full maintenance safety sweep', async () => {
   const f = fixture(1)
   document.body.append(f.row)
   const dispose = installDomFenceRenderer(context(), () => {})
@@ -226,10 +246,9 @@ it('retains the full slow maintenance sweep for unobserved host changes', async 
     await until(() => replacement(f)?.childElementCount ? true : false)
     await tick(80)
     const reads = vi.spyOn(f.block, 'querySelectorAll')
-    f.block.style.display = '' // style is deliberately not observed
+    expect(slowSweep).toBeDefined()
     slowSweep?.()
     expect(reads).toHaveBeenCalled()
-    expect(f.block.style.display).toBe('none')
   } finally { dispose() }
 })
 

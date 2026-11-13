@@ -208,32 +208,39 @@ const TAG_TEXT_EXCLUDES = `.${CONTAINER_CLASS}, .${DIAGNOSTIC_CLASS}, [data-genu
  * of work per key.
  */
 const IGNORED_MUTATION_SCOPE = `${SURFACE_EXCLUDES}, [data-composer-seat], [data-composer-input]`
-/** Host attributes used by discovery, language lookup and fallback row order. */
-const FENCE_ATTRIBUTES = ['data-streaming', 'class', 'data-code-block-content', 'data-code-block-banner',
-  'data-chat-anchor-key', 'data-chat-flow-key', 'data-chat-flow-kind', 'data-chat-node-key',
+/** Host attributes used by discovery, language lookup, and mounted-block repair. */
+const FENCE_ATTRIBUTES = ['data-streaming', 'class', 'style', 'data-code-block-content', 'data-code-block-banner',
+  'data-chat-anchor-key', 'data-chat-flow', 'data-chat-flow-key', 'data-chat-flow-kind', 'data-chat-node-key',
   'data-chat-group-part', 'data-tool', 'data-sidebar-chat', 'data-sidebar-right-session',
   'data-sidebar-right-panel', 'data-panel-conversation', 'data-plugin-panel', 'data-genui-svg-fence', 'data-genui-surface']
-/** Slow sweep interval: the observer catches everything, this is the 1s
- * belt-and-braces pass (history loads, missed attribute batches). */
-const SWEEP_MS = 1000
+/** Re-check transcript roots so session-view replacement cannot detach the observer. */
+const ROOT_WATCH_MS = 200
+/** Retry a temporarily unavailable ChatSnapshot binding without sweeping mounted fences. */
+const SOURCE_RETRY_MS = 1000
+/** Full mount maintenance is a safety net; DOM and source notifications drive normal work. */
+const FULL_MAINTENANCE_MS = 15_000
+/** Rotate through host rows to catch eligibility changes the observer cannot see. */
+const ROTATION_MS = 5_000
 /** Cooperative per-sweep budget (ms) for discovery and takeover. Work yields
  * between targets and candidates, not inside a subtree scan or block render;
  * a once-deferred scan also runs to completion to avoid starvation. This is
  * not a hard frame-time cap. Remaining candidates wait for the next sweep. */
 const SWEEP_BUDGET_MS = 8
-/** Rows re-checked by {@link rotationSweep}, and how many slow ticks apart
- * those passes run. The observer sees structure, text, and `data-streaming`,
- * so the belt-and-braces pass only has to cover changes it cannot see — in
- * slices, and rarely: it re-queries every row in the document, which on a
- * large transcript costs more than the work it guards. */
+/** Rows re-checked by {@link rotationSweep} on each five-second pass.
+ * The observer sees structure, text, and `data-streaming`, so the backstop
+ * only covers changes it cannot see — in slices, rather than scanning every
+ * row in the document on each maintenance pass. */
 const ROTATION_ROWS = 24
-const ROTATION_TICKS = 5
 /** Upper bound on nodes awaiting discovery. A larger set means a re-render
  * storm; the rotation pass picks those blocks up on its own schedule. */
 const DIRTY_TARGET_LIMIT = 512
 /** Contexts a fence can appear in: a code body, a surface class, or a
  * surface's content holder. Prose and layout changes fail this gate. */
 const CODE_CONTEXT = `pre, ${CODE_BLOCK_SELECTORS}, [data-code-block-content]`
+/** Fence markers checked on nodes added OUTSIDE every observed root (e2e
+ * fixtures and other bare projections are prepended to `body`). Only reached
+ * after the `dsh` text gate, and never asks the document. */
+const OUTSIDE_ROOT_FENCE_HINT = `${CODE_BLOCK_SELECTORS}, [data-code-block-content]`
 const NO_FILE_LINK_AVAILABILITY: FileLinkAvailability = {
   subscribe: () => () => {},
   getSnapshot: () => false,
@@ -657,6 +664,7 @@ export function setDomRootFactory(factory: (container: HTMLElement) => Root): vo
  *    `dom:unknown:<ordinal>` (see `fenceIndexOf`/`contextOf`).
  */
 const FLOW_ROW = '[data-chat-flow-key], [data-chat-flow-kind]'
+const CHAT_FLOW_ROOT = '[data-chat-flow]'
 const ASSISTANT_FLOW_ROW = '[data-chat-flow-kind="assistant-step"]'
 function rowOf(block: Element): Element {
   return block.closest('[data-chat-anchor-key]') ?? block.closest(FLOW_ROW) ?? block
@@ -914,6 +922,7 @@ export function installDomFenceRenderer(
   let rafId: number | null = null
   let activeChatSession: SessionId | undefined
   let unsubscribeChat: (() => void) | undefined
+  let sourceRetryTimer: number | null = null
   const sourceLanguages = createSourceLanguageResolver(ctx)
   // The fallback identity uses document order. Keep topology separate from
   // eligibility: a source update can change a language without adding DOM,
@@ -1057,6 +1066,22 @@ export function installDomFenceRenderer(
   const sessionIdOf = (): SessionId | undefined => sessionIdOfForSource(ctx)
   let lastAvailableSessionId = sessionIdOf()
 
+  /** Retry a missing ChatSnapshot binding only while that session still needs one. */
+  function scheduleSourceRetry(): void {
+    if (disposed || document.hidden || typeof ctx.get !== 'function'
+      || unsubscribeChat !== undefined || sourceRetryTimer !== null) return
+    if (activeChatSession === undefined && lastAvailableSessionId === undefined) return
+    sourceRetryTimer = window.setTimeout(() => {
+      sourceRetryTimer = null
+      if (disposed || document.hidden || unsubscribeChat !== undefined) return
+      const sessionId = activeChatSession ?? lastAvailableSessionId
+      if (sessionId === undefined) return
+      syncChatSubscription(sessionId)
+      if (unsubscribeChat !== undefined) schedule()
+      else scheduleSourceRetry()
+    }, SOURCE_RETRY_MS)
+  }
+
   /** Keep a mounted fence's React identity stable while Cordis temporarily denies session access. */
   function sessionIdForRender(preserveWhenUnavailable: boolean): SessionId | undefined {
     const sourceSession = sourceSessionOf(ctx)
@@ -1070,12 +1095,16 @@ export function installDomFenceRenderer(
     if (sessionId !== activeChatSession) {
       unsubscribeChat?.()
       unsubscribeChat = undefined
+      if (sourceRetryTimer !== null) {
+        window.clearTimeout(sourceRetryTimer)
+        sourceRetryTimer = null
+      }
       activeChatSession = sessionId
       fullMaintenance = true
       invalidateDocumentTopology()
     }
     if (sessionId !== undefined && unsubscribeChat === undefined) {
-      unsubscribeChat = chatSourceOf(ctx, sessionId)?.subscribe(() => {
+      const unsubscribe = chatSourceOf(ctx, sessionId)?.subscribe(() => {
         // The source is a discovery trigger of its own: the transcript can be
         // on screen before its rows exist in the snapshot, and only the source
         // can name an unlabelled surface dsh-ui.
@@ -1083,6 +1112,17 @@ export function installDomFenceRenderer(
         documentOrdinalsDirty = true
         schedule()
       })
+      if (unsubscribe !== undefined) {
+        unsubscribeChat = unsubscribe
+        sourceChanged = true
+        documentOrdinalsDirty = true
+        if (sourceRetryTimer !== null) {
+          window.clearTimeout(sourceRetryTimer)
+          sourceRetryTimer = null
+        }
+      } else {
+        scheduleSourceRetry()
+      }
     }
   }
 
@@ -1452,10 +1492,10 @@ export function installDomFenceRenderer(
    * Belt-and-braces pass for what the observer cannot see: it watches
    * structure, text, and `data-streaming`, so a host that re-classes an
    * existing block into a code surface fires nothing at all. Rows are
-   * re-checked in slices on the slow tick, so the transcript is covered over a
-   * rotation instead of by one full-document scan per sweep. A host without
-   * rows (a bare span in a projection) has nothing stable to rotate over and
-   * stays covered by the mutation path alone.
+   * re-checked in slices on the five-second rotation interval, so the
+   * transcript is covered over a rotation instead of by one full-document
+   * scan per maintenance pass. A host without rows (a bare span in a
+   * projection) stays covered by the mutation path and full maintenance.
    */
   function rotationSweep(deadline: number): void {
     const rows = document.querySelectorAll<HTMLElement>(FLOW_ROW)
@@ -1574,7 +1614,7 @@ export function installDomFenceRenderer(
     if (sourceSession.available) lastAvailableSessionId = sourceSession.sessionId
     syncChatSubscription(sessionId)
     // Source/session notifications are global invalidations, unlike DOM
-    // updates. The slow sweep deliberately retains the complete safety net.
+    // updates. The 15-second full maintenance timer remains the safety net.
     const all = full || fullMaintenance || sourceChanged
     fullMaintenance = false
     const mountBlocks = Array.from(all ? mounts.keys() : dirtyMounts)
@@ -1719,10 +1759,10 @@ export function installDomFenceRenderer(
   }
 
   const schedule = (): void => {
-    if (disposed || rafId !== null) return
+    if (disposed || document.hidden || rafId !== null) return
     rafId = requestAnimationFrame(() => {
       rafId = null
-      if (disposed) return
+      if (disposed || document.hidden) return
       sweep()
     })
   }
@@ -1734,7 +1774,12 @@ export function installDomFenceRenderer(
     })
     : undefined
 
-  const observer = new MutationObserver(records => {
+  let observedRoots: ParentNode[] = []
+
+  function handleMutations(records: MutationRecord[]): void {
+    if (disposed || records.length === 0) return
+    const documentFallback = observedRoots.length === 1 && observedRoots[0] === document
+    let observerRootsMayHaveChanged = false
     // A container the host emptied is repair work wherever it sits, and the
     // removal is the only record that carries it: mark those first.
     let relevant = false
@@ -1765,6 +1810,55 @@ export function installDomFenceRenderer(
     // plugin commit must not turn an unrelated subtree into maintenance work.
     for (const record of records) {
       const element = record.target instanceof Element ? record.target : record.target.parentElement
+
+      if (record.type === 'attributes'
+        && ((documentFallback && record.attributeName === 'data-chat-flow')
+          || (!documentFallback
+            && observedRoots.includes(record.target as ParentNode)
+            && (record.attributeName === 'data-chat-flow' || record.attributeName === 'data-chat-flow-kind')))) {
+        observerRootsMayHaveChanged = true
+      }
+      // Without the document root, a transcript branch that appears outside
+      // every observed root is invisible to this observer — that is how a
+      // node prepended to `body` (or moved out of the transcript) silently
+      // never got a fence taken over. An added/removed transcript root or a
+      // standalone assistant row inside an observed root rebinds the
+      // observer to it; anything landing outside the roots entirely never
+      // produces a record here and is covered by the body-level discovery
+      // observer instead.
+      if (!documentFallback && record.type === 'childList') {
+        for (const node of [...record.addedNodes, ...record.removedNodes]) {
+          if (!(node instanceof Element)) continue
+          if (node.matches(`${CHAT_FLOW_ROOT}, ${ASSISTANT_FLOW_ROW}`)
+            || node.querySelector(`${CHAT_FLOW_ROOT}, ${ASSISTANT_FLOW_ROW}`) !== null) {
+            observerRootsMayHaveChanged = true
+            break
+          }
+        }
+      }
+      if (documentFallback && record.type === 'childList') {
+        for (const node of [...record.addedNodes, ...record.removedNodes]) {
+          if (!(node instanceof Element)) continue
+          if (node.matches(CHAT_FLOW_ROOT)
+            || (node.childElementCount > 0 && node.querySelector(CHAT_FLOW_ROOT) !== null)) {
+            observerRootsMayHaveChanged = true
+            break
+          }
+        }
+      }
+
+      // A host can reset the inline hide on an already-mounted code block.
+      // Observe only the style attribute in transcript roots and repair only
+      // mounted blocks; unrelated layout styles never schedule fence work.
+      if (record.type === 'attributes' && record.attributeName === 'style') {
+        const block = record.target instanceof HTMLElement ? record.target : null
+        if (block !== null && mounts.has(block) && block.isConnected && block.style.display !== 'none') {
+          dirtyMounts.add(block)
+          relevant = true
+        }
+        continue
+      }
+
       // Membership-changing host attributes matter even after they put the
       // target in an excluded subtree. Ignore our own React class commits.
       if (record.type === 'attributes' && record.attributeName !== 'class') invalidateDocumentMutation(record)
@@ -1797,13 +1891,16 @@ export function installDomFenceRenderer(
       markOwnedSubtree(record.target)
       markDirty(record.target, true)
     }
-    if (!relevant) return
-    // Pre-paint surgery stays synchronous, but only for affected roots.
-    // Keep their dirty flags for the subsequent React maintenance sweep.
-    repairSurgery(Array.from(dirtyMounts), Array.from(dirtyDiagnostics))
-    schedule()
-  })
-  observer.observe(document.body, {
+    if (relevant) {
+      // Pre-paint surgery stays synchronous, but only for affected roots.
+      // Keep their dirty flags for the subsequent React maintenance sweep.
+      repairSurgery(Array.from(dirtyMounts), Array.from(dirtyDiagnostics))
+      schedule()
+    }
+    if (observerRootsMayHaveChanged) refreshObserverRoots()
+  }
+
+  const observerOptions: MutationObserverInit = {
     childList: true,
     subtree: true,
     attributes: true,
@@ -1811,17 +1908,163 @@ export function installDomFenceRenderer(
     // React streams tokens as text-node updates: without characterData the
     // observer would only fire on structural changes and miss body growth.
     characterData: true,
-  })
-  let slowTicks = 0
-  const interval = window.setInterval(() => {
+  }
+  const observer = new MutationObserver(handleMutations)
+
+  /** Observe outer transcript roots and standalone assistant rows (for side chats). */
+  function findObserverRoots(): ParentNode[] {
+    const candidates = Array.from(document.querySelectorAll<HTMLElement>(`${CHAT_FLOW_ROOT}, ${ASSISTANT_FLOW_ROW}`))
+    const flowRoots = candidates.filter(candidate => {
+      if (!candidate.matches(CHAT_FLOW_ROOT) || candidate.closest(IGNORED_MUTATION_SCOPE) !== null) return false
+      for (let parent = candidate.parentElement; parent !== null; parent = parent.parentElement) {
+        if (parent.matches(CHAT_FLOW_ROOT)) return false
+      }
+      return true
+    })
+    // Preserve bare projections and older hosts that do not expose a transcript root.
+    if (flowRoots.length === 0) return [document]
+
+    const roots: ParentNode[] = [...flowRoots]
+    for (const candidate of candidates) {
+      if (!candidate.matches(ASSISTANT_FLOW_ROW)) continue
+      if (candidate.closest(CHAT_FLOW_ROOT) !== null) continue
+      if (candidate.closest(IGNORED_MUTATION_SCOPE) !== null) continue
+      if (candidate.parentElement?.closest(ASSISTANT_FLOW_ROW)) continue
+      roots.push(candidate)
+    }
+    return roots
+  }
+
+  function sameObserverRoots(left: readonly ParentNode[], right: readonly ParentNode[]): boolean {
+    return left.length === right.length && left.every(root => right.includes(root))
+  }
+
+  /** A subtree added outside every observed root that can hold a fence.
+   * Surface markers and the `<pre>` of the structural backstop are free; the
+   * promise is only that the caller already gated on `dsh` label text, so the
+   * label/tag-text checks below cost nothing on ordinary page chrome. */
+  function looksLikeBareFence(node: Element): boolean {
+    if (node.matches(OUTSIDE_ROOT_FENCE_HINT) || node.querySelector(OUTSIDE_ROOT_FENCE_HINT) !== null) return true
+    if (node.querySelector('pre') !== null) return true
+    if (node.tagName === 'SPAN' && isTakeoverTagText(node)) return true
+    if (node.querySelector('span') === null) return false
+    return [...node.querySelectorAll('span')].some(span => isTakeoverTagText(span))
+  }
+
+  /** An element carrying text a fence label or body could sit in. Layout and
+   * container churn outside the transcript skips the subtree scan above. */
+  function containsFenceText(node: Element): boolean {
+    return /dsh/iu.test(node.textContent ?? '')
+  }
+
+  /** Body-level discovery for fences that land OUTSIDE every observed root.
+   *
+   * A MutationObserver only reports mutations inside the nodes it observes,
+   * so while the transcript roots are bound a fixture prepended straight to
+   * `body` produces no record at all (not even a body record) — the e2e smoke
+   * fences stayed stock code blocks until the 15s failure. This second
+   * observer is bound to the body's direct-child list only (never `subtree`),
+   * with no attributes and no text: transcript renders, streaming, and
+   * composer input cost it nothing. A direct child of the body that is not
+   * (and does not wrap) an observed transcript root is exactly the outside
+   * case; the added node is then gated on fence markers and handed to the
+   * normal per-node discovery queue. Only direct children are inspected, so a
+   * deep page commit is still not re-read. */
+  function handleOutsideMutations(records: MutationRecord[]): void {
+    if (disposed) return
+    let found = false
+    for (const record of records) {
+      if (record.type !== 'childList') continue
+      for (const node of record.addedNodes) {
+        if (!(node instanceof Element)) continue
+        if (observedRoots.some(root => root === node || (root instanceof Element && node.contains(root)))) continue
+        if (containsFenceText(node) && looksLikeBareFence(node)) {
+          markDirty(node, true)
+          found = true
+        }
+      }
+    }
+    if (found) schedule()
+  }
+  const outsideObserver = new MutationObserver(handleOutsideMutations)
+  const outsideObserverOptions: MutationObserverInit = { childList: true }
+
+  /** Bind outside-root discovery to the body while transcript roots are observed. */
+  function refreshOutsideObserver(): void {
+    const pending = outsideObserver.takeRecords()
+    if (pending.length > 0) handleOutsideMutations(pending)
+    outsideObserver.disconnect()
+    if (observedRoots.length === 1 && observedRoots[0] === document) return
+    if (document.body !== null) outsideObserver.observe(document.body, outsideObserverOptions)
+  }
+
+  /** Rebind only when the host adds, removes, or replaces an observed root. */
+  function refreshObserverRoots(scanAdded = true): void {
+    if (disposed) return
+    const nextRoots = findObserverRoots()
+    if (sameObserverRoots(observedRoots, nextRoots)) return
+
+    // Do not discard host changes queued on the old roots while rebinding.
+    const pending = observer.takeRecords()
+    if (pending.length > 0) handleMutations(pending)
+
+    const previousRoots = observedRoots
+    const previousSet = new Set(previousRoots)
+    const nextSet = new Set(nextRoots)
+    const addedRoots = nextRoots.filter(root => !previousSet.has(root))
+    const removedRoots = previousRoots.filter(root => !nextSet.has(root))
+
+    observer.disconnect()
+    observedRoots = nextRoots
+    for (const root of observedRoots) observer.observe(root, observerOptions)
+    refreshOutsideObserver()
+
+    if (removedRoots.length > 0) {
+      // A removed root may contain mounted blocks that must be restored.
+      fullMaintenance = true
+      invalidateDocumentTopology()
+    } else if (addedRoots.length > 0) {
+      invalidateDocumentTopology()
+    }
+
+    if (scanAdded) {
+      for (const root of addedRoots) {
+        const candidates = findFenceCandidates(root, { includeScope: root instanceof Element })
+        for (let index = candidates.length - 1; index >= 0; index -= 1) {
+          enqueueCandidate(candidates[index])
+        }
+      }
+    }
+    if (scanAdded && (addedRoots.length > 0 || removedRoots.length > 0)) schedule()
+  }
+
+  // Bind the initial roots before the initial full discovery pass.
+  refreshObserverRoots(false)
+  const rootWatchInterval = window.setInterval(() => {
+    if (document.hidden || (observedRoots.length === 1 && observedRoots[0] === document)) return
+    refreshObserverRoots()
+  }, ROOT_WATCH_MS)
+  const maintenanceInterval = window.setInterval(() => {
+    if (document.hidden) return
     sweep(true)
-    // The rotation is the net for changes the observer cannot see, so it rides
-    // the slow tick only every ROTATION_TICKS of them: it re-queries the whole
-    // transcript, and on a streaming page the sweep already runs per frame.
-    slowTicks += 1
-    if (slowTicks % ROTATION_TICKS === 0) rotationSweep(performance.now() + SWEEP_BUDGET_MS)
+  }, FULL_MAINTENANCE_MS)
+  const rotationInterval = window.setInterval(() => {
+    if (document.hidden) return
+    rotationSweep(performance.now() + SWEEP_BUDGET_MS)
     keepDraining()
-  }, SWEEP_MS)
+  }, ROTATION_MS)
+  const onVisibilityChange = (): void => {
+    if (document.hidden) return
+    const pending = observer.takeRecords()
+    if (pending.length > 0) handleMutations(pending)
+    refreshObserverRoots()
+    fullMaintenance = true
+    invalidateDocumentTopology()
+    schedule()
+    if (unsubscribeChat === undefined) scheduleSourceRetry()
+  }
+  document.addEventListener('visibilitychange', onVisibilityChange)
+
   // Initial scan: the transcript is already on screen and no mutation will
   // fire for it. Newest first, so what is in view mounts within the first
   // frames while the scrollback drains from the queue. It is one synchronous
@@ -1836,10 +2079,15 @@ export function installDomFenceRenderer(
   return () => {
     disposed = true
     observer.disconnect()
+    outsideObserver.disconnect()
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.clearInterval(rootWatchInterval)
+    if (sourceRetryTimer !== null) window.clearTimeout(sourceRetryTimer)
+    window.clearInterval(maintenanceInterval)
+    window.clearInterval(rotationInterval)
     unsubscribeSessions?.()
     unsubscribeChat?.()
     unsubscribeChat = undefined
-    window.clearInterval(interval)
     if (rafId !== null) {
       cancelAnimationFrame(rafId)
       rafId = null

@@ -54,13 +54,19 @@ async function until(predicate: () => boolean) {
 const contentOf = (f: ReturnType<typeof fixture>) => f.block.nextElementSibling?.textContent ?? ''
 
 beforeEach(() => {
-  // Keep real observer and rAF; hold only the explicit slow safety sweep.
+  // Keep observer, root watching and rAF real; hold only the periodic
+  // five-second rotation and fifteen-second full maintenance passes.
   const setInterval = window.setInterval.bind(window)
   const clearInterval = window.clearInterval.bind(window)
-  vi.spyOn(window, 'setInterval').mockImplementation((handler, delay, ...args) =>
-    delay === 1000 ? 2147483647 : setInterval(handler, delay, ...args))
+  const excludedMaintenance = 2147483647
+  const excludedRotation = 2147483646
+  vi.spyOn(window, 'setInterval').mockImplementation((handler, delay, ...args) => {
+    if (delay === 15_000) return excludedMaintenance
+    if (delay === 5_000) return excludedRotation
+    return setInterval(handler, delay, ...args)
+  })
   vi.spyOn(window, 'clearInterval').mockImplementation(id => {
-    if (id !== 2147483647) clearInterval(id)
+    if (id !== excludedMaintenance && id !== excludedRotation) clearInterval(id)
   })
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
