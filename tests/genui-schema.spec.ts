@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { partialRepairGenuiSpec, processGenuiSpec, repairGenuiSpec, validateGenuiSpec } from '../src/client/guard.ts'
 import { COMPONENT_SCHEMAS } from '../src/client/genui-runtime/schema.ts'
+import { GENUI_LIMITS } from '../src/client/genui-runtime/index.ts'
 import { normalizeGenuiSpec } from '../src/client/genui-runtime/normalize.ts'
 import { diagnoseUnknownGenuiFields } from '../src/client/genui-runtime/diagnostics.ts'
 import { validateRenderableChartSemantics } from '../src/plugin/chart-contract.ts'
@@ -552,5 +553,67 @@ describe('GenUI runtime schema normalization', () => {
       { type: 'callout', content: 'hello', tone: 'info' },
       { type: 'steps', steps: [{ title: 'one' }] },
     ] })
+  })
+})
+
+describe('GenUI pre-validation walks: depth guards', () => {
+  /** `depth` wrapping `col` nodes around `leaf`; the root item sits at depth 0. */
+  const chain = (depth: number, leaf: unknown = { type: 'text', content: 'leaf' }): Record<string, unknown> => {
+    let node: unknown = leaf
+    for (let i = 0; i < depth; i++) node = { type: 'col', items: [node] }
+    return node as Record<string, unknown>
+  }
+  const deepest = (root: unknown, steps: number): Record<string, unknown> => {
+    let node = root as Record<string, unknown>
+    for (let i = 0; i < steps; i++) node = (node.items as Record<string, unknown>[])[0]!
+    return node
+  }
+
+  it('normalizes exactly the rendered levels and leaves the over-deep tail untouched', () => {
+    // Depth 8 is the last level validation/repair keep, so its aliases must
+    // still be canonicalized (`items` → `options` on a select).
+    const atLimit = normalizeGenuiSpec({ items: [chain(GENUI_LIMITS.maxDepth, { type: 'select', items: ['a'] })] })
+    expect(deepest(atLimit.value, GENUI_LIMITS.maxDepth + 1).options).toEqual(['a'])
+    // Depth 9 is dropped by validation/repair: the guard returns that subtree
+    // as-is instead of walking it, and a 4k path must not blow the stack.
+    const overLimit = normalizeGenuiSpec({ items: [chain(GENUI_LIMITS.maxDepth + 1, { type: 'select', items: ['a'] })] })
+    expect(deepest(overLimit.value, GENUI_LIMITS.maxDepth + 2).items).toEqual(['a'])
+    expect(() => normalizeGenuiSpec({ items: [chain(4000)] })).not.toThrow()
+  })
+
+  it('accepts depth maxDepth and rejects the next level through the whole pipeline', () => {
+    const accepted = processGenuiSpec({ items: [chain(GENUI_LIMITS.maxDepth)] })
+    expect(accepted.errors).toEqual([])
+    expect(accepted.renderedNativeCount).toBe(GENUI_LIMITS.maxDepth + 1)
+    const rejected = processGenuiSpec({ items: [chain(GENUI_LIMITS.maxDepth + 1)] })
+    expect(rejected.errors.some(error => error.includes(`exceeds max depth ${GENUI_LIMITS.maxDepth}`))).toBe(true)
+    expect(rejected.renderedNativeCount).toBe(GENUI_LIMITS.maxDepth + 1)
+    expect(() => processGenuiSpec({ items: [chain(4000)] })).not.toThrow()
+  })
+
+  it('stops unknown-field diagnostics at maxDepth', () => {
+    const leaf = { type: 'text', content: 'leaf', bogus: 1 }
+    const atLimit = diagnoseUnknownGenuiFields({ items: [chain(GENUI_LIMITS.maxDepth, leaf)] })
+    expect(atLimit.some(warning => warning.path.endsWith('.bogus'))).toBe(true)
+    const overLimit = diagnoseUnknownGenuiFields({ items: [chain(GENUI_LIMITS.maxDepth + 1, leaf)] })
+    expect(overLimit.some(warning => warning.path.endsWith('.bogus'))).toBe(false)
+    expect(() => diagnoseUnknownGenuiFields({ items: [chain(4000, leaf)] })).not.toThrow()
+  })
+
+  it('stops the file-tree directory walk at maxTreeDepth', () => {
+    const tree = (levels: number): Record<string, unknown> => {
+      let node: Record<string, unknown> = { label: 'leaf' }
+      for (let level = 1; level < levels; level++) node = { label: `n${level}`, children: [node] }
+      return node
+    }
+    expect(() => processGenuiSpec({ items: [{ type: 'file-tree', items: [tree(4000)] }] })).not.toThrow()
+    const processed = processGenuiSpec({ items: [{ type: 'file-tree', items: [tree(GENUI_LIMITS.maxTreeDepth + 3)] }] })
+    let node = ((processed.spec!.items[0] as Record<string, unknown>).items as Record<string, unknown>[])[0]!
+    let level = 0
+    while (Array.isArray(node.children)) { node = (node.children as Record<string, unknown>[])[0]!; level += 1 }
+    // Repair keeps maxTreeDepth + 1 levels; the deepest kept directory keeps
+    // the `dir` marker the normalizer infers from its (now dropped) children.
+    expect(level).toBe(GENUI_LIMITS.maxTreeDepth)
+    expect(node.type).toBe('dir')
   })
 })
