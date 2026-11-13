@@ -126,6 +126,9 @@ export function fenceFailures(text: string): FenceFailure[] {
 /** `null` when this fence renders; otherwise the reason it does not. */
 function fenceFailureDetail(fence: ExtractedFence): string | null {
   const resolution = resolveFence(fence.raw, { settled: true })
+  if (resolution.unconsumedText !== undefined) {
+    return 'error=unconsumed_content\nrequired=close_fence_before_following_content\npreserve_unconsumed_content=true'
+  }
   if (resolution.spec !== null) return null
   // 缺少 Markdown 收尾不等于渲染失败；先复用 renderer 判断，避免把已显示的卡片重发（#288）。
   if (!fence.closed) return 'error=unterminated_fence\nrequired=closing_fence'
@@ -148,7 +151,9 @@ export function fenceCorrectionText(failures: readonly FenceFailure[]): string {
     .map(failure => `fence=${failure.index}\nfingerprint=${failure.fingerprint}\n${failure.detail}`)
     .join('\n\n')
   const marker = failures.map(failure => `${MARKER_PREFIX}${failure.fingerprint}]`).join(' ')
-  return `${marker}\n\n[genui-fence-repair]\nstatus=render_failed\nfences=${failures.length}\nnext=resend_corrected_fence_only\nrepeat_rendered_content=false\nreply_language=conversation\n\n${body}\n`
+  const next = failures.some(failure => failure.detail.startsWith('error=unconsumed_content'))
+    ? 'resend_corrected_fence_and_preserved_text' : 'resend_corrected_fence_only'
+  return `${marker}\n\n[genui-fence-repair]\nstatus=render_failed\nfences=${failures.length}\nnext=${next}\nrepeat_rendered_content=false\nreply_language=conversation\n\n${body}\n`
 }
 
 /**

@@ -228,6 +228,28 @@ describe('Map real-browser acceptance contract (no browser launched)', () => {
       expect(acceptance['continue-on-error']).not.toBe(true)
     }
   })
+  it('pins the alpha host Cordis family before npm installation', async () => {
+    const source = await readFile('scripts/prepare-published-host.mjs', 'utf8')
+    const versions = [
+      ['@deepseek-ai/cordis', '4.0.6-alpha.1'],
+      ['@deepseek-ai/cosmokit', '1.8.7-alpha.1'],
+      ['@deepseek-ai/cordis-plugin-group', '1.0.6-alpha.1'],
+      ['@deepseek-ai/cordis-plugin-hmr', '1.0.21-alpha.1'],
+      ['@deepseek-ai/cordis-plugin-include', '1.0.11-alpha.1'],
+      ['@deepseek-ai/cordis-plugin-loader', '1.0.7-alpha.1'],
+      ['@deepseek-ai/cordis-plugin-logger-console', '1.0.6-alpha.1'],
+      ['@deepseek-ai/cordis-plugin-timer', '1.1.8-alpha.1'],
+      ['@deepseek-ai/schemastery', '3.18.6-alpha.1'],
+    ]
+    const selection = source.indexOf('const overrides = { ...manifestOverrides, ...HOST_DEPENDENCY_OVERRIDES[version] }')
+    const write = source.indexOf('stringify({ overrides, allowBuilds:')
+    const install = source.indexOf("execFileSync('pnpm', ['add'")
+    expect(selection).toBeGreaterThan(0)
+    expect(write).toBeGreaterThan(selection)
+    expect(write).toBeLessThan(install)
+    expect(source).toContain('const manifestOverrides = Object.fromEntries(Object.entries(manifest.dependencies ?? {})')
+    for (const [name, version] of versions) expect(source).toContain(`'${name}': '${version}'`)
+  })
   it('requires successful older-host API and latest RC packed browser acceptance before npm publication', async () => {
     const workflow = parse(await readFile('.github/workflows/release.yml', 'utf8'))
     const steps = workflow.jobs.publish.steps

@@ -1699,7 +1699,7 @@ export function installDomFenceRenderer(
       // would be about the wrong block.
       if (isSettled(block)) {
         const language = resolveFenceLanguage(block, candidate => sourceLanguages.get(candidate))
-        if (language !== 'dsh-ui') {
+        if (language !== 'dsh-ui' && !(language === undefined && isGenericGenuiFence(block, rawOf(block)))) {
           clearDiagnostic(block)
           continue
         }
