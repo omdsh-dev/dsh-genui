@@ -88,6 +88,18 @@ describe('GenUI image zoom', () => {
     expect(opener?.querySelector('img')?.getAttribute('src')).toBe('/mmx-files/result.png')
   })
 
+  it('mounts the expanded copy only after the click, keeping the preview lazy', () => {
+    const { container } = render(<GenuiBlock spec={spec()} />)
+    const dialog = container.querySelector('dialog')!
+
+    expect(dialog.querySelector('img')).toBeNull()
+    expect(dialog.textContent).not.toContain('来自 2026H1 回测')
+
+    open(container)
+    expect(dialog.querySelector('img')?.getAttribute('src')).toBe('/mmx-files/result.png')
+    expect(dialog.textContent).toContain('来自 2026H1 回测')
+  })
+
   it('opens the full image in a dialog, focuses Close, and restores focus on close', () => {
     const { container } = render(<GenuiBlock spec={spec()} />)
     const opener = open(container)

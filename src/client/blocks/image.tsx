@@ -102,17 +102,22 @@ export function ImageNode({ node }: { node: GenuiImage }): ReactNode {
             <span aria-hidden="true">×</span>
           </button>
         </div>
-        <div className={css.frame}>
-          <img
-            className={css.image}
-            src={node.src}
-            alt={name}
-            loading="eager"
-            decoding="async"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-        {node.caption !== undefined && <p className={css.dialogCaption}>{renderInline(node.caption)}</p>}
+        {/* The expanded copy mounts only after the click. Otherwise its eager
+            request would fetch every single-image source up front and undo the
+            preview's lazy loading (image-group and compare gate the same way). */}
+        {zoomed && <>
+          <div className={css.frame}>
+            <img
+              className={css.image}
+              src={node.src}
+              alt={name}
+              loading="eager"
+              decoding="async"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          {node.caption !== undefined && <p className={css.dialogCaption}>{renderInline(node.caption)}</p>}
+        </>}
       </dialog>
     </figure>
   )
