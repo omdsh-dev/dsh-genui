@@ -1219,6 +1219,7 @@ export function installDomFenceRenderer(
     }
     diagnostics.set(block, { container, root, raw })
     containerBlocks.set(container, block)
+    observeExternalFence(block, container)
   }
 
   /**
@@ -1332,6 +1333,7 @@ export function installDomFenceRenderer(
     block.setAttribute(PROCESSED, '')
     mounts.set(block, { root, container, block, lastRaw: raw, lastSettled: settled, language: acceptedLanguage, lastNode: payload, skeleton: node === null })
     containerBlocks.set(container, block)
+    observeExternalFence(block, container)
   }
 
   /** Queue a block for takeover. A block already taken over is skipped here:
@@ -1560,6 +1562,7 @@ export function installDomFenceRenderer(
       // and no React render inside the observer microtask.
       if (diagnostic.container.parentElement !== block.parentElement
           || diagnostic.container.nextElementSibling !== block) block.before(diagnostic.container)
+      observeExternalFence(block, diagnostic.container)
     }
     for (const block of mountBlocks) {
       const mount = mounts.get(block)
@@ -1598,6 +1601,7 @@ export function installDomFenceRenderer(
       }
       if (block.style.display !== 'none') block.style.display = 'none'
       if (!block.hasAttribute(PROCESSED)) block.setAttribute(PROCESSED, '')
+      observeExternalFence(block, mount.container)
     }
   }
 
@@ -1775,6 +1779,7 @@ export function installDomFenceRenderer(
     : undefined
 
   let observedRoots: ParentNode[] = []
+  const externalRoots = new Set<Element>()
 
   function handleMutations(records: MutationRecord[]): void {
     if (disposed || records.length === 0) return
@@ -1932,7 +1937,46 @@ export function installDomFenceRenderer(
       if (candidate.parentElement?.closest(ASSISTANT_FLOW_ROW)) continue
       roots.push(candidate)
     }
+    for (const root of externalRoots) {
+      if (!root.isConnected) externalRoots.delete(root)
+      else if (!roots.some(existing => existing instanceof Element && existing.contains(root))) roots.push(root)
+    }
     return roots
+  }
+
+  /** Keep discovered projections live without observing unrelated body subtrees. */
+  function observeExternalScope(scope: Element): void {
+    if (observedRoots.some(root => root === document || (root instanceof Element && root.contains(scope)))) return
+    externalRoots.add(scope)
+    observedRoots.push(scope)
+    observer.observe(scope, observerOptions)
+    observeStreamingAncestors(scope)
+  }
+
+  /** Completion can live above the narrow content root; watch only its marker. */
+  function observeStreamingAncestors(scope: ParentNode): void {
+    if (!(scope instanceof Element)) return
+    for (let parent = scope.parentElement; parent !== null; parent = parent.parentElement) {
+      if (!observedRoots.includes(parent)) {
+        observer.observe(parent, { attributes: true, attributeFilter: ['data-streaming'] })
+      }
+    }
+  }
+
+  function observeExternalFence(block: HTMLElement, container: HTMLElement): void {
+    if (observedRoots.some(root => root === document
+      || (root instanceof Element && !externalRoots.has(root) && root.contains(block)))) return
+    observeStreamingAncestors(block)
+    const parent = block.parentElement
+    if (parent !== null && parent !== document.body
+      && !observedRoots.some(root => root instanceof Element && parent.contains(root))) {
+      observeExternalScope(parent)
+    } else {
+      // Direct body children have no narrow common parent. Watch the source
+      // and its replacement separately, including container-wipe recovery.
+      observeExternalScope(block)
+      observeExternalScope(container)
+    }
   }
 
   function sameObserverRoots(left: readonly ParentNode[], right: readonly ParentNode[]): boolean {
@@ -1967,24 +2011,37 @@ export function installDomFenceRenderer(
    * with no attributes and no text: transcript renders, streaming, and
    * composer input cost it nothing. A direct child of the body that is not
    * (and does not wrap) an observed transcript root is exactly the outside
-   * case; the added node is then gated on fence markers and handed to the
-   * normal per-node discovery queue. Only direct children are inspected, so a
+   * case; an accepted projection receives its own persistent local observer
+   * and enters the normal discovery queue. Only direct children are inspected, so a
    * deep page commit is still not re-read. */
   function handleOutsideMutations(records: MutationRecord[]): void {
     if (disposed) return
     let found = false
     for (const record of records) {
       if (record.type !== 'childList') continue
+      // A known projection can move with its wrapper. Its own subtree stays
+      // unchanged, so the body removal is the notification to bind new ancestors.
+      for (const node of record.removedNodes) {
+        if (!(node instanceof Element)
+          || ![...externalRoots].some(root => node.contains(root))) continue
+        markOwnedSubtree(node)
+        found = true
+      }
       for (const node of record.addedNodes) {
         if (!(node instanceof Element)) continue
         if (observedRoots.some(root => root === node || (root instanceof Element && node.contains(root)))) continue
         if (containsFenceText(node) && looksLikeBareFence(node)) {
+          if (node.closest(IGNORED_MUTATION_SCOPE) !== null) continue
+          observeExternalScope(node)
           markDirty(node, true)
           found = true
         }
       }
     }
-    if (found) schedule()
+    if (found) {
+      repairSurgery(Array.from(dirtyMounts), Array.from(dirtyDiagnostics))
+      schedule()
+    }
   }
   const outsideObserver = new MutationObserver(handleOutsideMutations)
   const outsideObserverOptions: MutationObserverInit = { childList: true }
@@ -2016,7 +2073,10 @@ export function installDomFenceRenderer(
 
     observer.disconnect()
     observedRoots = nextRoots
-    for (const root of observedRoots) observer.observe(root, observerOptions)
+    for (const root of observedRoots) {
+      observer.observe(root, observerOptions)
+      observeStreamingAncestors(root)
+    }
     refreshOutsideObserver()
 
     if (removedRoots.length > 0) {
@@ -2080,6 +2140,7 @@ export function installDomFenceRenderer(
     disposed = true
     observer.disconnect()
     outsideObserver.disconnect()
+    externalRoots.clear()
     document.removeEventListener('visibilitychange', onVisibilityChange)
     window.clearInterval(rootWatchInterval)
     if (sourceRetryTimer !== null) window.clearTimeout(sourceRetryTimer)
