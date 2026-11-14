@@ -414,6 +414,7 @@ export const EN = {
   'err.fieldValidation': 'GenUI field validation failed: {errors}',
   'err.unknownType': 'Unsupported component: {type}. Correct the component type and resend.',
   'err.chartValidation': 'chart field validation failed: {errors}',
+  'err.fenceTrailingContent': '⚠️ Text follows the UI JSON inside this fence. The original is kept visible; close the fence before the explanation and resend without omitting any content.',
   'err.fenceKeptAsCode': '⚠️ dsh-ui {diagnostic} — the fence stays a code block; fix it and resend.',
   'err.fenceParse': '⚠️ dsh-ui fence JSON failed to parse {diagnostic} — the fence stays a code block; ask the model to fix the JSON and resend.',
 } as const

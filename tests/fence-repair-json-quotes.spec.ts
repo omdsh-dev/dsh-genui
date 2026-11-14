@@ -70,13 +70,16 @@ describe('quote disambiguation for JSON-like text in values (issue #239)', () =>
     }
   })
 
-  it.each(snippets)('only settled completion adopts %s followed by junk', (_name, snippet) => {
+  it.each(snippets)('reports the unconsumed tail when repairing %s', (_name, snippet) => {
     const raw = `${fence(snippet)}</p>`
     expect(repairFenceJson(raw)).toBeNull()
     const completed = completeFenceJson(raw)
     expect(completed).not.toBeNull()
     expect(parsedValue(completed!.text)).toBe(snippet.replaceAll('\\"', '"'))
-    expect(resolveFence(raw, { settled: true }).spec).not.toBeNull()
+    // Repair may recover the JSON, but rendering must not hide the original tail.
+    expect(completed!.unconsumedText).toBe('</p>')
+    expect(resolveFence(raw, { settled: true }).unconsumedText).toBe('</p>')
+    expect(resolveFence(raw, { settled: true }).spec).toBeNull()
     expect(resolveFence(raw, { settled: false }).spec).toBeNull()
   })
 

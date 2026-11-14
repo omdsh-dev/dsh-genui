@@ -274,7 +274,6 @@ describe('fenceFailures: only fences that would stay a code block', () => {
 
   it.each([
     ['complete JSON', STAT_GROUP],
-    ['trailing tool syntax', `${STAT_GROUP}\n<|tool_calls_begin|>\n{"name":"render_ui",`],
     ['tier-1 repair', REPAIRABLE],
     ['settled tier-2 completion', TIER2_ONLY],
   ])('does not reject a renderable unclosed fence: %s (#288)', (_name, body) => {
@@ -421,14 +420,16 @@ describe('the steered correction message', () => {
 })
 
 describe('installFenceFeedback wiring', () => {
-  it('does not request a duplicate card for an unclosed renderable reply (#288)', () => {
+  it('requests one boundary correction for unconsumed content, without retry loops (#418)', () => {
     const h = harness()
     h.emitSession(userEvent())
     h.emitSession(assistantEvent(`\`\`\`dsh-ui\n${STAT_GROUP}\n<|tool_calls_begin|>\n{"name":"render_ui",`))
     const agent = { session: { id: 'sess-1', header: { id: 'sess-1', version: 4 } }, steer: h.steer }
     h.boundary({ agent, turn: 4, signal: new AbortController().signal })
     h.boundary({ agent, turn: 4, signal: new AbortController().signal })
-    expect(h.steer).not.toHaveBeenCalled()
+    expect(h.steer).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(h.steer.mock.calls)).toContain('resend_corrected_fence_and_preserved_text')
+    expect(JSON.stringify(h.steer.mock.calls)).toContain('preserve_unconsumed_content=true')
   })
 
   it('keeps stream recovery active and disables same-turn steering when configured off', () => {
