@@ -132,7 +132,10 @@ function normalizeRecordTree(
   warnings: GenuiDiagnostic[],
 ): unknown {
   if (Array.isArray(value)) {
-    return value.map((entry, index) => normalizeRecordTree(entry, definition, `${at}[${index}]`, type, warnings))
+    // A record collection is flat. Nested arrays are malformed records, not
+    // another collection to normalize; leave them for field validation.
+    return value.map((entry, index) => Array.isArray(entry)
+      ? entry : normalizeRecordTree(entry, definition, `${at}[${index}]`, type, warnings))
   }
   const holder = record(value)
   if (holder === undefined) return value
@@ -164,13 +167,15 @@ function normalizeRecordTree(
  * directory in every model-written tree, and the renderer's collapse
  * affordance depends on the marker (issue #186).
  */
-function defaultFileTreeDirectories(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(defaultFileTreeDirectories)
+function defaultFileTreeDirectories(value: unknown, depth = 0): unknown {
+  if (depth > GENUI_LIMITS.maxTreeDepth) return value
+  if (Array.isArray(value)) return value.map(entry => Array.isArray(entry)
+    ? entry : defaultFileTreeDirectories(entry, depth))
   const holder = record(value)
   if (holder === undefined) return value
   const out = { ...holder }
   if (out.type === undefined && Array.isArray(out.children)) out.type = 'dir'
-  if (out.children !== undefined) out.children = defaultFileTreeDirectories(out.children)
+  if (out.children !== undefined) out.children = defaultFileTreeDirectories(out.children, depth + 1)
   return out
 }
 
@@ -180,9 +185,15 @@ function defaultFileTreeDirectories(value: unknown): unknown {
  * @param value - Raw component or other value.
  * @param path - Stable diagnostic path for this node.
  * @param warnings - Alias and structural normalization diagnostics.
+ * @param depth - Node nesting depth; beyond {@link GENUI_LIMITS.maxDepth} the
+ *   subtree is returned untouched (validation and repair drop it anyway).
  * @returns The normalized component, or the original value when it is not a node.
  */
-function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[]): unknown {
+function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[], depth = 0): unknown {
+  // Depth beyond the validator/repair limit is never rendered: keep the raw
+  // subtree instead of walking it (pathological nesting is model input, not
+  // trusted data).
+  if (depth > GENUI_LIMITS.maxDepth) return value
   const type = nodeTypeOf(value)
   const candidate = record(value)
   if (type === undefined || candidate === undefined) return value
@@ -210,7 +221,7 @@ function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[]
       out[field] = normalizeRecordTree(nestedValue, nested, `${path}.${field}`, type, warnings)
     }
   }
-  const normalizeNodeValue = (child: unknown, childPath: string): unknown => normalizeNode(child, childPath, warnings)
+  const normalizeNodeValue = (child: unknown, childPath: string): unknown => normalizeNode(child, childPath, warnings, depth + 1)
   const normalizeNodeArray = (children: unknown, childPath: string): unknown => Array.isArray(children)
     ? children.map((child, index) => normalizeNodeValue(child, `${childPath}[${index}]`))
     : children

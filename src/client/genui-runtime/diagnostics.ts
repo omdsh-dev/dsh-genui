@@ -26,13 +26,14 @@ function isNode(value: unknown): value is Record<string, unknown> {
   return candidate !== undefined && typeof candidate.type === 'string'
 }
 
-function visitNativeNodes(value: unknown, path: string, visit: (node: Record<string, unknown>, path: string, schema: ComponentSchema) => void): void {
+function visitNativeNodes(value: unknown, path: string, visit: (node: Record<string, unknown>, path: string, schema: ComponentSchema) => void, depth = 0): void {
+  if (depth > GENUI_LIMITS.maxDepth) return
   if (!isNode(value)) return
   const type = value.type as string
   const definition = getComponentSchema(type)
   if (definition === undefined) return
   visit(value, path, definition)
-  const children = (child: unknown, childPath: string): void => visitNativeNodes(child, childPath, visit)
+  const children = (child: unknown, childPath: string): void => visitNativeNodes(child, childPath, visit, depth + 1)
   if ((type === 'row' || type === 'col' || type === 'grid' || type === 'card' || type === 'carousel') && Array.isArray(value.items)) {
     const items = type === 'carousel' ? value.items.slice(0, GENUI_LIMITS.maxCarouselItems) : value.items
     items.forEach((child, index) => children(child, `${path}.items[${index}]`))
