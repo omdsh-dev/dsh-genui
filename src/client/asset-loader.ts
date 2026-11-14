@@ -14,7 +14,8 @@
  * The rev query rides the boot graph: the plugin's own row in
  * `window.__DSH_BOOT__` carries the client bundle rev, so a plugin rebuild
  * busts the asset cache together with the main bundle. Absent graph = no
- * query; the route serves no-cache anyway.
+ * query and the route answers `no-cache` (still revalidated by ETag); with a
+ * rev the URL names one build, so the route marks it immutable.
  * @module @changfenhuang/dsh-genui/client/asset-loader
  */
 
