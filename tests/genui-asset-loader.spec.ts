@@ -3,7 +3,7 @@
 // script injection, engine handoff, and the failure path.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { assetUrl, loadGenuiAsset } from '../src/client/asset-loader.ts'
-import { prefetchGenuiAssets } from '../src/client/index.tsx'
+import { FENCE_MOUNTED_EVENT, prefetchGenuiAssets, prefetchOnFirstFence } from '../src/client/index.tsx'
 
 afterEach(() => {
   document.head.innerHTML = ''
@@ -77,5 +77,43 @@ describe('idle prefetch', () => {
     // idempotent: a second call adds nothing
     prefetchGenuiAssets()
     expect(document.head.querySelectorAll('link[rel="prefetch"]').length).toBe(2)
+  })
+})
+
+describe('prefetch on first fence', () => {
+  it('adds no prefetch link at boot and none until a fence mounts', () => {
+    vi.useFakeTimers()
+    const dispose = prefetchOnFirstFence()
+    vi.advanceTimersByTime(10_000)
+    expect(document.head.querySelectorAll('link[rel="prefetch"]').length).toBe(0)
+    dispose()
+    vi.useRealTimers()
+  })
+  it('prefetches the engines once, after the first fence mounts', () => {
+    vi.useFakeTimers()
+    const dispose = prefetchOnFirstFence()
+    document.dispatchEvent(new Event(FENCE_MOUNTED_EVENT))
+    document.dispatchEvent(new Event(FENCE_MOUNTED_EVENT))
+    vi.advanceTimersByTime(10_000)
+    expect(document.head.querySelectorAll('link[rel="prefetch"]').length).toBe(2)
+    dispose()
+    vi.useRealTimers()
+  })
+  it('the disposer removes the pending listener', () => {
+    vi.useFakeTimers()
+    prefetchOnFirstFence()()
+    document.dispatchEvent(new Event(FENCE_MOUNTED_EVENT))
+    vi.advanceTimersByTime(10_000)
+    expect(document.head.querySelectorAll('link[rel="prefetch"]').length).toBe(0)
+    vi.useRealTimers()
+  })
+  it('the disposer also cancels a prefetch that is already scheduled', () => {
+    vi.useFakeTimers()
+    const dispose = prefetchOnFirstFence()
+    document.dispatchEvent(new Event(FENCE_MOUNTED_EVENT))
+    dispose()
+    vi.advanceTimersByTime(10_000)
+    expect(document.head.querySelectorAll('link[rel="prefetch"]').length).toBe(0)
+    vi.useRealTimers()
   })
 })

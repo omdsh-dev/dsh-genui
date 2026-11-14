@@ -1278,6 +1278,8 @@ export function installDomFenceRenderer(
     try {
       const handler: GenuiActionHandler = (action, payload) => sendActionForBlock(block, action, payload)
       root.render(wrapFenceNode(payload, context, handler, !settled))
+      // Lets index.tsx arm the one-time engine prefetch now that a fence is really on the page.
+      document.dispatchEvent(new Event('genui:fence-mounted'))
     } catch (error) {
       try {
         root.unmount()

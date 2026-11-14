@@ -35,7 +35,11 @@ import { assetUrl } from './asset-loader.ts'
 /** Add low-priority prefetch links for the lazy engine assets (mermaid/three).
  * Browser-dependent: some engines ignore `<link rel=prefetch>`; harmless
  * either way — the on-demand loader still covers a cache miss. Exported for
- * tests. */
+ * tests.
+ *
+ * Not called at boot: these engines are ~1.25 MB gzip together, and most
+ * sessions never render a mermaid or 3D node. {@link prefetchOnFirstFence}
+ * arms it once, when the first `dsh-ui` fence actually renders. */
 export function prefetchGenuiAssets(): void {
   if (typeof document === 'undefined') return
   for (const file of ['mermaid.js', 'three.js']) {
@@ -45,6 +49,39 @@ export function prefetchGenuiAssets(): void {
     link.as = 'script'
     link.href = assetUrl(file)
     document.head.appendChild(link)
+  }
+}
+
+/** Event the DOM fence renderer dispatches on `document` after it mounts a fence. */
+export const FENCE_MOUNTED_EVENT = 'genui:fence-mounted'
+
+/**
+ * Prefetch the lazy engines once, after the first `dsh-ui` fence renders.
+ * @returns a disposer removing the pending listener.
+ */
+export function prefetchOnFirstFence(): () => void {
+  if (typeof document === 'undefined') return () => {}
+  let cancelIdle: (() => void) | undefined
+  const onMounted = (): void => {
+    document.removeEventListener(FENCE_MOUNTED_EVENT, onMounted)
+    // Idle-time, low priority: never competes with the reply that is streaming in.
+    const run = (): void => { cancelIdle = undefined; prefetchGenuiAssets() }
+    const w = window as unknown as {
+      requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number
+      cancelIdleCallback?: (id: number) => void
+    }
+    if (typeof w.requestIdleCallback === 'function') {
+      const id = w.requestIdleCallback(run, { timeout: 4000 })
+      cancelIdle = () => w.cancelIdleCallback?.(id)
+    } else {
+      const id = setTimeout(run, 1500)
+      cancelIdle = () => clearTimeout(id)
+    }
+  }
+  document.addEventListener(FENCE_MOUNTED_EVENT, onMounted)
+  return () => {
+    document.removeEventListener(FENCE_MOUNTED_EVENT, onMounted)
+    cancelIdle?.()
   }
 }
 
@@ -133,15 +170,12 @@ export function apply(ctx: Context): () => void {
   const localeDispose = bridgeHostLocale(ctx)
   const fileLinkAvailability = createFileLinkAvailability(ctx as unknown as FileLinkCordisContext)
   console.info('[genui] client active; fence-channel=dom')
+  // Armed before the renderer so a fence mounted during install is not missed.
   const disposers: Array<() => void> = [
     localeDispose,
+    prefetchOnFirstFence(),
     installDomFenceRenderer(ctx, (sessionId, action, payload) => sendInlineGenuiAction(ctx, sessionId, action, payload), fileLinkAvailability),
   ]
-  // Idle prefetch of the lazy engine assets: the browser downloads them at
-  // LOW priority whenever the page is idle, so the first mermaid/3D node in
-  // a session usually hits a warm cache instead of paying the fetch on first
-  // use. Never blocks first paint; the loader still handles a miss.
-  prefetchGenuiAssets()
   // Achievement toasts (0.9.5): a body-level stack independent of the panel.
   disposers.push(mountAchievementToasts())
   // Keyed toolview: the harness dispatches 'tool.call.toolview' by wire tool
