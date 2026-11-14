@@ -228,6 +228,89 @@ describe('repairGenuiSpec: node-level healing', () => {
     expect(depth).toBe(GENUI_LIMITS.maxDepth + 1)
   })
 
+  it('drops a json node whose value nests past the renderer limit', () => {
+    const nest = (depth: number): unknown => {
+      let value: unknown = 'leaf'
+      for (let i = 0; i < depth; i++) value = { level: value }
+      return value
+    }
+    // The reported input (~5k levels / ~30 KB) used to pass validation and only
+    // blew up when the block fingerprints stringified the rendered spec.
+    const pathological = processGenuiSpec({ items: [{ type: 'json', value: nest(5000) }] })
+    expect(() => JSON.stringify(pathological.spec)).not.toThrow()
+    expect(pathological.errors.some(error => error.includes(`exceeds JSON limit ${GENUI_LIMITS.maxJsonDepth}`))).toBe(true)
+    expect(pathological.renderedNativeCount).toBe(0)
+
+    // Boundary: at the limit the value must survive verbatim; one level deeper
+    // cannot be serialized/drawn and is dropped by repair.
+    const atLimit = nest(GENUI_LIMITS.maxJsonDepth)
+    const accepted = processGenuiSpec({ items: [{ type: 'json', value: atLimit }] })
+    expect(accepted.errors).toEqual([])
+    expect(accepted.spec?.items[0]).toEqual({ type: 'json', value: atLimit })
+  })
+
+  it('rejects an over-deep json value in direct validation and repair', () => {
+    const tooDeep = (() => {
+      let value: unknown = 1
+      for (let i = 0; i <= GENUI_LIMITS.maxJsonDepth; i++) value = { a: value }
+      return value
+    })()
+    expect(validateGenuiSpec({ items: [{ type: 'json', value: tooDeep }] })).toEqual({
+      ok: false,
+      errors: [`items[0].value nesting depth exceeds JSON limit ${GENUI_LIMITS.maxJsonDepth}; flatten or split the value`],
+    })
+    expect(repairGenuiSpec({ items: [{ type: 'json', value: tooDeep }] })).toEqual({ items: [] })
+    // Shallow payloads keep their exact shape (arrays, scalars, nesting).
+    const shallow = { name: 'dsh', tags: ['a', 'b'], nested: { ok: true } }
+    expect(repairGenuiSpec({ items: [{ type: 'json', value: shallow }] })).toEqual({ items: [{ type: 'json', value: shallow }] })
+  })
+
+  it('drops an over-deep object option instead of stringifying it', () => {
+    const junk = (() => {
+      let value: unknown = 1
+      for (let i = 0; i < 5000; i++) value = { a: value }
+      return value
+    })()
+    // `select`/`radio`/`segmented-control` accept object options and fall back
+    // to their JSON text as the label; that stringify had no depth bound.
+    expect(() => processGenuiSpec({ items: [{ type: 'select', options: ['a', junk, 'b'] }] })).not.toThrow()
+    const processed = processGenuiSpec({ items: [{ type: 'select', options: ['a', junk, 'b'] }] })
+    expect(processed.errors).toEqual([])
+    expect(processed.spec?.items[0]).toEqual({ type: 'select', options: ['a', 'b'] })
+    // Labelled object options still become labels, as before.
+    expect(processGenuiSpec({ items: [{ type: 'select', options: [{ label: 'A' }] }] }).spec?.items[0])
+      .toEqual({ type: 'select', options: ['A'] })
+  })
+
+  it.each(['select', 'radio'] as const)('preserves option identity after dropping a deep object: %s', type => {
+    let deep: unknown = 'leaf'
+    for (let i = 0; i <= GENUI_LIMITS.maxJsonDepth; i++) deep = { a: deep }
+    for (const selected of [0, 2, 3]) {
+      const result = processGenuiSpec({ items: [{
+        type, options: ['A', deep, 'C', 'D'], selected,
+        ...(type === 'radio' ? { answer: selected } : {}),
+      }] })
+      const index = selected === 0 ? 0 : selected - 1
+      expect(result.spec?.items[0]).toEqual({
+        type, options: ['A', 'C', 'D'], selected: index,
+        ...(type === 'radio' ? { answer: index } : {}),
+      })
+    }
+    const removed = processGenuiSpec({ items: [{
+      type, options: ['A', deep, 'C'], selected: 1,
+      ...(type === 'radio' ? { answer: 1 } : {}),
+    }] })
+    expect(removed.spec?.items[0]).toEqual({ type, options: ['A', 'C'] })
+  })
+
+  it('does not retarget a capped option or change a label-based radio answer', () => {
+    const options = Array.from({ length: GENUI_LIMITS.maxOptions + 1 }, (_, i) => `option-${i}`)
+    const capped = repairGenuiSpec({ items: [{ type: 'radio', options, selected: GENUI_LIMITS.maxOptions, answer: GENUI_LIMITS.maxOptions }] })
+    expect(capped?.items[0]).toEqual({ type: 'radio', options: options.slice(0, GENUI_LIMITS.maxOptions) })
+    expect(repairGenuiSpec({ items: [{ type: 'radio', options: ['A', null, 'C'], selected: 2, answer: 'C' }] })?.items[0])
+      .toEqual({ type: 'radio', options: ['A', 'C'], selected: 1, answer: 'C' })
+  })
+
   it('drops invalid chart without data or series but keeps series-only charts', () => {
     const spec = repairGenuiSpec({ items: [
       { type: 'chart' },
