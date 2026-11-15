@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { GenuiBlock } from '../src/client/GenuiBlock.tsx'
 import { buildComputedGraph, evaluateComputed, resolveComputedSpec } from '../src/client/computed.ts'
 import { processGenuiSpec, repairGenuiSpec, validateGenuiSpec } from '../src/client/guard.ts'
+import { setLocale } from '../src/client/i18n/index.ts'
 import type { GenuiSpec } from '../src/client/spec.ts'
 
 afterEach(cleanup)
@@ -513,5 +514,27 @@ describe('Computed rendering', () => {
     ])
     expect(tables[2]?.textContent).toContain(result.formatted.money)
     expect(tables[2]?.textContent).not.toContain('[object Object]')
+  })
+})
+
+describe('Computed locale updates', () => {
+  it('updates invalid reference text when the locale changes while mounted', () => {
+    const spec: GenuiSpec = {
+      items: [
+        { type: 'text', content: '{{missing}}' },
+        { type: 'table', columns: ['结果'], rows: [[{ $computed: 'missing' }]] },
+      ],
+    }
+    setLocale('zh')
+    const out = render(<GenuiBlock spec={spec} />)
+
+    expect(out.container.textContent.match(/无效输入/g)).toHaveLength(2)
+    act(() => setLocale('en'))
+    expect(out.container.textContent.match(/Invalid input/g)).toHaveLength(2)
+    expect(out.container.textContent).not.toContain('无效输入')
+
+    act(() => setLocale('zh'))
+    expect(out.container.textContent.match(/无效输入/g)).toHaveLength(2)
+    expect(out.container.textContent).not.toContain('Invalid input')
   })
 })

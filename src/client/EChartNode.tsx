@@ -18,6 +18,7 @@ import { createChart as lazyCreateChart, type EChartsInstance } from './echarts-
 import { echartEngineFor } from './echarts-engine.ts'
 import { CHART_COLORS } from './blocks/charts.tsx'
 import type { GenuiEChart } from './spec.ts'
+import { useT } from './i18n/index.ts'
 
 /**
  * Categorical fallback palette. The host defines its `--dsw-static-*` tokens on
@@ -429,6 +430,7 @@ function fontSizeOption(option: Record<string, unknown>): Record<string, unknown
 }
 
 export function EChartNode({ node }: { node: GenuiEChart }) {
+  const t = useT()
   const ref = useRef<HTMLDivElement | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const instanceRef = useRef<EChartsInstance | null>(null)
@@ -499,7 +501,7 @@ export function EChartNode({ node }: { node: GenuiEChart }) {
   if (status === 'error') {
     return (
       <div className={css.echartFallback} data-genui-echart>
-        <div className={css.echartErr}>ECharts 渲染失败</div>
+        <div className={css.echartErr}>{t('echart.failed')}</div>
         {node.title !== undefined && <div className={css.echartHint}>{renderInline(node.title)}</div>}
       </div>
     )
@@ -515,7 +517,7 @@ export function EChartNode({ node }: { node: GenuiEChart }) {
         role="img"
         aria-label={node.title ?? 'ECharts chart'}
       />
-      {status === 'loading' && <div className={css.echartHint}>加载图表…</div>}
+      {status === 'loading' && <div className={css.echartHint}>{t('echart.loading')}</div>}
     </div>
   )
 }

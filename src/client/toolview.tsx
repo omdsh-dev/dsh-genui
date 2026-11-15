@@ -20,6 +20,7 @@ import { isRenderableProcess, processGenuiSpec } from './guard.ts'
 import { toolStateKey } from './interaction-store.ts'
 import { applyPanelOperation } from './panel-store.ts'
 import css from './GenuiBlock.module.css'
+import { useT } from './i18n/index.ts'
 
 /**
  * Keyed toolview for the `render_ui` tool. `block` is the settled result
@@ -27,6 +28,7 @@ import css from './GenuiBlock.module.css'
  * the summary fallback is shown.
  */
 export function GenuiToolView({ toolName, block, sessionId }: ToolCallViewProps) {
+  const t = useT()
   // `meta` exists only on the settled result node; running calls (and
   // replayed logs without the projection) fall back to the summary row.
   // Memoized so the publish effect only fires when the settled spec
@@ -62,7 +64,7 @@ export function GenuiToolView({ toolName, block, sessionId }: ToolCallViewProps)
   }
   return (
     <div className={css.tool} data-genui-tool>
-      <ErrorBoundary label="工具卡片">
+      <ErrorBoundary label={t('tool.card')}>
         {/* callId is stable across replay → tool-card interaction state is durable */}
         <ExportableGenuiBlock spec={spec} stateKey={toolStateKey(sessionId, block.callId)} />
       </ErrorBoundary>

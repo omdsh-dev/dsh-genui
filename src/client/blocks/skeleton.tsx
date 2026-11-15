@@ -10,6 +10,7 @@
  */
 import css from '../GenuiBlock.module.css'
 import type { SkeletonShape } from '../streaming-shape.ts'
+import { useT } from '../i18n/index.ts'
 
 /** Shapes that are an object, not a block: they get no elevated surface, because
  *  a lone button or a divider does not become a card when it finishes. */
@@ -23,6 +24,7 @@ export function GenuiSkeleton({ shape, title, columns, chartKind, lines }: {
   chartKind?: string
   lines?: number
 }) {
+  const t = useT()
   return (
     // The skeleton replaces the code block OUTSIDE the block root, so it has to
     // carry `.block` itself: that is where the `--dsl-g-*` tokens are declared.
@@ -31,7 +33,7 @@ export function GenuiSkeleton({ shape, title, columns, chartKind, lines }: {
     <div className={css.block}>
       <div className={`${css.skeleton} ${INLINE_SHAPES.has(shape) || shape === 'generic' ? css.skeletonInline : ''}`}
         data-genui-skeleton={shape} role="status"
-        aria-label={title === undefined ? '正在生成界面' : `正在生成界面：${title}`}>
+        aria-label={title === undefined ? t('skeleton.generating') : t('skeleton.generatingTitle', { title })}>
         {title !== undefined ? <span className={css.skeletonHeading}>{title}</span> : null}
         <SkeletonBody
           shape={shape}

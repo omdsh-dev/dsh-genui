@@ -2,6 +2,7 @@ import { GENUI_CHECKBOX_VALUE, GENUI_COMPUTED_CELL } from './spec.ts'
 import type { GenuiComputed, GenuiComputedCell, GenuiComputedFormat, GenuiNode, GenuiSpec } from './spec.ts'
 import { compileMathExprProgram, parseDecimalNumber } from './safe-math.ts'
 import { GENUI_LIMITS } from './genui-runtime/index.ts'
+import { t } from './i18n/runtime.ts'
 import { walkGenuiNodes } from './walk-spec.ts'
 
 const COMPUTED_ID = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/
@@ -298,7 +299,7 @@ function resolveComputedValue(
 ): unknown {
   if (typeof value === 'string') {
     if (!templateAllowed || key === 'id' || key === 'type' || key === 'expr' || key === 'action' || key === 'href' || key === 'src' || key === 'poster') return value
-    return value.replace(COMPUTED_REFERENCE_PATTERN, (_match, id: string) => result.formatted[id] ?? '无效输入')
+    return value.replace(COMPUTED_REFERENCE_PATTERN, (_match, id: string) => result.formatted[id] ?? t('computed.invalidValue'))
   }
   if (nodeScope === false && !referenceAllowed && !templateAllowed) return value
   if (Array.isArray(value)) return value.map(item => resolveComputedValue(item, undefined, result, referenceAllowed, chartReference, tableCellReference, templateAllowed, nodeScope))
@@ -306,7 +307,7 @@ function resolveComputedValue(
   const record = value as Record<string, unknown>
   const nodeType = nodeScope === true ? record.type : undefined
   if (referenceAllowed && Object.keys(record).length === 1 && typeof record.$computed === 'string') {
-    if (!Object.hasOwn(result.values, record.$computed)) return chartReference ? null : '无效输入'
+    if (!Object.hasOwn(result.values, record.$computed)) return chartReference ? null : t('computed.invalidValue')
     const computedValue = result.values[record.$computed]!
     if (tableCellReference) {
       const cell: GenuiComputedCell = {
