@@ -2272,9 +2272,11 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 
 /* ---------- staggered reveal ---------- */
 
+/* Keep content visible when a WebView defers or pauses an entrance
+   animation (for example, while the component is offscreen). */
 @keyframes genuiReveal {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(10px); }
+  to { transform: translateY(0); }
 }
 
 @keyframes genuiPopIn {
@@ -2283,7 +2285,7 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 }
 
 .reveal {
-  animation: genuiReveal var(--dsl-g-dur-reveal) var(--dsl-g-ease-out) backwards;
+  animation: genuiReveal var(--dsl-g-dur-reveal) var(--dsl-g-ease-out);
 }
 
 /* "✓ 已触发" confirmation chip: appears next to the button without layout

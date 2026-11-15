@@ -92,12 +92,18 @@ describe('GenUI table overflow', () => {
     expect(restingRule?.[1] ?? '').not.toMatch(/\btransition\s*:/)
   })
 
-  it('releases the reveal transform after animation', () => {
+  it('keeps reveal content visible when its entrance animation is deferred (issue #442)', () => {
     const css = readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
-    const match = /\.reveal\s*\{([^}]*)\}/.exec(css)
-    expect(match, 'reveal rule must exist').not.toBeNull()
-    expect(match![1]).toContain('backwards')
-    expect(match![1]).not.toContain('both')
+    const rule = /\.reveal\s*\{([^}]*)\}/.exec(css)
+    expect(rule, 'reveal rule must exist').not.toBeNull()
+    // A delayed animation must not apply an invisible backwards fill state.
+    expect(rule![1]).not.toMatch(/\bbackwards\b/)
+    const frames = /@keyframes genuiReveal\s*\{([\s\S]*?)\n\}/.exec(css)
+    expect(frames, 'genuiReveal keyframes must exist').not.toBeNull()
+    // If the WebView pauses the animation at its first frame, the component
+    // remains visible because entrance motion only changes its position.
+    expect(frames![1]).toMatch(/transform:\s*translateY\(/)
+    expect(frames![1]).not.toMatch(/opacity\s*:/)
   })
 
   it('no animation pins a transform past its end', () => {
