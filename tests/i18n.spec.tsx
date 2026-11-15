@@ -239,4 +239,12 @@ describe('component chrome follows the active locale', () => {
     expect(screen.getByText('Parameters')).toBeTruthy()
     expect(screen.getByRole('button', { name: '▶ Play animation' })).toBeTruthy()
   })
+
+  it('the plot controls in Chinese', () => {
+    const series = [{ name: 'a', expr: 'a*x', params: [{ name: 'a', min: 0, max: 2, step: 0.5, value: 1, animateTo: 2 }] }]
+    setLocale('zh')
+    render(<PlotBlock series={series} />)
+    expect(screen.getByText('参数调节')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '▶ 播放动画' })).toBeTruthy()
+  })
 })
