@@ -52,7 +52,7 @@ export function prefetchGenuiAssets(): void {
   }
 }
 
-/** Event the DOM fence renderer dispatches on `document` after it mounts a fence. */
+/** DOM fence renderer 挂载 dsh-ui fence 后派发的事件。 */
 export const FENCE_MOUNTED_EVENT = 'genui:fence-mounted'
 
 /**
