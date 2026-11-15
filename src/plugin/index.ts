@@ -14,6 +14,7 @@ import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-tools'
 import type { SkillProvider } from '@deepseek-ai/dsh-skill'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -41,8 +42,27 @@ const ASSET_ROUTE_PATH = '/plugins/@changfenhuang/dsh-genui/assets'
 /** Safe flat file names only: no slashes, no traversal, js assets only. */
 const ASSET_FILE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*\.js$/
 
+/** Strong validator for one asset: its content hash (assets are built output and fixed per release). */
+export function assetEtag(body: Uint8Array): string {
+  return `"${createHash('sha1').update(body).digest('hex').slice(0, 20)}"`
+}
+
+/** Whether an `If-None-Match` header already names `etag` (comma list, `*`, or weak `W/` forms). */
+export function etagMatches(header: string | string[] | undefined, etag: string): boolean {
+  const raw = Array.isArray(header) ? header.join(',') : header
+  if (raw === undefined) return false
+  return raw.split(',').some((candidate) => {
+    const value = candidate.trim().replace(/^W\//, '')
+    return value === '*' || value === etag
+  })
+}
+
 /** The handler itself (registered via the optional webServer probe). */
-async function serveGenuiAsset(req: IncomingMessage, res: ServerResponse): Promise<void> {
+export async function serveGenuiAsset(
+  req: IncomingMessage,
+  res: ServerResponse,
+  assetDirectory?: string,
+): Promise<void> {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405)
     res.end()
@@ -70,12 +90,24 @@ async function serveGenuiAsset(req: IncomingMessage, res: ServerResponse): Promi
   }
   try {
     // lib/index.js → ./assets/ = <pkg>/lib/assets/ (the tsdown asset outDir).
-    const dir = fileURLToPath(new URL('./assets/', import.meta.url))
+    const dir = assetDirectory ?? fileURLToPath(new URL('./assets/', import.meta.url))
     const body = await readFile(join(dir, file))
-    res.writeHead(200, {
+    const etag = assetEtag(body)
+    // The client always asks for `?rev=<bundle rev>`, which changes with every rebuild, so a given URL names
+    // one content: cache it for a year. Requests without a rev (older clients, hand-typed URLs) still revalidate
+    // cheaply through the ETag, so they can never be served stale.
+    const versioned = new URL(req.url ?? '/', 'http://x').searchParams.has('rev')
+    const headers = {
       'content-type': 'text/javascript; charset=utf-8',
-      'cache-control': 'no-cache',
-    })
+      'cache-control': versioned ? 'public, max-age=31536000, immutable' : 'no-cache',
+      etag,
+    }
+    if (etagMatches(req.headers['if-none-match'], etag)) {
+      res.writeHead(304, headers)
+      res.end()
+      return
+    }
+    res.writeHead(200, headers)
     res.end(body)
   } catch {
     // Missing asset (old build) — a loud 404; the client shows its fallback.
@@ -243,7 +275,7 @@ export function apply(ctx: Context, config?: GenuiPluginConfig): void {
   ctx.inject(['webServer'], (webCtx) => {
     const webServer = webCtx.reflect.get('webServer') as { register(route: unknown): () => void }
     webCtx.effect(
-      () => webServer.register({ kind: 'prefix', path: ASSET_ROUTE_PATH, handler: serveGenuiAsset }),
+      () => webServer.register({ kind: 'prefix', path: ASSET_ROUTE_PATH, handler: (req: IncomingMessage, res: ServerResponse) => serveGenuiAsset(req, res) }),
       'dsh-genui: asset route',
     )
   })

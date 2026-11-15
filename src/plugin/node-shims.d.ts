@@ -11,10 +11,17 @@ declare module 'node:http' {
   export interface IncomingMessage {
     method?: string
     url?: string
+    headers: Record<string, string | string[] | undefined>
   }
   export interface ServerResponse {
     writeHead(statusCode: number, headers?: Record<string, string>): ServerResponse
     end(data?: string | Buffer): void
+  }
+}
+
+declare module 'node:crypto' {
+  export function createHash(algorithm: string): {
+    update(data: Uint8Array | string): { digest(encoding: 'hex'): string }
   }
 }
 

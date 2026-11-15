@@ -1319,6 +1319,7 @@ export function installDomFenceRenderer(
     try {
       const handler: GenuiActionHandler = (action, payload) => sendActionForBlock(block, action, payload)
       root.render(wrapFenceNode(payload, context, handler, !settled))
+      if (acceptedLanguage === 'dsh-ui') document.dispatchEvent(new Event('genui:fence-mounted'))
     } catch (error) {
       try {
         root.unmount()
