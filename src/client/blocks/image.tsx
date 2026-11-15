@@ -22,10 +22,11 @@ export function ImageNode({ node }: { node: GenuiImage }): ReactNode {
   const [zoomed, setZoomed] = useState(false)
   const dialogRef = useRef<HTMLDialogElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
-  const openerRef = useRef<HTMLButtonElement>(null)
+  const openerRef = useRef<HTMLButtonElement | null>(null)
 
   const restoreFocus = useCallback(() => {
     const opener = openerRef.current
+    openerRef.current = null
     if (opener?.isConnected === true) opener.focus({ preventScroll: true })
   }, [])
 
@@ -67,12 +68,14 @@ export function ImageNode({ node }: { node: GenuiImage }): ReactNode {
         ? <div className={blockCss.mediaError} role="alert">{t('block.imageError')}</div>
         : (
           <button
-            ref={openerRef}
             type="button"
             className={css.zoom}
             aria-label={t('block.imageOpen', { name })}
             aria-haspopup="dialog"
-            onClick={() => setZoomed(true)}
+            onClick={event => {
+              openerRef.current = event.currentTarget
+              setZoomed(true)
+            }}
           >
             <img
               className={blockCss.mediaPlayer}
