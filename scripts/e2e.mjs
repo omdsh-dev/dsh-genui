@@ -323,6 +323,8 @@ try {
     await galleryConversation?.verifyComputed({ page, browser, artifactsDir })
     const { runFenceContentBrowserChecks } = await import('./fence-content-browser-checks.mjs')
     await runFenceContentBrowserChecks({ page, artifactsDir })
+    const { runExternalFenceBrowserChecks } = await import('./external-fence-browser-checks.mjs')
+    await runExternalFenceBrowserChecks({ page, artifactsDir })
     // Percentage columns divide the space remaining after the row gap. Exercise
     // the installed renderer, including min-content pressure from a long code line.
     // The collapse follows the CONTAINER: above 560px the percentage split
