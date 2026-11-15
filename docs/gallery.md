@@ -23,6 +23,10 @@ For authored responses, prefer a small set of 3–8 visually consistent cards, s
 - Media uses the same HTTP(S) or relative URL policy as `image`. `file:`, `data:`, `javascript:` and protocol-relative URLs are not accepted. Captions use the existing safe inline renderer; caption links are not nested inside the thumbnail's button.
 - Empty collections display an empty state. Failed images display an error placeholder rather than starting a model request.
 
+## Single images
+
+A lone `image` uses the same native viewer. Clicking the picture opens the dialog with its close button focused; Escape or Close returns focus to the picture, and the caption stays readable inside the viewer. The preview keeps the card's framed, uncropped layout and the viewer shows the full image at its natural aspect ratio. Failed images keep the existing error placeholder and stay inert.
+
 ## Streaming and state
 
 Append carousel children at the end to preserve existing structural paths and field identity; reordering form cards is not a supported identity-preserving operation. Do not reuse field IDs between cards. Scroll position is local to the mounted carousel, not persisted in an exported artifact.
