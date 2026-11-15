@@ -519,17 +519,22 @@ describe('Computed rendering', () => {
 
 describe('Computed locale updates', () => {
   it('updates invalid reference text when the locale changes while mounted', () => {
-    const spec: GenuiSpec = { items: [{ type: 'text', content: '{{missing}}' }] }
+    const spec: GenuiSpec = {
+      items: [
+        { type: 'text', content: '{{missing}}' },
+        { type: 'table', columns: ['结果'], rows: [[{ $computed: 'missing' }]] },
+      ],
+    }
     setLocale('zh')
     const out = render(<GenuiBlock spec={spec} />)
 
-    expect(out.container.textContent).toContain('无效输入')
+    expect(out.container.textContent.match(/无效输入/g)).toHaveLength(2)
     act(() => setLocale('en'))
-    expect(out.container.textContent).toContain('Invalid input')
+    expect(out.container.textContent.match(/Invalid input/g)).toHaveLength(2)
     expect(out.container.textContent).not.toContain('无效输入')
 
     act(() => setLocale('zh'))
-    expect(out.container.textContent).toContain('无效输入')
+    expect(out.container.textContent.match(/无效输入/g)).toHaveLength(2)
     expect(out.container.textContent).not.toContain('Invalid input')
   })
 })
