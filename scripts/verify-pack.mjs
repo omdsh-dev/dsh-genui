@@ -15,7 +15,10 @@ import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 
 const { values: options } = parseArgs({
-  options: { keep: { type: 'boolean', default: false } },
+  options: {
+    keep: { type: 'boolean', default: false },
+    prebuilt: { type: 'boolean', default: false },
+  },
   strict: true,
 })
 
@@ -67,7 +70,9 @@ const required = [
 const dir = mkdtempSync(join(tmpdir(), 'dsh-genui-pack-'))
 let keepTarball = false
 try {
-  const out = execFileSync('npm', ['pack', '--pack-destination', dir, '--json'], {
+  const packArgs = ['pack', '--pack-destination', dir, '--json']
+  if (options.prebuilt) packArgs.push('--ignore-scripts')
+  const out = execFileSync('npm', packArgs, {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   })

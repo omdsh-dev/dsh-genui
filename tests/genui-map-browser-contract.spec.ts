@@ -201,9 +201,9 @@ describe('Map real-browser acceptance contract (no browser launched)', () => {
     expect(await readFile(prepared.auditFile, 'utf8')).toBe('')
     expect(await readFile(patch[1].insert[0].name, 'utf8')).toContain('Refusing unexpected or extra model calls')
   })
-  it('preserves older host coverage and requires exact latest RC browser acceptance', async () => {
+  it('preserves host coverage and requires exact published host browser acceptance', async () => {
     const workflow = parse(await readFile('.github/workflows/ci.yml', 'utf8'))
-    expect(Object.keys(workflow.jobs)).toEqual(['check', 'browser-text-newlines', 'windows-pack', 'published-alpha', 'published-current'])
+    expect(Object.keys(workflow.jobs)).toEqual(['check', 'browser-text-newlines', 'windows-pack', 'published-host'])
     expect(workflow.permissions).toBeUndefined()
     expect(workflow.jobs.check.strategy.matrix.include.map((lane: { 'host-ref': string }) => lane['host-ref']))
       .toEqual(['dsh-v0.2.0-rc.1', 'dsh-v0.2.1-rc.3', 'dsh-v0.2.1-rc.3'])
@@ -211,20 +211,26 @@ describe('Map real-browser acceptance contract (no browser launched)', () => {
     const step = steps.find((s: { name?: string }) => s.name?.startsWith('Map real browser'))
     expect(step.run).toContain('--smoke --map --install tarball')
     expect(step.run).toContain('steps.pack.outputs.sha256')
+    expect(steps.find((s: { name?: string }) => s.name === 'Verify and pack plugin tarball').run).toContain('--prebuilt')
     const archive = steps.find((s: { name?: string }) => s.name === 'Archive synthetic Map browser evidence')
     expect(archive.with['retention-days']).toBe(7)
     expect(archive.with.path).not.toMatch(/HOME|\.log|profile|events\.jsonl/)
-    const alpha = workflow.jobs['published-alpha'].steps
-    expect(alpha.find((s: { name?: string }) => s.name === 'Install exact published alpha host').run).toContain('prepare-published-host.mjs 0.2.2-alpha.2')
-    expect(alpha.find((s: { name?: string }) => s.name === 'Alpha packed Map browser acceptance').run).toContain('--smoke --map --install tarball')
-    const current = workflow.jobs['published-current'].steps
-    expect(current.find((s: { name?: string }) => s.name === 'Check published current API').run).toContain('check:host-api dsh-v0.2.2-rc.1')
-    expect(current.find((s: { name?: string }) => s.name === 'Check previous published RC API').run).toContain('check:host-api dsh-v0.2.1-rc.5')
-    expect(current.find((s: { name?: string }) => s.name === 'Install exact published current host').run).toContain('prepare-published-host.mjs 0.2.2-rc.1')
-    for (const name of ['Current packed gallery and computed acceptance', 'Current packed Map browser acceptance']) {
-      const acceptance = current.find((s: { name?: string }) => s.name === name)
+    const windowsPack = workflow.jobs['windows-pack'].steps
+    expect(windowsPack.some((s: { name?: string }) => s.name === 'Build')).toBe(false)
+    expect(windowsPack.find((s: { name?: string }) => s.name === 'Pack').run).toBe('npm pack --json')
+    const published = workflow.jobs['published-host']
+    expect(published.strategy.matrix.include).toEqual([
+      { channel: 'alpha', version: '0.2.2-alpha.2', 'host-ref': 'dsh-v0.2.2-alpha.2', 'previous-host-ref': '' },
+      { channel: 'current', version: '0.2.2-rc.1', 'host-ref': 'dsh-v0.2.2-rc.1', 'previous-host-ref': 'dsh-v0.2.1-rc.5' },
+    ])
+    const publishedSteps = published.steps
+    expect(publishedSteps.find((s: { name?: string }) => s.name === 'Check published host API').run).toContain('matrix.host-ref')
+    expect(publishedSteps.find((s: { name?: string }) => s.name === 'Check previous published host API').if).toContain("matrix.previous-host-ref != ''")
+    expect(publishedSteps.find((s: { name?: string }) => s.name === 'Install exact published host').run).toContain('matrix.version')
+    for (const name of ['Packed gallery and computed acceptance', 'Packed Map browser acceptance']) {
+      const acceptance = publishedSteps.find((s: { name?: string }) => s.name === name)
       expect(acceptance.run).toContain('steps.pack.outputs.sha256')
-      expect(acceptance.env.DSH_HOST_VERSION).toBe('0.2.2-rc.1')
+      expect(acceptance.env.DSH_HOST_VERSION).toBe('${{ matrix.version }}')
       expect(acceptance['continue-on-error']).not.toBe(true)
     }
   })
