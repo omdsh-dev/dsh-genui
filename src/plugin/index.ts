@@ -294,9 +294,9 @@ export function apply(ctx: Context, config?: GenuiPluginConfig): void {
     const tools = ctx.reflect.get('tools') as ToolRuntime | undefined
     const scopedTool = tools?.get('skill', context.scope)
     const globalTool = tools?.get('skill')
-    const nativeTool = tools?.get('skill', context.scope, context.toolSet) === globalTool
-    const ptcTool = tools?.get('run_code', context.scope, context.toolSet) !== undefined && assembly.sections.some(section => section.name === 'tools:sdk' && section.text.includes('skill'))
-    const toolVisible = globalTool !== undefined && scopedTool === globalTool && (nativeTool || ptcTool)
+    const sdkSection = assembly.sections.find(section => section.name === 'tools:sdk')
+    const skillSchemaVisible = tools?.schemas(context.scope).some(tool => tool.name === 'skill') === true
+    const toolVisible = globalTool !== undefined && scopedTool === globalTool && skillSchemaVisible && (sdkSection === undefined || sdkSection.text.includes('skill'))
     let skillAvailable = false
     if (skills && toolVisible) {
       const agent = context.scope as Agent | undefined
