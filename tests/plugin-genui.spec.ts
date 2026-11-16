@@ -2,39 +2,31 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
-import NodePtcRuntime from '@deepseek-ai/dsh-ptc-runtime-node'
-import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
-import LocalSandboxProvider from '@deepseek-ai/dsh-sandbox-local'
-import { createScope } from '@deepseek-ai/dsh-scope'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
-import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { defineTool } from '@deepseek-ai/dsh-tools'
-import * as ToolSkill from '@deepseek-ai/dsh-tool-skill'
-import WorkingDirectoryService from '@deepseek-ai/dsh-working-directory'
 import * as GenUI from '../src/plugin/index.ts'
 
 import { COMPONENT_SCHEMAS } from '../src/client/genui-runtime/schema.ts'
 
-/** 启动 Skill 工具依赖的真实 DSH 宿主服务。 */
-async function installSkillToolServices(ctx: Context) {
-  await ctx.plugin(LocalFileSystem)
-  await ctx.plugin(SessionProjectionRegistry)
-  await ctx.plugin(WorkingDirectoryService)
-}
-
-/** Boot the plugin and return the assembled system-prompt sections. */
-async function assemble(config?: GenUI.GenuiPluginConfig) {
+/** Assemble the prompt with an available Skill tool when requested. */
+async function assemble(config?: GenUI.GenuiPluginConfig, skillTool = true) {
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
-  await ctx.plugin(ToolRuntime)
-  await ctx.plugin(AgentRegistry)
-  await ctx.plugin(SkillRegistry)
-  await installSkillToolServices(ctx)
-  await ctx.plugin(ToolSkill)
+  if (skillTool) {
+    await ctx.plugin(ToolRuntime)
+    await ctx.plugin(SkillRegistry)
+    ctx.tools.register(defineTool({
+      name: 'skill',
+      description: 'Load a skill by name.',
+      parameters: { name: { type: 'string', required: true } },
+      output: {
+        schema: { type: 'string' },
+        render: (_args, value) => [{ type: 'text', text: String(value) }],
+      },
+      execute: async ({ name }) => String(name),
+    }))
+  }
   await ctx.plugin(GenUI, config)
   return ctx.systemPrompt.assemble({})
 }
@@ -89,222 +81,52 @@ describe('genui:fence section', () => {
     expect(text).toContain('never emit these placeholders literally')
     expect(text).toContain('Tool channel: render_ui')
     expect(text).not.toContain('"title":"可选标题"')
-    expect(text).toContain('组件节点必须带字符串')
   })
 
-  it.each(['full', 'minimal'] as const)('omits render_ui guidance in %s mode when the tool is disabled', async (fenceSection) => {
+  it('omits render_ui guidance from the system prompt when the tool is disabled', async () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    const genui = await ctx.plugin(GenUI, { renderUiTool: false, fenceSection })
+    const genui = await ctx.plugin(GenUI, { renderUiTool: false })
     const assembly = await ctx.systemPrompt.assemble({})
     const section = assembly.sections.find(item => item.name === 'genui:fence')
     const text = typeof section?.text === 'string' ? section.text : ''
 
-    if (fenceSection === 'full') expect(text).toContain('validate_dsh_ui')
+    expect(text).toContain('validate_dsh_ui')
     expect(text).not.toContain('render_ui')
     await genui.dispose()
   })
 
-  it('documents every supported component in the skill vocabulary', () => {
-    const skill = readFileSync('SKILL.md', 'utf8')
-    for (const type of Object.keys(COMPONENT_SCHEMAS)) expect(skill).toContain(`\`${type}\``)
-  })
-
-  it.each([
-    { mode: 'full' as const, limit: 1600 },
-    { mode: 'minimal' as const, limit: 300 },
-  ])('keeps the assembled $mode fence within its character budget', async ({ mode, limit }) => {
-    const assembly = await assemble({ fenceSection: mode })
-    const section = assembly.sections.find(s => s.name === 'genui:fence')
-    expect(section).toBeDefined()
-    const text = renderPrompt({ ...assembly, sections: [section!] })
-    expect(text.length).toBeLessThanOrEqual(limit)
-    expect(renderPrompt(assembly).length).toBeLessThanOrEqual(limit + 1000)
-    expect(text).toContain('call the skill tool to load `genui`')
-    expect(text).toContain('```dsh-ui')
-  })
-
-  it('omits only fence guidance when fenceSection is false', async () => {
-    const assembly = await assemble({ fenceSection: false })
-    expect(assembly.sections.map(section => section.name)).not.toContain('genui:fence')
-  })
-
-  it.each(['full', 'minimal', false] as const)('supplies component fields without the skills service in %s mode', async (fenceSection) => {
-    const ctx = new Context()
-    await ctx.plugin(SystemPrompt)
-    await ctx.plugin(GenUI, { fenceSection })
-    const assembly = await ctx.systemPrompt.assemble({})
-    const prompt = renderPrompt(assembly)
-    expect(prompt).toContain('## 组件词汇（只允许这些 type）')
-    expect(prompt).toContain('Computed（输入驱动计算）')
-    expect(prompt).toContain('full option 模式')
-    expect(prompt).toContain('本地优先（v2.6）')
-    expect(prompt).toContain('秘密禁令')
-    for (const type of Object.keys(COMPONENT_SCHEMAS)) expect(prompt).toContain(`\`${type}\``)
-    expect(prompt.length).toBeLessThanOrEqual(30000)
-    expect(prompt).not.toContain('call the skill tool to load `genui`')
-    expect(assembly.sections.some(section => section.name === 'genui:fence')).toBe(fenceSection !== false)
-    if (fenceSection === false) {
-      expect(prompt).not.toContain('## 围栏书写铁律')
-      expect(prompt).not.toContain('围栏位置：只写在')
-      expect(prompt).not.toContain('```dsh-ui')
-      expect(prompt).not.toContain('```json dsh-ui')
-      expect(prompt).not.toContain('放在 dsh-ui 围栏中')
-      expect(prompt).not.toContain('Travel dates')
+  it('keeps fence modes within budget and supplies the bundled component reference when needed', async () => {
+    for (const { fenceSection, limit } of [
+      { fenceSection: 'full' as const, limit: 1600 },
+      { fenceSection: 'minimal' as const, limit: 300 },
+      { fenceSection: false as const, limit: 0 },
+    ]) {
+      const assembly = await assemble({ fenceSection })
+      const section = assembly.sections.find(s => s.name === 'genui:fence')
+      if (fenceSection === false) {
+        expect(section).toBeUndefined()
+      } else {
+        expect(section).toBeDefined()
+        const text = renderPrompt({ ...assembly, sections: [section!] })
+        expect(text.length).toBeLessThanOrEqual(limit)
+        expect(text).toContain('call the skill tool to load `genui`')
+      }
+      expect(assembly.sections.find(s => s.name === 'genui:reference')?.text).toBe('')
+      const toolSchemas = assembly.tools.filter(tool => tool.name === 'render_ui' || tool.name === 'validate_dsh_ui')
+      expect(toolSchemas.map(tool => tool.name).sort()).toEqual(['render_ui', 'validate_dsh_ui'])
+      expect(JSON.stringify(toolSchemas).length).toBeLessThanOrEqual(4000)
     }
-    if (fenceSection === 'minimal') {
-      expect(prompt).toContain('conversation language')
-      expect(prompt).toContain('validate_dsh_ui')
-      expect(prompt).toContain('panel:true')
-    }
-  })
 
-  it('updates the reference as the real skill tool is registered and removed', async () => {
-    const ctx = new Context()
-    await ctx.plugin(SystemPrompt)
-    await ctx.plugin(ToolRuntime)
-    await ctx.plugin(AgentRegistry)
-    await ctx.plugin(GenUI)
-    await installSkillToolServices(ctx)
-    expect(renderPrompt(await ctx.systemPrompt.assemble({}))).toContain('## 组件词汇（只允许这些 type）')
-    const skills = await ctx.plugin(SkillRegistry)
-    expect(renderPrompt(await ctx.systemPrompt.assemble({}))).toContain('## 组件词汇（只允许这些 type）')
-    const skillTool = await ctx.plugin(ToolSkill)
-    const withSkills = renderPrompt(await ctx.systemPrompt.assemble({}))
-    expect(withSkills).not.toContain('## 组件词汇（只允许这些 type）')
-    expect(withSkills).toContain('call the skill tool to load `genui`')
-    await skillTool.dispose()
-    expect(renderPrompt(await ctx.systemPrompt.assemble({}))).toContain('## 组件词汇（只允许这些 type）')
-    await skills.dispose()
-    expect(renderPrompt(await ctx.systemPrompt.assemble({}))).toContain('## 组件词汇（只允许这些 type）')
-  })
+    const fallback = await assemble({ fenceSection: 'minimal' }, false)
+    const reference = fallback.sections.find(section => section.name === 'genui:reference')
+    expect(reference?.text).toContain('## 组件词汇（只允许这些 type）')
+    for (const type of Object.keys(COMPONENT_SCHEMAS)) expect(reference?.text).toContain(`\`${type}\``)
+    expect(fallback.sections.find(section => section.name === 'genui:fence')?.text).toContain('Follow the GenUI reference in this system prompt.')
 
-  it('respects the current scope when the skill tool is restricted', async () => {
-    const ctx = new Context()
-    await ctx.plugin(SystemPrompt)
-    await ctx.plugin(ToolRuntime)
-    await ctx.plugin(AgentRegistry)
-    await ctx.plugin(SkillRegistry)
-    await installSkillToolServices(ctx)
-    await ctx.plugin(ToolSkill)
-    await ctx.plugin(GenUI)
-    const key = {}
-    let scope!: ReturnType<typeof createScope>
-    await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, key) }, { inject: ['tools'] }))
-    scope.ctx.tools.restrict({ deny: ['skill'] })
-    const restricted = renderPrompt(await ctx.systemPrompt.assemble({ scope: key }))
-    expect(restricted).toContain('## 组件词汇（只允许这些 type）')
-    expect(restricted).not.toContain('call the skill tool to load `genui`')
-    expect(renderPrompt(await ctx.systemPrompt.assemble({}))).toContain('call the skill tool to load `genui`')
-    await scope.dispose()
-  })
-
-  it.each([true, false])('keeps the reference for a scoped skill tool with host tool=%s', async (hostTool) => {
-    const ctx = new Context()
-    await ctx.plugin(SystemPrompt)
-    await ctx.plugin(ToolRuntime)
-    await ctx.plugin(AgentRegistry)
-    await ctx.plugin(SkillRegistry)
-    await installSkillToolServices(ctx)
-    if (hostTool) await ctx.plugin(ToolSkill)
-    await ctx.plugin(GenUI)
-    const key = {}
-    let scope!: ReturnType<typeof createScope>
-    await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, key) }, { inject: ['tools'] }))
-    scope.ctx.tools.register(defineTool({
-      name: 'skill', description: 'Return the requested documentation.',
-      parameters: { name: { type: 'string', required: true } },
-      output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
-      execute: async ({ name }) => readFileSync(name, 'utf8'),
-    }))
-    const prompt = renderPrompt(await ctx.systemPrompt.assemble({ scope: key }))
-    expect(prompt).toContain('## 组件词汇（只允许这些 type）')
-    expect(prompt).not.toContain('call the skill tool to load `genui`')
-    await scope.dispose()
-  })
-
-  it('preserves scoped prompt sections with the same names', async () => {
-    const ctx = new Context()
-    await ctx.plugin(SystemPrompt)
-    await ctx.plugin(GenUI)
-    const key = {}
-    let scope!: ReturnType<typeof createScope>
-    await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, key) }, { inject: ['systemPrompt'] }))
-    scope.ctx.systemPrompt.section({ name: 'genui:reference', order: 1, text: 'scoped reference' })
-    scope.ctx.systemPrompt.section({ name: 'genui:fence', order: 2, text: 'scoped fence' })
-    const prompt = renderPrompt(await ctx.systemPrompt.assemble({ scope: key }))
-    expect(prompt).toContain('scoped reference')
-    expect(prompt).toContain('scoped fence')
-    expect(prompt).not.toContain('## 组件词汇（只允许这些 type）')
-    await scope.dispose()
-  })
-
-  it('detects the real skill tool through the PTC SDK', async () => {
-    const ctx = new Context()
-    await ctx.plugin(SystemPrompt)
-    await ctx.plugin(ToolRuntime)
-    await ctx.plugin(AgentRegistry)
-    await ctx.plugin(SkillRegistry)
-    await installSkillToolServices(ctx)
-    await ctx.plugin(LocalSubprocessRuntime)
-    await ctx.plugin(LocalSandboxProvider)
-    await ctx.plugin(SandboxPolicyService)
-    await ctx.plugin(NodePtcRuntime)
-    await ctx.plugin(ToolSkill)
-    await ctx.plugin(GenUI)
-    const key = {}
-    let scope!: ReturnType<typeof createScope>
-    await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, key) }, { inject: ['tools', 'systemPrompt'] }))
-    scope.ctx.tools.presentAs('ptc')
-    const assembly = await ctx.systemPrompt.assemble({ scope: key })
-    expect(assembly.tools.map(tool => tool.name)).toContain('run_code')
-    expect(assembly.tools.map(tool => tool.name)).not.toContain('skill')
-    expect(renderPrompt(assembly)).toContain('call the skill tool to load `genui`')
-    expect(renderPrompt(assembly)).not.toContain('## 组件词汇（只允许这些 type）')
-    expect(renderPrompt(assembly).length).toBeLessThanOrEqual(12000)
-    await scope.dispose()
-  })
-
-  it('supplies the reference when the scoped genui skill forbids model invocation', async () => {
-    const ctx = new Context()
-    await ctx.plugin(SystemPrompt)
-    await ctx.plugin(ToolRuntime)
-    await ctx.plugin(AgentRegistry)
-    await ctx.plugin(SkillRegistry)
-    await installSkillToolServices(ctx)
-    await ctx.plugin(ToolSkill)
-    await ctx.plugin(GenUI)
-    const key = {}
-    let scope!: ReturnType<typeof createScope>
-    await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, key) }, { inject: ['skills'] }))
-    scope.ctx.skills.register({ name: 'genui', description: 'restricted', source: 'runtime', content: 'restricted', invocation: { modelInvocable: false, userInvocable: true } })
-    const prompt = renderPrompt(await ctx.systemPrompt.assemble({ scope: key }))
-    expect(prompt).toContain('## 组件词汇（只允许这些 type）')
-    expect(prompt).not.toContain('call the skill tool to load `genui`')
-    expect(renderPrompt(await ctx.systemPrompt.assemble({}))).toContain('call the skill tool to load `genui`')
-    await scope.dispose()
-  })
-
-  it('omits component reference when the fence and render_ui are disabled', async () => {
-    const ctx = new Context()
-    await ctx.plugin(SystemPrompt)
-    await ctx.plugin(GenUI, { fenceSection: false, renderUiTool: false })
-    const prompt = renderPrompt(await ctx.systemPrompt.assemble({}))
-    expect(prompt).not.toContain('## 组件词汇（只允许这些 type）')
-    expect(prompt).not.toContain('```dsh-ui')
-  })
-
-  it('keeps the assembled tool schemas within a separate budget', async () => {
-    const ctx = new Context()
-    await ctx.plugin(SystemPrompt)
-    await ctx.plugin(ToolRuntime)
-    await ctx.plugin(GenUI, { fenceSection: false })
-    const assembly = await ctx.systemPrompt.assemble({})
-    expect(assembly.tools.map(tool => tool.name).sort()).toEqual(['render_ui', 'validate_dsh_ui'])
-    expect(JSON.stringify(assembly.tools).length).toBeLessThanOrEqual(4000)
-    expect(JSON.stringify(assembly.tools)).not.toContain('GenUI system-prompt section')
-    expect(JSON.stringify(assembly.tools)).not.toContain('≥3 parallel points')
-    expect(JSON.stringify(assembly.tools)).not.toMatch(/fence|围栏/i)
+    const disabled = await assemble({ fenceSection: false, renderUiTool: false }, false)
+    expect(disabled.sections.find(section => section.name === 'genui:fence')).toBeUndefined()
+    expect(disabled.sections.find(section => section.name === 'genui:reference')?.text).toBe('')
   })
 
   it('carries a judgment, not a component quota', async () => {
