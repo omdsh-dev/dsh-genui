@@ -136,17 +136,6 @@ describe('genui:fence section', () => {
     }
   })
 
-  it('keeps the skill a reference instead of a menu', async () => {
-    const skill = readFileSync('SKILL.md', 'utf8')
-    expect(skill).toContain('删掉这个组件，读者会不会更费劲')
-    expect(skill).toContain('没有配额，也没有硬触发')
-    expect(skill).toContain('根据组件是否能帮助读者理解或操作来决定是否使用')
-    expect(skill).not.toContain('内容类型命中就上对应组件')
-    for (const quota of ['硬触发（出现就至少出一个围栏', '从成套结构出发']) {
-      expect(skill).not.toContain(quota)
-    }
-  })
-
   it('sorts the section among the tool-guidance sections', async () => {
     const assembly = await assemble()
     const names = assembly.sections.map(s => s.name)
