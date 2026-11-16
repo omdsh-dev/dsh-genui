@@ -29,14 +29,18 @@ description: "Render structured interactive UI inline through the dsh-ui fence. 
 
 围栏位置：只写在**回答正文**里。写进 reasoning / 思考块不会渲染，用户看不到。
 
+### Panel
+
+在围栏 JSON 顶层设置 `"panel":true`，内容会在当前会话的 Panel 中显示并原位更新。设置 `"append":true` 可以追加并合并内容；Panel 最多容纳 200 个节点或接受 200 次追加，达到上限时发送替换内容重新建立 Panel。收到来自 Panel 的 `[genui-action]` 后，回复一个 `panel:true` 围栏，并可附带至多一行、10 字以内的确认文字。
+
 公式：`$...$` / `\(...\)` 为行内公式，`$$...$$` / `\[...\]` 为独立公式；支持矩阵、分段函数、多行对齐推导，以及加粗/高亮内的公式。正文、列表、键值、表头/单元格、卡片/步骤/时间线/标签页标题、题目与说明、按钮与表单标签、指标、媒体说明和图表外层标题共用此能力。JSON 字符串中的反斜杠必须双写，如 `"content": "\\(\\frac{a}{b}\\)"`。代码源码、输入值/占位符、原生下拉选项和图表引擎内部绘图文本仍遵循各自的原生格式，不解析富文本。数学语法以 KaTeX 为准，不执行 HTML、外部资源或脚本；不支持 LaTeX 文档编译、加载任意宏包。
 
 ## 组件词汇（只允许这些 type）
 
 布局：`text` `row` `col` `grid` `card` `carousel` `divider` `spacer` `arrow` `hero`
 展示：`stat` `badge` `progress` `list` `table` `keyvalue` `avatar` `image` `image-group` `compare` `audio` `video` `timeline` `file-tree` `breadcrumb` `diff` `json` `code` `callout` `steps` `icon` `blocks`
-图表：`chart`（bars/line/donut，可多序列）`plot`（数学函数图）`echart`（ECharts 全功能图表）
-交互：`button` `input` `select` `checkbox` `radio` `switch` `slider` `textarea` `editor` `date-picker` `segmented-control` `tabs` `accordion` `copy` `link` `submit` `popover`
+图表：`chart`（bars/line/donut，可多序列）`plot`（数学函数图）`echart`（ECharts 全功能图表）`map`
+交互：`button` `input` `select` `checkbox` `radio` `switch` `slider` `textarea` `editor` `date-picker` `segmented-control` `tabs` `accordion` `copy` `link` `submit` `popover` `choices`
 高级：`svg` `mermaid` `diagram` `scene3d` `quiz` `entity-card`
 
 ### 布局

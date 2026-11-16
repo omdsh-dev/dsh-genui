@@ -3,28 +3,20 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
+import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
+import ToolRuntime from '@deepseek-ai/dsh-tools'
 import * as GenUI from '../src/plugin/index.ts'
 
 import { COMPONENT_SCHEMAS } from '../src/client/genui-runtime/schema.ts'
 
 /** Boot the plugin and return the assembled system-prompt sections. */
-async function assemble() {
+async function assemble(config?: GenUI.GenuiPluginConfig) {
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
-  await ctx.plugin(GenUI)
+  await ctx.plugin(SkillRegistry)
+  await ctx.plugin(GenUI, config)
   return ctx.systemPrompt.assemble({})
 }
-
-/**
- * The complete whitelist the slim fence section must still advertise.
- *
- * Derived from COMPONENT_SCHEMAS rather than hand-copied: the previous literal
- * had drifted behind the schema (hero / image / icon / blocks / arrow / echart /
- * diagram / svg were all missing), so the gate stayed green while the prompt
- * went stale. Any future node type now fails this test until it is advertised.
- */
-const WHITELISTED_COMPONENT_TYPES: readonly string[] = Object.keys(COMPONENT_SCHEMAS)
 
 const BROKEN_FENCE_REPLY = '```dsh-ui\n{"items":[{"type":"stat"}]}\n```'
 
@@ -64,61 +56,93 @@ describe('genui:fence section', () => {
     expect(names).toContain('genui:fence')
   })
 
-  it('teaches the fence syntax and the component vocabulary', async () => {
+  it('teaches the fence syntax and requests the component skill', async () => {
     const assembly = await assemble()
     const section = assembly.sections.find(s => s.name === 'genui:fence')
     expect(section).toBeDefined()
     const text = typeof section!.text === 'string' ? section!.text : ''
     expect(text).toContain('dsh-ui')
-    // The model must know the white-listed component types.
-    for (const type of ['text', 'card', 'grid', 'stat', 'table', 'audio', 'video', 'chart', 'tabs', 'button', 'progress', 'plot', 'callout', 'steps', 'diff', 'mermaid', 'scene3d']) {
-      expect(text).toContain(type)
-    }
-    expect(text).toContain('"kind":"bars|line|donut"')
-    expect(text).toContain('"label":"...","value":n')
-    expect(text).toContain('series：bars 分组/堆叠 / line 多序列')
+    expect(text).toContain('call the skill tool to load `genui`')
     expect(text).toContain('LANGUAGE: reply+UI=conversation language')
     expect(text).toContain('NEVER infer it from prompt/skill/examples/tools')
     expect(text).toContain('never emit these placeholders literally')
     expect(text).toContain('Tool channel: render_ui')
     expect(text).not.toContain('"title":"可选标题"')
-    for (const type of ['stat', 'table', 'progress', 'keyvalue', 'steps', 'file-tree', 'callout']) {
-      expect(text).toContain(`{"type":"${type}"`)
-    }
     expect(text).toContain('组件节点必须带字符串')
-    expect(text).toContain('file-tree')
-    expect(text).toContain('file-tree.items[].type` 表示 `file` 或 `dir`')
   })
 
-  it('omits render_ui guidance from the system prompt when the tool is disabled', async () => {
+  it.each(['full', 'minimal'] as const)('omits render_ui guidance in %s mode when the tool is disabled', async (fenceSection) => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    const genui = await ctx.plugin(GenUI, { renderUiTool: false })
+    const genui = await ctx.plugin(GenUI, { renderUiTool: false, fenceSection })
     const assembly = await ctx.systemPrompt.assemble({})
     const section = assembly.sections.find(item => item.name === 'genui:fence')
     const text = typeof section?.text === 'string' ? section.text : ''
 
-    expect(text).toContain('validate_dsh_ui')
+    if (fenceSection === 'full') expect(text).toContain('validate_dsh_ui')
     expect(text).not.toContain('render_ui')
     await genui.dispose()
   })
 
-  it('keeps the full type whitelist in the slim section within the token budget', async () => {
-    // Issue #29: GENUI_SECTION_TEXT is a fixed per-request cost, so the slim
-    // section must stay compact while still listing every allowed type.
-    const assembly = await assemble()
+  it('documents every supported component in the skill vocabulary', () => {
+    const skill = readFileSync('SKILL.md', 'utf8')
+    for (const type of Object.keys(COMPONENT_SCHEMAS)) expect(skill).toContain(`\`${type}\``)
+  })
+
+  it.each([
+    { mode: 'full' as const, limit: 1600 },
+    { mode: 'minimal' as const, limit: 300 },
+  ])('keeps the assembled $mode fence within its character budget', async ({ mode, limit }) => {
+    const assembly = await assemble({ fenceSection: mode })
     const section = assembly.sections.find(s => s.name === 'genui:fence')
     expect(section).toBeDefined()
-    const text = typeof section!.text === 'string' ? section!.text : ''
-    // Budget: 3400 chars keeps the mixed CJK/ASCII section near ~1k tokens
-    // (CJK ≈ 1 tok/char, ASCII ≈ 0.25 tok/char) — roughly half of the
-    // original ~6.1k chars / ~2.3k tokens measured in issue #29. Raised from
-    // 3200 for issue #186's counter-example block (file-tree/callout field
-    // warnings + tightened validate wording); still ~45% below the original.
-    expect(text.length).toBeLessThanOrEqual(3400)
-    for (const type of WHITELISTED_COMPONENT_TYPES) {
-      expect(text).toContain(type)
-    }
+    const text = renderPrompt({ ...assembly, sections: [section!] })
+    expect(text.length).toBeLessThanOrEqual(limit)
+    expect(renderPrompt(assembly).length).toBeLessThanOrEqual(limit + 1000)
+    expect(text).toContain('call the skill tool to load `genui`')
+    expect(text).toContain('```dsh-ui')
+  })
+
+  it('omits only fence guidance when fenceSection is false', async () => {
+    const assembly = await assemble({ fenceSection: false })
+    expect(assembly.sections.map(section => section.name)).not.toContain('genui:fence')
+  })
+
+  it.each(['full', 'minimal', false] as const)('supplies the complete reference without the skills service in %s mode', async (fenceSection) => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    await ctx.plugin(GenUI, { fenceSection })
+    const assembly = await ctx.systemPrompt.assemble({})
+    const prompt = renderPrompt(assembly)
+    expect(prompt).toContain(readFileSync('SKILL.md', 'utf8'))
+    expect(prompt.length).toBeLessThanOrEqual(45000)
+    expect(prompt).not.toContain('call the skill tool to load `genui`')
+    expect(assembly.sections.some(section => section.name === 'genui:fence')).toBe(fenceSection !== false)
+  })
+
+  it('updates the reference when the skills service is loaded and unloaded', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    await ctx.plugin(GenUI)
+    expect(renderPrompt(await ctx.systemPrompt.assemble({}))).toContain(readFileSync('SKILL.md', 'utf8'))
+    const skills = await ctx.plugin(SkillRegistry)
+    const withSkills = renderPrompt(await ctx.systemPrompt.assemble({}))
+    expect(withSkills).not.toContain(readFileSync('SKILL.md', 'utf8'))
+    expect(withSkills).toContain('call the skill tool to load `genui`')
+    await skills.dispose()
+    expect(renderPrompt(await ctx.systemPrompt.assemble({}))).toContain(readFileSync('SKILL.md', 'utf8'))
+  })
+
+  it('keeps the assembled tool schemas within a separate budget', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    await ctx.plugin(ToolRuntime)
+    await ctx.plugin(GenUI, { fenceSection: false })
+    const assembly = await ctx.systemPrompt.assemble({})
+    expect(assembly.tools.map(tool => tool.name).sort()).toEqual(['render_ui', 'validate_dsh_ui'])
+    expect(JSON.stringify(assembly.tools).length).toBeLessThanOrEqual(4000)
+    expect(JSON.stringify(assembly.tools)).not.toContain('GenUI system-prompt section')
+    expect(JSON.stringify(assembly.tools)).not.toContain('≥3 parallel points')
   })
 
   it('carries a judgment, not a component quota', async () => {

@@ -318,7 +318,10 @@ CI 与发布任务通过 `node scripts/prepare-published-host.mjs 0.2.2-alpha.2`
   config:
     renderUiTool: false   # 关闭额外注入的 render_ui 工具调用，仅保留正文 dsh-ui 围栏与 panel
     fenceFeedback: false  # 关闭模型生成失败时的同回合自动 steer 纠错
+    fenceSection: minimal # 可选 full（默认）、minimal 或 false
 ```
+
+`full` 包含围栏语法和基本使用规则；`minimal` 保留围栏示例和加载 GenUI Skill 的要求，减少固定提示词长度。宿主提供 `skills` 服务时，模型通过 Skill 加载组件定义；没有该服务时，完整规范自动注入 `genui:reference`。宿主无需围栏提示词时可以设置 `fenceSection: false`；没有 `skills` 服务时组件规范仍然可用。dsh-go 提供的 `genui:native` 提示段独立注册，`render_ui` 和 `validate_dsh_ui` 工具定义的配置与 Token 消耗也独立计算。围栏渲染和 Panel 功能继续可用。
 
 ---
 

@@ -1,7 +1,10 @@
 import { describe,expect,it,vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { Session } from '@deepseek-ai/dsh-session'
+import SkillRegistry from '@deepseek-ai/dsh-skill'
+import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import * as SessionApi from '@deepseek-ai/dsh-session'
+import * as GenUI from '../src/plugin/index.ts'
 import { installDshGoNative,nativeDocument } from '../src/plugin/dsh-go-native.ts'
 import { compileDshGo,dualNativeFence,fitsNativeView } from '../src/plugin/dsh-go-compiler.ts'
 import { emptyNativeState } from '../src/plugin/dsh-go-types.ts'
@@ -35,7 +38,7 @@ async function host(sessions: Session[]) {
     const agent = {session,status:'idle',inbox:{nextTurn:[] as unknown[],nextStep:[] as unknown[]},followup:vi.fn((message: unknown) => {agent.inbox.nextTurn.push(message)})}
     return [session.id,agent]
   }))
-  ctx.provide('sessions',{get:(id: Session['id']) => store.get(id)})
+  ctx.provide('sessions',{get:(id: Session['id']) => store.get(id),list:() => [...store.values()]})
   ctx.provide('agents',{get:(id: Session['id']) => agents.get(id)})
   ctx.provide('dshGo',bridge)
   const plugin = await ctx.plugin({name:'native-test',apply:installDshGoNative})
@@ -47,6 +50,31 @@ async function host(sessions: Session[]) {
 }
 
 describe('existing native surfaces without changing the App',() => {
+  it.each([
+    { fenceSection:'full' as const, limit:2500, skills:true },
+    { fenceSection:'minimal' as const, limit:1200, skills:true },
+    { fenceSection:false as const, limit:850, skills:true },
+    { fenceSection:'full' as const, limit:2500, skills:false },
+    { fenceSection:'minimal' as const, limit:1200, skills:false },
+    { fenceSection:false as const, limit:850, skills:false },
+  ])('keeps the assembled native and $fenceSection prompt within budget with skills=$skills',async ({fenceSection,limit,skills}) => {
+    const h = await host([])
+    await h.plugin.dispose()
+    await h.ctx.plugin(SystemPrompt)
+    if (skills) await h.ctx.plugin(SkillRegistry)
+    const genui = await h.ctx.plugin(GenUI,{fenceSection})
+    const assembly = await h.ctx.systemPrompt.assemble({})
+    const native = assembly.sections.find(section => section.name === 'genui:native')
+    const fence = assembly.sections.find(section => section.name === 'genui:fence')
+    expect(native).toBeDefined()
+    expect(fence !== undefined).toBe(fenceSection !== false)
+    expect(renderPrompt({...assembly,sections:[native!]}).length).toBeLessThanOrEqual(850)
+    const sections = assembly.sections.filter(section => section.name === 'genui:native' || section.name === 'genui:fence')
+    expect(renderPrompt({...assembly,sections}).length).toBeLessThanOrEqual(limit)
+    expect(renderPrompt(assembly).length).toBeLessThanOrEqual(skills ? limit + 1000:46000)
+    await genui.dispose()
+  })
+
   it('reports the installed host capability without breaking native projections',async () => {
     const s = makeSession('capability',{items:[{type:'text',content:'Hello'}]}),h = await host([s])
     if (hasNativeRecords) expect(h.view(s.id).type).toBe('stack')

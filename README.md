@@ -319,7 +319,10 @@ To customize plugin behaviors, add configurations under `cordis.patch.yml` in yo
   config:
     renderUiTool: false   # Disable registering the render_ui tool card (fences and panel remain active)
     fenceFeedback: false  # Disable automatic same-turn steer correction on malformed fences
+    fenceSection: minimal # full (default), minimal, or false
 ```
+
+`full` includes fence syntax and essential usage guidance. `minimal` keeps the fence example and instructs the model to load the GenUI skill, reducing the fixed prompt size. When the host provides the skills service, component definitions are loaded through the skill; otherwise the complete reference is injected into `genui:reference`. Set `fenceSection: false` when the host does not need fence guidance; the reference remains available when the skills service is absent. The separate `genui:native` section remains available with dsh-go, and `render_ui` and `validate_dsh_ui` tool definitions retain their own configuration and token cost. Fence rendering and panel behavior remain available.
 
 ### Embedding into Other Applications
 
