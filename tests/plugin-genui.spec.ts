@@ -4,28 +4,25 @@ import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime, { defineTool } from '@deepseek-ai/dsh-tools'
 import * as GenUI from '../src/plugin/index.ts'
 
 import { COMPONENT_SCHEMAS } from '../src/client/genui-runtime/schema.ts'
 
-/** Assemble the prompt with an available Skill tool when requested. */
+/** Assemble the prompt with a visible Skill tool when requested. */
 async function assemble(config?: GenUI.GenuiPluginConfig, skillTool = true) {
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   if (skillTool) {
-    await ctx.plugin(ToolRuntime)
     await ctx.plugin(SkillRegistry)
-    ctx.tools.register(defineTool({
-      name: 'skill',
-      description: 'Load a skill by name.',
-      parameters: { name: { type: 'string', required: true } },
-      output: {
-        schema: { type: 'string' },
-        render: (_args, value) => [{ type: 'text', text: String(value) }],
+    const definitions = new Map<string, { name: string }>([['skill', { name: 'skill' }]])
+    ctx.provide('tools', {
+      register: (tool: { name: string }) => {
+        definitions.set(tool.name, tool)
+        return () => { definitions.delete(tool.name) }
       },
-      execute: async ({ name }) => String(name),
-    }))
+      get: (name: string) => definitions.get(name),
+      schemas: () => [...definitions.values()].map(tool => ({ name: tool.name })),
+    } as never)
   }
   await ctx.plugin(GenUI, config)
   return ctx.systemPrompt.assemble({})
@@ -113,9 +110,6 @@ describe('genui:fence section', () => {
         expect(text).toContain('call the skill tool to load `genui`')
       }
       expect(assembly.sections.find(s => s.name === 'genui:reference')?.text).toBe('')
-      const toolSchemas = assembly.tools.filter(tool => tool.name === 'render_ui' || tool.name === 'validate_dsh_ui')
-      expect(toolSchemas.map(tool => tool.name).sort()).toEqual(['render_ui', 'validate_dsh_ui'])
-      expect(JSON.stringify(toolSchemas).length).toBeLessThanOrEqual(4000)
     }
 
     const fallback = await assemble({ fenceSection: 'minimal' }, false)

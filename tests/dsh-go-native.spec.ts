@@ -37,7 +37,7 @@ async function host(sessions: Session[]) {
     const agent = {session,status:'idle',inbox:{nextTurn:[] as unknown[],nextStep:[] as unknown[]},followup:vi.fn((message: unknown) => {agent.inbox.nextTurn.push(message)})}
     return [session.id,agent]
   }))
-  ctx.provide('sessions',{get:(id: Session['id']) => store.get(id)})
+  ctx.provide('sessions',{get:(id: Session['id']) => store.get(id),list:() => [...store.values()]})
   ctx.provide('agents',{get:(id: Session['id']) => agents.get(id)})
   ctx.provide('dshGo',bridge)
   const plugin = await ctx.plugin({name:'native-test',apply:installDshGoNative})
