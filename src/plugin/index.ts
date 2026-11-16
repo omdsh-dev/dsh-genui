@@ -16,7 +16,6 @@ import type {} from '@deepseek-ai/dsh-tools'
 import type { SkillProvider } from '@deepseek-ai/dsh-skill'
 import type SkillRegistry from '@deepseek-ai/dsh-skill'
 import type ToolRuntime from '@deepseek-ai/dsh-tools'
-import type WorkingDirectoryService from '@deepseek-ai/dsh-working-directory'
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createHash } from 'node:crypto'
@@ -24,6 +23,10 @@ import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+type WorkingDirectoryService = {
+  ensure(agent: Agent, signal?: AbortSignal): Promise<string>
+}
 import { createRenderUiTool, createValidateDshUiTool } from './tool.ts'
 import { installFenceFeedback } from './fence-feedback.ts'
 import { installDshGoNative } from './dsh-go-native.ts'
