@@ -321,7 +321,7 @@ CI 与发布任务通过 `node scripts/prepare-published-host.mjs 0.2.2-alpha.2`
     fenceSection: minimal # 可选 full（默认）、minimal 或 false
 ```
 
-`full` 包含围栏语法和基本使用规则；`minimal` 保留围栏示例和加载 GenUI Skill 的要求，减少固定提示词长度。宿主提供 `skills` 服务时，模型通过 Skill 加载组件定义；没有该服务时，完整规范自动注入 `genui:reference`。宿主无需围栏提示词时可以设置 `fenceSection: false`；没有 `skills` 服务时组件规范仍然可用。dsh-go 提供的 `genui:native` 提示段独立注册，`render_ui` 和 `validate_dsh_ui` 工具定义的配置与 Token 消耗也独立计算。围栏渲染和 Panel 功能继续可用。
+`full` 包含围栏语法和基本使用规则；`minimal` 保留围栏示例和加载 GenUI Skill 的要求。当前 Agent 能调用宿主的全局 `skill` 工具且 GenUI Skill 允许模型调用时，组件规范通过 Skill 加载；其他情况（包括 Agent 自有的 `skill` 工具）下，组件字段和 JSON 结构会注入 `genui:reference`，两种模式都会增加固定提示词消耗。设置 `fenceSection: false` 可以关闭围栏指导；如果 `render_ui` 仍然开启且 Skill 不可用，组件参考仍会提供，围栏指导和 `render_ui` 都关闭时则不注入组件参考。dsh-go 提供的 `genui:native` 提示段独立注册；工具定义的配置与 Token 消耗独立计算。围栏渲染和 Panel 功能继续可用。
 
 ---
 

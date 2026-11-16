@@ -10,9 +10,14 @@
  */
 
 import { Context } from '@deepseek-ai/cordis'
+import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-tools'
 import type { SkillProvider } from '@deepseek-ai/dsh-skill'
+import type SkillRegistry from '@deepseek-ai/dsh-skill'
+import type ToolRuntime from '@deepseek-ai/dsh-tools'
+import type WorkingDirectoryService from '@deepseek-ai/dsh-working-directory'
+import { fromMarkdown } from 'mdast-util-from-markdown'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
@@ -117,6 +122,7 @@ export async function serveGenuiAsset(
 }
 
 const RENDER_UI_TOOL_GUIDANCE = '- Tool channel: render_ui 工具把同一 spec 渲染为工具行卡片；围栏用于回答内联 UI。'
+const COMPONENT_REFERENCE_PLACEHOLDER = 'dsh-genui:component-reference'
 
 /** 围栏提示词保留基础规则，组件规范由 genui Skill 提供。 */
 export const GENUI_SECTION_TEXT = `Render UI inside your reply with a fenced \`dsh-ui\` JSON block:
@@ -148,6 +154,8 @@ export const GENUI_MINIMAL_SECTION_TEXT = `Render UI in the reply body using a f
 \`\`\`
 
 Before producing a dsh-ui fence, call the skill tool to load \`genui\`. Follow its component and safety rules.`
+
+const GENUI_REFERENCE_RULES = 'Reply and write UI text in the conversation language. Never request passwords, API keys, tokens, or recovery codes. Validate complex specs with validate_dsh_ui and fix diagnostics. For panels, panel:true replaces the panel; append:true appends, within 200 nodes and 200 appends. Respond to panel actions with an updated panel.'
 
 /**
  * Register the GenUI output-language section and the render_ui tool.
@@ -182,6 +190,28 @@ function bundledSkillPath(): string {
   return basename(moduleDirectory) === 'plugin'
     ? resolve(moduleDirectory, '../../SKILL.md')
     : resolve(moduleDirectory, '../SKILL.md')
+}
+
+/** 从 Skill 中提取组件字段和结构说明，供没有 Skill 工具的模型使用。 */
+function componentReference(raw: string): string {
+  const nodes = fromMarkdown(raw).children
+  const headings = ['组件词汇（只允许这些 type）', '行内富文本（文字类回答的底座）', 'Computed（输入驱动计算）', '地图 ']
+  return headings.map(title => {
+    const index = nodes.findIndex(node => node.type === 'heading' && node.children[0]?.type === 'text' && node.children[0].value === title)
+    if (index < 0) throw new Error(`genui SKILL.md 缺少组件参考章节：${title}`)
+    const heading = nodes[index]!
+    if (heading.type !== 'heading' || heading.position?.start.offset === undefined) throw new Error(`genui SKILL.md 章节位置无效：${title}`)
+    const remaining = nodes.slice(index + 1)
+    const nextIndex = remaining.findIndex(node => node.type === 'heading' && node.depth <= heading.depth)
+    const section = nextIndex < 0 ? remaining : remaining.slice(0, nextIndex)
+    const selected = section.filter(node => node.type !== 'code')
+    return [heading, ...selected].map(node => {
+      const start = node.position?.start.offset
+      const end = node.position?.end.offset
+      if (start === undefined || end === undefined) throw new Error(`genui SKILL.md 章节内容位置无效：${title}`)
+      return raw.slice(start, end)
+    }).join('\n\n')
+  }).join('\n\n')
 }
 
 /** Register through the provider path so source=bundled also gets bundled precedence. */
@@ -241,26 +271,59 @@ export interface GenuiPluginConfig {
 
 /** 注册 GenUI 围栏提示词、工具及可选宿主能力。 */
 export function apply(ctx: Context, config?: GenuiPluginConfig): void {
-  installDshGoNative(ctx)
+  installDshGoNative(ctx, config?.fenceSection !== false)
   const renderUiToolEnabled = config?.renderUiTool !== false
-  let skillText: string | undefined
+  let reference: string | undefined
   ctx.systemPrompt.section({
     name: 'genui:reference',
     order: ctx.systemPrompt.getSectionOrder('STRUCTURED_OUTPUT'),
     interpolate: false,
-    text: () => ctx.reflect.get('skills') ? '' : (skillText ??= readFileSync(bundledSkillPath(), 'utf8')),
+    text: () => COMPONENT_REFERENCE_PLACEHOLDER,
   })
   if (config?.fenceSection !== false) {
     const text = config?.fenceSection === 'minimal' ? GENUI_MINIMAL_SECTION_TEXT : GENUI_SECTION_TEXT
     ctx.systemPrompt.section({
       name: 'genui:fence',
       order: ctx.systemPrompt.getSectionOrder('STRUCTURED_OUTPUT'),
-      text: () => {
-        const guidance = ctx.reflect.get('skills') ? text : text.replace('Before producing a dsh-ui fence, call the skill tool to load `genui`.', 'Follow the GenUI reference in this system prompt.')
-        return renderUiToolEnabled ? guidance : guidance.replace(`${RENDER_UI_TOOL_GUIDANCE}\n`, '')
-      },
+      text: () => renderUiToolEnabled ? text : text.replace(`${RENDER_UI_TOOL_GUIDANCE}\n`, ''),
     })
   }
+  ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+    const assembly = await next()
+    const skills = ctx.reflect.get('skills') as SkillRegistry | undefined
+    const tools = ctx.reflect.get('tools') as ToolRuntime | undefined
+    const scopedTool = tools?.get('skill', context.scope)
+    const globalTool = tools?.get('skill')
+    const nativeTool = assembly.tools.some(tool => tool.name === 'skill')
+    const ptcTool = assembly.tools.some(tool => tool.name === 'run_code') && assembly.sections.some(section => section.name === 'tools:sdk' && section.text.includes('skill')) && tools?.schemas(context.scope).some(tool => tool.name === 'skill')
+    const toolVisible = globalTool !== undefined && scopedTool === globalTool && (nativeTool || ptcTool)
+    let skillAvailable = false
+    if (skills && toolVisible) {
+      const agent = context.scope as Agent | undefined
+      const workingDirectory = ctx.reflect.get('workingDirectory') as WorkingDirectoryService | undefined
+      const cwd = agent?.session && workingDirectory ? await workingDirectory.ensure(agent, context.signal) : undefined
+      const lookup = { scope: context.scope, signal: context.signal, cwd }
+      const summary = (await skills.list(lookup)).find(skill => skill.name === 'genui')
+      if (summary?.invocation.modelInvocable) {
+        const skill = await skills.get('genui', lookup)
+        skillAvailable = skill?.invocation.modelInvocable === true
+      }
+    }
+    const needsReference = !skillAvailable && (config?.fenceSection !== false || renderUiToolEnabled)
+    return {
+      ...assembly,
+      sections: assembly.sections.map(section => {
+        if (section.name === 'genui:reference' && section.text === COMPONENT_REFERENCE_PLACEHOLDER) return { ...section, text: needsReference ? (reference ??= componentReference(readFileSync(bundledSkillPath(), 'utf8'))) : '' }
+        const fenceText = config?.fenceSection === 'minimal' ? GENUI_MINIMAL_SECTION_TEXT : GENUI_SECTION_TEXT
+        const ownFenceText = renderUiToolEnabled ? fenceText : fenceText.replace(`${RENDER_UI_TOOL_GUIDANCE}\n`, '')
+        if (section.name === 'genui:fence' && section.text === ownFenceText && !skillAvailable) {
+          const text = section.text.replace('Before producing a dsh-ui fence, call the skill tool to load `genui`.', 'Follow the GenUI reference in this system prompt.')
+          return { ...section, text: config?.fenceSection === 'minimal' ? `${text}\n\n${GENUI_REFERENCE_RULES}` : text }
+        }
+        return section
+      }),
+    }
+  })
   installFenceFeedback(ctx, config?.fenceFeedback !== false, renderUiToolEnabled)
   // Hosts without tool access keep the fence channel. The dependency fiber
   // starts whenever tools becomes available and unloads its registrations
@@ -270,7 +333,7 @@ export function apply(ctx: Context, config?: GenuiPluginConfig): void {
       if (renderUiToolEnabled) {
         yield toolsCtx.tools.register(createRenderUiTool())
       }
-      yield toolsCtx.tools.register(createValidateDshUiTool())
+      yield toolsCtx.tools.register(createValidateDshUiTool(config?.fenceSection !== false))
     }, 'dsh-genui: model tools')
   })
 

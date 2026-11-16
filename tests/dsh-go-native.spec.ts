@@ -1,8 +1,14 @@
 import { describe,expect,it,vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
+import AgentRegistry from '@deepseek-ai/dsh-agent'
+import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import { Session } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
+import ToolRuntime from '@deepseek-ai/dsh-tools'
+import * as ToolSkill from '@deepseek-ai/dsh-tool-skill'
+import WorkingDirectoryService from '@deepseek-ai/dsh-working-directory'
 import * as SessionApi from '@deepseek-ai/dsh-session'
 import * as GenUI from '../src/plugin/index.ts'
 import { installDshGoNative,nativeDocument } from '../src/plugin/dsh-go-native.ts'
@@ -39,11 +45,11 @@ async function host(sessions: Session[]) {
     return [session.id,agent]
   }))
   ctx.provide('sessions',{get:(id: Session['id']) => store.get(id),list:() => [...store.values()]})
-  ctx.provide('agents',{get:(id: Session['id']) => agents.get(id)})
+  const disposeAgents = ctx.provide('agents',{get:(id: Session['id']) => agents.get(id)})
   ctx.provide('dshGo',bridge)
   const plugin = await ctx.plugin({name:'native-test',apply:installDshGoNative})
   await vi.waitFor(() => expect(panel).toBeDefined())
-  return {ctx,plugin,bridge,agents,store,
+  return {ctx,plugin,bridge,agents,store,disposeAgents,
     view:(id: string) => panel!.view({sessionId:id},{locale:'en',components:[]}),
     tap:(id: string,action: string,value: unknown = {}) => invoke!({sessionId:id},{action,value,locale:'en'}),
   }
@@ -61,7 +67,16 @@ describe('existing native surfaces without changing the App',() => {
     const h = await host([])
     await h.plugin.dispose()
     await h.ctx.plugin(SystemPrompt)
-    if (skills) await h.ctx.plugin(SkillRegistry)
+    if (skills) {
+      await h.disposeAgents()
+      await h.ctx.plugin(ToolRuntime)
+      await h.ctx.plugin(AgentRegistry)
+      await h.ctx.plugin(SkillRegistry)
+      await h.ctx.plugin(LocalFileSystem)
+      await h.ctx.plugin(SessionProjectionRegistry)
+      await h.ctx.plugin(WorkingDirectoryService)
+      await h.ctx.plugin(ToolSkill)
+    }
     const genui = await h.ctx.plugin(GenUI,{fenceSection})
     const assembly = await h.ctx.systemPrompt.assemble({})
     const native = assembly.sections.find(section => section.name === 'genui:native')
@@ -70,8 +85,9 @@ describe('existing native surfaces without changing the App',() => {
     expect(fence !== undefined).toBe(fenceSection !== false)
     expect(renderPrompt({...assembly,sections:[native!]}).length).toBeLessThanOrEqual(850)
     const sections = assembly.sections.filter(section => section.name === 'genui:native' || section.name === 'genui:fence')
-    expect(renderPrompt({...assembly,sections}).length).toBeLessThanOrEqual(limit)
-    expect(renderPrompt(assembly).length).toBeLessThanOrEqual(skills ? limit + 1000:46000)
+    expect(renderPrompt({...assembly,sections}).length).toBeLessThanOrEqual(!skills && fenceSection === 'minimal' ? limit + 400:limit)
+    expect(renderPrompt(assembly).length).toBeLessThanOrEqual(skills ? limit + 1000:31000)
+    if (fenceSection === false) expect(native!.text).not.toContain('fence')
     await genui.dispose()
   })
 

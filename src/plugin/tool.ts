@@ -51,7 +51,7 @@ const RENDER_UI_PARAMETERS: Record<string, unknown> = {
       type: 'object',
       description: [
       'Render structured UI for the user when an interactive tool-row card makes the content clearer.',
-      'Use the component vocabulary and fields in the genui skill or system prompt reference. Pick the fence when the UI belongs in the message body; pick this tool when the deliverable is a self-contained card.',
+      'Use the component vocabulary and fields in the genui skill or system prompt reference.',
       'Deep-validated and repaired by the renderer. Pass the spec as a JSON OBJECT — never as a serialized JSON string (a string fails argument validation).',
     ].join(' '),
       // Structural hints for the tool-call bridge. A bare `object` here was
@@ -206,7 +206,7 @@ export function createRenderUiTool(): ToolDefinition {
   return {
     name: 'render_ui',
     description:
-      'Render an interactive UI card in the conversation tool row by passing a GenUI spec (a white-listed component tree; the same vocabulary as the ```dsh-ui fence, see the genui skill or the system prompt reference). '
+      'Render an interactive UI card in the conversation tool row by passing a GenUI spec (a white-listed component tree; see the genui skill or the system prompt reference). '
       + 'Use it when the user asks for a structured panel, dashboard, or form that belongs in the tool row rather than inline in the reply. '
       + 'The card is interactive client-side (tabs, buttons, inputs, switches); components carrying an "action" field send [genui-action] back to you when the user interacts, and you should re-render the updated UI.',
     parameters: RENDER_UI_PARAMETERS,
@@ -293,6 +293,21 @@ const VALIDATE_PARAMETERS: Record<string, unknown> = {
   additionalProperties: false,
 }
 
+const VALIDATE_SPEC_PARAMETERS: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    spec: {
+      oneOf: [
+        { type: 'string', description: 'The exact JSON text of the GenUI spec.' },
+        { type: 'object', description: 'The GenUI spec object.' },
+      ],
+      description: 'The GenUI spec to validate, as JSON text or an object.',
+    },
+  },
+  required: ['spec'],
+  additionalProperties: false,
+}
+
 /** Read the fence-body text from the call args (string preferred, object serialized). */
 function fenceTextOf(args: unknown): string | null {
   if (typeof args === 'string') return args
@@ -350,11 +365,11 @@ function bracketDiagnostic(raw: string): string[] {
 const COMMON_CAUSES = 'likely_causes=unbalanced_delimiters,unescaped_quote,trailing_comma,unterminated_string'
 
 /** Build the validate_dsh_ui tool definition (registered alongside render_ui). */
-export function createValidateDshUiTool(): ToolDefinition {
+export function createValidateDshUiTool(fenceEnabled = true): ToolDefinition {
   return {
     name: 'validate_dsh_ui',
-    description: VALIDATE_DESCRIPTION,
-    parameters: VALIDATE_PARAMETERS,
+    description: fenceEnabled ? VALIDATE_DESCRIPTION : 'Validate a GenUI spec and return diagnostics and repair suggestions. Fix unknown fields and block_markdown warnings, then validate again.',
+    parameters: fenceEnabled ? VALIDATE_PARAMETERS : VALIDATE_SPEC_PARAMETERS,
     output: {
       schema: { type: 'string', description: 'Validation verdict for the model.' },
       render(_args: unknown, value: JsonValue): ContentBlock[] {
