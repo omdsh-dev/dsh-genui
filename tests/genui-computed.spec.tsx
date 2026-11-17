@@ -9,6 +9,33 @@ import type { GenuiSpec } from '../src/client/spec.ts'
 afterEach(cleanup)
 
 describe('Computed evaluation', () => {
+  it('validates and updates computed templates in table text cells', () => {
+    const spec: GenuiSpec = {
+      computed: [{ id: 'shownPeople', expr: 'people' }, { id: 'total', expr: 'people*30+60' }],
+      items: [
+        { type: 'input', id: 'people', inputType: 'number', value: '8' },
+        { type: 'table', columns: ['计算方式', '合计'], rows: [['{{shownPeople}} 人 × 30 元 + 60 元', { $computed: 'total' }]] },
+      ],
+    }
+    expect(validateGenuiSpec(spec).ok).toBe(true)
+    const view = render(<GenuiBlock spec={spec} />)
+    expect(view.getByText('8 人 × 30 元 + 60 元')).toBeTruthy()
+    fireEvent.change(view.container.querySelector('input')!, { target: { value: '10' } })
+    expect(view.getByText('10 人 × 30 元 + 60 元')).toBeTruthy()
+    expect(view.getByText('360')).toBeTruthy()
+  })
+
+  it('rejects input IDs used as table text templates without a computed definition', () => {
+    const spec: GenuiSpec = {
+      computed: [{ id: 'total', expr: 'people*30+60' }],
+      items: [
+        { type: 'input', id: 'people', inputType: 'number', value: '8' },
+        { type: 'table', columns: ['计算方式'], rows: [['{{people}} 人 × 30 元']] },
+      ],
+    }
+    expect(processGenuiSpec(spec).errors).toContain("spec.items[1].rows[0][0] references unknown computed field 'people'")
+  })
+
   it('preserves JSON data that happens to contain component-shaped objects', () => {
     const value = {
       type: 'chart',

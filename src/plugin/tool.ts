@@ -50,7 +50,7 @@ const RENDER_UI_PARAMETERS: Record<string, unknown> = {
     spec: {
       type: 'object',
       description: [
-      'Render structured UI for the user when an interactive tool-row card makes the content clearer.',
+      'Render a GenUI spec in the tool row. Follow the current usage preference in the system prompt and the user request.',
       'Use the component vocabulary and fields in the genui skill or system prompt reference.',
       'Deep-validated and repaired by the renderer. Pass the spec as a JSON OBJECT — never as a serialized JSON string (a string fails argument validation).',
     ].join(' '),
@@ -207,7 +207,7 @@ export function createRenderUiTool(): ToolDefinition {
     name: 'render_ui',
     description:
       'Render an interactive UI card in the conversation tool row by passing a GenUI spec (a white-listed component tree; see the genui skill or the system prompt reference). '
-      + 'Use it when the user asks for a structured panel, dashboard, or form that belongs in the tool row rather than inline in the reply. '
+      + 'Use it for a standalone UI in the tool result; use a dsh-ui fence for inline reply content, or panel:true for the session panel. Both channels preserve interaction state; choose by placement. Follow the current usage preference and user request. '
       + 'The card is interactive client-side (tabs, buttons, inputs, switches); components carrying an "action" field send [genui-action] back to you when the user interacts, and you should re-render the updated UI.',
     parameters: RENDER_UI_PARAMETERS,
     output: {
@@ -274,6 +274,7 @@ const VALIDATE_DESCRIPTION =
   + 'Pass the exact JSON text you are about to put inside the fence as the "spec" argument (a string). '
   + 'Returns a [genui-validation] protocol block with status, diagnostics, next action, and reply_language=conversation. '
   + 'When invalid JSON is repairable, repaired_json contains the fixed body; emit it only with next=emit_repaired_fence. '
+  + 'With next=emit_fence, MUST copy native_fence_json or validated_json verbatim into the fence; MUST NOT re-author the checked JSON. '
   + 'A warning=unknown_field requires fixing the indicated path and another validation call. '
   + 'A warning=block_markdown requires the indicated replacement node and another validation call. '
   + 'When native_fence_json is returned, emit that exact JSON: it keeps the web items and adds the existing dsh-go native projection. Native [dsh-ui reply] messages carry visible choices, not hidden action payloads.'
@@ -454,7 +455,10 @@ export function createValidateDshUiTool(fenceEnabled = true): ToolDefinition {
         requiresCorrection ? 'next=fix_and_revalidate' : 'next=emit_fence',
       ])
       const native = requiresCorrection ? null:dualNativeFence(processed.spec)
-      return native === null ? verdict:`${verdict}\nnative_fence_json:\n\`\`\`\n${JSON.stringify(native)}\n\`\`\``
+      if (native !== null) return `${verdict}\nnative_fence_json:\n\`\`\`\n${JSON.stringify(native)}\n\`\`\``
+      return !requiresCorrection && fenceEnabled
+        ? `${verdict}\nvalidated_json:\n\`\`\`\n${JSON.stringify(processed.spec)}\n\`\`\``
+        : verdict
     },
     presentCall(): GenericCallView | undefined {
       return { card: 'generic', title: '验证 dsh-ui 围栏', kind: 'other' }

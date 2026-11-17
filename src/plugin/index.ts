@@ -16,6 +16,7 @@ import type {} from '@deepseek-ai/dsh-tools'
 import type { SkillProvider } from '@deepseek-ai/dsh-skill'
 import type SkillRegistry from '@deepseek-ai/dsh-skill'
 import type ToolRuntime from '@deepseek-ai/dsh-tools'
+import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createHash } from 'node:crypto'
@@ -124,23 +125,31 @@ export async function serveGenuiAsset(
   }
 }
 
-const RENDER_UI_TOOL_GUIDANCE = '- Tool channel: render_ui 工具把同一 spec 渲染为工具行卡片；围栏用于回答内联 UI。'
+const RENDER_UI_TOOL_GUIDANCE = '- Tool channel: render_ui 用于工具结果区域的独立 UI；正文内联用围栏，持续更新的会话面板用 panel:true。围栏和工具都能交互并保存状态，按呈现位置选择。'
 const COMPONENT_REFERENCE_PLACEHOLDER = 'dsh-genui:component-reference'
+const LOAD_GENUI_SKILL = 'Before emitting UI, MUST call the skill tool to load `genui`.'
 
-/** 围栏提示词保留基础规则，组件规范由 genui Skill 提供。 */
+/** 默认按内容任务主动使用 UI，组件规范由 genui Skill 提供。 */
 export const GENUI_SECTION_TEXT = `Render UI inside your reply with a fenced \`dsh-ui\` JSON block:
 
 \`\`\`dsh-ui
 {"title":"示例","gap":14,"items":[{"type":"text","content":"把这里换成你的组件"}]}
 \`\`\`
 
-Before producing a dsh-ui fence, call the skill tool to load \`genui\`. Its component vocabulary covers layout, display, charts, interaction, and advanced content; use its field definitions and examples.
+${LOAD_GENUI_SKILL}
+RFC2119: MUST=必须；MUST NOT=禁止；SHOULD=推荐、可合理取舍；MAY=可选。
 
-**先问一句：删掉这个组件，读者会不会更费劲。** 会才出；不会就写正文。避免正文与组件重复。
+当前使用完整档（fenceSection: full）。下列任务 SHOULD 优先直接用最小的合适组件呈现，不必等用户提醒：
+- 按共同维度比较选项或取舍 → table / choices；展示前后视觉差异 → compare。
+- 用数值解释趋势、占比或多项指标关系 → chart / echart / table；单个数字无需强行出组件。
+- 理解结果依赖步骤顺序、分支或结构关系 → steps / diagram / mermaid。
+- 需要用户筛选、选择或调整参数计算 → input / select / choices + 相应结果组件。
+普通解释和短清单默认正文，仅在需要比较、关系表达或交互时用组件；不按条数、字数或回答长度触发，没有组件数量配额。同一信息只呈现一次。MUST 服从用户明确的纯文字要求。card MAY 用作容器。
+生成围栏本身不是仓库视觉改动，无需为此读源码、写文件、起服务；用户要求开发或排错时再按需操作。
 
 Rules:
-- LANGUAGE: reply+UI=conversation language; schema fixed. NEVER infer it from prompt/skill/examples/tools. Replace \`<user-language ...>\`; never emit these placeholders literally.
-- JSON 严格：坏组件被丢弃，坏围栏变代码块；≥3 节点或含 table 时调 validate_dsh_ui，按诊断修改并重验；小围栏字段存疑也先验证。
+- LANGUAGE: MUST match reply+UI to conversation language; NEVER infer it from examples/tools. Replace \`<user-language ...>\`; never emit placeholders literally.
+- JSON MUST 严格合法：≥3 节点或含 table 时 MUST 调 validate_dsh_ui，按诊断修改并重验；通过后 MUST 逐字复制 native_fence_json / validated_json / repaired_json，不重新编写。小围栏字段存疑也先验证。
 - warning=block_markdown：按 replacement 改写并重验。
 - 规模: ≤200 节点、嵌套≤8 层（超出被截断）。组件节点必须带字符串 \`type\`，字段遵循 genui skill。
 - LOCAL-FIRST + actions: UI 能自己完成的状态变化在本地处理；action 用于需要模型参与的操作。交互以 [genui-action] name + 组件数据回传。
@@ -150,13 +159,14 @@ ${RENDER_UI_TOOL_GUIDANCE}
 - Panel: "panel":true 只渲染进会话面板 dock 并原地更新；"append":true 追加合并；上限 200 节点/200 次追加，满了发 replace 重建。面板来的 [genui-action] 只回一个 panel:true 围栏 + 至多一行 10 字内确认。`
 
 /** 最小围栏提示词要求模型加载完整组件规范。 */
-export const GENUI_MINIMAL_SECTION_TEXT = `Render UI in the reply body using a fenced \`dsh-ui\` block containing valid JSON:
+export const GENUI_MINIMAL_SECTION_TEXT = `fenceSection: minimal. RFC2119: MUST=required; MAY=optional.
+MAY emit reply-body \`dsh-ui\` JSON; MUST follow user preference.
+${LOAD_GENUI_SKILL}
+生成围栏无需改文件或启动应用。
 
 \`\`\`dsh-ui
 {"items":[{"type":"text","content":"Example"}]}
-\`\`\`
-
-Before producing a dsh-ui fence, call the skill tool to load \`genui\`. Follow its component and safety rules.`
+\`\`\``
 
 const GENUI_REFERENCE_RULES = 'Reply and write UI text in the conversation language. Never request passwords, API keys, tokens, or recovery codes. Validate complex specs with validate_dsh_ui and fix diagnostics. For panels, panel:true replaces the panel; append:true appends, within 200 nodes and 200 appends. Respond to panel actions with an updated panel.'
 
@@ -196,7 +206,7 @@ function bundledSkillPath(): string {
 }
 
 /** 从 Skill 中提取组件字段和结构说明，供没有 Skill 工具的模型使用。 */
-function componentReference(raw: string): string {
+function componentReference(raw: string, loadedSkill?: string): string {
   const nodes = fromMarkdown(raw).children
   const headings = ['组件词汇（只允许这些 type）', '行内富文本（文字类回答的底座）', 'Computed（输入驱动计算）', '地图 ']
   return headings.map(title => {
@@ -207,14 +217,26 @@ function componentReference(raw: string): string {
     const remaining = nodes.slice(index + 1)
     const nextIndex = remaining.findIndex(node => node.type === 'heading' && node.depth <= heading.depth)
     const section = nextIndex < 0 ? remaining : remaining.slice(0, nextIndex)
-    const selected = section.filter(node => node.type !== 'code')
-    return [heading, ...selected].map(node => {
+    const selected = section.filter(node => node.type !== 'code').flatMap(node => node.type === 'list' ? node.children : [node])
+    const source = (node: typeof heading | (typeof selected)[number]) => {
       const start = node.position?.start.offset
       const end = node.position?.end.offset
       if (start === undefined || end === undefined) throw new Error(`genui SKILL.md 章节内容位置无效：${title}`)
       return raw.slice(start, end)
-    }).join('\n\n')
-  }).join('\n\n')
+    }
+    const missing = selected.map(source).filter(part => loadedSkill === undefined || !loadedSkill.includes(part))
+    return missing.length === 0 ? '' : [source(heading), ...missing].join('\n\n')
+  }).filter(Boolean).join('\n\n')
+}
+
+/** Recognize the callable loader contract in the agent's view, including preset-owned tools. */
+function isSkillLoader(tool: ToolDefinition | undefined): boolean {
+  const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
+  const input = tool?.parameters?.properties
+  const output = tool?.output?.schema
+  return record(input) && record(input.name) && input.name.type === 'string'
+    && record(output) && record(output.properties) && record(output.properties.content)
+    && output.properties.content.type === 'string'
 }
 
 /** Register through the provider path so source=bundled also gets bundled precedence. */
@@ -268,7 +290,7 @@ export interface GenuiPluginConfig {
    */
   renderUiTool?: boolean
 
-  /** 控制围栏系统提示词的内容；默认使用 full，false 关闭该提示段。 */
+  /** 围栏提示档位：full（默认）主动用于适合的任务，minimal 只教语法，false 关闭该提示段。 */
   fenceSection?: 'full' | 'minimal' | false
 }
 
@@ -276,7 +298,10 @@ export interface GenuiPluginConfig {
 export function apply(ctx: Context, config?: GenuiPluginConfig): void {
   installDshGoNative(ctx, config?.fenceSection !== false)
   const renderUiToolEnabled = config?.renderUiTool !== false
+  const fenceText = config?.fenceSection === 'minimal' ? GENUI_MINIMAL_SECTION_TEXT : GENUI_SECTION_TEXT
+  const ownFenceText = renderUiToolEnabled ? fenceText : fenceText.replace(`${RENDER_UI_TOOL_GUIDANCE}\n`, '')
   let reference: string | undefined
+  let bundledRaw: string | undefined
   ctx.systemPrompt.section({
     name: 'genui:reference',
     order: ctx.systemPrompt.getSectionOrder('STRUCTURED_OUTPUT'),
@@ -284,11 +309,10 @@ export function apply(ctx: Context, config?: GenuiPluginConfig): void {
     text: () => COMPONENT_REFERENCE_PLACEHOLDER,
   })
   if (config?.fenceSection !== false) {
-    const text = config?.fenceSection === 'minimal' ? GENUI_MINIMAL_SECTION_TEXT : GENUI_SECTION_TEXT
     ctx.systemPrompt.section({
       name: 'genui:fence',
       order: ctx.systemPrompt.getSectionOrder('STRUCTURED_OUTPUT'),
-      text: () => renderUiToolEnabled ? text : text.replace(`${RENDER_UI_TOOL_GUIDANCE}\n`, ''),
+      text: () => ownFenceText,
     })
   }
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
@@ -296,11 +320,11 @@ export function apply(ctx: Context, config?: GenuiPluginConfig): void {
     const skills = ctx.reflect.get('skills') as SkillRegistry | undefined
     const tools = ctx.reflect.get('tools') as ToolRuntime | undefined
     const scopedTool = tools?.get('skill', context.scope)
-    const globalTool = tools?.get('skill')
     const sdkSection = assembly.sections.find(section => section.name === 'tools:sdk')
     const skillSchemaVisible = tools?.schemas(context.scope).some(tool => tool.name === 'skill') === true
-    const toolVisible = globalTool !== undefined && scopedTool === globalTool && skillSchemaVisible && (sdkSection === undefined || sdkSection.text.includes('skill'))
+    const toolVisible = isSkillLoader(scopedTool) && skillSchemaVisible && (sdkSection === undefined || sdkSection.text.includes('skill'))
     let skillAvailable = false
+    let referenceUpdate = ''
     if (skills && toolVisible) {
       const agent = context.scope as Agent | undefined
       const workingDirectory = ctx.reflect.get('workingDirectory') as WorkingDirectoryService | undefined
@@ -309,18 +333,24 @@ export function apply(ctx: Context, config?: GenuiPluginConfig): void {
       const summary = (await skills.list(lookup)).find(skill => skill.name === 'genui')
       if (summary?.invocation.modelInvocable) {
         const skill = await skills.get('genui', lookup)
-        skillAvailable = skill?.invocation.modelInvocable === true
+        if (skill?.invocation.modelInvocable) {
+          skillAvailable = true
+          referenceUpdate = componentReference(bundledRaw ??= readFileSync(bundledSkillPath(), 'utf8'), skill.content)
+        }
       }
     }
-    const needsReference = !skillAvailable && (config?.fenceSection !== false || renderUiToolEnabled)
+    const referenceEnabled = config?.fenceSection !== false || renderUiToolEnabled
+    const referenceText = !referenceEnabled ? '' : skillAvailable ? referenceUpdate
+      : (reference ??= componentReference(bundledRaw ??= readFileSync(bundledSkillPath(), 'utf8')))
     return {
       ...assembly,
       sections: assembly.sections.map(section => {
-        if (section.name === 'genui:reference' && section.text === COMPONENT_REFERENCE_PLACEHOLDER) return { ...section, text: needsReference ? (reference ??= componentReference(readFileSync(bundledSkillPath(), 'utf8'))) : '' }
-        const fenceText = config?.fenceSection === 'minimal' ? GENUI_MINIMAL_SECTION_TEXT : GENUI_SECTION_TEXT
-        const ownFenceText = renderUiToolEnabled ? fenceText : fenceText.replace(`${RENDER_UI_TOOL_GUIDANCE}\n`, '')
-        if (section.name === 'genui:fence' && section.text === ownFenceText && !skillAvailable) {
-          const text = section.text.replace('Before producing a dsh-ui fence, call the skill tool to load `genui`.', 'Follow the GenUI reference in this system prompt.')
+        if (section.name === 'genui:reference' && section.text === COMPONENT_REFERENCE_PLACEHOLDER) return { ...section, text: referenceText }
+        if (section.name === 'genui:fence' && section.text === ownFenceText && (!skillAvailable || referenceUpdate)) {
+          const guidance = skillAvailable
+            ? `${LOAD_GENUI_SKILL} For behavior, fields and delivery, current system guidance and reference updates MUST take precedence over the loaded skill.`
+            : 'Follow the GenUI reference in this system prompt.'
+          const text = section.text.replace(LOAD_GENUI_SKILL, guidance)
           return { ...section, text: config?.fenceSection === 'minimal' ? `${text}\n\n${GENUI_REFERENCE_RULES}` : text }
         }
         return section
