@@ -125,7 +125,7 @@ const RENDER_UI_TOOL_GUIDANCE = '- Tool channel: render_ui 工具把同一 spec 
 export const GENUI_SECTION_TEXT = `Render UI inside your reply with a fenced \`dsh-ui\` JSON block:
 
 \`\`\`dsh-ui
-{"title":"示例","gap":14,"items":[{"type":"text","content":"把这里换成你的组件"}]}
+{"items":[{"type":"callout","content":"一个 items 对象一个组件"},{"type":"table","columns":["组件","字段"],"rows":[["callout","content"]]}]}
 \`\`\`
 
 Allowed \`type\` values; the \`genui\` skill, when available, carries the full content→component mapping and per-component field details:
@@ -142,8 +142,8 @@ Allowed \`type\` values; the \`genui\` skill, when available, carries the full c
 - 有比较/取舍 → \`table\` 或 \`choices\`；有数值趋势 → \`chart\`；有前后或两种形态 → \`compare\`；有分步 → \`steps\`/\`timeline\`；有结构或流程 → \`diagram\`/\`mermaid\`；要读者做决定 → \`choices\`（选项带代价）。
 - 同一批信息不要在正文和组件里各说一遍；纯文字讲得清的地方不要套壳，默认无卡。
 - 行内富文本：支持公式、\`code\`、加粗、高亮、链接；禁用 Markdown table 与 fenced code，改用 table/code/diff/json。
-- 趋势/占比 → \`chart\`（≤8 点）或 \`echart\`；配色跟随主题，语义需要时才用 \`palette\`/\`card.accent\`；grid 子节点用 \`"span":2\` 做宽窄混排；数据多时给 \`table\`/\`list\` 配 \`input\`(id)+\`filter\` 就地筛选。
-- 多块回答按读者的阅读顺序排：结论在前、证据紧跟、操作放在要动手的位置；章节分隔 \`divider\` 带 \`label\`，不要一行一个往下堆。
+- 趋势/占比用 \`chart\`（≤8 点）或 \`echart\`；配色跟随主题；grid 子节点可用 \`"span":2\`；数据多时给 \`table\`/\`list\` 配 \`input\`+\`filter\` 就地筛选。
+- 多块回答按阅读顺序排：结论在前、证据紧跟、操作放在动手处；章节用 \`divider\` 的 \`label\`。
 
 **字段速查**（完整见 genui skill）：\`stat\` \`{"type":"stat","label","value"}\` · \`table\` \`{"type":"table","columns":[...],"rows":[[...]]}\` · \`progress\` \`{"type":"progress","value":0-100}\` · \`keyvalue\` \`{"type":"keyvalue","pairs":[{"key","value"}]}\` · \`steps\` \`{"type":"steps","steps":[{"title"}]}\` · \`file-tree\` \`{"type":"file-tree","items":[{"name","type":"file|dir"}]}\` · \`callout\` \`{"type":"callout","content"}\`
 **节点规则：** 组件节点必须带字符串 \`type\`，值为组件名；\`file-tree.items[].type\` 表示 \`file\` 或 \`dir\`。
