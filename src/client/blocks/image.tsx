@@ -3,6 +3,7 @@ import { renderInline } from '../inline.ts'
 import blockCss from '../GenuiBlock.module.css'
 import css from './image.module.css'
 import { useT } from '../i18n/index.ts'
+import { genuiMediaSrc } from '../media-overrides.ts'
 import type { GenuiImage } from '../spec.ts'
 
 /**
@@ -79,7 +80,7 @@ export function ImageNode({ node }: { node: GenuiImage }): ReactNode {
           >
             <img
               className={blockCss.mediaPlayer}
-              src={node.src}
+              src={genuiMediaSrc(node.src)}
               alt={name}
               loading="lazy"
               decoding="async"
@@ -112,7 +113,7 @@ export function ImageNode({ node }: { node: GenuiImage }): ReactNode {
           <div className={css.frame}>
             <img
               className={css.image}
-              src={node.src}
+              src={genuiMediaSrc(node.src)}
               alt={name}
               loading="eager"
               decoding="async"

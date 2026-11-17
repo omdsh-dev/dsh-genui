@@ -6,6 +6,7 @@ import { FileLink } from '../file-link-context.tsx'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import { safeMediaSrc } from '../genui-runtime/value-utils.ts'
 import { useT } from '../i18n/index.ts'
+import { genuiMediaSrc } from '../media-overrides.ts'
 import type { GenuiBlockProps } from './state.ts'
 import { avatarColor } from './basic.tsx'
 import css from './entity-card.module.css'
@@ -14,7 +15,8 @@ import css from './entity-card.module.css'
 export function EntityCardNode({ node, onAction }: { node: GenuiEntityCard; onAction?: GenuiBlockProps['onAction'] }): ReactElement {
   const t = useT()
   const target = classifyLinkTarget(node.href)
-  const image = safeMediaSrc(node.image)
+  const validatedImage = safeMediaSrc(node.image)
+  const image = validatedImage === undefined ? undefined : genuiMediaSrc(validatedImage)
   const [failedImage, setFailedImage] = useState<string | undefined>()
   const showImage = image !== undefined && failedImage !== image
   const sourceLabel = node.sourceLabel ?? t('block.entitySource')

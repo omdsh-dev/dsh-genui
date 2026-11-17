@@ -3,6 +3,7 @@ import { GENUI_LIMITS } from '../genui-runtime/limits.ts'
 import { safeMediaSrc } from '../genui-runtime/value-utils.ts'
 import { useT } from '../i18n/index.ts'
 import { renderInline } from '../inline.ts'
+import { genuiMediaSrc } from '../media-overrides.ts'
 import type { GenuiImageGroup, GenuiImageGroupItem } from '../spec.ts'
 import css from './gallery.module.css'
 
@@ -16,11 +17,13 @@ interface GalleryEntry {
 function entriesOf(items: GenuiImageGroupItem[]): GalleryEntry[] {
   const occurrences = new Map<string, number>()
   return items.slice(0, GENUI_LIMITS.maxImageGroupItems).map(item => {
-    const src = safeMediaSrc(item.src)
-    const identity = src ?? item.src
+    const validated = safeMediaSrc(item.src)
+    // Occurrence identity follows the source the spec carries, so an embedded
+    // export copy can never collapse two distinct gallery entries.
+    const identity = validated ?? item.src
     const occurrence = occurrences.get(identity) ?? 0
     occurrences.set(identity, occurrence + 1)
-    return { key: JSON.stringify([identity, occurrence]), item, src }
+    return { key: JSON.stringify([identity, occurrence]), item, src: validated === undefined ? undefined : genuiMediaSrc(validated) }
   })
 }
 
