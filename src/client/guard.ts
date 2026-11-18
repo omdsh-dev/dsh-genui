@@ -1348,7 +1348,13 @@ function repairDiagramZones(v: unknown): GenuiDiagram['zones'] | undefined {
 function repairDiagram(v: unknown): GenuiDiagram | null {
   const o = obj(v)
   if (o === undefined) return null
-  const kind = enu(o.kind, DIAGRAM_KINDS as unknown as readonly GenuiDiagramKind[])
+  // `kind` is optional on the wire: a fence built without it defaults to
+  // `flowchart` (column layout, no coordinates needed). An explicitly invalid
+  // kind still drops the node so the model gets the teaching warning instead
+  // of silently re-labelled geometry.
+  const kind = o.kind === undefined
+    ? 'flowchart'
+    : enu(o.kind, DIAGRAM_KINDS as unknown as readonly GenuiDiagramKind[])
   if (kind === undefined) return null
   const nodes = repairDiagramNodes(o.nodes)
   if (nodes === undefined) return null
@@ -2733,7 +2739,9 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
     case 'arrow':
       break
     case 'diagram':
-      if (typeof v.kind !== 'string') errors.push(`${at}: type 'diagram' requires kind (string)`)
+      // Missing `kind` is repaired to `flowchart` before rendering; only a
+      // present-but-wrong kind is a real error worth blocking the fence for.
+      if (v.kind !== undefined && typeof v.kind !== 'string') errors.push(`${at}: type 'diagram' requires kind (string)`)
       if (!Array.isArray(v.nodes)) errors.push(`${at}: type 'diagram' requires nodes (array)`)
       if (v.edges !== undefined && !Array.isArray(v.edges)) errors.push(`${at}: type 'diagram' requires edges (array) when present`)
       break
