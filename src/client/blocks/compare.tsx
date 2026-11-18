@@ -20,6 +20,7 @@ import {
 import { useT } from '../i18n/index.ts'
 import { renderInline } from '../inline.ts'
 import { safeMediaSrc } from '../genui-runtime/value-utils.ts'
+import { genuiMediaSrc } from '../media-overrides.ts'
 import type { GenuiCompare, GenuiComparePanel } from '../spec.ts'
 import css from './compare.module.css'
 
@@ -35,9 +36,10 @@ const DEFAULT_HEIGHT = 260
 
 function panelOf(panel: GenuiComparePanel, fallbackLabel: string): Panel {
   const label = panel.label?.trim()
+  const validated = safeMediaSrc(panel.src)
   return {
     panel,
-    src: safeMediaSrc(panel.src),
+    src: validated === undefined ? undefined : genuiMediaSrc(validated),
     label: label === undefined || label === '' ? fallbackLabel : label,
   }
 }

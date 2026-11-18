@@ -33,7 +33,7 @@ Append carousel children at the end to preserve existing structural paths and fi
 
 The image viewer identifies an entry by its source and occurrence number. Appending or reordering distinct sources preserves the current image. Removing it closes the viewer; if the opener was removed, focus returns to the group. Reordering indistinguishable duplicate URLs cannot express an identity beyond their occurrence order. Modal selection is local UI state, not a durable saved answer.
 
-Standalone export retains galleries and reports image URLs as external media. It does not embed image bytes or make relative/remote URLs available offline. Nested model actions keep the normal standalone limitations. No OpenUI component source is copied; this is an independent implementation against the GenUI contract.
+Standalone export retains galleries and embeds the same-origin images it can read as `data:` URLs, so a file opened from `file://` shows them without the host process or its credentials. Another origin or a rejected request keeps its URL and stays external media — reported through the export notice. Nested model actions keep the normal standalone limitations. No OpenUI component source is copied; this is an independent implementation against the GenUI contract.
 
 ## Verification
 
