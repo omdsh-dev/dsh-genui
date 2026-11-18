@@ -870,19 +870,29 @@ describe('GenUI reasoning-only stream recovery', () => {
     { type: 'finish', reason: { kind: 'stop' } },
   ]
 
-  it('rewrites a validated top-level GenUI reasoning-only stop as EMPTY_RESPONSE', async () => {
+  const blankBody: StreamChunk[] = [
+    { type: 'block-start', index: 0, blockType: 'text' },
+    { type: 'text-delta', index: 0, text: ' \n ' },
+    { type: 'block-end', index: 0, block: { type: 'text', text: ' \n ' } },
+    { type: 'finish', reason: { kind: 'stop' } },
+  ]
+
+  it.each([
+    { name: 'reasoning only', stream: reasoningOnly },
+    { name: 'blank text only', stream: blankBody },
+  ])('rewrites a validated top-level GenUI stop with $name as EMPTY_RESPONSE', async ({ stream }) => {
     const h = streamHarness()
     h.emitSession(userEvent() as SessionEvent)
     h.emitSession({ type: 'tool/call', seq: 3, time: 1, data: { name: 'validate_dsh_ui', callId: 'validate-1' } } as unknown as SessionEvent)
-    const chunks = await collectChunks(h.stream(agentRequest(), reasoningOnly))
+    const chunks = await collectChunks(h.stream(agentRequest(), stream))
 
-    expect(chunks.slice(0, -1)).toEqual(reasoningOnly.slice(0, -1))
+    expect(chunks.slice(0, -1)).toEqual(stream.slice(0, -1))
     expect(chunks.at(-1)).toEqual({
       type: 'finish',
       reason: {
         kind: 'error',
         failure: {
-          message: 'GenUI turn completed with reasoning only and no deliverable response',
+          message: 'GenUI turn completed without a deliverable response',
           code: 'EMPTY_RESPONSE',
         },
       },

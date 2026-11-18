@@ -21,7 +21,7 @@ const SPEC = JSON.stringify({ title: '集成测试', gap: 10, items: [{ type: 'c
 /** 受控 provider：验证后可选先发坏围栏，再返回 reasoning-only 与正文。 */
 class ScriptedAdapter extends LlmAdapter {
   readonly requests: GenerateOptions[] = []
-  constructor(readonly repairBrokenFence: boolean) { super() }
+  constructor(readonly repairBrokenFence: boolean, readonly blankBody: boolean) { super() }
 
   stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
@@ -44,6 +44,11 @@ class ScriptedAdapter extends LlmAdapter {
             { type: 'block-start', index: 0, blockType: 'reasoning' },
             { type: 'reasoning-delta', index: 0, text: 'private reasoning draft' },
             { type: 'block-end', index: 0, block: { type: 'reasoning', text: 'private reasoning draft' } },
+            ...(this.blankBody ? [
+              { type: 'block-start', index: 1, blockType: 'text' },
+              { type: 'text-delta', index: 1, text: ' \n ' },
+              { type: 'block-end', index: 1, block: { type: 'text', text: ' \n ' } },
+            ] satisfies StreamChunk[] : []),
             { type: 'finish', reason: { kind: 'stop' } },
           ]
         : [
@@ -65,9 +70,10 @@ function messageText(options: GenerateOptions): string {
 
 describe('真实 AgentLoop：reasoning-only 后的提醒与重试恢复', () => {
   it.each([
-    { name: 'steers a delivery reminder into the next request', repairBrokenFence: false },
-    { name: 'retries when a render correction returns reasoning only', repairBrokenFence: true },
-  ])('$name', async ({ repairBrokenFence }) => {
+    { name: 'steers a delivery reminder into the next request', repairBrokenFence: false, blankBody: false },
+    { name: 'retries when a render correction returns reasoning only', repairBrokenFence: true, blankBody: false },
+    { name: 'retries when a render correction returns reasoning and only whitespace', repairBrokenFence: true, blankBody: true },
+  ])('$name', async ({ repairBrokenFence, blankBody }) => {
     const ctx = new Context()
     for (const plugin of [SessionProjectionRegistry, SessionStore, AgentRegistry, SystemPrompt, ToolRuntime, LlmRuntime]) {
       await ctx.plugin(plugin)
@@ -80,7 +86,7 @@ describe('真实 AgentLoop：reasoning-only 后的提醒与重试恢复', () => 
     // 工具注册走 inject fiber，给它一轮微任务落地。
     await new Promise(resolve => setTimeout(resolve, 100))
 
-    const adapter = new ScriptedAdapter(repairBrokenFence)
+    const adapter = new ScriptedAdapter(repairBrokenFence, blankBody)
     ctx.llm.registerAdapter(['mock'], adapter)
     await ctx.plugin(AgentLoop, { agents: [] })
 
