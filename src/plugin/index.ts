@@ -130,8 +130,9 @@ const RENDER_UI_TOOL_GUIDANCE = '- Tool channel: render_ui 用于工具结果区
 const COMPONENT_REFERENCE_PLACEHOLDER = 'dsh-genui:component-reference'
 const LOAD_GENUI_SKILL = 'Before emitting UI, MUST call the skill tool to load `genui`.'
 
-/** 默认按内容任务主动使用 UI，组件规范由 genui Skill 提供。 */
-export const GENUI_SECTION_TEXT = `Render reply UI with a \`dsh-ui\` JSON block:
+/** 围栏档位共用组件映射、语法和交付规则。 */
+function fenceSectionText(usage: string): string {
+  return `Render reply UI with a \`dsh-ui\` JSON block:
 
 \`\`\`dsh-ui
 {"items":[{"type":"callout","content":"一个 items 对象一个组件"},{"type":"table","columns":["组件","字段"],"rows":[["callout","content"]]}]}
@@ -140,7 +141,7 @@ export const GENUI_SECTION_TEXT = `Render reply UI with a \`dsh-ui\` JSON block:
 ${LOAD_GENUI_SKILL}
 RFC2119: MUST=必须；SHOULD=推荐；MAY=可选。
 
-当前使用完整档（fenceSection: full）。下列任务 SHOULD 优先直接用最小的合适组件呈现，不必等用户提醒：
+${usage}
 - 按共同维度比较选项或取舍 → table / choices；展示前后视觉差异 → compare。
 - 用数值解释趋势、占比或多项指标关系 → chart / echart / table；单个数字无需强行出组件。
 - 理解结果依赖步骤顺序、分支或结构关系 → steps / diagram / mermaid。
@@ -158,6 +159,12 @@ Rules:
 ${RENDER_UI_TOOL_GUIDANCE}
 - 围栏位置：\`dsh-ui\` 只写在**回答正文**；写在 reasoning/思考块里不渲染、用户看不到——思考里验证好 spec，正文再输出同一份。
 - Panel: "panel":true 只渲染进会话面板 dock 并原地更新；"append":true 追加，上限 200 节点/200 次，满了发 replace。面板来的 [genui-action] 只回一个 panel:true 围栏 + 至多一行 10 字内确认。`
+}
+
+/** 默认推荐在适合的任务中主动使用 UI。 */
+export const GENUI_SECTION_TEXT = fenceSectionText('当前使用完整档（fenceSection: full）。下列任务 SHOULD 优先直接用最小的合适组件呈现，不必等用户提醒：')
+
+const GENUI_PLUS_SECTION_TEXT = fenceSectionText('fenceSection: plus。用户未指定格式时，下列任务 MUST 用最小的合适 GenUI 组件：')
 
 /** 最小围栏提示词要求模型加载完整组件规范。 */
 export const GENUI_MINIMAL_SECTION_TEXT = `fenceSection: minimal. RFC2119: MUST=required; MAY=optional.
@@ -299,15 +306,17 @@ export interface GenuiPluginConfig {
    */
   renderUiTool?: boolean
 
-  /** 围栏提示档位：full（默认）主动用于适合的任务，minimal 只教语法，false 关闭该提示段。 */
-  fenceSection?: 'full' | 'minimal' | false
+  /** 围栏提示档位：full（默认）推荐在适合的任务出 UI，plus 要求在这些任务出 UI，minimal 只教语法，false 关闭该提示段。 */
+  fenceSection?: 'full' | 'plus' | 'minimal' | false
 }
 
 /** 注册 GenUI 围栏提示词、工具及可选宿主能力。 */
 export function apply(ctx: Context, config?: GenuiPluginConfig): void {
   installDshGoNative(ctx, config?.fenceSection !== false)
   const renderUiToolEnabled = config?.renderUiTool !== false
-  const fenceText = config?.fenceSection === 'minimal' ? GENUI_MINIMAL_SECTION_TEXT : GENUI_SECTION_TEXT
+  let fenceText = GENUI_SECTION_TEXT
+  if (config?.fenceSection === 'plus') fenceText = GENUI_PLUS_SECTION_TEXT
+  if (config?.fenceSection === 'minimal') fenceText = GENUI_MINIMAL_SECTION_TEXT
   const ownFenceText = renderUiToolEnabled ? fenceText : fenceText.replace(`${RENDER_UI_TOOL_GUIDANCE}\n`, '')
   let bundledRaw: string | undefined
   ctx.systemPrompt.section({

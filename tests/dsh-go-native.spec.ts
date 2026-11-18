@@ -52,6 +52,7 @@ describe('existing native surfaces without changing the App',() => {
   it('keeps native and fence prompt sections within budget', async () => {
     for (const [fenceSection, limit] of [
       ['full', 2500],
+      ['plus', 2500],
       ['minimal', 1600],
       [false, 850],
     ] as const) {

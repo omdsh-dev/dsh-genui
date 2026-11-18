@@ -150,7 +150,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 
 ## 什么时候用：内容类型 → 组件映射
 
-使用倾向遵循当前系统提示中的 fenceSection 档位和用户要求：full 主动用于比较、趋势、流程依赖和交互任务，不必等用户提醒；minimal 不主动规定使用频率。用户明确要求纯文字时以用户为准。
+按当前系统提示中的 fenceSection 档位和用户要求决定是否使用 UI。full 推荐在比较、趋势、流程依赖和交互任务中主动使用 UI。plus 要求这些任务使用合适的组件。minimal 由用户指令决定。用户明确要求纯文字或其他格式时，按要求呈现。
 
 **没有组件数量配额，也不按条数或回答长度触发。** 下面的表是选择组件的词汇表，不是固定版式；不要把每条回答拼成同一个形状。
 

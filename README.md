@@ -319,7 +319,7 @@ To customize plugin behaviors, add configurations under `cordis.patch.yml` in yo
   config:
     renderUiTool: false   # Disable registering the render_ui tool card (fences and panel remain active)
     fenceFeedback: false  # Disable automatic same-turn steer correction on malformed fences
-    fenceSection: full    # full (default), minimal, or false
+    fenceSection: full    # full (default), plus, minimal, or false
 ```
 
 `fenceSection` controls both fence guidance detail and usage preference:
@@ -327,6 +327,7 @@ To customize plugin behaviors, add configurations under `cordis.patch.yml` in yo
 | Mode | Behavior |
 | --- | --- |
 | `full` (default) | Provides syntax and essential rules, and proactively uses components for comparisons along shared dimensions, numerical trends, process dependencies, and user interaction, without waiting for a reminder. |
+| `plus` | Requires a suitable GenUI component for those tasks whenever the user has not specified prose or another format. Ordinary explanations and short lists still default to prose. |
 | `minimal` | Keeps only the fence example and the requirement to load the GenUI skill; user instructions determine usage preference. |
 | `false` | Omits the `genui:fence` section. |
 

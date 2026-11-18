@@ -318,7 +318,7 @@ CI 与发布任务通过 `node scripts/prepare-published-host.mjs 0.2.2-alpha.2`
   config:
     renderUiTool: false   # 关闭额外注入的 render_ui 工具调用，仅保留正文 dsh-ui 围栏与 panel
     fenceFeedback: false  # 关闭模型生成失败时的同回合自动 steer 纠错
-    fenceSection: full    # 可选 full（默认）、minimal 或 false
+    fenceSection: full    # 可选 full（默认）、plus、minimal 或 false
 ```
 
 `fenceSection` 同时控制围栏提示的详略与使用倾向：
@@ -326,6 +326,7 @@ CI 与发布任务通过 `node scripts/prepare-published-host.mjs 0.2.2-alpha.2`
 | 档位 | 行为 |
 | --- | --- |
 | `full`（默认） | 提供语法和基本规则，主动用组件呈现共同维度的比较、数值趋势、流程依赖和用户交互，无需用户每次提醒。 |
+| `plus` | 用户未指定纯文字或其他格式时，要求上述任务使用合适的 GenUI 组件。普通解释和短清单默认写正文。 |
 | `minimal` | 只保留围栏示例和加载 GenUI Skill 的要求，使用倾向由用户指令决定。 |
 | `false` | 不注册 `genui:fence` 提示段。 |
 

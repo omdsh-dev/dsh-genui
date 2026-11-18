@@ -76,7 +76,7 @@ describe('genui:fence section', () => {
     const current = await assemble(undefined, true, currentBody)
     expect(current.sections.find(section => section.name === 'genui:reference')?.text).toBe('')
     expect(current.sections.find(section => section.name === 'genui:fence')?.text).toContain('call the skill tool')
-    for (const fenceSection of ['full', 'minimal', false] as const) {
+    for (const fenceSection of ['full', 'plus', 'minimal', false] as const) {
       const customized = await assemble({ fenceSection }, true, `${currentBody}\n\nUser preference: keep diagrams in monochrome.`)
       expect(customized.sections.find(section => section.name === 'genui:reference')?.text).toBe('')
       if (fenceSection !== false) expect(customized.sections.find(section => section.name === 'genui:fence')?.text).toContain('call the skill tool')
@@ -85,7 +85,7 @@ describe('genui:fence section', () => {
 
   it('loads agent-scoped skills without injecting a complete reference in any mode', async () => {
     const currentBody = readFileSync('SKILL.md', 'utf8').replace(/^---\n[\s\S]*?\n---\n/, '').trim()
-    for (const fenceSection of ['full', 'minimal', false] as const) {
+    for (const fenceSection of ['full', 'plus', 'minimal', false] as const) {
       const current = await assemble({ fenceSection }, 'scoped', currentBody)
       expect(current.sections.find(section => section.name === 'genui:reference')?.text).toBe('')
       if (fenceSection !== false) expect(current.sections.find(section => section.name === 'genui:fence')?.text).toContain('MUST call the skill tool')
@@ -141,6 +141,7 @@ describe('genui:fence section', () => {
   it('keeps fence modes within budget and supplies the bundled component reference when needed', async () => {
     for (const { fenceSection, limit } of [
       { fenceSection: 'full' as const, limit: 1600 },
+      { fenceSection: 'plus' as const, limit: 1600 },
       { fenceSection: 'minimal' as const, limit: 300 },
       { fenceSection: false as const, limit: 0 },
     ]) {
@@ -153,7 +154,7 @@ describe('genui:fence section', () => {
         const text = renderPrompt({ ...assembly, sections: [section!] })
         expect(text.length).toBeLessThanOrEqual(limit)
         expect(text).toContain('call the skill tool to load `genui`')
-        if (fenceSection === 'minimal') expect(text).toContain('fenceSection: minimal')
+        expect(text).toContain(`fenceSection: ${fenceSection}`)
       }
       expect(assembly.sections.find(s => s.name === 'genui:reference')?.text).toBe('')
     }
@@ -164,7 +165,7 @@ describe('genui:fence section', () => {
     for (const type of Object.keys(COMPONENT_SCHEMAS)) expect(reference?.text).toContain(`\`${type}\``)
     expect(fallback.sections.find(section => section.name === 'genui:fence')?.text).toContain('Follow the GenUI reference in this system prompt.')
 
-    for (const fenceSection of ['full', 'minimal'] as const) {
+    for (const fenceSection of ['full', 'plus', 'minimal'] as const) {
       const withoutLoader = await assemble({ fenceSection }, false)
       const sections = withoutLoader.sections.filter(section => section.name.startsWith('genui:'))
       expect(renderPrompt({ ...withoutLoader, sections }).length).toBeLessThanOrEqual(3400)
@@ -213,6 +214,18 @@ describe('genui:fence section', () => {
     expect(text).not.toContain('会才出；不会就写正文')
     for (const quota of ['默认就该出 UI', '3–8 个组件', '最后自检一次']) {
       expect(text).not.toContain(quota)
+    }
+  })
+
+  it('uses stronger semantic guidance only in the plus mode and keeps explicit prose requests first', async () => {
+    for (const skillTool of [true, false]) {
+      const assembly = await assemble({ fenceSection: 'plus' }, skillTool)
+      const text = assembly.sections.find(section => section.name === 'genui:fence')!.text
+      expect(text).toContain('fenceSection: plus')
+      expect(text).toContain('用户未指定格式时')
+      expect(text).toContain('下列任务 MUST 用最小的合适 GenUI 组件')
+      expect(text).toContain('普通解释和短清单默认正文')
+      expect(text).toContain('MUST 服从用户明确的纯文字要求')
     }
   })
 
