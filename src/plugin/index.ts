@@ -289,7 +289,7 @@ function bundledSkillProvider(): SkillProvider {
 export interface GenuiPluginConfig {
   /**
    * 在最终 dsh-ui 围栏无法渲染的回合中请求模型发送一次修正版（issue #160）。
-   * 默认开启，设置为 false 可以关闭同回合围栏修正。GenUI 回合的 reasoning-only 响应仍会交给宿主重试策略处理。
+   * 默认开启，设置为 false 可以关闭同回合围栏修正。GenUI 回合只返回思考或空白时，仍由宿主重试。
    * 每回合和每个围栏正文最多请求一次，子代理不触发，每次修正请求会消耗模型步数。
    */
   fenceFeedback?: boolean

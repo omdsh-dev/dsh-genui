@@ -10,7 +10,7 @@
  * - **默认开启。** 插件配置中的 `fenceFeedback: false` 可以关闭回合转向。
  * - **修正上限。** 每个 turn 最多发送两条 correction；render failure 和 delivery reminder 共用上限，
  *   每个 fence body 在当前回合中最多修正一次，新回合可重新修正。
- * - **仅含 reasoning 的恢复。** 已验证的 GenUI 回合若只以 reasoning block 结束，使用宿主的
+ * - **无正文的恢复。** 已验证的 GenUI 回合只有思考或空白文本时，使用宿主的
  *   `EMPTY_RESPONSE` retry policy。
  * - **Never for subagents.** A child session's fence belongs to a parent reply.
  * - **Shared fence matching.** GenUI labels use the renderer's case/punctuation
@@ -348,7 +348,7 @@ export function missingBodyCorrectionText(turn: number, attempt = 1, renderUiToo
 }
 
 /**
- * 将 GenUI 回合中仅含 reasoning 的完整响应转换为宿主已有的可重试空响应错误。
+ * 将 GenUI 回合中只有思考或空白文本的完整响应交给宿主重试。
  *
  * 只有回合边界确实还能发送交付提醒时，才放行原始 stop，
  * 让回合正常结束并走到 `agent/turn-stopping` 边界——那里会 steer 一条交付提醒，
@@ -359,9 +359,9 @@ export function missingBodyCorrectionText(turn: number, attempt = 1, renderUiToo
  * @param source - 本次请求的 provider stream。
  * @param state - 当前回合状态；缺省时没有可用提醒，保留宿主重试。
  * @param feedbackEnabled - 同回合修正是否启用。关闭时没有提醒可用，保持原有改写行为。
- * @returns 原始 stream；仅在提醒已发出、或提醒不可用时改写 reasoning-only 终止。
+ * @returns 原始 stream；仅在提醒已发出、或提醒不可用时改写无交付的终止。
  */
-async function* retryReasoningOnlyGenuiStream(
+async function* retryUndeliveredGenuiStream(
   options: GenerateOptions,
   source: AsyncIterable<StreamChunk>,
   state?: SessionFeedback,
@@ -373,14 +373,17 @@ async function* retryReasoningOnlyGenuiStream(
     return
   }
 
-  let hasReasoningBlock = false
-  let hasOtherBlock = false
+  let hasBlock = false
+  let hasDeliverableBlock = false
   for await (const chunk of source) {
     if (chunk.type === 'block-end') {
-      if (chunk.block.type === 'reasoning') hasReasoningBlock = true
-      else hasOtherBlock = true
+      hasBlock = true
+      const block = chunk.block
+      if (block.type !== 'reasoning' && (block.type !== 'text' || block.text.trim() !== '')) {
+        hasDeliverableBlock = true
+      }
     }
-    if (chunk.type === 'finish' && chunk.reason.kind === 'stop' && hasReasoningBlock && !hasOtherBlock) {
+    if (chunk.type === 'finish' && chunk.reason.kind === 'stop' && hasBlock && !hasDeliverableBlock) {
       // Reuse the boundary's decision: an unused reminder is not necessarily
       // available (for example, a previous broken fence counts as body delivery).
       // This response has no body, so its assistant/message will clear text;
@@ -409,7 +412,7 @@ async function* retryReasoningOnlyGenuiStream(
         reason: {
           kind: 'error',
           failure: {
-            message: 'GenUI turn completed with reasoning only and no deliverable response',
+            message: 'GenUI turn completed without a deliverable response',
             code: EMPTY_RESPONSE_CODE,
           },
         },
@@ -685,7 +688,7 @@ export function installFenceFeedback(ctx: Context, enabled: boolean, renderUiToo
     if (options.sessionId === undefined || options.purpose !== undefined) return next()
     const state = sessions.get(String(options.sessionId))
     if (state?.validatedThisTurn !== true || state.isSubagent) return next()
-    return retryReasoningOnlyGenuiStream(options, next(), state, enabled)
+    return retryUndeliveredGenuiStream(options, next(), state, enabled)
   }, { global: true })
 
   ctx.on('agent/turn-stopping', ({ agent, turn, signal }): void => {
