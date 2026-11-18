@@ -318,7 +318,24 @@ CI 与发布任务通过 `node scripts/prepare-published-host.mjs 0.2.2-alpha.2`
   config:
     renderUiTool: false   # 关闭额外注入的 render_ui 工具调用，仅保留正文 dsh-ui 围栏与 panel
     fenceFeedback: false  # 关闭模型生成失败时的同回合自动 steer 纠错
+    fenceSection: full    # 可选 full（默认）、minimal 或 false
 ```
+
+`fenceSection` 同时控制围栏提示的详略与使用倾向：
+
+| 档位 | 行为 |
+| --- | --- |
+| `full`（默认） | 提供语法和基本规则，主动用组件呈现共同维度的比较、数值趋势、流程依赖和用户交互，无需用户每次提醒。 |
+| `minimal` | 只保留围栏示例和加载 GenUI Skill 的要求，使用倾向由用户指令决定。 |
+| `false` | 不注册 `genui:fence` 提示段。 |
+
+规则强度按 [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) 区分：合法 JSON、当前字段规范及用户明确的语言与呈现要求属于 MUST；`full` 对比较、趋势、流程依赖和交互使用合适 UI 属于 SHOULD，可因场景合理取舍；card 容器属于 MAY。`full` 不按要点条数或回答长度触发，没有组件数量配额；普通解释和短清单默认正文。档位调整提示倾向，不保证固定触发率。
+
+正文内联内容用围栏，工具结果区域的独立 UI 用 `render_ui`，持续更新的会话面板用 `panel:true`。围栏和工具都支持交互状态保存，按呈现位置选择。`card` 是可选容器，不默认套卡片不等于不用 GenUI。
+
+Skill 是否可用按当前 Agent 的工具视图判断，支持预设提供的工具，不要求存在全局 `skill`。可见工具必须符合 Skill 加载接口，且 `genui` 允许模型调用。技能已包含当前字段时，不再注入组件参考；旧技能只在 `genui:reference` 中补充缺失或变化的字段说明，追加用户偏好不会触发整份参考。用户技能文件保持原样，当前系统字段优先于加载到的旧字段。
+
+没有兼容的加载工具或允许模型调用的 GenUI 技能时，围栏指导开启或 `render_ui` 可用时，提供精简字段速查。`fenceSection: false` 关闭围栏指导；围栏指导和 `render_ui` 都关闭时，不注入参考。这些设置不禁用围栏渲染或 Panel。dsh-go 的 `genui:native` 提示段及工具定义独立计算提示与 Token 消耗。实际生成 UI 时加载完整技能仍会消耗上下文；此次移除的是无条件重复注入，并非让技能加载免费。
 
 ---
 

@@ -1,5 +1,7 @@
 import { describe,expect,it,vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
+import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
+import * as GenUI from '../src/plugin/index.ts'
 import { Session } from '@deepseek-ai/dsh-session'
 import * as SessionApi from '@deepseek-ai/dsh-session'
 import { installDshGoNative,nativeDocument } from '../src/plugin/dsh-go-native.ts'
@@ -35,7 +37,7 @@ async function host(sessions: Session[]) {
     const agent = {session,status:'idle',inbox:{nextTurn:[] as unknown[],nextStep:[] as unknown[]},followup:vi.fn((message: unknown) => {agent.inbox.nextTurn.push(message)})}
     return [session.id,agent]
   }))
-  ctx.provide('sessions',{get:(id: Session['id']) => store.get(id)})
+  ctx.provide('sessions',{get:(id: Session['id']) => store.get(id),list:() => [...store.values()]})
   ctx.provide('agents',{get:(id: Session['id']) => agents.get(id)})
   ctx.provide('dshGo',bridge)
   const plugin = await ctx.plugin({name:'native-test',apply:installDshGoNative})
@@ -47,6 +49,29 @@ async function host(sessions: Session[]) {
 }
 
 describe('existing native surfaces without changing the App',() => {
+  it('keeps native and fence prompt sections within budget', async () => {
+    for (const [fenceSection, limit] of [
+      ['full', 2500],
+      ['minimal', 1600],
+      [false, 850],
+    ] as const) {
+      const h = await host([])
+      await h.plugin.dispose()
+      await h.ctx.plugin(SystemPrompt)
+      const genui = await h.ctx.plugin(GenUI, { fenceSection })
+      const assembly = await h.ctx.systemPrompt.assemble({})
+      const native = assembly.sections.find(section => section.name === 'genui:native')
+      const fence = assembly.sections.find(section => section.name === 'genui:fence')
+      expect(native).toBeDefined()
+      expect(fence !== undefined).toBe(fenceSection !== false)
+      expect(renderPrompt({ ...assembly, sections: [native!] }).length).toBeLessThanOrEqual(850)
+      const sections = assembly.sections.filter(section => section.name === 'genui:native' || section.name === 'genui:fence')
+      expect(renderPrompt({ ...assembly, sections }).length).toBeLessThanOrEqual(limit)
+      await genui.dispose()
+    }
+  })
+
+
   it('reports the installed host capability without breaking native projections',async () => {
     const s = makeSession('capability',{items:[{type:'text',content:'Hello'}]}),h = await host([s])
     if (hasNativeRecords) expect(h.view(s.id).type).toBe('stack')

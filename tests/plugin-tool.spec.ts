@@ -10,7 +10,39 @@ const tool = createRenderUiTool()
 
 const text = (content: string) => ({ type: 'text', content })
 
+describe('validated fence delivery', () => {
+  it('returns an exact validated JSON body when native projection is unavailable', async () => {
+    const spec = { computed: [{ id: 'total', expr: 'people*30+60' }], items: [
+      { type: 'input', id: 'people', inputType: 'number', value: '8' },
+      { type: 'stat', label: '合计', value: '{{total}}' },
+    ] }
+    const value = String(await createValidateDshUiTool().execute({ spec }))
+    expect(value).toContain('next=emit_fence')
+    expect(value).not.toContain('native_fence_json:')
+    const body = value.split('validated_json:\n```\n')[1]?.split('\n```')[0]
+    expect(body).toBeDefined()
+    expect(JSON.parse(body!)).toEqual(processGenuiSpec(spec).spec)
+  })
+
+  it('blocks the table placeholder from the real-model failure before delivery', async () => {
+    const value = String(await createValidateDshUiTool().execute({ spec: {
+      items: [{ type: 'input', id: 'people', value: '8' }, { type: 'table', columns: ['人数'], rows: [['{{people}} 人']] }],
+    } }))
+    expect(value).toContain("references unknown computed field 'people'")
+    expect(value).toContain('next=fix_and_revalidate')
+    expect(value).not.toContain('validated_json:')
+  })
+})
+
 describe('render_ui tool definition', () => {
+  it('keeps channel selection independent of usage frequency and state persistence', () => {
+    const description = JSON.stringify({ description: tool.description, parameters: tool.parameters })
+    expect(description).toContain('current usage preference')
+    expect(description).toContain('Both channels preserve interaction state')
+    expect(description).not.toContain('USE THIS whenever')
+    expect(description).not.toContain('≥3 parallel points')
+  })
+
   it('registers under the render_ui name with an open spec argument', () => {
     expect(tool.name).toBe('render_ui')
     expect(typeof tool.description).toBe('string')

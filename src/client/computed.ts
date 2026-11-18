@@ -31,7 +31,7 @@ const COMPUTED_TEMPLATE_FIELDS: Record<string, ReadonlySet<string>> = {
   radio: new Set(['label', 'explanation']),
   card: new Set(['title', 'eyebrow']),
   list: new Set(['items']),
-  table: new Set(['columns']),
+  table: new Set(['columns', 'rows']),
   blocks: new Set(['title', 'caption']),
   accordion: new Set(['items']),
   tabs: new Set(['tabs']),

@@ -83,11 +83,11 @@ function effectiveState(spec: GenuiSpec,saved: NativeState = emptyNativeState())
 }
 
 /** Native services are optional, late-bound, and owned by the plugin lifetime. */
-export function installDshGoNative(ctx: Context): void {
+export function installDshGoNative(ctx: Context, fenceEnabled = true): void {
   ctx.inject(['dshGo','systemPrompt'],native => {
     native.effect(() => native.systemPrompt.section({
       name:'genui:native',order:native.systemPrompt.getSectionOrder('STRUCTURED_OUTPUT'),
-      text:'This host can also serve dsh-go; an installed bridge does NOT identify the active client. Preserve the full ordinary GenUI items spec and all web capabilities. When validate_dsh_ui returns native_fence_json, that exact JSON works in both clients; never hand-edit its derived children. If the user is using the native App, validate even small inline fences and use the GenUI native panel for local controls and exact callbacks. A missing native projection must never remove advanced content from the original spec or downgrade a web reply. Native [dsh-ui reply] carries only the visible title and choice; respond to that visible choice in context. Keep the existing [genui-action] payload protocol for panel actions. Explain native limitations only when relevant to the user’s current client.',
+      text:fenceEnabled ? 'This host can also serve dsh-go; an installed bridge does NOT identify the active client. Preserve the full ordinary GenUI items spec and all web capabilities. When validate_dsh_ui returns native_fence_json, that exact JSON works in both clients; never hand-edit its derived children. If the user is using the native App, validate even small inline fences and use the GenUI native panel for local controls and exact callbacks. A missing native projection must never remove advanced content from the original spec or downgrade a web reply. Native [dsh-ui reply] carries only the visible title and choice; respond to that visible choice in context. Keep the existing [genui-action] payload protocol for panel actions. Explain native limitations only when relevant to the user’s current client.' : 'This host can also serve dsh-go; an installed bridge does NOT identify the active client. Preserve the full GenUI items spec and all web capabilities. Use the GenUI native panel for local controls and exact callbacks. Keep the existing [genui-action] payload protocol for panel actions. Explain native limitations only when relevant to the user’s current client.',
     }),'dsh-genui: native guidance')
   })
   ctx.inject(['dshGo','sessions'],native => {

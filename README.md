@@ -319,7 +319,24 @@ To customize plugin behaviors, add configurations under `cordis.patch.yml` in yo
   config:
     renderUiTool: false   # Disable registering the render_ui tool card (fences and panel remain active)
     fenceFeedback: false  # Disable automatic same-turn steer correction on malformed fences
+    fenceSection: full    # full (default), minimal, or false
 ```
+
+`fenceSection` controls both fence guidance detail and usage preference:
+
+| Mode | Behavior |
+| --- | --- |
+| `full` (default) | Provides syntax and essential rules, and proactively uses components for comparisons along shared dimensions, numerical trends, process dependencies, and user interaction, without waiting for a reminder. |
+| `minimal` | Keeps only the fence example and the requirement to load the GenUI skill; user instructions determine usage preference. |
+| `false` | Omits the `genui:fence` section. |
+
+Requirement words follow [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119): valid JSON, current fields, and explicit user language and presentation requirements are MUST rules. In `full`, using appropriate UI for comparisons, trends, dependencies, and interaction is SHOULD guidance; card wrappers are MAY. `full` sets no list-length trigger or component quota. Ordinary explanations and short lists default to prose. Modes guide behavior rather than guaranteeing a fixed usage rate.
+
+Use fences for inline reply content, `render_ui` for a standalone UI in the tool result, and `panel:true` for the session panel that updates in place. Both fences and tools preserve interaction state; choose by placement. `card` is an optional container: avoiding unnecessary card wrappers does not mean avoiding GenUI.
+
+Skill availability is resolved in the current agent's tool view, including preset-owned loaders; a global `skill` registration is not required. The visible tool must expose the Skill loader contract, and `genui` must allow model invocation. When the skill already includes current fields, no component reference is injected. An older skill receives only missing or changed field descriptions in `genui:reference`; appended user preferences do not trigger a full reference. User skill files remain untouched, and current system fields take precedence over loaded older fields.
+
+If a compatible loader or model-invocable GenUI skill is unavailable, a compact field reference is supplied for fence guidance or an available `render_ui` tool. `fenceSection: false` omits fence guidance; disabling both fence guidance and `render_ui` also omits the reference. Neither setting disables fence rendering or panels. The dsh-go `genui:native` section and tool definitions have independent guidance and token costs. Loading the full skill for an actual UI response still consumes context; this change removes the unconditional duplicate catalog rather than making that load free.
 
 ### Embedding into Other Applications
 

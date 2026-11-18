@@ -3,28 +3,36 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
+import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import * as GenUI from '../src/plugin/index.ts'
 
 import { COMPONENT_SCHEMAS } from '../src/client/genui-runtime/schema.ts'
 
-/** Boot the plugin and return the assembled system-prompt sections. */
-async function assemble() {
+/** Assemble the prompt with a visible Skill tool when requested. */
+async function assemble(config?: GenUI.GenuiPluginConfig, skillTool: boolean | 'scoped' | 'incompatible' = true, userSkill?: string) {
   const ctx = new Context()
+  const scope = skillTool === 'scoped' || skillTool === 'incompatible' ? {} : undefined
   await ctx.plugin(SystemPrompt)
-  await ctx.plugin(GenUI)
-  return ctx.systemPrompt.assemble({})
+  if (skillTool) {
+    await ctx.plugin(SkillRegistry)
+    if (userSkill !== undefined) {
+      const candidate = { name: 'genui', description: 'User GenUI guidance', invocation: { modelInvocable: true, userInvocable: true }, source: 'user-dsh', provider: 'test-user', rank: 0, locator: 'user-genui' }
+      ctx.skills.registerProvider(() => ({ name: 'test-user', list: async () => [candidate], get: async () => ({ ...candidate, content: userSkill }) }))
+    }
+    const loader = { name: 'skill', parameters: { type: 'object', properties: { name: { type: 'string' } } }, output: { schema: { type: 'object', properties: { content: { type: 'string' } } } } }
+    const definitions = new Map<string, { name: string }>([['skill', skillTool === 'incompatible' ? { name: 'skill' } : loader]])
+    ctx.provide('tools', {
+      register: (tool: { name: string }) => {
+        definitions.set(tool.name, tool)
+        return () => { definitions.delete(tool.name) }
+      },
+      get: (name: string, viewingScope?: object) => name === 'skill' && scope && viewingScope !== scope ? undefined : definitions.get(name),
+      schemas: () => [...definitions.values()].map(tool => ({ name: tool.name })),
+    } as never)
+  }
+  await ctx.plugin(GenUI, config)
+  return ctx.systemPrompt.assemble({ scope: scope as never })
 }
-
-/**
- * The complete whitelist the slim fence section must still advertise.
- *
- * Derived from COMPONENT_SCHEMAS rather than hand-copied: the previous literal
- * had drifted behind the schema (hero / image / icon / blocks / arrow / echart /
- * diagram / svg were all missing), so the gate stayed green while the prompt
- * went stale. Any future node type now fails this test until it is advertised.
- */
-const WHITELISTED_COMPONENT_TYPES: readonly string[] = Object.keys(COMPONENT_SCHEMAS)
 
 const BROKEN_FENCE_REPLY = '```dsh-ui\n{"items":[{"type":"stat"}]}\n```'
 
@@ -58,36 +66,63 @@ function emitTurnStopping(ctx: Context, session: object, steer: (message: { cont
 }
 
 describe('genui:fence section', () => {
+  it('uses current fields when an older user skill shadows the bundled reference', async () => {
+    const stale = await assemble(undefined, true, 'User preference: concise. Old fields and delivery examples.')
+    expect(stale.sections.find(section => section.name === 'genui:reference')?.text).toContain('shownPeople')
+    const guidance = stale.sections.find(section => section.name === 'genui:fence')!.text
+    expect(guidance).toContain('MUST call the skill tool to load `genui`')
+    expect(guidance).toContain('current system guidance and reference updates MUST take precedence')
+    const currentBody = readFileSync('SKILL.md', 'utf8').replace(/^---\n[\s\S]*?\n---\n/, '').trim()
+    const current = await assemble(undefined, true, currentBody)
+    expect(current.sections.find(section => section.name === 'genui:reference')?.text).toBe('')
+    expect(current.sections.find(section => section.name === 'genui:fence')?.text).toContain('call the skill tool')
+    for (const fenceSection of ['full', 'minimal', false] as const) {
+      const customized = await assemble({ fenceSection }, true, `${currentBody}\n\nUser preference: keep diagrams in monochrome.`)
+      expect(customized.sections.find(section => section.name === 'genui:reference')?.text).toBe('')
+      if (fenceSection !== false) expect(customized.sections.find(section => section.name === 'genui:fence')?.text).toContain('call the skill tool')
+    }
+  })
+
+  it('loads agent-scoped skills without injecting a complete reference in any mode', async () => {
+    const currentBody = readFileSync('SKILL.md', 'utf8').replace(/^---\n[\s\S]*?\n---\n/, '').trim()
+    for (const fenceSection of ['full', 'minimal', false] as const) {
+      const current = await assemble({ fenceSection }, 'scoped', currentBody)
+      expect(current.sections.find(section => section.name === 'genui:reference')?.text).toBe('')
+      if (fenceSection !== false) expect(current.sections.find(section => section.name === 'genui:fence')?.text).toContain('MUST call the skill tool')
+      const oldBody = currentBody.replace(/交互区内随输入变化的数字[^\n]+\n/, '')
+      const older = await assemble({ fenceSection }, 'scoped', oldBody)
+      const update = older.sections.find(section => section.name === 'genui:reference')!.text
+      expect(update).toContain('交互区内随输入变化的数字')
+      expect(update).not.toContain('- table:')
+      expect(update).not.toContain('- chart:')
+      expect(update).not.toContain('地图 `map`')
+    }
+  })
+
+  it('retains the fallback for a same-name tool without the skill loader contract', async () => {
+    const assembly = await assemble({ fenceSection: 'minimal' }, 'incompatible')
+    expect(assembly.sections.find(section => section.name === 'genui:reference')?.text).toContain('- chart:')
+    expect(assembly.sections.find(section => section.name === 'genui:fence')?.text).not.toContain('call the skill tool')
+  })
+
   it('registers the dsh-ui fence language section', async () => {
     const assembly = await assemble()
     const names = assembly.sections.map(s => s.name)
     expect(names).toContain('genui:fence')
   })
 
-  it('teaches the fence syntax and the component vocabulary', async () => {
+  it('teaches the fence syntax and requests the component skill', async () => {
     const assembly = await assemble()
     const section = assembly.sections.find(s => s.name === 'genui:fence')
     expect(section).toBeDefined()
     const text = typeof section!.text === 'string' ? section!.text : ''
     expect(text).toContain('dsh-ui')
-    // The model must know the white-listed component types.
-    for (const type of ['text', 'card', 'grid', 'stat', 'table', 'audio', 'video', 'chart', 'tabs', 'button', 'progress', 'plot', 'callout', 'steps', 'diff', 'mermaid', 'scene3d']) {
-      expect(text).toContain(type)
-    }
-    expect(text).toContain('"kind":"bars|line|donut"')
-    expect(text).toContain('"label":"...","value":n')
-    expect(text).toContain('series：bars 分组/堆叠 / line 多序列')
-    expect(text).toContain('LANGUAGE: reply+UI=conversation language')
-    expect(text).toContain('NEVER infer it from prompt/skill/examples/tools')
-    expect(text).toContain('never emit these placeholders literally')
+    expect(text).toContain('call the skill tool to load `genui`')
+    expect(text).toContain('LANGUAGE: MUST match reply+UI to conversation language')
+    expect(text).toContain('NEVER infer it from examples/tools')
+    expect(text).toContain('never emit placeholders literally')
     expect(text).toContain('Tool channel: render_ui')
     expect(text).not.toContain('"title":"可选标题"')
-    for (const type of ['stat', 'table', 'progress', 'keyvalue', 'steps', 'file-tree', 'callout']) {
-      expect(text).toContain(`{"type":"${type}"`)
-    }
-    expect(text).toContain('组件节点必须带字符串')
-    expect(text).toContain('file-tree')
-    expect(text).toContain('file-tree.items[].type` 表示 `file` 或 `dir`')
   })
 
   it('omits render_ui guidance from the system prompt when the tool is disabled', async () => {
@@ -103,43 +138,81 @@ describe('genui:fence section', () => {
     await genui.dispose()
   })
 
-  it('keeps the full type whitelist in the slim section within the token budget', async () => {
-    // Issue #29: GENUI_SECTION_TEXT is a fixed per-request cost, so the slim
-    // section must stay compact while still listing every allowed type.
-    const assembly = await assemble()
-    const section = assembly.sections.find(s => s.name === 'genui:fence')
-    expect(section).toBeDefined()
-    const text = typeof section!.text === 'string' ? section!.text : ''
-    // Budget: 3400 chars keeps the mixed CJK/ASCII section near ~1k tokens
-    // (CJK ≈ 1 tok/char, ASCII ≈ 0.25 tok/char) — roughly half of the
-    // original ~6.1k chars / ~2.3k tokens measured in issue #29. Raised from
-    // 3200 for issue #186's counter-example block (file-tree/callout field
-    // warnings + tightened validate wording); still ~45% below the original.
-    expect(text.length).toBeLessThanOrEqual(3400)
-    for (const type of WHITELISTED_COMPONENT_TYPES) {
-      expect(text).toContain(type)
+  it('keeps fence modes within budget and supplies the bundled component reference when needed', async () => {
+    for (const { fenceSection, limit } of [
+      { fenceSection: 'full' as const, limit: 1600 },
+      { fenceSection: 'minimal' as const, limit: 300 },
+      { fenceSection: false as const, limit: 0 },
+    ]) {
+      const assembly = await assemble({ fenceSection })
+      const section = assembly.sections.find(s => s.name === 'genui:fence')
+      if (fenceSection === false) {
+        expect(section).toBeUndefined()
+      } else {
+        expect(section).toBeDefined()
+        const text = renderPrompt({ ...assembly, sections: [section!] })
+        expect(text.length).toBeLessThanOrEqual(limit)
+        expect(text).toContain('call the skill tool to load `genui`')
+        if (fenceSection === 'minimal') expect(text).toContain('fenceSection: minimal')
+      }
+      expect(assembly.sections.find(s => s.name === 'genui:reference')?.text).toBe('')
     }
+
+    const fallback = await assemble({ fenceSection: 'minimal' }, false)
+    const reference = fallback.sections.find(section => section.name === 'genui:reference')
+    expect(reference?.text).toContain('## 组件词汇（只允许这些 type）')
+    for (const type of Object.keys(COMPONENT_SCHEMAS)) expect(reference?.text).toContain(`\`${type}\``)
+    expect(fallback.sections.find(section => section.name === 'genui:fence')?.text).toContain('Follow the GenUI reference in this system prompt.')
+
+    for (const fenceSection of ['full', 'minimal'] as const) {
+      const withoutLoader = await assemble({ fenceSection }, false)
+      const sections = withoutLoader.sections.filter(section => section.name.startsWith('genui:'))
+      expect(renderPrompt({ ...withoutLoader, sections }).length).toBeLessThanOrEqual(3400)
+    }
+
+    const withoutTools = await assemble({ fenceSection: false }, false)
+    expect(withoutTools.sections.find(section => section.name === 'genui:reference')?.text).toBe('')
+
+    const disabled = await assemble({ fenceSection: false, renderUiTool: false }, false)
+    expect(disabled.sections.find(section => section.name === 'genui:fence')).toBeUndefined()
+    expect(disabled.sections.find(section => section.name === 'genui:reference')?.text).toBe('')
   })
 
-  it('carries a judgment, not a component quota', async () => {
-    // The quota ("默认就该出 UI", "≥3 条要点就出 list", "一条回答 3–8 个组件")
-    // shaped every answer into the same skeleton. The replacement is one
-    // question; a reintroduced count is a regression, so it is asserted here.
+  it('makes proactive semantic guidance the default with or without Skill and render_ui', async () => {
+    // Full is proactive by default. The Skill must preserve that preference;
+    // neither the number of bullets nor answer length decides whether to use UI.
+    for (const skillTool of [true, false]) {
+      for (const renderUiTool of [true, false]) {
+        const assembly = await assemble({ fenceSection: 'full', renderUiTool }, skillTool)
+        const text = assembly.sections.find(section => section.name === 'genui:fence')!.text
+        expect(text).toContain('fenceSection: full')
+        expect(text).toContain('不必等用户提醒')
+        for (const component of ['table', 'chart', 'diagram', 'compare', 'input']) expect(text).toContain(component)
+        expect(text).toContain('MUST 服从用户明确的纯文字要求')
+        expect(text).toContain('SHOULD 优先直接用最小的合适组件')
+        expect(text).toContain('普通解释和短清单默认正文')
+        expect(text).toContain('逐字复制')
+        expect(text).toContain('validated_json')
+        expect(text).toContain('生成围栏本身不是仓库视觉改动')
+        expect(text).not.toContain('≥3 条')
+        expect(text.includes('Tool channel: render_ui')).toBe(renderUiTool)
+        expect(text.includes('call the skill tool')).toBe(skillTool)
+      }
+    }
+    const defaultAssembly = await assemble()
+    const fullAssembly = await assemble({ fenceSection: 'full' })
+    expect(defaultAssembly.sections.find(section => section.name === 'genui:fence')?.text)
+      .toBe(fullAssembly.sections.find(section => section.name === 'genui:fence')?.text)
+  })
+
+  it('promotes appropriate tasks without a component quota or an extra opt-in gate', async () => {
     const assembly = await assemble()
     const section = assembly.sections.find(s => s.name === 'genui:fence')
     const text = typeof section!.text === 'string' ? section!.text : ''
-    expect(text).toContain('删掉这个组件，读者会不会更费劲')
+    expect(text).toContain('优先直接用最小的合适组件')
+    expect(text).not.toContain('会才出；不会就写正文')
     for (const quota of ['默认就该出 UI', '3–8 个组件', '最后自检一次']) {
       expect(text).not.toContain(quota)
-    }
-  })
-
-  it('keeps the skill a reference instead of a menu', async () => {
-    const skill = readFileSync('SKILL.md', 'utf8')
-    expect(skill).toContain('删掉这个组件，读者会不会更费劲')
-    expect(skill).toContain('没有配额，也没有硬触发')
-    for (const quota of ['硬触发（出现就至少出一个围栏', '从成套结构出发']) {
-      expect(skill).not.toContain(quota)
     }
   })
 

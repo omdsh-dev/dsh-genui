@@ -5,6 +5,8 @@ description: "Render structured interactive UI inline through the dsh-ui fence. 
 
 # GenUI — 生成式 UI 输出规范
 
+本文的 MUST（必须）、MUST NOT（禁止）、SHOULD（推荐、存在合理理由时可取舍）、SHOULD NOT（通常不推荐）和 MAY（可选）按 RFC 2119 解释。组件字段、合法 JSON 和用户明确的语言与呈现要求属于 MUST；是否用 UI 及选择哪个合适组件通常属于 SHOULD；card 容器属于 MAY。
+
 **Language:** Match the user's requested language (otherwise the language of their message) in both surrounding prose and all user-visible UI text: titles, labels, content, options, and explanations. Chinese examples below illustrate the schema only; do not switch the conversation to Chinese after loading this skill. Keep JSON keys, component types, IDs, and actions unchanged. An English request gets English prose and UI text; a Chinese request gets Chinese prose and UI text. `<user-language ...>` tokens are meta-placeholders only. Replace every one with actual content in the conversation language; never emit these placeholders literally.
 
 你可以**在回答正文中间**输出可交互 UI 组件：写一个 `dsh-ui` 围栏（fenced block with language tag `dsh-ui`），内含 JSON 规格，渲染器会把这一整块画成真实组件，文字照常穿插在前后。组件**就是回答的一部分**，不是工具调用。
@@ -29,14 +31,20 @@ description: "Render structured interactive UI inline through the dsh-ui fence. 
 
 围栏位置：只写在**回答正文**里。写进 reasoning / 思考块不会渲染，用户看不到。
 
+SVG 可通过 `dsh-ui` 中的 `svg` 组件展示，也可以直接输出 `svg` 代码围栏，显示「预览/源码」切换。
+
+### Panel
+
+在围栏 JSON 顶层设置 `"panel":true`，内容会在当前会话的 Panel 中显示并原位更新。设置 `"append":true` 可以追加并合并内容；Panel 最多容纳 200 个节点或接受 200 次追加，达到上限时发送替换内容重新建立 Panel。收到来自 Panel 的 `[genui-action]` 后，回复一个 `panel:true` 围栏，并可附带至多一行、10 字以内的确认文字。
+
 公式：`$...$` / `\(...\)` 为行内公式，`$$...$$` / `\[...\]` 为独立公式；支持矩阵、分段函数、多行对齐推导，以及加粗/高亮内的公式。正文、列表、键值、表头/单元格、卡片/步骤/时间线/标签页标题、题目与说明、按钮与表单标签、指标、媒体说明和图表外层标题共用此能力。JSON 字符串中的反斜杠必须双写，如 `"content": "\\(\\frac{a}{b}\\)"`。代码源码、输入值/占位符、原生下拉选项和图表引擎内部绘图文本仍遵循各自的原生格式，不解析富文本。数学语法以 KaTeX 为准，不执行 HTML、外部资源或脚本；不支持 LaTeX 文档编译、加载任意宏包。
 
 ## 组件词汇（只允许这些 type）
 
 布局：`text` `row` `col` `grid` `card` `carousel` `divider` `spacer` `arrow` `hero`
 展示：`stat` `badge` `progress` `list` `table` `keyvalue` `avatar` `image` `image-group` `compare` `audio` `video` `timeline` `file-tree` `breadcrumb` `diff` `json` `code` `callout` `steps` `icon` `blocks`
-图表：`chart`（bars/line/donut，可多序列）`plot`（数学函数图）`echart`（ECharts 全功能图表）
-交互：`button` `input` `select` `checkbox` `radio` `switch` `slider` `textarea` `editor` `date-picker` `segmented-control` `tabs` `accordion` `copy` `link` `submit` `popover`
+图表：`chart`（bars/line/donut，可多序列）`plot`（数学函数图）`echart`（ECharts 全功能图表）`map`
+交互：`button` `input` `select` `checkbox` `radio` `switch` `slider` `textarea` `editor` `date-picker` `segmented-control` `tabs` `accordion` `copy` `link` `submit` `popover` `choices`
 高级：`svg` `mermaid` `diagram` `scene3d` `quiz` `entity-card`
 
 ### 布局
@@ -134,8 +142,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 **卷子模式（多道选择题）**：每题一个 radio（带唯一 `group` + `answer` + `explanation`），最后放一个 submit（`groups` 列出全部题号）——用户全部选完点交卷，**分数和对错当场在 UI 里出现**，不用等你。只有换新题/进阶建议才发 action。不要每题单独发 action（会刷屏）。
 
 ### 高级
-- svg: `{"type":"svg","title":"<user-language title>","height":300,"code":"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 100\"><rect width=\"200\" height=\"100\" fill=\"#534ab7\"/></svg>"}` — 独立 SVG 图片预览；`title`/`height` 可省略，height 为 100–800，code 最多 12,000 字符，超限会拒绝而不会截断；验证工具返回字段路径、实际长度和上限，请精简或拆成多个 svg 后重验。裸 svg 围栏预览使用相同上限。必须提供完整 SVG 文档（含 xmlns），建议带 viewBox。使用隔离图片模式，不支持脚本、宿主 CSS 或外部资源；图形无法加载时显示源码和提示。**放在 dsh-ui 围栏中；这不是 ECharts renderer 配置。**
-- 也可以直接输出 ```svg 代码围栏（不带 dsh-ui 包装）：会自动显示为「预览/源码」切换的图形预览，源码可复制；无法解析时保留源码并提示。
+- svg: `{"type":"svg","title":"<user-language title>","height":300,"code":"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 100\"><rect width=\"200\" height=\"100\" fill=\"#534ab7\"/></svg>"}` — 独立 SVG 图片预览；`title`/`height` 可省略，height 为 100–800，code 最多 12,000 字符，超限会拒绝而不会截断；验证工具返回字段路径、实际长度和上限，请精简或拆成多个 svg 后重验。必须提供完整 SVG 文档（含 xmlns），建议带 viewBox。使用隔离图片模式，不支持脚本、宿主 CSS 或外部资源；图形无法加载时显示源码和提示。
 - mermaid: `{"type":"mermaid","code":"graph TD\\nA-->B"}` — flowchart/sequence/class/gantt/pie/er/state/journey；主题自动跟随宿主（暗/浅）；渲染完成后点图打开原生对话框查看大图，滚轮缩放、拖拽平移、工具栏放大/缩小/重置，Esc / 关闭 / 点遮罩返回并把焦点放回图表；弹层复用同一份已消毒 SVG，打开时不重跑渲染
 - diagram: `{"type":"diagram","kind":"architecture","id":"selectedNode","title":"<user-language title>","variant":"light|dark|editorial","nodes":[...],"edges":[...],"theme":{...}}` — **编辑级交互图解**（27 种视觉类型）。节点: `{"id":"a","label":"<user-language label>","description":"<detail shown after selection>","type":"focal|backend|store|external|input|optional|security","x":40,"y":40,"w":128,"h":48,"sub":"<user-language text>","tag":"<user-language text>"}`；边: `{"from":"a","to":"b","label":"<user-language label>","kind":"solid|dashed|accent|link"}`。用户可点击节点或按 Enter / Space 选择节点；图解会突出选中节点并显示说明。`id` 指定共享字段，所选节点 ID 可供其他组件的 `when.field` 读取。选择在本地更新，不触发模型 action。**规则由渲染器强制**: 正交连接器（r=8 弯折、禁止斜线）、4px 网格、语义 token（paper/ink/muted/accent）、焦点色 ≤2 个、复杂度预算（≤9 节点/≤12 边）、z-order（箭头在节点后）、边标签 6-10px 间隙。27 种 kind：architecture / it-state / flowchart / sequence / state / er / timeline / swimlane / quadrant / radar / loop / nested / tree / org-chart / layers / venn / pyramid / bar / line / gantt / scatter / high-level / process / medallion / data-flow / dp-integration / dp-security-matrix。**坐标类 kind**（architecture/it-state/high-level/process/medallion/data-flow/dp-integration）用 x/y/w/h 精确定位；**规则类 kind** 只给数据自动排版。架构/流程/层次结构优先用 diagram（自动布局需求才用 `mermaid`）。
 - scene3d: `{"type":"scene3d","title":"...","meshes":[{"shape":"box|sphere|cone|cylinder|torus","color":"#hex?","size":n|[w,h,d]?,"position":[x,y,z]?,"rotation":[rx,ry,rz]?,"scale":n?|[...]?}],"ambient":0-2?,"background":"#hex?"}` — 3D WebGL，可拖拽旋转、滚轮缩放；mesh 数量 1–5 个
@@ -143,11 +150,11 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 
 ## 什么时候用：内容类型 → 组件映射
 
-**判断只有一句：删掉这个组件，读者会不会更费劲。** 会 → 留着；不会 → 它是装饰，写正文。
+使用倾向遵循当前系统提示中的 fenceSection 档位和用户要求：full 主动用于比较、趋势、流程依赖和交互任务，不必等用户提醒；minimal 不主动规定使用频率。用户明确要求纯文字时以用户为准。
 
-**没有配额，也没有硬触发。** 不存在"≥3 条要点就必须出 `list`"、"回答超过 10 行至少一个围栏"、"一条回答 3–8 个组件"这类规则——它们只会让每条回答长成同一个形状。下面的表是**可选词汇表**，回答"这类内容适合用什么"，不是"出现这种内容就要用"。用户明确要纯文字时以用户为准。
+**没有组件数量配额，也不按条数或回答长度触发。** 下面的表是选择组件的词汇表，不是固定版式；不要把每条回答拼成同一个形状。
 
-判断顺序：这段内容的核心是不是"要比较 / 要计算 / 要做决定 / 要看结构"？是 → 找最小的那个组件承载它；不是 → 正文写清楚。一个回答通常只有一个真正的主组件，其余都是它的证据或操作。
+选型时先看内容的核心任务：比较、计算、做决定或看结构，再找最小的合适组件承载。普通解释和短清单默认用正文，只有比较、关系表达或交互确有帮助时才使用组件。一个回答通常只有一个真正的主组件，其余都是它的证据或操作。
 
 | 你要呈现的内容 | 用这些组件 |
 |---|---|
@@ -196,15 +203,15 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 
 文字字段只支持行内富文本。`text.content`、`callout.content`、`list` 项、`keyvalue` 值、`table` 单元格等字段中不要嵌入 Markdown 表格或连续三个及以上反引号、波浪号组成的代码围栏；表格使用 `table`，代码使用 `code`，代码改动使用 `diff`，结构化 JSON 使用 `json`。误写入文字字段的代码围栏连同内部标记保持原文，未闭合时从围栏标记开始保持原文。`validate_dsh_ui` 返回 `warning=block_markdown` 时，按照 `replacement` 改写结构节点并重新验证。
 
-## 回答级版式：默认无卡，焦点唯一
+## 回答级版式：不默认套 card 容器，焦点唯一
 
 **规则来自设计规范，不是口味**（`design` skill 的 `references/design-reference.md`）：
-「通用圆角矩形卡片当默认容器 = 模板思维，默认无卡；只有内容类型确实需要时才加卡片处理」，
+通用圆角矩形 `card` 不作为默认容器；这限制的是容器样式，不是 GenUI 的使用频率。`table`、`chart`、`list` 等组件可以直接使用。只有内容确实需要分组边界时才包卡片。
 「如果替换内容不需要改布局，那就是模板，重做」。
 
 ### 三条判据（不设组件数量上限）
 
-1. **必要性**：这个组件承载的信息，用文字表达会明显更差吗？数字对比、趋势、空间关系、代码/数据原文才算过关，否则删掉。
+1. **内容适配**：使用倾向按当前档位执行，选择能承载比较、趋势、结构或交互任务的组件，不为套样式把普通解释拆成组件。
 2. **焦点唯一**：一条回答只有一个视觉焦点（最大那张图或那组数字）；其余组件的视觉权重必须明显更低，靠尺寸/位置/色彩强度拉开，**不是靠数组件个数**。
 3. **不重复**：同一批数据不做两种表达（表格与图表二选一）。
 
@@ -369,9 +376,11 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 何时不用：单一知识点用单个 `radio`（自带本地判卷）或 `quiz` 组件，不需要 submit 组卷；题目多于 5 个拆成多条回答分批发。
 
 ### Computed（输入驱动计算）
+
+交互区内随输入变化的数字 MUST 绑定计算字段，包括说明文字和公式里的当前值；MUST NOT 另写一份固定数字。需要展示初始算例时 MUST 明确标注“初始值”，避免用户改值后把旧数字误认为当前结果。
 在规格根部用 `computed` 声明有序无关的计算字段。表达式只支持数字、字段 ID、括号、`+ - * / % ^` 和 `sin cos tan asin acos atan sqrt cbrt exp log ln abs floor ceil round min max pow` 白名单函数，以及 `pi/e/tau` 常量；不执行 JavaScript。字段 ID 以字母或下划线开头，后续可含数字，最多 64 个字符。表达式最多 512 个字符、嵌套最多 32 层、每份规格最多 50 个计算字段；未声明字段、循环依赖和无效数值会显示为无效输入，图表会跳过无效点。
 
-`{{fieldId}}` 只用于允许插值的展示字段，例如规格标题、文本和统计卡片文字；代码、SVG、Mermaid 源码及 JSON 等原始数据保留原文，未知展示字段会在校验时报告。输入字段与计算字段重名时，该字段及依赖它的计算字段均显示为无效输入。`chart`、`echart` 的数据点和 `table` 单元格使用 `{"$computed":"fieldId"}` 引用数值。完整 ECharts `option` 中的数据值也可使用该引用。`format` 可设置 `locale`、`style`（`decimal|currency|percent`）、`currency` 和小数位范围。表格显示格式化文字，排序使用原始数值。`number` 输入接受带正负号的小数及科学计数法十进制值；十六进制、二进制和八进制写法无效。暂时无法解析的编辑内容保留在输入框中，不会覆盖上一次有效计算值；必填字段处于无效编辑状态时，提交按钮会禁用并显示提示。
+`{{fieldId}}` 只引用 `computed` 中声明的计算字段，用于规格标题、文本、表格文字单元格和统计卡片等展示文字。输入字段 ID 只在 `expr` 内读取；要显示输入原值，先声明别名，如 `{"id":"shownPeople","expr":"people"}`，再写 `{{shownPeople}}`，不要直接写 `{{people}}`。未知引用会在校验时报告。代码、SVG、Mermaid 源码及 JSON 等原始数据保留原文。输入字段与计算字段重名时，该字段及依赖它的计算字段均显示为无效输入。`chart`、`echart` 的数据点和 `table` 单元格使用 `{"$computed":"fieldId"}` 引用数值。完整 ECharts `option` 中的数据值也可使用该引用。`format` 可设置 `locale`、`style`（`decimal|currency|percent`）、`currency` 和小数位范围。表格显示格式化文字，排序使用原始数值。`number` 输入接受带正负号的小数及科学计数法十进制值；十六进制、二进制和八进制写法无效。暂时无法解析的编辑内容保留在输入框中，不会覆盖上一次有效计算值；必填字段处于无效编辑状态时，提交按钮会禁用并显示提示。
 
 ```dsh-ui
 {"computed":[{"id":"annual","expr":"monthly*12","format":{"locale":"zh-CN","style":"currency","currency":"CNY","maximumFractionDigits":0}},{"id":"tax","expr":"annual*rate","format":{"locale":"zh-CN","style":"currency","currency":"CNY","maximumFractionDigits":0}}],"items":[{"type":"input","id":"monthly","label":"月收入","inputType":"number","value":"10000"},{"type":"input","id":"rate","label":"税率","inputType":"number","value":"0.1"},{"type":"stat","label":"年度收入","value":"{{annual}}"},{"type":"stat","label":"预估税额","value":"{{tax}}"},{"type":"chart","kind":"bars","data":[{"label":"收入","value":{"$computed":"annual"}},{"label":"税额","value":{"$computed":"tax"}}]},{"type":"table","columns":["项目","金额"],"rows":[["年度收入",{"$computed":"annual"}],["预估税额",{"$computed":"tax"}]]}]}
@@ -379,13 +388,13 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 
 ## 使用规则
 
-1. **围栏放哪，组件就出现在哪** —— 文字在前后自然流动，不要用工具、不要解释"这是一个围栏"。**围栏一闭合就立即渲染**（不等整条回答结束），所以可以边写文字边出组件
+1. **按呈现位置选择通道**：正文内联内容使用围栏；工具结果区域的独立 UI 使用 `render_ui`（仅在该工具可用时）；持续更新的会话面板使用 `panel:true`。围栏和工具都支持交互状态保存，不以是否交互或是否保存状态区分。围栏一闭合就立即渲染（不等整条回答结束），前后可以自然衔接文字。
 2. **组合优先**：复杂界面用 `grid`+`card`+`stat`+`table` 拼，不要追求单一巨型组件
-3. **JSON 必须严格合法，发出前完成 4 步自检**：插件**只**修标点级小错（字符串内半角引号、尾随逗号）；**缺括号/错括号等结构错误一律不修**，直接红横幅退化成代码块——写错就重发，别指望兜底。**最容易犯的错：字符串值里用了半角引号 `"`**——中文引语一律写 `“”` 或 `「」`。发出围栏前自检 4 条：① 括号配对：`{` 与 `}`、`[` 与 `]` 数量相等，**收尾序列逐个核对**（长表格最易在最后几行错位：把 `]]}]}` 写成 `]}]}]}`）② 无尾随逗号 ③ 值内引号用中文引号 ④ 最后一个字符必须是 `}`（**`}` 之后不要再写任何字符**——实测常见错误是习惯性追加 `</p>` 或一句解释，整条围栏就解析不了）。不要在 JSON 字符串里放 markdown；超长表格/列表拆成多个组件分开发，宁短勿长
+3. **JSON 必须严格合法**：调用校验工具后，`next=emit_fence` 时逐字复制 `native_fence_json` 或 `validated_json`；`next=emit_repaired_fence` 时逐字复制 `repaired_json`。不要凭记忆重新拼写 JSON，也不要在复制后增删节点、改文案或改括号；要改内容就修改规格并重新验证。未通过校验时按诊断修正，不以渲染器可能补齐标点或括号为交付依据。
 3.5. **字段名逐个核对**：未知组件类型（包括 `Card` / `Text` 等大小写误写）以及缺失必填字段会被校验工具拒绝。正文可保留其余有效组件；无法修复时展示源码和诊断，不会假报渲染成功。`tabs[].items` 必须提供（允许显式空数组），`content` 可作为别名；`card.body` / `card.content` 会归一化为 `items` 并提示。高频误写：`callout` 正文是 `content`（不是 text/body）；`table` 要 `columns` + `rows`（只给二维 rows 时首行会当表头）；`keyvalue` 要 `pairs:[{key,value}]`；`diff` 是 `diffs`；图片/音视频是 `src`；`code` 是 `code`、`copy` 是 `text`。拿不准就调 `validate_dsh_ui`，不要凭直觉命名。
 4. **不要嵌套围栏**：dsh-ui 里不要再包 ``` 代码围栏
 5. **深色主题友好**：配色选深底亮色；UI 主题跟随应用
-6. **场景判断**：先查上面的映射表 —— 内容类型命中就上对应组件；只有纯文字问答、一句话能说清时才不用
+6. **场景判断**：根据组件是否能帮助读者理解或操作来决定是否使用，并遵循当前系统提示的档位；需要组件时，查阅上面的映射表选择合适的组件。
 7. **图表范围**：`plot` 给合理 xMin/xMax（如 -3.14 到 3.14）；3D 场景 mesh 少而精
 8. **规格要紧凑**：整棵组件树 ≤200 节点、≤8 层嵌套；单个 `table` ≤50 行、≤12 列，`list` ≤50 项，`file-tree` 每层 ≤50 个节点；单个 `tabs` ≤12 个标签页、`accordion` ≤24 项。超出限制的内容会被截断，并由 `validate_dsh_ui` 报告；长内容请分成多个组件，并在发出围栏前调用 `validate_dsh_ui` 检查。
 9. **一个主题选一个主组件**：命中映射表后选**一种**组件承载，同一信息不要用两种组件重复表达（同一批数据又画 bars 又画 donut = 冗余）
