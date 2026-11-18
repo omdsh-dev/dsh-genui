@@ -34,6 +34,7 @@ async function loadMermaid(target?: HTMLElement): Promise<typeof import('mermaid
   // strokes and their own font, which sat next to our components as a
   // visibly foreign object. `base` + themeVariables is the supported way to
   // drive every colour (the dark/light branch is gone with it).
+  const source = target ?? document.body
   const colors = new Map<string, string>()
   const token = (name: string, fallback: string): string => {
     const cached = colors.get(name)
@@ -51,7 +52,7 @@ async function loadMermaid(target?: HTMLElement): Promise<typeof import('mermaid
       background: 'transparent',
       // Freeze the same font into measurement and the returned SVG: inheriting
       // from body while measuring and from a card while displaying clips labels.
-      fontFamily: getComputedStyle(target ?? document.body).fontFamily,
+      fontFamily: source.ownerDocument.defaultView!.getComputedStyle(source).fontFamily,
       fontSize: '13px',
       primaryColor: token('--dsw-alias-bg-layer-2', '#2c2c2e'),
       primaryTextColor: token('--dsw-alias-label-primary', '#e6e6e6'),
@@ -148,6 +149,14 @@ export async function renderMermaid(code: string, target?: HTMLElement): Promise
   }
   const m = await loadMermaid(target)
   const container = document.createElement('div')
+  const host = target?.ownerDocument
+  if (host !== undefined && host !== document) {
+    const typography = host.defaultView!.getComputedStyle(host.body)
+    document.body.style.fontFamily = typography.fontFamily
+    document.body.style.fontSize = typography.fontSize
+    document.body.style.fontWeight = typography.fontWeight
+    document.body.style.lineHeight = typography.lineHeight
+  }
   try {
     try {
       return await renderInto(m, `genui-mermaid-${renderSeq++}`, trimmed, container)

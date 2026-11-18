@@ -76,7 +76,7 @@ async function loadBundle(element) {
   }
 }
 async function start() {
-  for (const element of document.querySelectorAll('[data-genui-bundle]')) await loadBundle(element);
+  for (const element of document.querySelectorAll('[data-genui-bundle]:not([data-genui-bundle=mermaid])')) await loadBundle(element);
   const encoded = document.querySelector('#genui-artifact').textContent.trim();
   const artifact = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(encoded), character => character.charCodeAt(0))));
   window.__GenuiStandalone__.mount(document.querySelector('#genui-root'), artifact);

@@ -7,6 +7,7 @@ import { FENCE_MOUNTED_EVENT, prefetchGenuiAssets, prefetchOnFirstFence } from '
 
 afterEach(() => {
   document.head.innerHTML = ''
+  document.querySelector('iframe[data-genui-mermaid-measure]')?.remove()
   delete (window as unknown as Record<string, unknown>).__DSH_BOOT__
   delete (window as unknown as Record<string, unknown>).__GenuiAssets__
 })
@@ -30,19 +31,23 @@ describe('assetUrl', () => {
 })
 
 describe('loadGenuiAsset', () => {
-  it('injects one script per file and resolves the registered engine', async () => {
+  it('loads the Mermaid engine once in its measurement document', async () => {
     const api = { hello: 'engine' }
     const promise = loadGenuiAsset<typeof api>('mermaid')
-    const scripts = document.head.querySelectorAll('script')
+    const frames = document.querySelectorAll('iframe[data-genui-mermaid-measure]')
+    expect(frames).toHaveLength(1)
+    const owner = (frames[0] as HTMLIFrameElement).contentDocument!
+    const scripts = owner.head.querySelectorAll('script')
     expect(scripts).toHaveLength(1)
     expect(scripts[0]!.getAttribute('src')).toBe(`/plugins/${PLUGIN_ID}/assets/mermaid.js`)
     // Simulate the bundle having executed and registered its engine.
-    ;(window as unknown as Record<string, unknown>).__GenuiAssets__ = { mermaid: api }
+    ;(owner.defaultView as unknown as Record<string, unknown>).__GenuiAssets__ = { mermaid: api }
     scripts[0]!.dispatchEvent(new Event('load'))
     await expect(promise).resolves.toBe(api)
     // Memoized: a second request reuses the same promise, no new script tag.
     await loadGenuiAsset('mermaid')
-    expect(document.head.querySelectorAll('script')).toHaveLength(1)
+    expect(document.querySelectorAll('iframe[data-genui-mermaid-measure]')).toHaveLength(1)
+    expect(owner.head.querySelectorAll('script')).toHaveLength(1)
   })
 
   it('rejects when the script fails to load (old host without the route)', async () => {

@@ -19,6 +19,8 @@
  * @module @changfenhuang/dsh-genui/client/asset-loader
  */
 
+import { createMermaidRenderDocument, loadAssetScript } from './asset-script.ts'
+
 /** The plugin's entry id — mirrors the loader entry name (package name). */
 const PLUGIN_ID = '@changfenhuang/dsh-genui'
 
@@ -72,26 +74,9 @@ export function loadGenuiAsset<T>(name: 'mermaid' | 'three' | 'echarts-core' | '
   const file = `${name}.js`
   const existing = pending.get(file)
   if (existing !== undefined) return existing as Promise<T>
-  const task = new Promise<T>((resolve, reject) => {
-    const script = document.createElement('script')
-    script.src = assetUrl(file)
-    script.async = true
-    script.onload = () => {
-      const global = (window as unknown as AssetGlobal).__GenuiAssets__ ?? {}
-      // Asset files are kebab-case; the keys they register are camelCase.
-      const key = name.replace(/-(\w)/g, (_m, ch: string) => ch.toUpperCase())
-      const api = global[key]
-      if (api === undefined) {
-        reject(new Error(`genui asset '${file}' loaded but registered no '${name}' engine`))
-        return
-      }
-      resolve(api as T)
-    }
-    script.onerror = () => {
-      reject(new Error(`genui asset '${file}' failed to load (host asset route missing?)`))
-    }
-    document.head.appendChild(script)
-  })
-  pending.set(file, task as unknown as Promise<Record<string, unknown>>)
+  const owner = name === 'mermaid' ? createMermaidRenderDocument() : document
+  const key = name.replace(/-(\w)/g, (_match, char: string) => char.toUpperCase())
+  const task = loadAssetScript(owner, assetUrl(file), file, key) as Promise<T>
+  pending.set(file, task as Promise<Record<string, unknown>>)
   return task
 }
