@@ -4,10 +4,12 @@
  * scene3d, timeline, file-tree, quiz, breadcrumb.
  * @module @changfenhuang/dsh-genui/client/blocks/advanced
  */
-import { memo, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { CodeBlock, DiffBlock, JsonTree, writeClipboard } from '../primitive-adapter.ts'
 import { renderInline } from '../inline.ts'
 import css from '../GenuiBlock.module.css'
+import zoomCss from './mermaid-zoom.module.css'
+import { MermaidZoomDialog } from './mermaid-zoom.tsx'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
 import { renderMermaid } from '../mermaid-lazy.ts'
 import { PlotBlock } from '../PlotBlock.tsx'
@@ -331,14 +333,45 @@ type MermaidRenderState =
 export const MermaidNode = memo(function MermaidNode({ node }: { node: GenuiMermaid }) {
   const t = useT()
   const [state, setState] = useState<MermaidRenderState>({ status: 'loading' })
+  const [zoomed, setZoomed] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const openerRef = useRef<HTMLButtonElement | null>(null)
+  const zoomedRef = useRef(false)
   const code = node.code.slice(0, GENUI_LIMITS.maxMermaid)
+
+  zoomedRef.current = zoomed
+  const restoreFocus = useCallback(() => {
+    const opener = openerRef.current
+    openerRef.current = null
+    if (opener?.isConnected === true) opener.focus({ preventScroll: true })
+  }, [])
+  const closeZoom = useCallback(() => { setZoomed(false); restoreFocus() }, [restoreFocus])
+  const openZoom = useCallback((opener: HTMLButtonElement) => {
+    openerRef.current = opener
+    setZoomed(true)
+  }, [])
+  // 图里的 <a> 是 Mermaid 的 click 链接，选中的文字要能复制；两者都不该触发放大。
+  const onDiagramClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target
+    if (!(target instanceof Element)) return
+    if (target.closest('a') !== null) return
+    if (window.getSelection?.()?.toString()) return
+    const opener = event.currentTarget.parentElement?.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')
+    if (opener !== null && opener !== undefined) openZoom(opener)
+  }, [openZoom])
+  useEffect(() => restoreFocus, [restoreFocus])
   useEffect(() => {
     let alive = true
     let visible = typeof IntersectionObserver === 'undefined'
     let finished = false
     let controller: AbortController | undefined
     setState({ status: 'loading' })
+    // 新源码会卸载整棵 ready 子树；先收起弹层并把焦点留在稳定的容器上，
+    // 否则原生的 top layer 会随 dialog 一起消失，焦点掉回 body。
+    if (zoomedRef.current) {
+      ref.current?.focus({ preventScroll: true })
+      setZoomed(false)
+    }
     const start = (): void => {
       const target = ref.current
       if (target === null || !alive || !visible || finished || controller !== undefined) return
@@ -425,16 +458,32 @@ export const MermaidNode = memo(function MermaidNode({ node }: { node: GenuiMerm
     }
   }, [code])
   return (
-    <div
-      ref={ref}
-      className={state.status === 'ready' ? css.mermaid : css.mermaidFallback}
-      data-genui-mermaid={state.status === 'ready' ? '' : undefined}
-      dangerouslySetInnerHTML={state.status === 'ready' ? { __html: state.html } : undefined}
-    >
-      {state.status === 'ready' ? null : state.status === 'error'
-        ? <><pre>{code}</pre><div className={css.mermaidErr}>{t('block.mermaidError')}</div></>
-        : <><pre>{code}</pre><div className={css.mermaidHint}>{t('block.mermaidLoading')}</div></>}
-    </div>
+    <>
+      <div
+        ref={ref}
+        tabIndex={-1}
+        className={`${state.status === 'ready' ? css.mermaid : css.mermaidFallback} ${zoomCss.host}`}
+        data-genui-mermaid={state.status === 'ready' ? '' : undefined}
+      >
+        {state.status === 'ready'
+          ? <div className={zoomCss.frame}>
+            <div className={zoomCss.diagram} onClick={onDiagramClick} dangerouslySetInnerHTML={{ __html: state.html }} />
+            <button
+              type="button"
+              className={zoomCss.opener}
+              aria-label={t('block.mermaidOpen')}
+              aria-haspopup="dialog"
+              onClick={event => openZoom(event.currentTarget)}
+            >
+              <span className={zoomCss.expand} aria-hidden="true">⤢</span>
+            </button>
+          </div>
+          : state.status === 'error'
+            ? <><pre>{code}</pre><div className={css.mermaidErr}>{t('block.mermaidError')}</div></>
+            : <><pre>{code}</pre><div className={css.mermaidHint}>{t('block.mermaidLoading')}</div></>}
+      </div>
+      {state.status === 'ready' && <MermaidZoomDialog html={state.html} open={zoomed} onClose={closeZoom} />}
+    </>
   )
 })
 

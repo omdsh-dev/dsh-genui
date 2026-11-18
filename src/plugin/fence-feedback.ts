@@ -30,6 +30,7 @@ import type {} from '@deepseek-ai/dsh-agent'
 import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionEvent, SessionStore, UserMessage } from '@deepseek-ai/dsh-session'
 import { createHash, randomUUID } from 'node:crypto'
+import { fromMarkdown } from 'mdast-util-from-markdown'
 import { droppedNodeFailure } from './genui-diagnostic.ts'
 import { resolveFence } from '../shared/fence-resolve.ts'
 import { isGenuiFenceLanguage } from '../shared/fence-language.ts'
@@ -54,6 +55,7 @@ const LEGACY_MARKER_PREFIX = '[genui 自修 #'
 const FENCE_OPEN = /^ {0,3}```[ \t]*([^` \t]+)[ \t]*$/u
 /** Any fence closer (the renderer never nests fences in one body). */
 const FENCE_CLOSE = /^ {0,3}```[ \t]*$/u
+const MISPLACED_FENCE_OPEN = /[^\s`][^\r\n]*?```[ \t]*([^`\s]+)[ \t]*\r?\n/u
 /** Upper bound on fences inspected per reply — a reply is text, not a corpus. */
 const MAX_FENCES = 40
 
@@ -119,6 +121,26 @@ export function fenceFailures(text: string): FenceFailure[] {
   for (const fence of extractDshUiFences(text)) {
     const detail = fenceFailureDetail(fence)
     if (detail !== null) failures.push({ index: fence.index, fingerprint: fenceFingerprint(fence.raw), detail })
+  }
+  return failures
+}
+
+/** The Markdown renderer treats an opener attached to prose as paragraph text. */
+function misplacedFenceFailures(text: string): FenceFailure[] {
+  if (!MISPLACED_FENCE_OPEN.test(text)) return []
+  const failures: FenceFailure[] = []
+  for (const node of fromMarkdown(text).children) {
+    if (node.type !== 'paragraph' || node.position === undefined) continue
+    const paragraph = text.slice(node.position.start.offset, node.position.end.offset)
+    const opener = MISPLACED_FENCE_OPEN.exec(paragraph)
+    if (opener === null || !isGenuiFenceLanguage(opener[1])) continue
+    const raw = paragraph.slice(opener.index + opener[0].length)
+    if (resolveFence(raw, { settled: true }).spec === null) continue
+    failures.push({
+      index: failures.length + 1,
+      fingerprint: fenceFingerprint(raw),
+      detail: 'error=misplaced_fence_opening\nrequired=fence_opening_on_own_line',
+    })
   }
   return failures
 }
@@ -286,7 +308,9 @@ export function planFenceFeedback(input: FenceFeedbackPlanInput): FenceFeedbackP
   if (input.aborted) return null
   const used = input.correctionsTurn === input.turn ? (input.correctionsThisTurn ?? 0) : 0
   if (used >= MAX_CORRECTIONS_PER_TURN) return null
-  const failures = fenceFailures(input.text).filter(failure => !input.correctedSpec.has(failure.fingerprint))
+  const detected = fenceFailures(input.text)
+  if (input.validatedThisTurn) detected.push(...misplacedFenceFailures(input.text))
+  const failures = detected.filter(failure => !input.correctedSpec.has(failure.fingerprint))
   if (failures.length > 0) {
     return {
       text: fenceCorrectionText(failures),
@@ -577,7 +601,7 @@ export function installFenceFeedback(ctx: Context, enabled: boolean, renderUiToo
       state.isSubagent = session.header.parentSession !== undefined
       // Fences are read from the BODY only: a draft in the reasoning block is not
       // a delivery and must not become one.
-      state.text = extractDshUiFences(text).length > 0 ? text : ''
+      state.text = state.validatedThisTurn || extractDshUiFences(text).length > 0 ? text : ''
       // Delivery is sticky for the turn: once a body text exists, the turn has
       // answered and must never be corrected into publishing again. A
       // `render_ui` call in the content proves nothing here — its result does.

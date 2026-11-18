@@ -460,6 +460,17 @@ describe('installFenceFeedback wiring', () => {
 
   const toolCallEvent = (name: string, callId?: string): unknown =>
     ({ type: 'tool/call', seq: 4, time: 2, data: callId === undefined ? { name } : { name, callId } }) as unknown as SessionEvent
+  it('asks for a new line when a validated fence starts after prose (#432)', () => {
+    const h = harness()
+    h.emitSession(userEvent())
+    h.emitSession(toolCallEvent('validate_dsh_ui'))
+    h.emitSession(assistantEvent('比较如下。```dsh-ui\n' + STAT_GROUP + '\n```'))
+    const agent = { session: { id: 'sess-1', header: { id: 'sess-1', version: 4 } }, steer: h.steer }
+    h.boundary({ agent, turn: 4, signal: new AbortController().signal })
+    expect(h.steer).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(h.steer.mock.calls)).toContain('required=fence_opening_on_own_line')
+  })
+
   interface ToolResultOptions {
     internal?: boolean
     blockError?: boolean
