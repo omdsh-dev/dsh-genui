@@ -63,14 +63,6 @@ export function MermaidZoomDialog({ html, open, onClose }: MermaidZoomDialogProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, reset])
 
-  useEffect(() => {
-    if (open) return
-    const dialog = dialogRef.current
-    if (dialog === null || dialog.open !== true) return
-    if (typeof dialog.close === 'function') dialog.close()
-    else dialog.removeAttribute('open')
-  }, [open])
-
   // React registers wheel listeners as passive; a native non-passive listener
   // is the only way to keep the zoom from scrolling the conversation behind.
   useEffect(() => {
@@ -89,16 +81,24 @@ export function MermaidZoomDialog({ html, open, onClose }: MermaidZoomDialogProp
     return () => stage.removeEventListener('wheel', onWheel)
   }, [open, zoomBy])
 
+  const closeDialog = (): void => {
+    const dialog = dialogRef.current
+    if (typeof dialog?.close === 'function') dialog.close()
+    else dialog?.removeAttribute('open')
+    onClose()
+  }
+
   const onKeyDown = (event: KeyboardEvent<HTMLDialogElement>): void => {
     if (event.altKey || event.ctrlKey || event.metaKey) return
     if (event.key !== 'Escape') return
     event.preventDefault()
     event.stopPropagation()
-    onClose()
+    closeDialog()
   }
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>): void => {
     if (event.button !== 0 || event.isPrimary === false) return
+    if (event.target instanceof Element && event.target.closest('a') !== null) return
     drag.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -133,7 +133,7 @@ export function MermaidZoomDialog({ html, open, onClose }: MermaidZoomDialogProp
     const inside = rect.top <= event.clientY && event.clientY <= rect.bottom
       && rect.left <= event.clientX && event.clientX <= rect.right
     if (inside) return
-    onClose()
+    closeDialog()
   }
 
   // close 事件是异步派发的。快速重开时若迟到的事件到达，dialog 已经重新
@@ -149,7 +149,7 @@ export function MermaidZoomDialog({ html, open, onClose }: MermaidZoomDialogProp
       className={css.dialog}
       aria-labelledby={`${id}-title`}
       closedby="any"
-      onCancel={event => { event.preventDefault(); onClose() }}
+      onCancel={event => { event.preventDefault(); closeDialog() }}
       onClose={onDialogClose}
       onKeyDown={onKeyDown}
       onClick={onDialogClick}
@@ -160,7 +160,7 @@ export function MermaidZoomDialog({ html, open, onClose }: MermaidZoomDialogProp
           <button type="button" className={css.tool} aria-label={t('block.mermaidZoomOut')} onClick={() => zoomBy(1 / STEP)}>−</button>
           <button type="button" className={css.tool} aria-label={t('block.mermaidZoomIn')} onClick={() => zoomBy(STEP)}>+</button>
           <button type="button" className={css.tool} aria-label={t('block.mermaidZoomReset')} onClick={reset}>{t('block.mermaidZoomReset')}</button>
-          <button ref={closeRef} type="button" className={css.close} aria-label={t('block.mermaidClose')} onClick={onClose}>
+          <button ref={closeRef} type="button" className={css.close} aria-label={t('block.mermaidClose')} onClick={closeDialog}>
             <span aria-hidden="true">×</span>
           </button>
         </div>

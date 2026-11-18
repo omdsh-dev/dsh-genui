@@ -354,7 +354,7 @@ export const MermaidNode = memo(function MermaidNode({ node }: { node: GenuiMerm
   const onDiagramClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
     const target = event.target
     if (!(target instanceof Element)) return
-    if (target.closest('a[href]') !== null) return
+    if (target.closest('a') !== null) return
     if (window.getSelection?.()?.toString()) return
     const opener = event.currentTarget.parentElement?.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')
     if (opener !== null && opener !== undefined) openZoom(opener)
