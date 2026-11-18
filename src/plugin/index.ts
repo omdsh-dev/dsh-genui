@@ -31,6 +31,7 @@ type WorkingDirectoryService = {
 import { createRenderUiTool, createValidateDshUiTool } from './tool.ts'
 import { installFenceFeedback } from './fence-feedback.ts'
 import { installDshGoNative } from './dsh-go-native.ts'
+import { COMPONENT_SCHEMAS } from '../client/genui-runtime/schema.ts'
 
 /* ---------------- lazy engine asset route ---------------- */
 
@@ -130,21 +131,21 @@ const COMPONENT_REFERENCE_PLACEHOLDER = 'dsh-genui:component-reference'
 const LOAD_GENUI_SKILL = 'Before emitting UI, MUST call the skill tool to load `genui`.'
 
 /** 默认按内容任务主动使用 UI，组件规范由 genui Skill 提供。 */
-export const GENUI_SECTION_TEXT = `Render UI inside your reply with a fenced \`dsh-ui\` JSON block:
+export const GENUI_SECTION_TEXT = `Render reply UI with a \`dsh-ui\` JSON block:
 
 \`\`\`dsh-ui
-{"title":"示例","gap":14,"items":[{"type":"text","content":"把这里换成你的组件"}]}
+{"items":[{"type":"callout","content":"一个 items 对象一个组件"},{"type":"table","columns":["组件","字段"],"rows":[["callout","content"]]}]}
 \`\`\`
 
 ${LOAD_GENUI_SKILL}
-RFC2119: MUST=必须；MUST NOT=禁止；SHOULD=推荐、可合理取舍；MAY=可选。
+RFC2119: MUST=必须；SHOULD=推荐；MAY=可选。
 
 当前使用完整档（fenceSection: full）。下列任务 SHOULD 优先直接用最小的合适组件呈现，不必等用户提醒：
 - 按共同维度比较选项或取舍 → table / choices；展示前后视觉差异 → compare。
 - 用数值解释趋势、占比或多项指标关系 → chart / echart / table；单个数字无需强行出组件。
 - 理解结果依赖步骤顺序、分支或结构关系 → steps / diagram / mermaid。
-- 需要用户筛选、选择或调整参数计算 → input / select / choices + 相应结果组件。
-普通解释和短清单默认正文，仅在需要比较、关系表达或交互时用组件；不按条数、字数或回答长度触发，没有组件数量配额。同一信息只呈现一次。MUST 服从用户明确的纯文字要求。card MAY 用作容器。
+- 需要筛选、选择或计算 → input / select / choices + 相应结果组件。
+普通解释和短清单默认正文，仅在需要比较、关系表达或交互时用组件；不按条数、字数或回答长度触发，没有组件数量配额。信息只呈现一次。MUST 服从用户明确的纯文字要求。card MAY 用作容器。
 生成围栏本身不是仓库视觉改动，无需为此读源码、写文件、起服务；用户要求开发或排错时再按需操作。
 
 Rules:
@@ -156,7 +157,7 @@ Rules:
 - Secrets ban: 不索取密码、API Key、Token、恢复码；需要时拒绝并解释。
 ${RENDER_UI_TOOL_GUIDANCE}
 - 围栏位置：\`dsh-ui\` 只写在**回答正文**；写在 reasoning/思考块里不渲染、用户看不到——思考里验证好 spec，正文再输出同一份。
-- Panel: "panel":true 只渲染进会话面板 dock 并原地更新；"append":true 追加合并；上限 200 节点/200 次追加，满了发 replace 重建。面板来的 [genui-action] 只回一个 panel:true 围栏 + 至多一行 10 字内确认。`
+- Panel: "panel":true 只渲染进会话面板 dock 并原地更新；"append":true 追加，上限 200 节点/200 次，满了发 replace。面板来的 [genui-action] 只回一个 panel:true 围栏 + 至多一行 10 字内确认。`
 
 /** 最小围栏提示词要求模型加载完整组件规范。 */
 export const GENUI_MINIMAL_SECTION_TEXT = `fenceSection: minimal. RFC2119: MUST=required; MAY=optional.
@@ -167,6 +168,14 @@ ${LOAD_GENUI_SKILL}
 \`\`\`dsh-ui
 {"items":[{"type":"text","content":"Example"}]}
 \`\`\``
+
+const GENUI_QUICK_REFERENCE = [
+  '## 组件词汇（只允许这些 type）',
+  Object.keys(COMPONENT_SCHEMAS).map(type => `\`${type}\``).join(' · '),
+  '- chart: kind (bars/line/donut), data [{label,value}]; table: columns + rows; callout: content, tone (info/success/warning/error).',
+  '- stat: label + value; keyvalue: pairs [{key,value}]; steps: steps [{title}]; file-tree: items [{name,type}] (file/dir).',
+  '- button/choices 需要 action 才能回传。需要结构或字段诊断时，调用 validate_dsh_ui（若可用）。',
+].join('\n')
 
 const GENUI_REFERENCE_RULES = 'Reply and write UI text in the conversation language. Never request passwords, API keys, tokens, or recovery codes. Validate complex specs with validate_dsh_ui and fix diagnostics. For panels, panel:true replaces the panel; append:true appends, within 200 nodes and 200 appends. Respond to panel actions with an updated panel.'
 
@@ -300,7 +309,6 @@ export function apply(ctx: Context, config?: GenuiPluginConfig): void {
   const renderUiToolEnabled = config?.renderUiTool !== false
   const fenceText = config?.fenceSection === 'minimal' ? GENUI_MINIMAL_SECTION_TEXT : GENUI_SECTION_TEXT
   const ownFenceText = renderUiToolEnabled ? fenceText : fenceText.replace(`${RENDER_UI_TOOL_GUIDANCE}\n`, '')
-  let reference: string | undefined
   let bundledRaw: string | undefined
   ctx.systemPrompt.section({
     name: 'genui:reference',
@@ -321,7 +329,8 @@ export function apply(ctx: Context, config?: GenuiPluginConfig): void {
     const tools = ctx.reflect.get('tools') as ToolRuntime | undefined
     const scopedTool = tools?.get('skill', context.scope)
     const sdkSection = assembly.sections.find(section => section.name === 'tools:sdk')
-    const skillSchemaVisible = tools?.schemas(context.scope).some(tool => tool.name === 'skill') === true
+    const schemas = tools?.schemas(context.scope) ?? []
+    const skillSchemaVisible = schemas.some(tool => tool.name === 'skill')
     const toolVisible = isSkillLoader(scopedTool) && skillSchemaVisible && (sdkSection === undefined || sdkSection.text.includes('skill'))
     let skillAvailable = false
     let referenceUpdate = ''
@@ -339,9 +348,9 @@ export function apply(ctx: Context, config?: GenuiPluginConfig): void {
         }
       }
     }
-    const referenceEnabled = config?.fenceSection !== false || renderUiToolEnabled
-    const referenceText = !referenceEnabled ? '' : skillAvailable ? referenceUpdate
-      : (reference ??= componentReference(bundledRaw ??= readFileSync(bundledSkillPath(), 'utf8')))
+    const referenceEnabled = config?.fenceSection !== false
+      || (renderUiToolEnabled && schemas.some(tool => tool.name === 'render_ui'))
+    const referenceText = !referenceEnabled ? '' : skillAvailable ? referenceUpdate : GENUI_QUICK_REFERENCE
     return {
       ...assembly,
       sections: assembly.sections.map(section => {

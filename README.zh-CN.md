@@ -335,7 +335,7 @@ CI 与发布任务通过 `node scripts/prepare-published-host.mjs 0.2.2-alpha.2`
 
 Skill 是否可用按当前 Agent 的工具视图判断，支持预设提供的工具，不要求存在全局 `skill`。可见工具必须符合 Skill 加载接口，且 `genui` 允许模型调用。技能已包含当前字段时，不再注入组件参考；旧技能只在 `genui:reference` 中补充缺失或变化的字段说明，追加用户偏好不会触发整份参考。用户技能文件保持原样，当前系统字段优先于加载到的旧字段。
 
-没有兼容的加载工具或允许模型调用的 GenUI 技能时，围栏指导或 `render_ui` 开启才使用完整组件参考兜底。`fenceSection: false` 关闭围栏指导；围栏指导和 `render_ui` 都关闭时，不注入参考。这些设置不禁用围栏渲染或 Panel。dsh-go 的 `genui:native` 提示段及工具定义独立计算提示与 Token 消耗。实际生成 UI 时加载完整技能仍会消耗上下文；此次移除的是无条件重复注入，并非让技能加载免费。
+没有兼容的加载工具或允许模型调用的 GenUI 技能时，围栏指导开启或 `render_ui` 可用时，提供精简字段速查。`fenceSection: false` 关闭围栏指导；围栏指导和 `render_ui` 都关闭时，不注入参考。这些设置不禁用围栏渲染或 Panel。dsh-go 的 `genui:native` 提示段及工具定义独立计算提示与 Token 消耗。实际生成 UI 时加载完整技能仍会消耗上下文；此次移除的是无条件重复注入，并非让技能加载免费。
 
 ---
 

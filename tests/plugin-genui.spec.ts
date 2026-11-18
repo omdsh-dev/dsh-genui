@@ -164,6 +164,15 @@ describe('genui:fence section', () => {
     for (const type of Object.keys(COMPONENT_SCHEMAS)) expect(reference?.text).toContain(`\`${type}\``)
     expect(fallback.sections.find(section => section.name === 'genui:fence')?.text).toContain('Follow the GenUI reference in this system prompt.')
 
+    for (const fenceSection of ['full', 'minimal'] as const) {
+      const withoutLoader = await assemble({ fenceSection }, false)
+      const sections = withoutLoader.sections.filter(section => section.name.startsWith('genui:'))
+      expect(renderPrompt({ ...withoutLoader, sections }).length).toBeLessThanOrEqual(3400)
+    }
+
+    const withoutTools = await assemble({ fenceSection: false }, false)
+    expect(withoutTools.sections.find(section => section.name === 'genui:reference')?.text).toBe('')
+
     const disabled = await assemble({ fenceSection: false, renderUiTool: false }, false)
     expect(disabled.sections.find(section => section.name === 'genui:fence')).toBeUndefined()
     expect(disabled.sections.find(section => section.name === 'genui:reference')?.text).toBe('')
