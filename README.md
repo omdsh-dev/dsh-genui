@@ -263,7 +263,7 @@ sequenceDiagram
 
 ### Artifact Exporting
 Completed GenUI blocks can be exported on demand:
-- **Standalone `.html`**: Inlines the lightweight renderer, CSS styles, KaTeX fonts, required chart engines, and the same-origin images it can read (2 MiB per image, 8 MiB per page; remote or oversized sources keep their URL) so the interactive UI can be viewed and tested offline in any browser.
+- **Standalone `.html`**: Inlines the lightweight renderer, CSS styles, KaTeX fonts, required chart engines, and the same-origin images it can read so the interactive UI can be viewed and tested offline in any browser.
 - **`.genui.json`**: Retains the normalized specification and durable interaction states for storage and portability.
 
 ---

@@ -3,9 +3,8 @@
 // has no host process, no cookie, and no token, so /api/file images showed the
 // "图片无法加载" fallback.
 import { createServer, type ServerResponse } from 'node:http'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  MAX_INLINE_IMAGE_BYTES,
   collectGenuiMediaRefs,
   inlineStandaloneMedia,
 } from '../src/client/artifact/media.ts'
@@ -64,10 +63,9 @@ describe('inlineStandaloneMedia', () => {
     })
     const spec = { items: [{ type: 'image', src: `${origin}/api/file?path=%2Fa.png` }] } as unknown as GenuiSpec
 
-    const { media, skipped } = await inlineStandaloneMedia(spec, { baseURI: `${origin}/` })
+    const media = await inlineStandaloneMedia(spec, `${origin}/`)
     const embedded = media.get(`${origin}/api/file?path=%2Fa.png`)
 
-    expect(skipped).toEqual([])
     expect(embedded?.startsWith('data:image/png;base64,')).toBe(true)
     expect(atob(embedded!.split(',')[1]!)).toBe(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='))
   })
@@ -83,7 +81,7 @@ describe('inlineStandaloneMedia', () => {
       { type: 'image-group', items: [{ src: `${origin}/shot.png` }] },
     ] } as unknown as GenuiSpec
 
-    await inlineStandaloneMedia(spec, { baseURI: `${origin}/` })
+    await inlineStandaloneMedia(spec, `${origin}/`)
     expect(requests).toBe(1)
   })
 
@@ -93,9 +91,8 @@ describe('inlineStandaloneMedia', () => {
     })
     const spec = { items: [{ type: 'image', src: 'https://cdn.example.com/a.png' }] } as unknown as GenuiSpec
 
-    const { media, skipped } = await inlineStandaloneMedia(spec, { baseURI: `${origin}/` })
+    const media = await inlineStandaloneMedia(spec, `${origin}/`)
     expect(media.size).toBe(0)
-    expect(skipped).toEqual([{ src: 'https://cdn.example.com/a.png', reason: 'external-origin' }])
   })
 
   it('keeps a rejected request external instead of failing the export', async () => {
@@ -104,9 +101,8 @@ describe('inlineStandaloneMedia', () => {
     })
     const spec = { items: [{ type: 'image', src: `${origin}/api/file?path=%2Fa.png` }] } as unknown as GenuiSpec
 
-    const { media, skipped } = await inlineStandaloneMedia(spec, { baseURI: `${origin}/` })
+    const media = await inlineStandaloneMedia(spec, `${origin}/`)
     expect(media.size).toBe(0)
-    expect(skipped).toEqual([{ src: `${origin}/api/file?path=%2Fa.png`, reason: 'unreadable' }])
   })
 
   it('keeps a non-image response external', async () => {
@@ -115,41 +111,16 @@ describe('inlineStandaloneMedia', () => {
     })
     const spec = { items: [{ type: 'image', src: `${origin}/login` }] } as unknown as GenuiSpec
 
-    const { skipped } = await inlineStandaloneMedia(spec, { baseURI: `${origin}/` })
-    expect(skipped).toEqual([{ src: `${origin}/login`, reason: 'not-an-image' }])
-  })
-
-  it('sniffs the type when the response omits content-type', async () => {
-    const origin = await originOf((_url, response) => {
-      response.writeHead(200, { 'content-type': 'application/octet-stream' }).end(Buffer.from(PNG))
-    })
-    const spec = { items: [{ type: 'image', src: `${origin}/no-header.png` }] } as unknown as GenuiSpec
-
-    const { media } = await inlineStandaloneMedia(spec, { baseURI: `${origin}/` })
-    expect(media.get(`${origin}/no-header.png`)?.startsWith('data:image/png;base64,')).toBe(true)
-  })
-
-  it('refuses an image over the per-image ceiling', async () => {
-    const origin = await originOf((_url, response) => {
-      response.writeHead(200, { 'content-type': 'image/png' }).end(Buffer.alloc(MAX_INLINE_IMAGE_BYTES + 1, 1))
-    })
-    const spec = { items: [{ type: 'image', src: `${origin}/huge.png` }] } as unknown as GenuiSpec
-
-    const { skipped } = await inlineStandaloneMedia(spec, { baseURI: `${origin}/` })
-    expect(skipped).toEqual([{ src: `${origin}/huge.png`, reason: 'too-large' }])
-  })
-
-  it('stops embedding once the artifact budget is spent', async () => {
-    const origin = await originOf((_url, response) => {
-      response.writeHead(200, { 'content-type': 'image/png' }).end(Buffer.from(PNG))
-    })
-    const spec = { items: [
-      { type: 'image', src: `${origin}/a.png` },
-      { type: 'image', src: `${origin}/b.png` },
-    ] } as unknown as GenuiSpec
-
-    const { media, skipped } = await inlineStandaloneMedia(spec, { baseURI: `${origin}/`, maxTotalBytes: 32 })
+    const media = await inlineStandaloneMedia(spec, `${origin}/`)
     expect(media.size).toBe(0)
-    expect(skipped.map(item => item.reason)).toEqual(['budget', 'budget'])
+  })
+
+  it('embeds an authenticated Desktop source without changing its relative key', async () => {
+    const fetchImage = vi.fn(async () => new Response(PNG, { headers: { 'content-type': 'image/png' } }))
+    const src = '/api/file?path=%2Fa.png'
+    const spec: GenuiSpec = { items: [{ type: 'image', src }] }
+    const media = await inlineStandaloneMedia(spec, 'dsh-app://app/', fetchImage)
+    expect(fetchImage).toHaveBeenCalledWith('dsh-app://app' + src, { credentials: 'same-origin' })
+    expect(media.get(src)).toMatch(/^data:image\/png;base64,/)
   })
 })

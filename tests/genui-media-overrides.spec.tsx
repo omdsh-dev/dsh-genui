@@ -4,6 +4,7 @@
 // what a model may write. These tests pin the render-time swap.
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
+import { VideoNode } from '../src/client/blocks/basic.tsx'
 import { CompareNode } from '../src/client/blocks/compare.tsx'
 import { EntityCardNode } from '../src/client/blocks/entity-card.tsx'
 import { ImageNode } from '../src/client/blocks/image.tsx'
@@ -32,6 +33,8 @@ describe('standalone media overrides', () => {
     expect(sources(render(<ImageGroupNode node={{ type: 'image-group', items: [{ src: SOURCE }] }} />).container)).toEqual([EMBEDDED])
     expect(sources(render(<CompareNode node={{ type: 'compare', before: { src: SOURCE }, after: { src: SOURCE } }} />).container)).toEqual([EMBEDDED, EMBEDDED])
     expect(sources(render(<EntityCardNode node={{ type: 'entity-card', name: '报告', image: SOURCE }} />).container)).toEqual([EMBEDDED])
+    const video = render(<VideoNode node={{ type: 'video', src: 'https://example.com/video.mp4', poster: SOURCE }} />)
+    expect(video.container.querySelector('video')?.getAttribute('poster')).toBe(EMBEDDED)
   })
 
   it('leaves the source untouched when the page carries no media table', () => {

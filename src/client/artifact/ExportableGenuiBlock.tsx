@@ -13,21 +13,6 @@ interface ArtifactExportMenuProps {
   getArtifact: () => ReturnType<typeof createGenuiArtifact>
 }
 
-/**
- * Whether a media source stays a URL after export.
- *
- * Same-origin sources (`/api/file?path=…` and friends) are read at export
- * time and embedded, so they no longer warrant the offline warning; only
- * another origin keeps depending on the network.
- */
-function staysExternal(src: string): boolean {
-  try {
-    return new URL(src, document.baseURI).origin !== window.location.origin
-  } catch {
-    return true
-  }
-}
-
 /** 导出入口的图标字形：托盘 + 下箭头（“导出为文件”），14px 描边、随文字取色。 */
 function ExportGlyph() {
   return (
@@ -46,7 +31,6 @@ function ArtifactExportMenu({ getArtifact }: ArtifactExportMenuProps) {
   const [open, setOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const report = analyzeGenuiPortability(getArtifact().spec)
-  const externalMedia = report.externalMedia.filter(staysExternal)
 
   useEffect(() => {
     if (!open) return
@@ -90,7 +74,7 @@ function ArtifactExportMenu({ getArtifact }: ArtifactExportMenuProps) {
 
   return (
     <div className={css.chrome} ref={rootRef} data-genui-export>
-      {externalMedia.length > 0 && <span className={css.notice}>{t('artifact.externalMediaNotice')}</span>}
+      {report.externalMedia.length > 0 && <span className={css.notice}>{t('artifact.externalMediaNotice')}</span>}
       {errorMessage !== '' && <span className={css.statusError} aria-live="polite">{errorMessage}</span>}
       {/* 无边框图标入口：完成态内容不再多出一个描边按钮。图标按钮的 aria-label
           + title 组合与项目里的 panelTpl / panelToggle 一致。 */}

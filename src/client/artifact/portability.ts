@@ -3,6 +3,7 @@ import type { GenuiNode, GenuiSpec } from '../spec.ts'
 import { GENUI_NATIVE_TYPES } from '../genui-runtime/schema.ts'
 import { ICONS } from '../icons/icon-data.ts'
 import { GENUI_LIMITS } from '../genui-runtime/limits.ts'
+import { collectGenuiMediaRefs } from './media.ts'
 import { safeMediaSrc } from '../genui-runtime/value-utils.ts'
 import type { GenuiPortabilityReport, GenuiStandaloneAsset } from './types.ts'
 
@@ -24,24 +25,6 @@ function scan(items: unknown[], report: GenuiPortabilityReport, assets: Set<Genu
     if (node.type === 'icon' && typeof node.name === 'string' && ICONS[node.name] === undefined) assets.add('icons')
     if (typeof node.action === 'string' || node.type === 'entity-card' && Array.isArray(node.actions) && node.actions.some(action => typeof action.action === 'string')
       || node.type === 'submit' && (typeof node.action === 'string' || typeof node.resetAction === 'string')) report.hasModelActions = true
-    if (node.type === 'image' || node.type === 'audio' || node.type === 'video') {
-      const src = safeMediaSrc(node.src)
-      if (src !== undefined) report.externalMedia.push(src)
-      if (node.type === 'video') {
-        const poster = safeMediaSrc(node.poster)
-        if (poster !== undefined) report.externalMedia.push(poster)
-      }
-    }
-    if (node.type === 'image-group') {
-      for (const image of node.items.slice(0, GENUI_LIMITS.maxImageGroupItems)) {
-        const src = safeMediaSrc(image.src)
-        if (src !== undefined) report.externalMedia.push(src)
-      }
-    }
-    if (node.type === 'entity-card') {
-      const src = safeMediaSrc(node.image)
-      if (src !== undefined) report.externalMedia.push(src)
-    }
     if (Array.isArray(node.items) && node.type !== 'image-group') {
       if (node.type === 'carousel') scan(node.items.slice(0, GENUI_LIMITS.maxCarouselItems), report, assets)
       else if (node.type === 'list') scan(node.items.filter(child => typeof child === 'object' && child !== null && 'type' in child) as unknown[], report, assets)
@@ -61,6 +44,9 @@ export function analyzeGenuiPortability(spec: GenuiSpec): GenuiPortabilityReport
   scan(spec.items, report, assets)
   report.requiredAssets = ASSET_ORDER.filter(name => assets.has(name))
   report.customTypes = [...new Set(report.customTypes)]
-  report.externalMedia = [...new Set(report.externalMedia)]
+  for (const ref of collectGenuiMediaRefs(spec)) {
+    const src = safeMediaSrc(ref.src)
+    if (src !== undefined && !report.externalMedia.includes(src)) report.externalMedia.push(src)
+  }
   return report
 }

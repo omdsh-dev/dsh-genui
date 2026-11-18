@@ -1,7 +1,7 @@
 import { assetUrl } from '../asset-loader.ts'
 import { bytesToBase64 } from './base64.ts'
 import { parseGenuiArtifact } from './parse.ts'
-import { collectGenuiMediaRefs, inlineStandaloneMedia } from './media.ts'
+import { collectGenuiMediaRefs, inlineStandaloneMedia, isDesktopMediaUrl } from './media.ts'
 import { analyzeGenuiPortability } from './portability.ts'
 import { GenuiExportError, type GenuiArtifactV1, type GenuiStandaloneAsset } from './types.ts'
 import { STANDALONE_THEME_CSS } from './standalone-theme.ts'
@@ -48,6 +48,7 @@ export function resolveMediaUrls(spec: GenuiSpec, baseURI: string): GenuiSpec {
     const media = ref.src
     if (media === '' || /^https?:\/\//i.test(media)) continue
     const url = new URL(media, baseURI)
+    if (isDesktopMediaUrl(url) && isDesktopMediaUrl(new URL(baseURI))) continue
     if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new GenuiExportError('artifact-invalid', `media URL cannot be exported: ${media}`)
     ref.set(url.href)
   }
@@ -153,7 +154,7 @@ export async function buildStandaloneHtml(rawArtifact: GenuiArtifactV1): Promise
   }
   const baseURI = typeof document === 'undefined' ? 'about:blank' : document.baseURI
   const spec = baseURI === 'about:blank' ? artifact.spec : resolveMediaUrls(artifact.spec, baseURI)
-  const media = baseURI === 'about:blank' ? undefined : (await inlineStandaloneMedia(spec, { baseURI })).media
+  const media = baseURI === 'about:blank' ? undefined : await inlineStandaloneMedia(spec, baseURI)
   const names = [...report.requiredAssets.map(name => `${name}.js`), 'standalone-runtime.js']
   const results = await Promise.all(names.map(async name => [name, await cachedBundle(name, name === 'standalone-runtime.js' ? 'runtime' : name.slice(0, -3) as GenuiStandaloneAsset)] as const))
   return createStandaloneHtmlDocument({ ...artifact, spec }, new Map(results), baseURI, media)
