@@ -29,7 +29,10 @@
 
 ---
 
-`dsh-genui` turns DeepSeek Harness (DSH) assistant replies into **safe, fully interactive UI surfaces**.
+GenUI turns DeepSeek Harness (DSH) assistant replies into **safe, fully interactive UI surfaces**.
+
+> [!IMPORTANT]
+> Install GenUI using the full npm package name **`@changfenhuang/dsh-genui`**. See [Quick Start](#-quick-start) for setup.
 
 Ask “How are this month’s orders doing?”, and instead of plain text or raw code blocks, the response streams out an **interactive sortable data table**, **audio/video players**, **draggable function plots**, **self-grading quizzes**, or a **persistent workspace dock** — all embedded seamlessly within the conversation.
 
@@ -107,12 +110,10 @@ dsh plugin --profile web add @changfenhuang/dsh-genui
 
 > [!WARNING]
 > ### ⚠️ Installation Pitfalls to Avoid
-> 
-> 1. **Watch the Package Scope (Crucial)**:
->    The package must be **`@changfenhuang/dsh-genui`**. npm hosts an unrelated, unscoped package named `dsh-genui` (a Vue/OpenTiny implementation by another maintainer); installing it will fail due to incompatible host peer dependencies.
-> 2. **Do Not Use `link:` on a Freshly Cloned Directory**:
+>
+> 1. **Do Not Use `link:` on a Freshly Cloned Directory**:
 >    `link:` alone does not bundle or resolve peer assets (mermaid, three.js, React). Use npm for standard usage; reserve `link:` strictly for local development (see [Developer Guide](#-developer-guide)).
-> 3. **Migrating from Legacy `@omdsh-dev`**:
+> 2. **Migrating from Legacy `@omdsh-dev`**:
 >    If you installed from GitHub or the old org name before v0.9.2, clean up the stale key:
 >    ```sh
 >    dsh plugin --profile web remove @omdsh-dev/dsh-genui
