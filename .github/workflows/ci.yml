@@ -245,6 +245,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check skill on the Windows checkout
+        run: pnpm run test tests/skill-md.spec.ts tests/genui-skill-examples.spec.ts
+
       - name: Pack
         run: npm pack --json
 

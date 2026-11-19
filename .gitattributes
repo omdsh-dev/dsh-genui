@@ -1,0 +1,3 @@
+# 宿主按 LF 读取 SKILL.md 的文档头，shell 脚本的解释器声明也依赖 LF。
+/SKILL.md text eol=lf
+/scripts/**/*.sh text eol=lf

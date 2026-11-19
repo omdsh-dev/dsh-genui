@@ -294,6 +294,8 @@ pnpm run check:host-api dsh-v0.2.2-alpha.2  # 检查受支持的 npm alpha 接�
 node scripts/verify-pack.mjs --keep  # 生成并打包校验 tarball
 ```
 
+Windows CI 校验检出后的 `SKILL.md` 文档头和示例，并执行 `npm pack --json`。Linux CI 运行完整测试套件，包括 DOM 和 `install.sh` 测试。
+
 ### 端到端 E2E 验证
 
 CI 与发布任务通过 `node scripts/prepare-published-host.mjs 0.2.2-alpha.2` 从 npm 安装精确版本，在独立 web profile 中验收插件安装包。此通道使用 `DSH_HOST_LAYOUT=registry`、`DSH_HOST_VERSION=0.2.2-alpha.2` 和脚本返回的 `DSH_ROOT`、`DSH_BIN`；源码宿主通道继续固定到对应官方标签。同一 registry 通道也安装 `0.2.2-rc.1`，对应设置 `DSH_HOST_VERSION=0.2.2-rc.1`。npm 宿主验收将 Cordis 基础框架依赖固定到对应宿主发布清单所列版本，避免后续依赖解析改变测试宿主。当前 RC 与 alpha 的接口、图片集合与计算字段、Linux 地图检查全部通过后才发布 npm。动作使用官方本地回放；Android 真机及原 Windows Desktop 环境仍需单独验收。
