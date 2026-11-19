@@ -29,7 +29,10 @@
 
 ---
 
-`dsh-genui` 将大模型的文本回答无缝升级为**安全、可交互的原生 DSH 界面**。
+GenUI 将大模型的文本回答无缝升级为**安全、可交互的原生 DSH 界面**。
+
+> [!IMPORTANT]
+> 安装 GenUI 时请使用完整 npm 包名 **`@changfenhuang/dsh-genui`**。安装步骤见[快速开始](#-快速开始)。
 
 例如当你询问「这个月订单表现如何？」，模型给出的回答不再只是一串文字，而是边打字边在正文中展开一张**可排序的数据面板**、一段**内嵌音视频**、一个**可拖拽调参的函数图像**、一组**即时判卷的测验**，或是一个**常驻的会话工作区**——文本与 UI 和谐共存，浑然一体。
 
@@ -107,12 +110,10 @@ dsh plugin --profile web add @changfenhuang/dsh-genui
 
 > [!WARNING]
 > ### ⚠️ 安装避坑指南
-> 
-> 1. **认准包名 Scope（极为关键）**：
->    必须安装 **`@changfenhuang/dsh-genui`**。npm 上存在一个同名但无 Scope 的 `dsh-genui`（由其他维护者基于 Vue/OpenTiny 开发，与本插件完全不兼容），如不慎安装会被 DSH 宿主因 peer 依赖冲突拒绝。
-> 2. **切勿使用 `link:` 安装刚 git clone 的目录**：
+>
+> 1. **切勿使用 `link:` 安装刚 git clone 的目录**：
 >    纯 `link:` 不会自动安装 Mermaid、Three.js、React 等对等依赖，导致前端渲染报错。日常使用请走 npm 安装；仅本地源码开发时才使用 link（见[开发者指南](#-开发者指南)）。
-> 3. **从旧包名 `@omdsh-dev` 迁移**：
+> 2. **从旧包名 `@omdsh-dev` 迁移**：
 >    若在 v0.9.2 之前使用过 GitHub 源或旧组织名安装，请执行：
 >    ```sh
 >    dsh plugin --profile web remove @omdsh-dev/dsh-genui
