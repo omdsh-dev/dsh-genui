@@ -294,8 +294,6 @@ pnpm run check:host-api dsh-v0.2.2-alpha.2  # Check the supported npm alpha API,
 node scripts/verify-pack.mjs --keep  # Verify and inspect npm tarball
 ```
 
-On Windows, Vitest checks the `SKILL.md` frontmatter and examples from the checkout. Windows CI also runs `npm pack --json`. Linux CI runs the full test suite, including DOM and `install.sh` tests.
-
 ### End-to-End (E2E) Testing
 
 CI and the release workflow install `0.2.2-alpha.2` from npm with `node scripts/prepare-published-host.mjs 0.2.2-alpha.2`, then verify the packed plugin in a fresh web profile. This lane uses `DSH_HOST_LAYOUT=registry` and `DSH_HOST_VERSION=0.2.2-alpha.2` with the returned `DSH_ROOT` and `DSH_BIN`; the source-host lanes remain pinned to their official tags. The same registry-host lane also installs `0.2.2-rc.1`, with `DSH_HOST_VERSION=0.2.2-rc.1`. Registry-host checks pin Cordis framework dependencies to the versions recorded in each host’s published manifest so later dependency resolution cannot change the host graph. Both current RC and alpha API, gallery/computed and Linux Map checks must pass before npm publication. Actions use official local replay; Android device and original Windows Desktop acceptance remain separate.
