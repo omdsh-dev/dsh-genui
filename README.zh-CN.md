@@ -293,7 +293,7 @@ pnpm run check:host-api dsh-v0.2.2-alpha.2  # 检查受支持的 npm alpha 接�
 node scripts/verify-pack.mjs --keep  # 生成并打包校验 tarball
 ```
 
-Windows 下 Vitest 只校验检出后的 `SKILL.md` 文档头和示例，Windows CI 还会执行 `npm pack --json`。Linux CI 运行完整测试套件，包括 DOM 和 `install.sh` 测试。
+Windows CI 校验检出后的 `SKILL.md` 文档头和示例，并执行 `npm pack --json`。Linux CI 运行完整测试套件，包括 DOM 和 `install.sh` 测试。
 
 ### 端到端 E2E 验证
 

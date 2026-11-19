@@ -284,7 +284,7 @@ dsh plugin --profile web add link:$PWD
 ### Useful Commands
 
 ```sh
-pnpm run check           # Type checks + platform test suite + build
+pnpm run check           # Type checks + full unit test suite + build
 pnpm run test            # Run Vitest unit tests
 pnpm run check:host-api dsh-v0.2.1-rc.3  # Check the retained rc.3 host API
 pnpm run check:host-api dsh-v0.2.1-rc.4  # Check the earlier rc.4 API
