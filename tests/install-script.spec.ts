@@ -11,6 +11,25 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
+/**
+ * Creating a symlink needs Developer Mode or an elevated account on Windows, and these four safety
+ * cases all start by creating one. Without the probe they fail with
+ * `EPERM: operation not permitted, symlink ...`, which reads as a broken installer rather than a
+ * missing capability.
+ */
+const CAN_SYMLINK = (() => {
+  const probe = mkdtempSync(join(tmpdir(), 'genui-symlink-probe-'))
+  try {
+    symlinkSync(join(probe, 'target'), join(probe, 'link'))
+    return true
+  } catch {
+    return false
+  } finally {
+    rmSync(probe, { recursive: true, force: true })
+  }
+})()
+const itIfSymlink = it.skipIf(!CAN_SYMLINK)
+
 const INSTALL = join(process.cwd(), 'scripts', 'install.sh')
 const PACKAGE_SKILL = 'PACKAGE-SKILL-CONTENT-9f8e7d\n'
 
@@ -96,7 +115,7 @@ describe('install.sh skill sync safety', { timeout: 30_000 }, () => {
     expect(stdout).toContain('AGENTS_HOME/skills/genui')
   })
 
-  it('fails safely when the AGENTS root target is a symlink to another file', () => {
+  itIfSymlink('fails safely when the AGENTS root target is a symlink to another file', () => {
     const e = env()
     const sentinel = join(e.root, 'elsewhere', 'secret-agents.txt')
     mkdirSync(dirname(sentinel), { recursive: true })
@@ -118,7 +137,7 @@ describe('install.sh skill sync safety', { timeout: 30_000 }, () => {
     expect(readFileSync(e.dest, 'utf8')).toBe(PACKAGE_SKILL)
   })
 
-  it('skips a symlink that resolves to the same package file (dev ln -s case)', () => {
+  itIfSymlink('skips a symlink that resolves to the same package file (dev ln -s case)', () => {
     const e = env()
     const pkgSkill = join(e.profile, 'node_modules', '@changfenhuang', 'dsh-genui', 'SKILL.md')
     mkdirSync(dirname(e.dest), { recursive: true })
@@ -129,7 +148,7 @@ describe('install.sh skill sync safety', { timeout: 30_000 }, () => {
     expect(readFileSync(e.dest, 'utf8')).toBe(PACKAGE_SKILL)
   })
 
-  it('safely fails on a symlink pointing at ANOTHER file — sentinel bytes unchanged', () => {
+  itIfSymlink('safely fails on a symlink pointing at ANOTHER file — sentinel bytes unchanged', () => {
     const e = env()
     const sentinel = join(e.root, 'elsewhere', 'secret.txt')
     mkdirSync(dirname(sentinel), { recursive: true })
@@ -144,7 +163,7 @@ describe('install.sh skill sync safety', { timeout: 30_000 }, () => {
     expect(readFileSync(e.dest, 'utf8')).toBe('SENTINEL-12345\n') // still the link's target
   })
 
-  it('safely fails on a dangling symlink', () => {
+  itIfSymlink('safely fails on a dangling symlink', () => {
     const e = env()
     mkdirSync(dirname(e.dest), { recursive: true })
     symlinkSync(join(e.root, 'nowhere', 'missing.md'), e.dest)
