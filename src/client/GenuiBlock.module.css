@@ -2303,6 +2303,53 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   .switch, .switchKnob { transition: none; }
 }
 
+/* ---------- iOS Safari / WebKit 稳定渲染兜底 ----------
+   iOS Safari（WKWebView）在 container-type: inline-size 的尺寸容器内，
+   会把带 transform 动画的包装层和 overflow 滚动层提升为合成层；这类层在
+   某些滚动/离屏路径下会保留布局高度但整块不绘制（dsh-ui 的 table 表现为
+   空白一大块）。iOS 上退掉尺寸容器与入场 transform 动画，窄屏布局用媒体
+   查询兜底；桌面端仍走上面的容器查询与入场动画，观感不变。 */
+@supports (-webkit-touch-callout: none) {
+  .block { container-type: normal; }
+  .reveal { animation: none; }
+  /* 最后一道兜底：不再依赖横向滚动层，避免 iOS WebKit 对滚动容器的
+     合成层整块不绘制；窄表按容器宽度铺开，长文本换行显示。 */
+  @media (max-width: 760px) {
+    .tableWrap { overflow-x: visible; }
+    .table { width: 100%; min-width: 0; table-layout: fixed; font-size: var(--dsl-g-font-data); }
+    .table th, .table td {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: normal;
+      padding-left: 6px;
+      padding-right: 6px;
+    }
+  }
+}
+/* Narrow touch devices also use the mobile layout when the iOS feature
+   query is unavailable. Narrow desktop reply columns keep container queries. */
+@media (max-width: 760px) and (hover: none) and (pointer: coarse) {
+  .block { container-type: normal; }
+  .reveal { animation: none; }
+  .tableWrap { overflow-x: visible; }
+  .table { width: 100%; min-width: 0; table-layout: fixed; font-size: var(--dsl-g-font-data); }
+  .table th, .table td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
+/* 原 @container (max-width:560px) 的等价兜底：容器查询在窄屏已被关掉。 */
+@media (max-width: 560px) {
+  .grid { grid-template-columns: 1fr !important; }
+  .grid > [class*="gridSpan"] { grid-column: auto !important; }
+  .row { flex-wrap: wrap; }
+  .row > .card { flex-basis: 100%; }
+  .row > * { flex: 1 1 100% !important; }
+}
+
 /* ---------- thin scrollbars ----------
    Overflow containers (table, file-tree, mermaid, panel) get a restrained
    thin scrollbar instead of the browser's chunky default. WebKit hosts need
