@@ -265,14 +265,15 @@ export function genuiTemplates(): readonly GenuiTemplate[] {
       demo: {
         title: t('tpl.diagram.demo.title'),
         items: [
-          { type: 'diagram', kind: 'flowchart', title: t('tpl.diagram.demo.caption'), nodes: [
-            { id: 'a', label: t('tpl.diagram.demo.model'), x: 20, y: 20, w: 120, h: 48 },
-            { id: 'b', label: t('tpl.diagram.demo.plugin'), x: 20, y: 120, w: 120, h: 48 },
-            { id: 'c', label: t('tpl.diagram.demo.host'), x: 200, y: 70, w: 120, h: 48 },
+          { type: 'diagram', kind: 'flowchart', id: 'tpl-diagram-selection', title: t('tpl.diagram.demo.caption'), nodes: [
+            { id: 'a', label: t('tpl.diagram.demo.model'), description: t('tpl.diagram.demo.modelDetail'), x: 20, y: 20, w: 120, h: 48 },
+            { id: 'b', label: t('tpl.diagram.demo.plugin'), description: t('tpl.diagram.demo.pluginDetail'), x: 20, y: 120, w: 120, h: 48 },
+            { id: 'c', label: t('tpl.diagram.demo.host'), description: t('tpl.diagram.demo.hostDetail'), x: 200, y: 70, w: 120, h: 48 },
           ], edges: [
             { from: 'a', to: 'b' },
             { from: 'b', to: 'c' },
           ] },
+          { type: 'text', content: t('tpl.diagram.demo.linked'), when: { field: 'tpl-diagram-selection', op: 'eq', value: 'b' } },
         ],
       },
     },

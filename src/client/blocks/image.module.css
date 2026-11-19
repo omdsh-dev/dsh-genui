@@ -1,0 +1,135 @@
+/* Single-image block: the card frame, label and caption keep the shared
+   media styling from GenuiBlock.module.css. This module adds only the
+   click-to-zoom opener and the native dialog that shows the full image. */
+
+.zoom {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsl-g-radius-control, 8px);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: zoom-in;
+}
+
+.zoom:focus-visible {
+  outline: 2px solid var(--dsl-g-accent);
+  outline-offset: 3px;
+}
+
+.expand {
+  position: absolute;
+  right: var(--dsl-g-gap-sm, 8px);
+  bottom: var(--dsl-g-gap-sm, 8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-control, 8px);
+  background: var(--dsl-g-surface);
+  color: var(--dsw-alias-label-primary, inherit);
+  pointer-events: none;
+}
+
+/* The dialog stays inside the block subtree instead of portalling to the
+   document, so the host theme tokens and the surrounding surface still apply
+   (the same choice image-group and compare make). */
+.dialog {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  width: min(1100px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--dsl-g-border-surface, var(--dsl-g-border));
+  border-radius: var(--dsl-g-radius-surface, 12px);
+  padding: var(--dsl-g-gap-lg, 16px);
+  background: var(--dsw-alias-bg-layer-2, var(--dsl-g-surface));
+  color: var(--dsw-alias-label-primary, inherit);
+  box-shadow: var(--dsl-g-shadow-card);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 65%);
+}
+
+.dialogHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dsl-g-gap-md, 12px);
+  margin-bottom: var(--dsl-g-gap-md, 12px);
+}
+
+.dialogTitle {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--dsl-g-font-h3, 16px);
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.dialogClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-control, 8px);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dialogClose:hover {
+  border-color: var(--dsl-g-accent);
+  color: var(--dsw-alias-label-primary);
+}
+
+.dialogClose:focus-visible {
+  outline: 2px solid var(--dsl-g-accent);
+  outline-offset: 2px;
+}
+
+.frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+}
+
+.image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 76vh;
+  object-fit: contain;
+}
+
+.dialogCaption {
+  margin: var(--dsl-g-gap-md, 12px) 0 0;
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: var(--dsl-g-font-meta, 12.5px);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}

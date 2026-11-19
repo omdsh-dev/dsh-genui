@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="../../src/client/PlotBlock.module.css">
+</head>
+<body>
+  <div class="block" id="plot">
+    <div class="title" data-token="title"></div>
+    <svg><text class="tick" data-token="data">1</text></svg>
+    <div class="legendItem" data-token="meta"></div>
+    <div class="plotHint" data-token="hint"></div>
+    <button class="plotReset" data-token="reset"></button>
+  </div>
+  <pre id="results">pending</pre>
+  <script>
+    const tokenSizes = { title: 13, data: 11, meta: 12, hint: 12.5, reset: 12.5 }
+    const samples = []
+    for (const contentSize of [null, 10, 14, 17, 21, 22]) {
+      if (contentSize === null) document.body.style.removeProperty('--dsh-content-font-size')
+      else document.body.style.setProperty('--dsh-content-font-size', `${contentSize}px`)
+      for (const element of document.querySelectorAll('[data-token]')) {
+        samples.push({ root: 'plot', token: element.dataset.token, contentSize, fontSize: Number.parseFloat(getComputedStyle(element).fontSize) })
+      }
+    }
+    document.getElementById('results').textContent = JSON.stringify({ tokenSizes, samples })
+  </script>
+</body>
+</html>

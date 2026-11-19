@@ -1,0 +1,111 @@
+{
+  "id": "showcase-gallery",
+  "category": "showcase",
+  "note": "image-group 真实素材集：四张仓库自带截图（浅色宿主下拍摄，非本站渲染），点击进入原生 lightbox，方向键切图，Esc 返回。",
+  "zh": {
+    "title": "仓库里的真实截图",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "这四张是仓库自带的历史截图，在浅色宿主下拍摄。它们不是本站的实时渲染——下面每一块界面才是。"
+      },
+      {
+        "type": "image-group",
+        "title": "选集 · 面板 · 函数图 · 词云 · 成就 · 模板",
+        "items": [
+          {
+            "src": "assets/img/media/showcase.png",
+            "alt": "组件选集的截图：三张指标卡、环形进度与一张性能表",
+            "caption": "选集：指标卡、环形进度、表格"
+          },
+          {
+            "src": "assets/img/media/showcase-panel.png",
+            "alt": "主表明细与分组合计表的截图",
+            "caption": "主表明细：过滤、分组、合计"
+          },
+          {
+            "src": "assets/img/media/showcase-plot.png",
+            "alt": "两条正弦曲线的函数图截图，下方有参数滑块",
+            "caption": "plot：参数滑块本地重绘"
+          },
+          {
+            "src": "assets/img/media/issue-183-wordcloud-svg.png",
+            "alt": "词云图表的截图",
+            "caption": "echart：词云（完整引擎）"
+          },
+          {
+            "src": "assets/img/media/achievements.png",
+            "alt": "宿主面板中的探索成就截图",
+            "caption": "面板：指标 + 进度 + 条目"
+          },
+          {
+            "src": "assets/img/media/template-center.png",
+            "alt": "宿主面板中的模板中心截图",
+            "caption": "面板：模板卡网格"
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "图片是证据，不是装饰",
+        "content": "图片按原比例换行排布、不裁切；灯箱内可用方向键与 Home/End 切图，Esc 或关闭按钮回到触发位置。"
+      }
+    ]
+  },
+  "en": {
+    "title": "Real screenshots from the repo",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "These four are historical captures that ship with the repo, taken in a light host. They are not this site's live render — every surface below them is."
+      },
+      {
+        "type": "image-group",
+        "title": "Anthology · panel · plot · word cloud · achievements · templates",
+        "items": [
+          {
+            "src": "assets/img/media/showcase.png",
+            "alt": "A capture of the component anthology: three metric cards, a ring progress and a performance table",
+            "caption": "Anthology: metric cards, ring progress, table"
+          },
+          {
+            "src": "assets/img/media/showcase-panel.png",
+            "alt": "A capture of a master-detail table with a grouped totals table",
+            "caption": "Master-detail: filter, groups, totals"
+          },
+          {
+            "src": "assets/img/media/showcase-plot.png",
+            "alt": "A capture of a function plot with two sine curves and parameter sliders",
+            "caption": "plot: parameter sliders redraw locally"
+          },
+          {
+            "src": "assets/img/media/issue-183-wordcloud-svg.png",
+            "alt": "A capture of a word cloud chart",
+            "caption": "echart: word cloud (full engine)"
+          },
+          {
+            "src": "assets/img/media/achievements.png",
+            "alt": "Capture of the achievements panel inside a host",
+            "caption": "Panel: metrics, progress, rows"
+          },
+          {
+            "src": "assets/img/media/template-center.png",
+            "alt": "Capture of the template centre inside a host",
+            "caption": "Panel: a grid of template cards"
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "Images are evidence, not decoration",
+        "content": "Images wrap at their own aspect ratio and are never cropped; in the lightbox the arrow keys and Home/End switch images, and Esc or close returns focus to the opener."
+      }
+    ]
+  }
+}

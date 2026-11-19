@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 // Editorial diagram rendering: the `diagram` node renders inline SVG with the
 // editorial constraints (orthogonal paths, semantic tokens, a11y shell).
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { t } from '../src/client/i18n/index.ts'
 import { afterEach, describe, expect, it } from 'vitest'
+import { GenuiBlock } from '../src/client/GenuiBlock.tsx'
 import { DiagramNode } from '../src/client/blocks/diagram/index.tsx'
-import type { GenuiDiagram } from '../src/client/spec.ts'
+import { edgeLabelMetrics } from '../src/client/blocks/diagram/geometry.ts'
+import type { GenuiDiagram, GenuiSpec } from '../src/client/spec.ts'
 
 afterEach(cleanup)
 
@@ -22,7 +25,7 @@ const base: GenuiDiagram = {
 describe('DiagramNode', () => {
   it('renders an accessible svg with the diagram title', () => {
     const { container } = render(<DiagramNode node={base} />)
-    const svg = container.querySelector('svg[role="img"]')
+    const svg = container.querySelector('svg[role="group"]')
     expect(svg).not.toBeNull()
     expect(svg?.getAttribute('aria-labelledby')).toBeTruthy()
     const title = container.querySelector('title')
@@ -35,6 +38,122 @@ describe('DiagramNode', () => {
     expect(text).toContain('Web')
     expect(text).toContain('Postgres')
     expect(text).toContain('WRITE')
+  })
+
+  it('uses the shared measured width for a long horizontal edge label', () => {
+    const label = '实时同步到下游并写入归档库里'
+    const spec: GenuiDiagram = {
+      type: 'diagram',
+      kind: 'timeline',
+      nodes: [{ id: 'a', label: '采集端' }, { id: 'b', label: '清洗端' }],
+      edges: [{ from: 'a', to: 'b', label }],
+    }
+    const { container } = render(<DiagramNode node={spec} />)
+    const text = Array.from(container.querySelectorAll('text')).find(item => item.textContent === label)
+    expect(text).not.toBeUndefined()
+    const metrics = edgeLabelMetrics(label)
+    expect(Number(text?.getAttribute('textLength'))).toBeCloseTo(metrics.textWidth)
+    expect(Number(text?.getAttribute('x'))).toBeCloseTo(238)
+    const mask = text?.parentElement?.querySelector('rect')
+    expect(Number(mask?.getAttribute('width'))).toBeCloseTo(metrics.boxWidth)
+    expect(Number(mask?.getAttribute('x'))).toBeCloseTo(238 - metrics.boxWidth / 2)
+  })
+
+  it('selects nodes with pointer and keyboard input, then shows the node details', () => {
+    const spec: GenuiDiagram = {
+      ...base,
+      nodes: base.nodes.map((item, index) => index === 0 ? { ...item, description: 'Receives and routes requests.' } : item),
+    }
+    render(<DiagramNode node={spec} />)
+    const web = screen.getByRole('button', { name: 'Web' })
+    fireEvent.click(web)
+    expect(web.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('Receives and routes requests.')).not.toBeNull()
+    const database = screen.getByRole('button', { name: 'Postgres' })
+    fireEvent.keyDown(database, { key: ' ' })
+    expect(database.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('shares node selection with conditional sibling components', () => {
+    const spec: GenuiSpec = {
+      items: [
+        {
+          type: 'diagram',
+          kind: 'flowchart',
+          id: 'selectedNode',
+          nodes: [
+            { id: 'web', label: 'Web', description: 'Serves the application.' },
+            { id: 'db', label: 'Database', description: 'Stores application data.' },
+          ],
+        },
+        { type: 'text', content: 'Database explanation', when: { field: 'selectedNode', op: 'eq', value: 'db' } },
+      ],
+    }
+    render(<GenuiBlock spec={spec} />)
+    expect(screen.queryByText('Database explanation')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Database' }))
+    expect(screen.getByText('Database explanation')).not.toBeNull()
+    expect(screen.getByText('Stores application data.')).not.toBeNull()
+  })
+
+  it('removes selections synchronously when streaming removes the selected node', () => {
+    const spec: GenuiSpec = {
+      items: [
+        {
+          type: 'diagram', kind: 'flowchart', id: 'selectedNode',
+          nodes: [{ id: 'db', label: 'Database' }, { id: 'web', label: 'Web' }],
+        },
+        { type: 'text', content: 'Database explanation', when: { field: 'selectedNode', op: 'eq', value: 'db' } },
+      ],
+    }
+    const view = render(<GenuiBlock spec={spec} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Database' }))
+    expect(screen.getByText('Database explanation')).not.toBeNull()
+    view.rerender(<GenuiBlock spec={{ ...spec, items: [
+      { type: 'diagram', kind: 'flowchart', id: 'selectedNode', nodes: [{ id: 'web', label: 'Web' }] },
+      spec.items[1]!,
+    ] }} />)
+    expect(screen.queryByText('Database explanation')).toBeNull()
+    expect(screen.queryByText(t('dgm.details'))).toBeNull()
+  })
+
+  it('does not carry a local selection into a different diagram identity', () => {
+    const first: GenuiDiagram = {
+      type: 'diagram', kind: 'flowchart', id: 'firstSelection', nodes: [{ id: 'same', label: 'Shared node ID' }],
+    }
+    const second: GenuiDiagram = { ...first, id: 'secondSelection' }
+    const sibling: GenuiSpec['items'][number] = {
+      type: 'text', content: 'Selection followed the new diagram',
+      when: { field: 'secondSelection', op: 'eq', value: 'same' },
+    }
+    const view = render(<GenuiBlock spec={{ items: [first, sibling] }} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Shared node ID' }))
+    view.rerender(<GenuiBlock spec={{ items: [second, sibling] }} />)
+    expect(screen.queryByText('Selection followed the new diagram')).toBeNull()
+    expect(screen.queryByText(t('dgm.details'))).toBeNull()
+  })
+
+  it('rejects restored selections for nodes beyond the rendered limit', () => {
+    const nodes = Array.from({ length: 10 }, (_unused, index) => ({ id: `node-${index}`, label: `Node ${index}` }))
+    const spec: GenuiSpec = {
+      items: [{ type: 'diagram', id: 'selection', kind: 'flowchart', nodes }],
+    }
+    render(<GenuiBlock spec={spec} initialState={{ fields: { selection: 'node-9' } }} />)
+    expect(screen.queryByText(t('dgm.details'))).toBeNull()
+    expect(screen.queryByText('Node 9')).toBeNull()
+  })
+
+  it('links a selection made before a streaming update supplies the diagram id', async () => {
+    const diagram: GenuiDiagram = {
+      type: 'diagram', kind: 'flowchart', nodes: [{ id: 'db', label: 'Database' }],
+    }
+    const sibling: GenuiSpec['items'][number] = {
+      type: 'text', content: 'Database explanation', when: { field: 'selectedNode', op: 'eq', value: 'db' },
+    }
+    const view = render(<GenuiBlock spec={{ items: [diagram, sibling] }} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Database' }))
+    view.rerender(<GenuiBlock spec={{ items: [{ ...diagram, id: 'selectedNode' }, sibling] }} />)
+    await waitFor(() => expect(screen.getByText('Database explanation')).not.toBeNull())
   })
 
   it('renders an orthogonal path (elbow, not diagonal) for off-axis edges', () => {
@@ -122,11 +241,11 @@ describe('DiagramNode', () => {
     const texts = Array.from(container.querySelectorAll('text')).map(t => t.textContent)
     expect(texts).toContain('FRONTEND')
     expect(texts).toContain('DATA')
-    expect(texts).toContain('LEGEND')
+    expect(texts).toContain(t('dgm.legend'))
     // The legend lists only the node types this diagram actually uses: two
     // untyped nodes are `backend`, so `Backend` shows and unused roles do not.
-    expect(texts).toContain('Backend')
-    expect(texts).not.toContain('Security')
+    expect(texts).toContain(t('dgm.legend.backend'))
+    expect(texts).not.toContain(t('dgm.legend.security'))
     // Zone hairline rects exist (dashed border + label mask + node boxes).
     expect(container.querySelectorAll('rect').length).toBeGreaterThanOrEqual(8)
   })

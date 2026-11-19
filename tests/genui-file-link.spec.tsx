@@ -34,13 +34,16 @@ function sessionContext(sessionId = 'session-1', cwd = '/workspace/app') {
   let serviceCleanup: (() => void) | undefined
   const ctx = {
     get: vi.fn((name: 'sidebarRight') => name === 'sidebarRight' ? service : undefined),
-    sessions: { list: { getSnapshot: () => ({
-      current,
-      byId: {
+    sessions: {
+      list: { getSnapshot: () => ({
+        ids: [sessionId, 'session-2'],
+        byId: {
         [sessionId]: { id: sessionId, cwd, retainedBy: { mainView: 1 } },
         'session-2': { id: 'session-2', cwd: '/other', retainedBy: { mainView: current === 'session-2' ? 1 : 0 } },
-      },
-    }) } },
+        },
+      }) },
+      retainInfo: (id: string) => ({ getSnapshot: () => ({ retainedBy: { mainView: id === current ? 1 : 0 } }) }),
+    },
     inject: vi.fn((_names: ['sidebarRight'], callback: typeof onProvide) => { onProvide = callback })
   } as unknown as FileLinkCordisContext
   const availability = createFileLinkAvailability(ctx)
@@ -261,7 +264,7 @@ describe('host file-link service lifecycle', () => {
 })
 
 describe('fence render channels', () => {
-  it('opens a registry-rendered fence file through the provided session context', () => {
+  it('opens a fence-rendered file through the provided session context', () => {
     const host = sessionContext()
     const openResource = host.provide()
     const raw = JSON.stringify({ items: [{ type: 'text', content: '[Registry](src/registry.ts#L22)' }] })

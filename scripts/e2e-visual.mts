@@ -250,10 +250,6 @@ try {
   })
   const consoleLines: string[] = []
   page.on('console', msg => consoleLines.push(`${msg.type()}: ${msg.text()}`))
-  // 强制 DOM 通道：0.1.3+ 宿主带 registry 扩展点时插件默认走 registry 通道，
-  // 而 registry 只在真实 markdown 围栏里渲染；空 profile 的回归页需要一个
-  // 可注入的渲染表面，所以用这个 flag 把插件钉在 DOM 通道上。
-  await page.addInitScript(() => { (globalThis as { __DSH_GENUI_E2E__?: boolean }).__DSH_GENUI_E2E__ = true })
   // 走带 token 的根 URL：浏览器完成 303 → cookie 交换，之后的资源请求已认证。
   await page.goto(launchUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.waitForTimeout(5000)

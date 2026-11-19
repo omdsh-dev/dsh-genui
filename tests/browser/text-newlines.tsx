@@ -39,6 +39,10 @@ interface Case {
   tableGeometry?: boolean
   detailWhitespace?: boolean
   hostTableGeometry?: boolean
+  issue326Geometry?: boolean
+  narrowTableGeometry?: boolean
+  textWidthGeometry?: boolean
+  textCenterGeometry?: boolean
 }
 
 const cases: Case[] = []
@@ -136,6 +140,40 @@ cases.push({
   },
   selector: '', expected: '', whiteSpace: '', hostTableGeometry: true,
 })
+cases.push({
+  name: 'long nowrap text leaves room for a multi-line identifier column',
+  node: {
+    type: 'table',
+    columns: ['货号', '商品名称', '规格', '编码', '价格', '库存'],
+    rows: [[
+      '1024',
+      '洁柔粉Face悬挂抽纸280抽4层加厚柔韧可湿水不易烂可作洗脸巾可擦手面巾纸餐巾纸',
+      '抽纸',
+      'SPU 10001035164766\nSKU 18506716626',
+      '29.90',
+      '100',
+    ]],
+  },
+  selector: '', expected: '', whiteSpace: '', issue326Geometry: true,
+})
+cases.push({
+  name: 'short table fills its available width',
+  node: { type: 'table', columns: ['A', 'B'], rows: [['one', 'two']] },
+  selector: '', expected: '', whiteSpace: '', narrowTableGeometry: true,
+})
+cases.push({
+  name: 'CJK body text uses the full available width',
+  node: {
+    type: 'text', size: 'body',
+    content: '这是一段用于检查中文正文宽度的测试文本。每个汉字都占据接近一个 em 的宽度，正文应当使用容器提供的完整横向空间，并根据实际可用宽度自动换行。'.repeat(2),
+  },
+  selector: '', expected: '', whiteSpace: '', textWidthGeometry: true,
+})
+cases.push({
+  name: 'centered CJK body text aligns with the container center',
+  node: { type: 'text', size: 'body', align: 'center', content: '中文正文居中显示' },
+  selector: '', expected: '', whiteSpace: '', textCenterGeometry: true,
+})
 
 const tableLayout: GenuiNode = {
   type: 'table', columns: ['Group', 'Description'], types: ['group', 'text'],
@@ -151,7 +189,7 @@ flushSync(() => {
       <div id="fixtures">
         {cases.map((item, index) => (
           <section
-            className={`case${item.tableGeometry ? ' table-geometry' : ''}${item.hostTableGeometry ? ' host-table-geometry host-markdown' : ''}`}
+            className={`case${item.tableGeometry ? ' table-geometry' : ''}${item.hostTableGeometry ? ' host-table-geometry host-markdown' : ''}${item.issue326Geometry ? ' issue326-geometry' : ''}${item.textWidthGeometry ? ' text-width-geometry' : ''}${item.textCenterGeometry ? ' text-center-geometry' : ''}`}
             key={index}
             data-case={index}
           >
@@ -260,6 +298,94 @@ function measure(phase: string) {
           pass: chipWhiteSpaces.length > 0 && chipWhiteSpaces.every(value => value === 'pre'),
         },
       ]
+    }
+    if (item.issue326Geometry) {
+      const fixture = document.querySelector<HTMLElement>(`[data-case="${index}"]`)
+      const wrapper = fixture?.querySelector<HTMLElement>('[class*="tableWrap"]')
+      const table = wrapper?.querySelector<HTMLTableElement>('table')
+      const row = table?.querySelector<HTMLTableRowElement>('tbody tr')
+      const productCell = row?.cells[1]
+      const identifierCell = row?.cells[3]
+      if (wrapper == null || table == null || row == null || productCell == null || identifierCell == null) {
+        return { name: item.name, phase, pass: false, error: 'Missing issue #326 geometry fixture' }
+      }
+      const lineTops = new Set<number>()
+      const fontSize = parseFloat(getComputedStyle(identifierCell).fontSize)
+      const walker = document.createTreeWalker(identifierCell, NodeFilter.SHOW_TEXT)
+      for (let text = walker.nextNode(); text !== null; text = walker.nextNode()) {
+        const content = text.textContent ?? ''
+        for (let position = 0; position < content.length; position++) {
+          if (/\s/.test(content[position]!)) continue
+          const range = document.createRange()
+          range.setStart(text, position)
+          range.setEnd(text, position + 1)
+          for (const rect of range.getClientRects()) lineTops.add(Math.round(rect.top))
+        }
+      }
+      const identifierWidth = identifierCell.getBoundingClientRect().width
+      const productWidth = productCell.getBoundingClientRect().width
+      const rowHeight = row.getBoundingClientRect().height
+      const lineHeight = parseFloat(getComputedStyle(identifierCell).lineHeight)
+      // CJK fallback fonts differ across platforms: this table may legitimately
+      // fit without scrolling. Assert the #326 regression (column collapse)
+      // here; the wide Latin inline-code fixture above independently requires
+      // horizontal scrolling, without depending on installed CJK glyphs.
+      return [
+        {
+          name: `${item.name}: identifier column keeps usable width`, phase,
+          identifierWidth, productWidth, pass: identifierWidth > productWidth / 4,
+        },
+        {
+          name: `${item.name}: identifiers wrap into a small number of lines`, phase,
+          lineCount: lineTops.size, fontSize, pass: lineTops.size >= 2 && lineTops.size <= 4,
+        },
+        {
+          name: `${item.name}: row height stays within the wrapped content`, phase,
+          rowHeight, lineHeight, pass: rowHeight <= lineHeight * 5 + fontSize * 2,
+        },
+      ]
+    }
+    if (item.textWidthGeometry || item.textCenterGeometry) {
+      const fixture = document.querySelector<HTMLElement>(`[data-case="${index}"]`)
+      const reveal = fixture?.querySelector<HTMLElement>(`.${css.reveal}`)
+      const text = fixture?.querySelector<HTMLElement>(`.${css.text}.${css.body}`)
+      if (fixture == null || reveal == null || text == null) {
+        return { name: item.name, phase, pass: false, error: 'Missing text width fixture' }
+      }
+      const availableWidth = reveal.getBoundingClientRect().width
+      const textWidth = text.getBoundingClientRect().width
+      if (item.textWidthGeometry) {
+        return [{
+          name: item.name, phase, availableWidth, textWidth,
+          pass: Math.abs(availableWidth - textWidth) < 1,
+        }]
+      }
+      const range = document.createRange()
+      range.selectNodeContents(text)
+      const ink = range.getBoundingClientRect()
+      const container = reveal.getBoundingClientRect()
+      const inkCenter = (ink.left + ink.right) / 2
+      const containerCenter = (container.left + container.right) / 2
+      const textAlign = getComputedStyle(text).textAlign
+      return [{
+        name: item.name, phase, textAlign, inkCenter, containerCenter, textWidth, availableWidth,
+        pass: textAlign === 'center' && Math.abs(inkCenter - containerCenter) < 2
+          && Math.abs(availableWidth - textWidth) < 1,
+      }]
+    }
+    if (item.narrowTableGeometry) {
+      const fixture = document.querySelector<HTMLElement>(`[data-case="${index}"]`)
+      const wrapper = fixture?.querySelector<HTMLElement>('[class*="tableWrap"]')
+      const table = wrapper?.querySelector<HTMLTableElement>('table')
+      if (wrapper == null || table == null) {
+        return { name: item.name, phase, pass: false, error: 'Missing narrow-table geometry fixture' }
+      }
+      const tableWidth = table.getBoundingClientRect().width
+      return [{
+        name: `${item.name}: table fills the wrapper`, phase,
+        tableWidth, wrapperWidth: wrapper.clientWidth,
+        pass: tableWidth >= wrapper.clientWidth - 1,
+      }]
     }
     if (item.detailWhitespace) {
       const fixture = document.querySelector<HTMLElement>(`[data-case="${index}"]`)

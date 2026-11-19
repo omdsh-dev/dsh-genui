@@ -5,7 +5,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MarkdownText } from './genui-markdown.tsx'
-import { hasComponentRegistry, registerGenuiComponent } from './host-registry.ts'
 import { GenuiActionContext } from '../src/client/action-context.ts'
 import { GENUI_ACTION_DEBOUNCE_MS } from '../src/client/GenuiBlock.tsx'
 import { sampleExpr } from '../src/client/safe-math.ts'
@@ -252,35 +251,13 @@ describe('GenUI v2 interactive plot', () => {
   })
 })
 
-describe('GenUI component registry', () => {
-  it.skipIf(!hasComponentRegistry)('renders a plugin-registered custom type', () => {
-    const dispose = registerGenuiComponent('weather', ({ node }) => (
-      <div data-testid="weather-card">{String(node.temp)}°C {String(node.condition)}</div>
-    ))
-    try {
-      const { container } = render(<MarkdownText text={fenced({ items: [
-        { type: 'weather', temp: 24, condition: '晴' },
-      ] })} />)
-      expect(container.querySelector('[data-testid="weather-card"]')?.textContent).toBe('24°C 晴')
-    } finally {
-      dispose()
-    }
-  })
-
-  it('renders nothing for an unregistered unknown type', () => {
+describe('unknown GenUI component types', () => {
+  it('keeps an unsupported-only fence as visible source with a diagnostic', () => {
     const { container } = render(<MarkdownText text={fenced({ items: [
       { type: 'not-a-real-type', anything: true },
     ] })} />)
-    // Renders the block but no content from the unknown node.
-    expect(container.querySelector('[data-genui]')).not.toBeNull()
-  })
-
-  it.skipIf(!hasComponentRegistry)('refuses duplicate registration', () => {
-    const d1 = registerGenuiComponent('dup-test', () => null)
-    try {
-      expect(() => registerGenuiComponent('dup-test', () => null)).toThrow(/already registered/)
-    } finally {
-      d1()
-    }
+    expect(container.querySelector('[data-genui]')).toBeNull()
+    expect(container.textContent).toContain('not-a-real-type')
+    expect(container.querySelector('[role="alert"]')).not.toBeNull()
   })
 })

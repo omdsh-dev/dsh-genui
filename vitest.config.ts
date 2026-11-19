@@ -1,6 +1,8 @@
 import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
 
+const isWindows = process.platform === 'win32'
+
 export default defineConfig({
   resolve: {
     alias: [
@@ -12,14 +14,18 @@ export default defineConfig({
     ],
   },
   test: {
-    environment: 'jsdom',
-    // jsdom only exposes `localStorage` for a non-opaque origin. vitest's default URL is
-    // environment-dependent, and on Node 26 + jsdom 25 it comes out opaque — every spec that
-    // touches storage then dies on `localStorage.clear()` (218 tests locally, 0 on CI's Node 20).
-    // Naming the origin makes the suite independent of which Node happens to run it.
-    environmentOptions: { jsdom: { url: 'http://localhost:3000' } },
-    setupFiles: ['tests/setup.ts'],
-    include: ['tests/**/*.spec.{ts,tsx}'],
+    environment: isWindows ? 'node' : 'jsdom',
+    // Measured on an M-series laptop under full-suite parallelism: heavy DOM
+    // tests (fence bursts, the gallery render, the map type-check) take 5–11s
+    // there while finishing in ~1s alone. The 5s default made local runs fail
+    // where CI passes, which quietly devalues local verification. Individual
+    // hangs are still caught — just 15s later.
+    testTimeout: 20_000,
+    setupFiles: isWindows ? [] : ['tests/setup.ts'],
+    // Windows 检查实际检出的 SKILL.md。完整的浏览器模拟与 shell 测试由 Linux CI 执行。
+    include: isWindows
+      ? ['tests/skill-md.spec.ts', 'tests/genui-skill-examples.spec.ts']
+      : ['tests/**/*.spec.{ts,tsx}'],
     server: {
       deps: { inline: ['@deepseek-ai/dsh-client-ui-primitives'] },
     },

@@ -1,0 +1,19 @@
+{
+  "id": "atlas-link",
+  "category": "atlas",
+  "note": "link：有 href 才是真链接（http(s)/mailto）；没有 href 时渲染为纯文本样式，不假装可点。",
+  "zh": { "title": "link · 可点与不可点的区别", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "link", "label": "GitHub 仓库", "href": "https://github.com/omdsh-dev/dsh-genui" },
+      { "type": "link", "label": "没有地址的链接" }
+    ] },
+    { "type": "text", "size": "caption", "content": "左侧是新窗口打开的真锚点；右侧没有 href，只是同样的文字样式。" }
+  ] },
+  "en": { "title": "link · clickable vs not", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "link", "label": "GitHub repo", "href": "https://github.com/omdsh-dev/dsh-genui" },
+      { "type": "link", "label": "A link without an address" }
+    ] },
+    { "type": "text", "size": "caption", "content": "The left one is a real anchor opening in a new tab; the right one has no href and never pretends to be clickable." }
+  ] }
+}

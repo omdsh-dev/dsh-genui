@@ -1,0 +1,19 @@
+{
+  "id": "atlas-image-group",
+  "category": "atlas",
+  "note": "image-group：按原比例换行排布，点击进原生 lightbox；只做本地浏览，不发 action。素材为仓库自带 MIT 文件。",
+  "zh": { "title": "image-group · 一组图，点开放大", "items": [
+    { "type": "image-group", "title": "仓库自带素材", "items": [
+      { "src": "assets/img/media/genui-icon.svg", "alt": "GenUI 方形图标", "caption": "方标 36 × 36" },
+      { "src": "assets/img/media/genui-logo.svg", "alt": "GenUI 横向标志", "caption": "横向标志 284 × 64" },
+      { "src": "assets/img/media/showcase-plot.png", "alt": "函数图截图", "caption": "历史截图 1440 × 800" }
+    ] }
+  ] },
+  "en": { "title": "image-group · a set of images, open in place", "items": [
+    { "type": "image-group", "title": "Assets that ship with the repo", "items": [
+      { "src": "assets/img/media/genui-icon.svg", "alt": "GenUI square icon", "caption": "Square mark 36 × 36" },
+      { "src": "assets/img/media/genui-logo.svg", "alt": "GenUI horizontal logo", "caption": "Horizontal lockup 284 × 64" },
+      { "src": "assets/img/media/showcase-plot.png", "alt": "Function plot capture", "caption": "Historical capture 1440 × 800" }
+    ] }
+  ] }
+}

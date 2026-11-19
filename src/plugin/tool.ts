@@ -29,6 +29,8 @@ import { completeFenceJson } from '../shared/fence-repair.ts'
 import { droppedNodeFailure } from './genui-diagnostic.ts'
 import { collectInlineContentWarnings } from './inline-content-diagnostic.ts'
 import type { GenuiSpec } from '../client/spec.ts'
+import { toDshGoView } from './dsh-go-view.ts'
+import { dualNativeFence } from './dsh-go-compiler.ts'
 
 /**
  * Arguments schema: an open `spec` slot. The schema must NOT reject anything
@@ -48,8 +50,8 @@ const RENDER_UI_PARAMETERS: Record<string, unknown> = {
     spec: {
       type: 'object',
       description: [
-      'Render structured UI for the user (tool-row card). USE THIS whenever the answer contains ≥3 parallel points, a comparison, numbers/metrics, a step sequence, a flow, or a status/report — do NOT write those as markdown bullets or a markdown table.',
-      'Same white-listed vocabulary as the ```dsh-ui fence (see the GenUI system-prompt section). Pick the fence when the UI belongs in the message body; pick this tool when the deliverable is a self-contained card.',
+      'Render a GenUI spec in the tool row. Follow the current usage preference in the system prompt and the user request.',
+      'Use the component vocabulary and fields in the genui skill or system prompt reference.',
       'Deep-validated and repaired by the renderer. Pass the spec as a JSON OBJECT — never as a serialized JSON string (a string fails argument validation).',
     ].join(' '),
       // Structural hints for the tool-call bridge. A bare `object` here was
@@ -204,8 +206,8 @@ export function createRenderUiTool(): ToolDefinition {
   return {
     name: 'render_ui',
     description:
-      'Render an interactive UI card in the conversation tool row by passing a GenUI spec (a white-listed component tree; the same vocabulary as the ```dsh-ui fence, see the system prompt). '
-      + 'Use it when the user asks for a structured panel, dashboard, or form that belongs in the tool row rather than inline in the reply. '
+      'Render an interactive UI card in the conversation tool row by passing a GenUI spec (a white-listed component tree; see the genui skill or the system prompt reference). '
+      + 'Use it for a standalone UI in the tool result; use a dsh-ui fence for inline reply content, or panel:true for the session panel. Both channels preserve interaction state; choose by placement. Follow the current usage preference and user request. '
       + 'The card is interactive client-side (tabs, buttons, inputs, switches); components carrying an "action" field send [genui-action] back to you when the user interacts, and you should re-render the updated UI.',
     parameters: RENDER_UI_PARAMETERS,
     output: {
@@ -218,7 +220,13 @@ export function createRenderUiTool(): ToolDefinition {
         // spec is JSON-safe by construction (only string/number/boolean/array
         // fields after repair), so the widening cast is lossless.
         const processed = processRenderableValue(specOf(args))
-        return (isRenderableProcess(processed) ? processed.spec : null) as unknown as JsonValue
+        if (!isRenderableProcess(processed) || processed.spec === null) return null
+        const nativeView = toDshGoView(processed.spec)
+        // Keep the original root fields for existing web clients and replay.
+        // dsh-go reads only the namespaced, read-only native projection.
+        return (nativeView === null ? processed.spec : {
+          ...processed.spec, 'dsh-go/view': nativeView,
+        }) as unknown as JsonValue
       },
     },
     async execute(args: unknown): Promise<JsonValue> {
@@ -266,8 +274,10 @@ const VALIDATE_DESCRIPTION =
   + 'Pass the exact JSON text you are about to put inside the fence as the "spec" argument (a string). '
   + 'Returns a [genui-validation] protocol block with status, diagnostics, next action, and reply_language=conversation. '
   + 'When invalid JSON is repairable, repaired_json contains the fixed body; emit it only with next=emit_repaired_fence. '
+  + 'With next=emit_fence, MUST copy native_fence_json or validated_json verbatim into the fence; MUST NOT re-author the checked JSON. '
   + 'A warning=unknown_field requires fixing the indicated path and another validation call. '
-  + 'A warning=block_markdown requires the indicated replacement node and another validation call.'
+  + 'A warning=block_markdown requires the indicated replacement node and another validation call. '
+  + 'When native_fence_json is returned, emit that exact JSON: it keeps the web items and adds the existing dsh-go native projection. Native [dsh-ui reply] messages carry visible choices, not hidden action payloads.'
 
 const VALIDATE_PARAMETERS: Record<string, unknown> = {
   type: 'object',
@@ -278,6 +288,21 @@ const VALIDATE_PARAMETERS: Record<string, unknown> = {
         { type: 'object', description: 'The spec object (serialized before validation).' },
       ],
       description: 'The dsh-ui fence body to validate: pass the JSON as a string for an exact check, or as the spec object.',
+    },
+  },
+  required: ['spec'],
+  additionalProperties: false,
+}
+
+const VALIDATE_SPEC_PARAMETERS: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    spec: {
+      oneOf: [
+        { type: 'string', description: 'The exact JSON text of the GenUI spec.' },
+        { type: 'object', description: 'The GenUI spec object.' },
+      ],
+      description: 'The GenUI spec to validate, as JSON text or an object.',
     },
   },
   required: ['spec'],
@@ -341,11 +366,11 @@ function bracketDiagnostic(raw: string): string[] {
 const COMMON_CAUSES = 'likely_causes=unbalanced_delimiters,unescaped_quote,trailing_comma,unterminated_string'
 
 /** Build the validate_dsh_ui tool definition (registered alongside render_ui). */
-export function createValidateDshUiTool(): ToolDefinition {
+export function createValidateDshUiTool(fenceEnabled = true): ToolDefinition {
   return {
     name: 'validate_dsh_ui',
-    description: VALIDATE_DESCRIPTION,
-    parameters: VALIDATE_PARAMETERS,
+    description: fenceEnabled ? VALIDATE_DESCRIPTION : 'Validate a GenUI spec and return diagnostics and repair suggestions. Fix unknown fields and block_markdown warnings, then validate again.',
+    parameters: fenceEnabled ? VALIDATE_PARAMETERS : VALIDATE_SPEC_PARAMETERS,
     output: {
       schema: { type: 'string', description: 'Validation verdict for the model.' },
       render(_args: unknown, value: JsonValue): ContentBlock[] {
@@ -367,6 +392,13 @@ export function createValidateDshUiTool(): ToolDefinition {
         // FIXED JSON instead of asking it to re-author the fix — re-writing
         // the whole fence by hand is where the next typo comes from.
         const repaired = completeFenceJson(raw)
+        if (repaired?.unconsumedText !== undefined) {
+          return validationProtocol([
+            'status=invalid', 'error=unconsumed_content', ...bracketDiagnostic(raw),
+            'required=close_fence_before_following_content',
+            'preserve_unconsumed_content=true', 'next=fix_and_revalidate',
+          ])
+        }
         if (repaired !== null) {
           const repairedValue = JSON.parse(repaired.text) as unknown
           const processed = processRenderableValue(repairedValue)
@@ -418,10 +450,15 @@ export function createValidateDshUiTool(): ToolDefinition {
       const warnings = formatProcessWarnings(processed)
       const inlineWarnings = formatInlineContentWarnings(processed.spec)
       const requiresCorrection = inlineWarnings.length > 0 || processed.warnings.some(warning => warning.kind === 'unknown-field')
-      return validationProtocol([
+      const verdict = validationProtocol([
         'status=valid', `rendered=${processed.renderedCount}`, ...warnings, ...inlineWarnings,
         requiresCorrection ? 'next=fix_and_revalidate' : 'next=emit_fence',
       ])
+      const native = requiresCorrection ? null:dualNativeFence(processed.spec)
+      if (native !== null) return `${verdict}\nnative_fence_json:\n\`\`\`\n${JSON.stringify(native)}\n\`\`\``
+      return !requiresCorrection && fenceEnabled
+        ? `${verdict}\nvalidated_json:\n\`\`\`\n${JSON.stringify(processed.spec)}\n\`\`\``
+        : verdict
     },
     presentCall(): GenericCallView | undefined {
       return { card: 'generic', title: '验证 dsh-ui 围栏', kind: 'other' }

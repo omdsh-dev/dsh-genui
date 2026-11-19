@@ -1,0 +1,65 @@
+{
+  "id": "preset-flow",
+  "category": "playground",
+  "note": "流程预设：mermaid 引擎节点（重引擎，内容刻意保持极小但合法）+ steps 同一节奏的文字版。展示“自动布局需求才用 mermaid”。",
+  "zh": {
+    "title": "一次 action 的往返",
+    "gap": 12,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "围栏 JSON 是数据，不是脚本。箭头只表示因果，不表示渲染顺序。"
+      },
+      {
+        "type": "mermaid",
+        "code": "sequenceDiagram\n    participant U as 用户\n    participant B as 界面\n    participant M as 模型\n    U->>B: 点按钮 (action)\n    B->>M: 回传 action\n    M->>B: 新的 dsh-ui 围栏\n    B->>U: 就地渲染"
+      },
+      {
+        "type": "steps",
+        "current": 2,
+        "steps": [
+          { "title": "本地即时", "desc": "排序、过滤、判卷、折叠都不出浏览器" },
+          { "title": "显式 action", "desc": "只有需要新内容或执行工具时才回传" },
+          { "title": "新的界面", "desc": "模型返回一棵新组件树，同一位置重绘" }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "为什么大多数点击不需要动作",
+        "content": "界面自己能完成的状态变化，交给浏览器做完就好。把往返留给真正需要模型的那一步。"
+      }
+    ]
+  },
+  "en": {
+    "title": "One action, one round trip",
+    "gap": 12,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Fence JSON is data, not script. The arrows show cause and effect, not render order."
+      },
+      {
+        "type": "mermaid",
+        "code": "sequenceDiagram\n    participant U as Reader\n    participant B as Interface\n    participant M as Model\n    U->>B: Click (action)\n    B->>M: Send action back\n    M->>B: New dsh-ui fence\n    B->>U: Render in place"
+      },
+      {
+        "type": "steps",
+        "current": 2,
+        "steps": [
+          { "title": "Local first", "desc": "Sorting, filtering, grading and collapsing never leave the browser" },
+          { "title": "Explicit action", "desc": "Sent only when new content or a tool run is needed" },
+          { "title": "A new interface", "desc": "The model returns a new component tree, redrawn in the same place" }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "Why most clicks need no action",
+        "content": "State the interface can change on its own belongs to the browser. Save the round trip for the step that truly needs the model."
+      }
+    ]
+  }
+}

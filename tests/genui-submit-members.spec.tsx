@@ -31,6 +31,42 @@ afterEach(() => {
 })
 
 describe('submit submission members', () => {
+  it('uses computed radio labels and explanations in the final local grade', () => {
+    const { container } = mount({
+      computed: [{ id: 'answer', expr: '42' }],
+      items: [
+        { type: 'radio', group: 'q', label: 'Question {{answer}}', options: ['A', 'B'], answer: 0, explanation: 'Explanation {{answer}}' },
+        { type: 'submit', label: 'Grade', groups: ['q'] },
+      ],
+    }, [])
+    fireEvent.click(container.querySelector('input[type="radio"]')!)
+    fireEvent.click(submitUi(container).button)
+    const grade = container.querySelector('[data-genui-grade]')!
+    expect(grade.textContent).toContain('Question 42')
+    expect(grade.textContent).toContain('Explanation 42')
+    expect(grade.textContent).not.toContain('{{')
+  })
+
+  it('clears invalid numeric drafts when streaming replaces an input with another control', () => {
+    const actions: Action[] = []
+    const spec: GenuiSpec = { items: [
+      { type: 'input', id: 'amount', inputType: 'number', label: '金额', value: '2' },
+      { type: 'submit', label: 'Send', action: 'send', groups: ['amount'] },
+    ] }
+    const view = mount(spec, actions)
+    fireEvent.change(view.container.querySelector('input')!, { target: { value: '-' } })
+    expect(submitUi(view.container).button.disabled).toBe(true)
+    view.rerender(<GenuiActionContext.Provider value={(action, payload) => actions.push([action, payload])}>
+      <GenuiBlock spec={{ items: [
+        { type: 'select', id: 'amount', label: '金额', options: ['3'], selected: 0 },
+        spec.items[1]!,
+      ] }} />
+    </GenuiActionContext.Provider>)
+    expect(submitUi(view.container).button.disabled).toBe(false)
+    fireEvent.click(submitUi(view.container).button)
+    expect(actions).toEqual([['send', { type: 'submit', answers: {}, fields: { amount: '3' }, total: 1, answered: 1 }]])
+  })
+
   it('submits Issue #228 input groups at 0/2, 1/2, and 2/2', () => {
     const actions: Action[] = []
     const spec: GenuiSpec = { items: [
@@ -142,6 +178,72 @@ describe('submit submission members', () => {
     expect(submitUi(slider.container).hint).toContain('已选 1/1')
     fireEvent.click(submitUi(slider.container).button)
     expect(actions).toEqual([['send', { type: 'submit', answers: {}, fields: { amount: '2' }, total: 1, answered: 1 }]])
+  })
+
+  it('blocks submit while a required numeric draft is invalid and submits the corrected value', () => {
+    const actions: Action[] = []
+    const { container } = mount({
+      computed: [{ id: 'double', expr: 'amount*2' }],
+      items: [
+        { type: 'input', id: 'amount', label: '金额', inputType: 'number', value: '2' },
+        { type: 'text', content: '结果 {{double}}' },
+        { type: 'submit', label: 'Send', action: 'send', groups: ['amount'] },
+      ],
+    }, actions)
+    const input = container.querySelector('input')!
+
+    expect(submitUi(container).button.disabled).toBe(false)
+    fireEvent.change(input, { target: { value: '-' } })
+    expect(input).toHaveProperty('value', '-')
+    expect(submitUi(container).button.disabled).toBe(true)
+    expect(container.textContent).toContain('请输入有效的十进制数值')
+    expect(container.textContent).toContain('结果 4')
+    fireEvent.click(submitUi(container).button)
+    expect(actions).toEqual([])
+
+    fireEvent.change(input, { target: { value: '3' } })
+    expect(submitUi(container).button.disabled).toBe(false)
+    fireEvent.click(submitUi(container).button)
+    expect(actions).toEqual([['send', { type: 'submit', answers: {}, fields: { amount: '3' }, total: 1, answered: 1 }]])
+  })
+
+  it('rejects radix notation pasted into a numeric input', () => {
+    const actions: Action[] = []
+    const { container } = mount({ items: [
+      { type: 'input', id: 'amount', label: '金额', inputType: 'number', value: '2' },
+      { type: 'submit', label: 'Send', action: 'send', groups: ['amount'] },
+    ] }, actions)
+    const input = container.querySelector('input')!
+
+    fireEvent.change(input, { target: { value: '0x10' } })
+    expect(submitUi(container).button.disabled).toBe(true)
+    expect(container.textContent).toContain('请输入有效的十进制数值')
+    fireEvent.click(submitUi(container).button)
+    expect(actions).toEqual([])
+  })
+
+  it('clears numeric draft validity when a streaming update changes the field to text', () => {
+    const actions: Action[] = []
+    const numericSpec: GenuiSpec = { items: [
+      { type: 'input', id: 'amount', label: '金额', inputType: 'number', value: '2' },
+      { type: 'submit', label: 'Send', action: 'send', groups: ['amount'] },
+    ] }
+    const view = mount(numericSpec, actions)
+    const input = view.container.querySelector('input')!
+    fireEvent.change(input, { target: { value: '-' } })
+    expect(submitUi(view.container).button.disabled).toBe(true)
+
+    view.rerender(<GenuiActionContext.Provider value={(action, payload) => actions.push([action, payload])}>
+      <GenuiBlock spec={{ ...numericSpec, items: [
+        { type: 'input', id: 'amount', label: '金额', inputType: 'text', value: '0' },
+        numericSpec.items[1]!,
+      ] }} />
+    </GenuiActionContext.Provider>)
+
+    expect(view.container.querySelector('input')).toHaveProperty('value', '-')
+    expect(submitUi(view.container).button.disabled).toBe(false)
+    fireEvent.click(submitUi(view.container).button)
+    expect(actions).toEqual([['send', { type: 'submit', answers: {}, fields: { amount: '-' }, total: 1, answered: 1 }]])
   })
 
   it('counts mixed radio, checkbox, and field members and keeps their payload sections', () => {

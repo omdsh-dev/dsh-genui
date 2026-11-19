@@ -35,6 +35,51 @@ describe('assertSafeSvg', () => {
 })
 
 describe('repairMermaidSource', () => {
+  it.each(['@ 本机成员', '提@本机', '@ members'])('quotes bare mentions in actual pipe edge labels: %s', label => {
+    const src = `flowchart LR\nA -->|${label}| B`
+    expect(repairMermaidSource(src)).toBe(`flowchart LR\nA -->|"${label}"| B`)
+  })
+
+  it.each(['-->', '==>', '-.->', '---', '<-->', '---->'])('recognizes the %s link before a pipe label', arrow => {
+    const src = `flowchart LR\nA ${arrow}|@ members| B`
+    expect(repairMermaidSource(src)).toBe(`flowchart LR\nA ${arrow}|"@ members"| B`)
+  })
+
+  it('does not mistake a node label for an edge label', () => {
+    const src = 'flowchart LR\nA[a | @ b | c] --> B[plain]'
+    expect(repairMermaidSource(src)).toBe('flowchart LR\nA["a | @ b | c"] --> B[plain]')
+  })
+
+  it('preserves quoted node contents even when they contain arrow-like text', () => {
+    const src = 'flowchart LR\nA["a -->|@ b| c"]\nA -->|[tag]| B[plain]'
+    expect(repairMermaidSource(src)).toBe('flowchart LR\nA["a -->|@ b| c"]\nA -->|"[tag]"| B[plain]')
+  })
+
+  it('preserves comments and already-quoted edge labels during another repair', () => {
+    const src = 'flowchart LR\n%% A -->|@ comment| B\nA -->|"@ existing [tag]"| B\nB -->|@ next| C'
+    expect(repairMermaidSource(src)).toBe('flowchart LR\n%% A -->|@ comment| B\nA -->|"@ existing [tag]"| B\nB -->|"@ next"| C')
+  })
+
+  it('restores nested edge placeholders inside an already-quoted pipe label', () => {
+    const src = 'flowchart LR\nA -->|"-- status -->"| B\nB -->|@ members| C'
+    expect(repairMermaidSource(src)).toBe('flowchart LR\nA -->|"-- status -->"| B\nB -->|"@ members"| C')
+  })
+
+  it('parses repaired labels and the reported node counterexamples with the real engine', async () => {
+    const { default: mermaid } = await import('mermaid')
+    const sources = [
+      ...['-->', '==>', '-.->', '---', '<-->', '---->'].map(arrow => `flowchart LR\nA ${arrow}|@ members| B`),
+      'flowchart LR\nA -->|@ 本机成员| B',
+      'flowchart LR\nA[a | @ b | c] --> B[plain]',
+      'flowchart LR\nA["a | @ b | c"]\nA -->|[tag]| B[plain]',
+      'flowchart LR\nA["a -->|@ b| c"]\nA -->|[tag]| B[plain]',
+      'flowchart LR\nA -->|"-- status -->"| B\nB -->|@ members| C',
+    ]
+    for (const source of sources) {
+      await expect(mermaid.parse(repairMermaidSource(source))).resolves.toMatchObject({ diagramType: 'flowchart-v2' })
+    }
+  })
+
   it('quotes unquoted CJK and space labels in graph sources', () => {
     const repaired = repairMermaidSource('graph LR\nA[模型生成 spec] --> B[fence 通道]\nB --> C[plain]')
     expect(repaired).toContain('A["模型生成 spec"]')

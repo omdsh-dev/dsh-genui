@@ -1,0 +1,19 @@
+{
+  "id": "atlas-quiz",
+  "category": "atlas",
+  "note": "quiz：单选即判、可重试、带解析；id 变化时重置。适合单题自测，多题用 choices+submit 组卷。",
+  "zh": { "title": "quiz · 点选即判题", "items": [
+    { "type": "quiz", "id": "atlas-q1", "question": "白名单里共有多少个节点类型？", "options": [
+      { "label": "48" },
+      { "label": "60", "correct": true, "feedback": "对，按 schema 注册表逐一计数。" },
+      { "label": "84" }
+    ], "explanation": "布局 10、展示 22、图表 3、交互 18、高级 7，合计 60。" }
+  ] },
+  "en": { "title": "quiz · answer once, graded at once", "items": [
+    { "type": "quiz", "id": "atlas-q1", "question": "How many node types are on the whitelist?", "options": [
+      { "label": "48" },
+      { "label": "60", "correct": true, "feedback": "Correct — counted directly from the schema registry." },
+      { "label": "84" }
+    ], "explanation": "Layout 10, display 22, charts 3, interactive 18, advanced 7 — 60 in total." }
+  ] }
+}

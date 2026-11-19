@@ -1,0 +1,27 @@
+{
+  "id": "atlas-image",
+  "category": "atlas",
+  "note": "image：alt 是图上方标签行，caption 在图下方；只接受 http(s)/同源相对地址，懒加载。",
+  "zh": {
+    "title": "image · alt 在上，caption 在下",
+    "items": [
+      {
+        "type": "image",
+        "src": "assets/img/media/genui-logo.svg",
+        "alt": "GenUI 标志",
+        "caption": "仓库自带的 MIT 标志（284 × 64）；图片加载失败会显示错误态，不会静默留白。"
+      }
+    ]
+  },
+  "en": {
+    "title": "image · alt above, caption below",
+    "items": [
+      {
+        "type": "image",
+        "src": "assets/img/media/genui-logo.svg",
+        "alt": "GenUI logo",
+        "caption": "The repo's MIT logo (284 × 64); a failed load shows an error state instead of blank space."
+      }
+    ]
+  }
+}

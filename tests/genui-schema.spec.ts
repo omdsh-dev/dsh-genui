@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { partialRepairGenuiSpec, processGenuiSpec, repairGenuiSpec, validateGenuiSpec } from '../src/client/guard.ts'
 import { COMPONENT_SCHEMAS } from '../src/client/genui-runtime/schema.ts'
+import { GENUI_LIMITS } from '../src/client/genui-runtime/index.ts'
 import { normalizeGenuiSpec } from '../src/client/genui-runtime/normalize.ts'
 import { diagnoseUnknownGenuiFields } from '../src/client/genui-runtime/diagnostics.ts'
 import { validateRenderableChartSemantics } from '../src/plugin/chart-contract.ts'
@@ -33,6 +34,87 @@ describe('GenUI runtime schema normalization', () => {
     expect(validateGenuiSpec(legalRoot)).toEqual({ ok: true, errors: [] })
     expect(processGenuiSpec(legalRoot).errors).toEqual([])
     expect(validateGenuiSpec({ type: 'text', content: 'bare component' })).toEqual({ ok: true, errors: [] })
+  })
+
+  it('infers the six uniquely identified component types without changing the input', () => {
+    const spec = {
+      gap: 12,
+      items: [
+        { columns: ['Name'], rows: [['AGENTS.md']] },
+        { pairs: [{ key: 'status', value: 'active' }] },
+        { steps: [{ title: 'Review' }] },
+        { diffs: [{ path: 'a.ts', newText: 'updated' }] },
+        { meshes: [{ shape: 'box' }] },
+        { tabs: [{ label: 'Details', items: [{ columns: ['Name'], rows: [['README.md']] }] }] },
+      ],
+    }
+    const original = structuredClone(spec)
+    const normalized = normalizeGenuiSpec(spec)
+
+    expect(normalized.value).toEqual({
+      gap: 12,
+      items: [
+        { type: 'table', columns: ['Name'], rows: [['AGENTS.md']] },
+        { type: 'keyvalue', pairs: [{ key: 'status', value: 'active' }] },
+        { type: 'steps', steps: [{ title: 'Review' }] },
+        { type: 'diff', diffs: [{ path: 'a.ts', newText: 'updated' }] },
+        { type: 'scene3d', meshes: [{ shape: 'box' }] },
+        { type: 'tabs', tabs: [{ label: 'Details', items: [{ type: 'table', columns: ['Name'], rows: [['README.md']] }] }] },
+      ],
+    })
+    expect(processGenuiSpec(spec).errors).toEqual([])
+    expect(spec).toEqual(original)
+  })
+
+  it('processes the issue #325 table example with its original row data', () => {
+    const spec = {
+      gap: 12,
+      items: [{
+        columns: ['文件', '要点', '状态'],
+        rows: [
+          ['AGENTS.md', '全局基线', '在用'],
+          ['SOUL.md', '人格设定', '备份'],
+        ],
+      }],
+    }
+    const original = structuredClone(spec)
+    const normalized = normalizeGenuiSpec(spec)
+
+    expect(normalized.value).toEqual({
+      gap: 12,
+      items: [{ type: 'table', columns: spec.items[0]!.columns, rows: spec.items[0]!.rows }],
+    })
+    expect(processGenuiSpec(spec).errors).toEqual([])
+    expect(spec).toEqual(original)
+  })
+
+  it('infers uniquely shaped components nested in containers and list entries', () => {
+    const spec = {
+      items: [
+        ...['row', 'col', 'grid', 'card'].map(type => ({ type, items: [{ columns: ['Name'], rows: [['one']] }] })),
+        { type: 'list', items: [{ pairs: [{ key: 'status', value: 'ready' }] }] },
+      ],
+    }
+    const result = processGenuiSpec(spec)
+
+    expect(result.errors).toEqual([])
+    expect(result.normalized.items.slice(0, 4).map(container => container.items[0]?.type))
+      .toEqual(['table', 'table', 'table', 'table'])
+    expect(result.normalized.items[4]?.items[0]?.type).toBe('keyvalue')
+  })
+
+  it('does not infer ambiguous shapes or objects with an explicit invalid type', () => {
+    const nodes = [
+      { columns: ['Name'], rows: [['one']], tabs: [] },
+      { type: null, columns: ['Name'], rows: [['one']] },
+      { type: 123, columns: ['Name'], rows: [['one']] },
+    ]
+
+    for (const node of nodes) {
+      const raw = { items: [node] }
+      expect(normalizeGenuiSpec(raw).value).toEqual(raw)
+      expect(processGenuiSpec(raw).errors).toContain("items[0]: missing string 'type'")
+    }
   })
 
   it('exposes runtime required, optional, rule, and validator metadata', () => {
@@ -271,7 +353,7 @@ describe('GenUI runtime schema normalization', () => {
       .toContain("items[0]: type 'table' requires columns (array)")
   })
 
-  it('warns for native unknown fields but keeps custom nodes opaque', () => {
+  it('warns for native unknown fields and rejects unsupported types without interpreting their payload', () => {
     const native = diagnoseUnknownGenuiFields({ items: [
       { type: 'callout', content: 'x', typo: true },
       { type: 'custom-widget', typo: true, nested: { type: 'callout', kind: 'error' } },
@@ -282,10 +364,10 @@ describe('GenUI runtime schema normalization', () => {
       { type: 'callout', content: 'x', typo: true },
       { type: 'custom-widget', typo: true },
     ] })
-    expect(result.errors).toEqual([])
+    expect(result.errors.join(' ')).toContain("unknown type 'custom-widget'")
     expect(result.warnings.some(warning => warning.path === 'items[0].typo')).toBe(true)
     expect(result.warnings.some(warning => warning.path.includes('items[1]'))).toBe(false)
-    expect(result.repaired?.items[1]).toEqual({ type: 'custom-widget', typo: true })
+    expect(result.repaired?.items).toEqual([{ type: 'callout', content: 'x' }])
   })
 
   it('warns about unknown fields inside renderer-reachable table details', () => {
@@ -315,7 +397,8 @@ describe('GenUI runtime schema normalization', () => {
       }, {
         type: 'diagram',
         kind: 'flowchart',
-        nodes: [{ id: 'a', label: 'A', lable: 'typo' }],
+        id: 'selectedNode',
+        nodes: [{ id: 'a', label: 'A', description: 'Node detail', lable: 'typo' }],
         edges: [{ from: 'a', to: 'a', fro: 'typo' }],
         zones: [{ label: 'z', labell: 'typo' }],
         theme: { accent: '#fff', acccent: '#000' },
@@ -334,6 +417,8 @@ describe('GenUI runtime schema normalization', () => {
       'items[3].zones[0].labell',
       'items[3].theme.acccent',
     ]))
+    expect(warnings.some(warning => warning.path === 'items[3].id')).toBe(false)
+    expect(warnings.some(warning => warning.path === 'items[3].nodes[0].description')).toBe(false)
     expect(warnings.some(warning => warning.path.includes('custom-widget'))).toBe(false)
   })
 
@@ -344,7 +429,8 @@ describe('GenUI runtime schema normalization', () => {
     ] })
     expect(custom.declaredNativeCount).toBe(1)
     expect(custom.renderedNativeCount).toBe(0)
-    expect(custom.renderedTotalCount).toBe(1)
+    expect(custom.renderedTotalCount).toBe(0)
+    expect(custom.errors.join(' ')).toContain("unknown type 'custom-widget'")
     expect(custom.errors.some(error => error.includes('declared 1, rendered 0'))).toBe(true)
 
     const tree = processGenuiSpec({ items: [
@@ -467,5 +553,89 @@ describe('GenUI runtime schema normalization', () => {
       { type: 'callout', content: 'hello', tone: 'info' },
       { type: 'steps', steps: [{ title: 'one' }] },
     ] })
+  })
+})
+
+describe('GenUI pre-validation walks: depth guards', () => {
+  it.each(['file-tree', 'keyvalue'] as const)('rejects deeply nested record arrays without recursive normalization: %s', type => {
+    let nested: unknown = type === 'file-tree' ? { name: 'leaf' } : { key: 'a', value: 'b' }
+    for (let i = 0; i < 4000; i++) nested = [nested]
+    const raw = { items: [{ type, [type === 'file-tree' ? 'items' : 'pairs']: nested }] }
+    expect(() => normalizeGenuiSpec(raw)).not.toThrow()
+    const result = processGenuiSpec(raw)
+    expect(result.errors.length).toBeGreaterThan(0)
+    expect(() => JSON.stringify(result.spec)).not.toThrow()
+  })
+
+  it('rejects malformed arrays inside file-tree children while keeping normal siblings', () => {
+    let nested: unknown = { name: 'bad' }
+    for (let i = 0; i < 4000; i++) nested = [nested]
+    const result = processGenuiSpec({ items: [{ type: 'file-tree', items: [
+      { label: 'parent', children: [nested, { label: 'valid' }] },
+    ] }] })
+    expect(result.errors.length).toBeGreaterThan(0)
+    expect(result.spec?.items[0]).toEqual({ type: 'file-tree', items: [
+      { name: 'parent', type: 'dir', children: [{ name: 'valid' }] },
+    ] })
+  })
+
+  /** `depth` wrapping `col` nodes around `leaf`; the root item sits at depth 0. */
+  const chain = (depth: number, leaf: unknown = { type: 'text', content: 'leaf' }): Record<string, unknown> => {
+    let node: unknown = leaf
+    for (let i = 0; i < depth; i++) node = { type: 'col', items: [node] }
+    return node as Record<string, unknown>
+  }
+  const deepest = (root: unknown, steps: number): Record<string, unknown> => {
+    let node = root as Record<string, unknown>
+    for (let i = 0; i < steps; i++) node = (node.items as Record<string, unknown>[])[0]!
+    return node
+  }
+
+  it('normalizes exactly the rendered levels and leaves the over-deep tail untouched', () => {
+    // Depth 8 is the last level validation/repair keep, so its aliases must
+    // still be canonicalized (`items` → `options` on a select).
+    const atLimit = normalizeGenuiSpec({ items: [chain(GENUI_LIMITS.maxDepth, { type: 'select', items: ['a'] })] })
+    expect(deepest(atLimit.value, GENUI_LIMITS.maxDepth + 1).options).toEqual(['a'])
+    // Depth 9 is dropped by validation/repair: the guard returns that subtree
+    // as-is instead of walking it, and a 4k path must not blow the stack.
+    const overLimit = normalizeGenuiSpec({ items: [chain(GENUI_LIMITS.maxDepth + 1, { type: 'select', items: ['a'] })] })
+    expect(deepest(overLimit.value, GENUI_LIMITS.maxDepth + 2).items).toEqual(['a'])
+    expect(() => normalizeGenuiSpec({ items: [chain(4000)] })).not.toThrow()
+  })
+
+  it('accepts depth maxDepth and rejects the next level through the whole pipeline', () => {
+    const accepted = processGenuiSpec({ items: [chain(GENUI_LIMITS.maxDepth)] })
+    expect(accepted.errors).toEqual([])
+    expect(accepted.renderedNativeCount).toBe(GENUI_LIMITS.maxDepth + 1)
+    const rejected = processGenuiSpec({ items: [chain(GENUI_LIMITS.maxDepth + 1)] })
+    expect(rejected.errors.some(error => error.includes(`exceeds max depth ${GENUI_LIMITS.maxDepth}`))).toBe(true)
+    expect(rejected.renderedNativeCount).toBe(GENUI_LIMITS.maxDepth + 1)
+    expect(() => processGenuiSpec({ items: [chain(4000)] })).not.toThrow()
+  })
+
+  it('stops unknown-field diagnostics at maxDepth', () => {
+    const leaf = { type: 'text', content: 'leaf', bogus: 1 }
+    const atLimit = diagnoseUnknownGenuiFields({ items: [chain(GENUI_LIMITS.maxDepth, leaf)] })
+    expect(atLimit.some(warning => warning.path.endsWith('.bogus'))).toBe(true)
+    const overLimit = diagnoseUnknownGenuiFields({ items: [chain(GENUI_LIMITS.maxDepth + 1, leaf)] })
+    expect(overLimit.some(warning => warning.path.endsWith('.bogus'))).toBe(false)
+    expect(() => diagnoseUnknownGenuiFields({ items: [chain(4000, leaf)] })).not.toThrow()
+  })
+
+  it('stops the file-tree directory walk at maxTreeDepth', () => {
+    const tree = (levels: number): Record<string, unknown> => {
+      let node: Record<string, unknown> = { label: 'leaf' }
+      for (let level = 1; level < levels; level++) node = { label: `n${level}`, children: [node] }
+      return node
+    }
+    expect(() => processGenuiSpec({ items: [{ type: 'file-tree', items: [tree(4000)] }] })).not.toThrow()
+    const processed = processGenuiSpec({ items: [{ type: 'file-tree', items: [tree(GENUI_LIMITS.maxTreeDepth + 3)] }] })
+    let node = ((processed.spec!.items[0] as Record<string, unknown>).items as Record<string, unknown>[])[0]!
+    let level = 0
+    while (Array.isArray(node.children)) { node = (node.children as Record<string, unknown>[])[0]!; level += 1 }
+    // Repair keeps maxTreeDepth + 1 levels; the deepest kept directory keeps
+    // the `dir` marker the normalizer infers from its (now dropped) children.
+    expect(level).toBe(GENUI_LIMITS.maxTreeDepth)
+    expect(node.type).toBe('dir')
   })
 })

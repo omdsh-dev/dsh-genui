@@ -40,6 +40,9 @@ jobs:
       # 8MB+ 的自包含产物不进 git，线上永远跟随 main 的渲染器与选集内容。
       - name: Build renderer bundle
         run: pnpm build
+      # 产品站：先校验 84 份 dsh-ui 规格，再把渲染器与所需引擎 vendored 进 site/assets/genui
+      - name: Build product site
+        run: npx tsx site/scripts/build-site.mjs
       - name: Generate anthology page
         run: npx tsx scripts/build-anthology-page.mts
       - name: Configure Pages

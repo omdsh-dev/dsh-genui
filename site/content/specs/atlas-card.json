@@ -1,0 +1,17 @@
+{
+  "id": "atlas-card",
+  "category": "atlas",
+  "note": "card：eyebrow 小引题 + 标题 + 内容；同章多卡不必每张都加 eyebrow。",
+  "zh": { "title": "card · 有边界的一块内容", "items": [
+    { "type": "card", "eyebrow": "第 1 章", "title": "为什么需要边界", "items": [
+      { "type": "text", "size": "body", "content": "并排的内容没有边界就分不清归属；单段文字则不需要卡片。" },
+      { "type": "keyvalue", "pairs": [{ "key": "适用", "value": "并排网格 / 数据对象" }, { "key": "不适用", "value": "普通段落" }] }
+    ] }
+  ] },
+  "en": { "title": "card · one bounded piece of content", "items": [
+    { "type": "card", "eyebrow": "Chapter 1", "title": "Why a boundary helps", "items": [
+      { "type": "text", "size": "body", "content": "Side-by-side content needs an edge to show ownership; a single paragraph does not need a card at all." },
+      { "type": "keyvalue", "pairs": [{ "key": "Use it for", "value": "Grids / data objects" }, { "key": "Not for", "value": "Plain prose" }] }
+    ] }
+  ] }
+}

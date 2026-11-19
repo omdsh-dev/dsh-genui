@@ -14,9 +14,12 @@
  * The rev query rides the boot graph: the plugin's own row in
  * `window.__DSH_BOOT__` carries the client bundle rev, so a plugin rebuild
  * busts the asset cache together with the main bundle. Absent graph = no
- * query; the route serves no-cache anyway.
+ * query and the route answers `no-cache` (still revalidated by ETag); with a
+ * rev the URL names one build, so the route marks it immutable.
  * @module @changfenhuang/dsh-genui/client/asset-loader
  */
+
+import { createMermaidRenderDocument, loadAssetScript } from './asset-script.ts'
 
 /** The plugin's entry id — mirrors the loader entry name (package name). */
 const PLUGIN_ID = '@changfenhuang/dsh-genui'
@@ -62,35 +65,18 @@ const pending = new Map<string, Promise<Record<string, unknown>>>()
  * file: repeated requests (several mermaid nodes, re-renders) share one
  * script load; a failed load stays failed for the page (the component shows
  * its fallback).
- * @param name - 'mermaid', 'three', 'echarts-core', or 'echarts-full'.
+ * @param name - 'mermaid', 'three', 'echarts-core', 'echarts-full', or 'icons'.
  * @returns the registered engine surface.
  */
-export function loadGenuiAsset<T>(name: 'mermaid' | 'three' | 'echarts-core' | 'echarts-full'): Promise<T> {
+export function loadGenuiAsset<T>(name: 'mermaid' | 'three' | 'echarts-core' | 'echarts-full' | 'icons' | 'maplibre'): Promise<T> {
   const preloaded = preloadedAsset(name)
   if (preloaded !== undefined) return Promise.resolve(preloaded as T)
   const file = `${name}.js`
   const existing = pending.get(file)
   if (existing !== undefined) return existing as Promise<T>
-  const task = new Promise<T>((resolve, reject) => {
-    const script = document.createElement('script')
-    script.src = assetUrl(file)
-    script.async = true
-    script.onload = () => {
-      const global = (window as unknown as AssetGlobal).__GenuiAssets__ ?? {}
-      // Asset files are kebab-case; the keys they register are camelCase.
-      const key = name.replace(/-(\w)/g, (_m, ch: string) => ch.toUpperCase())
-      const api = global[key]
-      if (api === undefined) {
-        reject(new Error(`genui asset '${file}' loaded but registered no '${name}' engine`))
-        return
-      }
-      resolve(api as T)
-    }
-    script.onerror = () => {
-      reject(new Error(`genui asset '${file}' failed to load (host asset route missing?)`))
-    }
-    document.head.appendChild(script)
-  })
-  pending.set(file, task as unknown as Promise<Record<string, unknown>>)
+  const owner = name === 'mermaid' ? createMermaidRenderDocument() : document
+  const key = name.replace(/-(\w)/g, (_match, char: string) => char.toUpperCase())
+  const task = loadAssetScript(owner, assetUrl(file), file, key) as Promise<T>
+  pending.set(file, task as Promise<Record<string, unknown>>)
   return task
 }

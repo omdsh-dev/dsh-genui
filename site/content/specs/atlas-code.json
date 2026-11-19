@@ -1,0 +1,13 @@
+{
+  "id": "atlas-code",
+  "category": "atlas",
+  "note": "code：带语言标记的代码块；源码原样保留，不解析富文本。",
+  "zh": { "title": "code · 原样源码", "items": [
+    { "type": "code", "lang": "ts", "code": "export function isGenuiSpec(value: unknown): value is GenuiSpec {\n  return typeof value === 'object' && value !== null && Array.isArray(value.items)\n}" },
+    { "type": "text", "size": "caption", "content": "行内代码用 `反引号`；整段源码用 code 节点。" }
+  ] },
+  "en": { "title": "code · source, verbatim", "items": [
+    { "type": "code", "lang": "ts", "code": "export function isGenuiSpec(value: unknown): value is GenuiSpec {\n  return typeof value === 'object' && value !== null && Array.isArray(value.items)\n}" },
+    { "type": "text", "size": "caption", "content": "Inline code uses `backticks`; a whole source block uses the code node." }
+  ] }
+}

@@ -23,13 +23,29 @@
    Light mode uses no tint at all — see the token block below for why. */
 body[data-ds-dark-theme] .block,
 body[data-ds-dark-theme] .panel {
-  --dsl-g-surface: color-mix(in srgb, var(--dsw-alias-label-primary) 4%,
-    var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, transparent))));
+  --dsl-g-surface: var(--dsh-genui-surface, color-mix(in srgb, var(--dsw-alias-label-primary) 4%,
+    var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, transparent)))));
   --dsl-g-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.24), 0 8px 24px rgba(0, 0, 0, 0.18);
+  /* A hue over a near-black page loses more contrast than the same hue over
+     white (the base colour is already dark), so the surface wash needs a
+     higher alpha to read at all: 18% dark against 12% light. `tint-strong`
+     is deliberately NOT bumped: it drives focus glow and data accents, whose
+     weight was tuned separately. */
+  --dsl-g-tint: 18%;
+  --dsl-g-tint-quiet: 12%;
+  /* Dense semantic figures need more separation than a quiet surface wash.
+     Keep this local to blocks: tint-strong also controls focus/data accents.
+     Retain transparent compositing so a nested card or a skin remains the
+     backdrop, rather than pinning every figure to a host background layer. */
+  --dsl-g-blocks-tint: 28%;
+  --dsl-g-blocks-fill: 28%;
+  --dsl-g-blocks-border: 50%;
 }
 
 .block,
 .panel {
+  /* The layout breakpoints below key off THIS box's width, not the window's. */
+  container-type: inline-size;
   /* ── design tokens (design system v2) ──
      Declared on both the inline fence root and the session panel root: the
      panel header sits OUTSIDE the inner .block, so without the shared
@@ -45,18 +61,19 @@ body[data-ds-dark-theme] .panel {
      (34/28/24/19/16) against a 14.5px body, and the reading floor stays 12px.
      v11 names the three big figures by their OWNER: stat values, the single
      hero stat, and the hero cover's mega figure are three different jobs on
-     one scale (before v11: "--dsl-g-font-hero", a bare 44px and a bare 52px). */
-  --dsl-g-font-stat: 34px;
-  --dsl-g-font-stat-hero: 44px;
-  --dsl-g-font-mega: 52px;
-  --dsl-g-font-display: 28px;
-  --dsl-g-font-h1: 24px;
-  --dsl-g-font-h2: 19px;
-  --dsl-g-font-h3: 16px;
-  --dsl-g-font-body: 14.5px;
-  --dsl-g-font-title: 13.5px;
-  --dsl-g-font-meta: 12.5px;
-  --dsl-g-font-data: 12px;
+     one scale (before v11: "--dsl-g-font-hero", a bare 44px and a bare 52px).
+     宿主内容字号超过 17px 后按比例放大；原字号作为下限，保留默认设置下的层级。 */
+  --dsl-g-font-stat: max(34px, calc(var(--dsh-content-font-size, 14px) * 2));
+  --dsl-g-font-stat-hero: max(44px, calc(var(--dsh-content-font-size, 14px) * 2.588235294));
+  --dsl-g-font-mega: max(52px, calc(var(--dsh-content-font-size, 14px) * 3.058823529));
+  --dsl-g-font-display: max(28px, calc(var(--dsh-content-font-size, 14px) * 1.647058824));
+  --dsl-g-font-h1: max(24px, calc(var(--dsh-content-font-size, 14px) * 1.411764706));
+  --dsl-g-font-h2: max(19px, calc(var(--dsh-content-font-size, 14px) * 1.117647059));
+  --dsl-g-font-h3: max(16px, calc(var(--dsh-content-font-size, 14px) * 0.941176471));
+  --dsl-g-font-body: max(14.5px, calc(var(--dsh-content-font-size, 14px) * 0.852941176));
+  --dsl-g-font-title: max(13.5px, calc(var(--dsh-content-font-size, 14px) * 0.794117647));
+  --dsl-g-font-meta: max(12.5px, calc(var(--dsh-content-font-size, 14px) * 0.735294118));
+  --dsl-g-font-data: max(12px, calc(var(--dsh-content-font-size, 14px) * 0.705882353));
 
   --dsl-g-gap-lg: 16px;
   --dsl-g-gap-xl: 24px;
@@ -68,7 +85,7 @@ body[data-ds-dark-theme] .panel {
      component — control feedback, data growth, entrance reveal. */
   --dsl-g-dur-fast: 0.15s;
   --dsl-g-dur-grow: 0.6s;
-  --dsl-g-dur-reveal: 0.45s;
+  --dsl-g-dur-reveal: 0.25s;
   --dsl-g-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 
   --dsl-g-border: var(--dsw-alias-border-l1, var(--dsw-alias-border-l2, rgba(255, 255, 255, 0.12)));
@@ -82,8 +99,21 @@ body[data-ds-dark-theme] .panel {
   /* Zebra rows / table header wash: half the hover strength, so a striped
      table still reads as one surface rather than a stack of bands. */
   --dsl-g-zebra: color-mix(in srgb, var(--dsw-alias-label-primary) 2.5%, transparent);
-  --dsl-g-tint: 8%;
+  /* Semantic surface wash (v12). 8% was the v2 normalization, chosen when the
+     only consumer was a hover band. On a white canvas 8% of a saturated hue
+     lands under a 3% lightness step: badges, callouts, card tones and the new
+     icon plate all resolved to plain white, so every "tinted" surface read as
+     un-coloured and the block relied on its text alone. 12% light / 18% dark
+     keeps the host hue (no fixed pastels — those block dark theme) while
+     producing a visible step. `--dsl-g-tint-strong` stays at 14% for focus
+     glow and data accents; `--dsl-g-tint-quiet` keeps the old 8% for bands
+     that must not compete with content (zebra-adjacent washes). */
+  --dsl-g-tint: 12%;
+  --dsl-g-tint-quiet: 8%;
   --dsl-g-tint-strong: 14%;
+  --dsl-g-blocks-tint: var(--dsl-g-tint);
+  --dsl-g-blocks-fill: var(--dsl-g-tint-strong);
+  --dsl-g-blocks-border: 30%;
   --dsl-g-font-mono: var(--ds-font-family-code, ui-monospace, 'SF Mono', monospace);
   /* Elevation is theme-specific, because the two themes lift a card off the
      page by OPPOSITE means:
@@ -101,8 +131,17 @@ body[data-ds-dark-theme] .panel {
      #159 as "every card is grey". The 1px border keeps its 12% weight and is
      drawn over the surface, so on white it resolves to a quiet #e2e2e3
      hairline instead of 0.10.0's #cdcdce. */
-  --dsl-g-surface: var(--dsw-alias-bg-layer-2,
-    var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, #fff)));
+  /* `--dsh-genui-surface` is the skin's hook: a wallpaper / glass theme that
+     clears the host canvas can pin the surface (any colour, alpha allowed)
+     once on `:root` and get it everywhere. Without this indirection a skin
+     value is silently shadowed — this declaration lives on .block/.panel, so
+     the cascade never lets a :root one through.
+     Known limit (issue #398): with the default chain the surface is exactly
+     the host's layer colour. If a skin makes THAT colour translucent, the
+     inside of cards follows it; callout/tone washes stay readable because
+     they sit on top of the surface rather than replacing it. */
+  --dsl-g-surface: var(--dsh-genui-surface, var(--dsw-alias-bg-layer-2,
+    var(--dsw-alias-bg-layer-1, var(--dsw-alias-markdown-code-block, #fff))));
   /* Borders separate, shadows lift (design standard: "shadows over borders"):
      the outline stays quiet and the layered shadow carries the depth, with the
      first layer at the documented minimum `0 1px 3px rgba(0,0,0,0.10)`. */
@@ -126,39 +165,88 @@ body[data-ds-dark-theme] .panel {
 .panel *, .panel *::before, .panel *::after { box-sizing: border-box; }
 
 .banner {
-  /* Hierarchy through type, not decoration: the fence title reads as the page
-     heading (h1, 800) with a section-scale breath below it (gap-xl, v11) —
-     components under it start a new "chapter", not another row. The accent
-     bars v4 added read as PPT chrome and are gone. */
-  font-size: var(--dsl-g-font-h1);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--dsw-alias-label-primary);
-  padding-bottom: var(--dsl-g-gap-md);
-  margin-bottom: var(--dsl-g-gap-xl);
-  border-bottom: 1px solid var(--dsl-g-border);
+  /* A fence title sits INSIDE a reply, under the reply's own prose — it is a
+     caption for the block, not the page's headline. As h1/800 with a hairline
+     and a 24px gap it read as slide chrome: every titled block opened a new
+     chapter. As a 13.5px label it names the block and stays out of the way. */
+  font-size: var(--dsl-g-font-title);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--dsw-alias-label-secondary);
+  padding-bottom: 0;
+  margin-bottom: var(--dsl-g-gap-sm);
 }
+
+/* A node gated by `enableWhen`: still on screen (the requirement stays
+   discoverable) but inert — the attribute blocks focus and input, and
+   pointer-events covers browsers without `inert`. Dimmed, not hidden. */
+.nodeGate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-xs);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.nodeGateReason {
+  font-size: var(--dsl-g-font-meta);
+  color: var(--dsw-alias-label-tertiary);
+  pointer-events: none;
+}
+
+/* A node gated by `enableWhen`: still on screen (the requirement stays
+   discoverable) but inert — the attribute blocks focus and input, and
+   pointer-events covers browsers without `inert`. Dimmed, not hidden. */
+.nodeGate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-xs);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.nodeGateReason {
+  font-size: var(--dsl-g-font-meta);
+  color: var(--dsw-alias-label-tertiary);
+  pointer-events: none;
+}
+
 
 /* ---------- layout primitives ---------- */
 
-.col { display: flex; flex-direction: column; gap: var(--dsl-g-gap-md); }
+.col { display: flex; flex-direction: column; gap: var(--dsl-g-gap-md); min-width: 0; }
 .row { display: flex; align-items: center; gap: var(--dsl-g-gap-md); }
 .row.wrap { flex-wrap: wrap; }
 /* Cards contain fluid charts/tables: divide the available row, not their
    min-content widths (which can collapse a horizontal chart's tracks). */
 .row > .card { flex: 1 1 0; align-self: stretch; }
-.grid { display: grid; gap: var(--dsl-g-gap-md); }
+/* Default grid row alignment is `stretch`: a short card (a 4-line list) was
+   stretched to the height of a tall sibling (a table), leaving a visible empty
+   block inside its border. Cards hug their own content; the row may end
+   ragged, which reads as two objects instead of one broken object. */
+.grid { display: grid; gap: var(--dsl-g-gap-md); align-items: start; }
 /* Bento child: occupies N grid columns (the wrapper exists only so the child
    keeps its own layout). */
 .gridSpan { display: flex; flex-direction: column; min-width: 0; }
 .gridSpan > * { flex: 1; }
-/* Narrow conversation column (phone / split pane): a fixed 3-4 column grid
+/* Narrow column (phone / split pane / side panel): a fixed 3-4 column grid
    would squeeze every cell, so the grid collapses to one column. The inline
-   gridTemplateColumns from the spec needs !important to be overridden. */
-@media (max-width: 560px) {
+   gridTemplateColumns from the spec needs !important to be overridden.
+   This keys off the CONTAINER, not the window: the same reply renders in a
+   1100px chat column and a 320px side panel at the same window size, and a
+   window breakpoint handed the narrow case the desktop layout.
+   `.block` / `.panel` declare the container below. */
+@container (max-width: 560px) {
   .grid { grid-template-columns: 1fr !important; }
+  /* A bento span was computed for a multi-column grid; on one column it would
+     push its child past the edge. */
+  .grid > [class*="gridSpan"] { grid-column: auto !important; }
   .row { flex-wrap: wrap; }
   .row > .card { flex-basis: 100%; }
+  /* A wrapped child must own the line. Percentage columns carry an inline
+     `flex: 0 1 50%`, which outranks a plain flex-basis rule; without this reset
+     a half-width block sits alone on its line with dead space beside it. */
+  .row > * { flex: 1 1 100% !important; }
 }
 .spacer { flex: 1; }
 .divider {
@@ -260,8 +348,9 @@ body[data-ds-dark-theme] .panel {
 /* CJK reads looser than Latin at the same size: 1.7 for body copy, 1.65 for
    secondary lines, and no letter-spacing on Chinese runs (0.02em inserts
    visible gaps between Han characters). */
-/* ~65ch keeps a comfortable reading measure when the block is wide. */
-.text.body { font-size: var(--dsl-g-font-body); line-height: 1.7; color: var(--dsw-alias-label-primary); text-wrap: pretty; max-width: 68ch; }
+/* Keep body copy fluid: `ch` measures the width of "0", so a 68ch cap
+   leaves only about half the available measure for full-width CJK glyphs. */
+.text.body { font-size: var(--dsl-g-font-body); line-height: 1.7; color: var(--dsw-alias-label-primary); text-wrap: pretty; max-width: 100%; }
 .text.muted { font-size: var(--dsl-g-font-title); line-height: 1.65; color: var(--dsw-alias-label-secondary); }
 .text.caption { font-size: var(--dsl-g-font-meta); line-height: 1.6; color: var(--dsw-alias-label-secondary); }
 /* Display: the one-per-answer focal line (B1) — bigger than h1, carries the
@@ -272,7 +361,7 @@ body[data-ds-dark-theme] .panel {
   line-height: 1.25;
   letter-spacing: -0.02em;
 }
-.text.center { text-align: center; }
+.text.center { margin-inline: auto; text-align: center; }
 .text.left { text-align: left; }
 .text.right { text-align: right; }
 
@@ -303,7 +392,7 @@ body[data-ds-dark-theme] .panel {
    their hue; ghost washes over the surface it sits on). v11 retires the
    brightness-filter hover: filters ignored the theme's own hover language. */
 .button:hover:not(:disabled) { border-color: var(--dsl-g-accent); background-image: linear-gradient(var(--dsl-g-hover), var(--dsl-g-hover)); }
-.button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--dsl-g-accent) 92%, #fff); }
+.button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--dsl-g-accent) 94%, #0b1220); }
 /* Press feedback: a 1px sink makes every actionable control feel mechanical. */
 .button:active:not(:disabled) { transform: translateY(1px); }
 /* Display-only buttons (no action): honest disabled affordance — the
@@ -316,7 +405,10 @@ body[data-ds-dark-theme] .panel {
   pointer-events: none;
 }
 .button.primary {
-  background: var(--dsl-g-accent);
+  /* White on the raw accent (#4f8ef7) is 3.2:1 — the "primary" button read as
+     a disabled chip. Deepen the fill so the same white label clears 4.5:1; the
+     accent hue is unchanged, only its weight. */
+  background: color-mix(in srgb, var(--dsl-g-accent) 84%, #0b1220);
   border: none;
   color: #fff;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
@@ -355,6 +447,50 @@ body[data-ds-dark-theme] .panel {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint-strong), transparent);
 }
 .input::placeholder { color: var(--dsw-alias-label-caption, #5b6378); }
+
+/* One geometry for every single-line control (v13). The native <select> kept
+   the OS arrow and its own inset padding, so a 名称 / 环境 row rendered two
+   different control heights and two different arrows; radios kept the browser
+   default size while checkboxes were pinned to 15px, so a radio row and a
+   checkbox row did not line up. These three rules close those gaps without
+   changing the control language (same border, radius, focus ring). */
+.input, .select {
+  height: 34px;
+  padding: 0 12px;
+  line-height: 32px;
+}
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a8f9a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+}
+.radio input, .checkbox input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--dsl-g-accent);
+}
+.radio input:focus-visible, .checkbox input:focus-visible {
+  outline: 2px solid var(--dsl-g-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.button { min-height: 34px; }
+.button.small { min-height: 26px; }
+/* A tinted danger/success button sat at ~2.6:1 against its own text on the
+   dark canvas and read as disabled. The semantic hue stays; the LABEL is
+   mixed toward the surface's white so it clears 4.5:1. Light theme keeps the
+   saturated label (it does not need the help). */
+body[data-ds-dark-theme] .button.danger {
+  color: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) 68%, #fff);
+}
+body[data-ds-dark-theme] .button.success {
+  color: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) 58%, #fff);
+}
 
 .checkbox { display: flex; align-items: center; gap: var(--dsl-g-gap-sm); font-size: var(--dsl-g-font-title); color: var(--dsw-alias-label-secondary); cursor: pointer; }
 .checkbox input { accent-color: var(--dsl-g-accent); width: 15px; height: 15px; }
@@ -461,7 +597,11 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
-  font-family: var(--dsl-g-font-mono);
+  /* Display figures use the TEXT face, not the code face: SF Mono draws a
+     square period, so at 44-52px `99.96` rendered as `99■96`. Tabular figures
+     keep the digits aligned without borrowing the code font's punctuation. */
+  font-family: inherit;
+  font-feature-settings: "tnum" 1;
   font-size: var(--dsl-g-font-mega);
   font-weight: 750;
   letter-spacing: -0.028em;
@@ -551,6 +691,28 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   overflow: hidden;
   box-shadow: var(--dsl-g-shadow-card);
 }
+/* A stat nested in a surface must not draw a second surface. `stat` was
+   designed as its own metric card, so `card > stat` (the documented metric
+   pattern) rendered border-in-border with two backgrounds and two shadows —
+   the card read as two rectangles instead of one object. Inside a card the
+   stat keeps its typography and gives up padding, border, fill and shadow. */
+.card .stat {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+.card .grid > .stat,
+.card .row > .stat { border-left: 0; }
+/* The sparkline bleeds into the stat's OWN padding (negative side margins), a
+   trick that only works while the stat owns a surface. Inside a card that
+   bleed runs past the card's border. Keep it within the content box. */
+.card .stat .statSpark {
+  width: 100%;
+  margin: 6px 0 0;
+}
 /* Hero stat: one number is the answer's anchor (use it once per fence). */
 .statHero { padding: 18px 20px 20px; }
 .statHero .statValue { font-size: var(--dsl-g-font-stat-hero); line-height: 1.02; letter-spacing: -0.035em; }
@@ -567,7 +729,9 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   display: flex;
   align-items: baseline;
   gap: 3px;
-  font-family: var(--dsl-g-font-mono);
+  /* Same reason as .heroValue: the code face's square period. */
+  font-family: inherit;
+  font-feature-settings: "tnum" 1;
   font-size: var(--dsl-g-font-stat);
   font-weight: 700;
   letter-spacing: -0.03em;
@@ -662,6 +826,10 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 .tableWrap {
   border-radius: var(--dsl-g-radius-control);
   border: 1px solid var(--dsl-g-border-surface);
+  /* A table is a bare data grid by default (hairline box + 2.5% zebra). The
+     fill is opt-in for skins whose canvas is not opaque: they set this to
+     var(--dsh-genui-surface) to turn the grid into a panel (issue #398). */
+  background: var(--dsh-genui-surface-table, transparent);
   /* A table whose nowrap cells exceed the column width must scroll, not clip
      (mirrors the shell markdown table's .tableScroll pattern). */
   overflow-x: auto;
@@ -669,7 +837,7 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   max-width: 100%;
   min-width: 0;
 }
-.table { width: 100%; border-collapse: collapse; font-size: var(--dsl-g-font-title); }
+.table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: var(--dsl-g-font-title); }
 .table th {
   text-align: left;
   padding: 9px var(--dsl-g-gap-md);
@@ -690,6 +858,25 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   font-variant-numeric: tabular-nums;
   line-height: 1.5;
   vertical-align: middle;
+}
+/* `table.wrap: true` — prose layout: the table tracks the container and every
+   cell wraps, so a column of full sentences reads in place instead of
+   stretching the table into a horizontal scrollbar (#382). Opt-in because the
+   data-table voice above (nowrap + horizontal scroll on overflow, #326) is
+   still the right shape for short values.
+
+   `anywhere` lets long identifiers participate in intrinsic sizing; the
+   readable column floor prevents #326's one-glyph columns. When those floors
+   exceed the container, the existing wrapper scrolls. Direct ownership keeps
+   a detail's nested table independent. :where keeps explicit newline/code
+   whitespace rules below more specific than this default prose rule. */
+.tableWrapProse > .table { width: 100%; min-width: 0; table-layout: auto; }
+.tableWrapProse > .table > * > :where(tr) > * {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  min-width: 6em;
+  vertical-align: top;
 }
 /* The first column is the row's name: give it the weight of a label so a
    table reads as "these rows, these values" instead of a uniform grid. */
@@ -735,10 +922,17 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
    automatic minimum size collapses, the column can then be sized below its
    content, and the still-unbroken text is painted over the next column (#280).
    Keep the cell's own line-breaking contract for every table section. */
-.table > thead > tr > th:not(.tdCode):not(.tdMultiline) .inlineCode,
-.table > tbody > tr:not(.detailRow) > td:not(.tdCode):not(.tdMultiline) .inlineCode,
-.table > tfoot > tr > td:not(.tdCode):not(.tdMultiline) .inlineCode {
+.tableWrap:not(.tableWrapProse) > .table > thead > tr > th:not(.tdCode):not(.tdMultiline) .inlineCode,
+.tableWrap:not(.tableWrapProse) > .table > tbody > tr:not(.detailRow) > td:not(.tdCode):not(.tdMultiline) .inlineCode,
+.tableWrap:not(.tableWrapProse) > .table > tfoot > tr > td:not(.tdCode):not(.tdMultiline) .inlineCode {
   white-space: pre;
+}
+/* Host markdown makes code chips inline-flex. Prose cells need an inline box
+   that can break across lines while retaining spaces and copied newlines. */
+.tableWrapProse > .table > * > :where(tr:not(.detailRow)) > * .inlineCode {
+  display: inline;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 /* Rich-text owners must paint the real newlines kept by renderInline. Scope
    this to prose/labels: table data keeps nowrap and code keeps pre-wrap. For
@@ -999,10 +1193,27 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   background: var(--dsl-g-surface);
   box-shadow: var(--dsl-g-shadow-card);
 }
-.calloutInfo { background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent); }
-.calloutSuccess { background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent); }
-.calloutWarning { background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent); }
-.calloutError { background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent); }
+/* Tone = a wash ON TOP of the surface, never a replacement for it. Writing the
+   tint into `background` reset background-color to transparent, so on a canvas
+   that is not opaque (a wallpaper / glass skin) the callout showed the page
+   pattern through its own text (issue #398). `.callout` keeps the opaque
+   surface; the hue is painted over it as an image. */
+.calloutInfo {
+  --dsl-callout-wash: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-callout-wash), var(--dsl-callout-wash));
+}
+.calloutSuccess {
+  --dsl-callout-wash: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-callout-wash), var(--dsl-callout-wash));
+}
+.calloutWarning {
+  --dsl-callout-wash: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-callout-wash), var(--dsl-callout-wash));
+}
+.calloutError {
+  --dsl-callout-wash: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-callout-wash), var(--dsl-callout-wash));
+}
 .calloutInfo .calloutTitle { color: var(--dsw-alias-state-business-primary, #4f8ef7); }
 .calloutSuccess .calloutTitle { color: var(--dsw-alias-state-success-primary, #2f9e6b); }
 .calloutWarning .calloutTitle { color: var(--dsw-alias-state-warn-primary, #b8860b); }
@@ -1051,6 +1262,7 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   display: grid;
   place-items: center;
   font-size: var(--dsl-g-font-meta);
+  line-height: 1;
   font-weight: 700;
   flex-shrink: 0;
   background: var(--dsl-g-surface);
@@ -1341,11 +1553,24 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
   background: color-mix(in srgb, var(--dsw-alias-label-primary) 4%, transparent);
 }
 
-/* Card surface tones: tint + colored title, no bars. */
-.cardInfo { background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent); }
-.cardSuccess { background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent); }
-.cardWarning { background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent); }
-.cardDanger { background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent); }
+/* Card surface tones: tint + colored title, no bars. Same rule as the callout
+   tones above — the wash layers over the card's own surface (issue #398). */
+.cardInfo {
+  --dsl-card-wash: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-card-wash), var(--dsl-card-wash));
+}
+.cardSuccess {
+  --dsl-card-wash: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-card-wash), var(--dsl-card-wash));
+}
+.cardWarning {
+  --dsl-card-wash: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-card-wash), var(--dsl-card-wash));
+}
+.cardDanger {
+  --dsl-card-wash: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent);
+  background-image: linear-gradient(var(--dsl-card-wash), var(--dsl-card-wash));
+}
 .cardInfo > .cardTitle { color: var(--dsw-alias-state-business-primary, #4f8ef7); }
 .cardSuccess > .cardTitle { color: var(--dsw-alias-state-success-primary, #2f9e6b); }
 .cardWarning > .cardTitle { color: var(--dsw-alias-state-warn-primary, #b8860b); }
@@ -1393,14 +1618,33 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 
 /* ---------- table cell types (types: ["bar"|"badge"|...]) ---------- */
 
+/* Same tone system as the standalone `badge` node (see .badge.success above):
+   the cell resolves a state keyword in charts.tsx and gets the matching wash,
+   so a 状态 column finally encodes state. Unknown labels stay accent. */
 .cellBadge {
   display: inline-block;
   padding: 1px 8px;
   border-radius: var(--dsl-g-radius-pill);
   background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-tint), transparent);
   color: var(--dsw-alias-label-primary);
+  border: 1px solid color-mix(in srgb, var(--dsl-g-accent) 30%, transparent);
   font-size: var(--dsl-g-font-meta);
   font-weight: 600;
+}
+.cellBadge.success {
+  background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) var(--dsl-g-tint), transparent);
+  color: var(--dsw-alias-state-success-secondary, #7fe3b4);
+  border-color: color-mix(in srgb, var(--dsw-alias-state-success-primary, #3ecf8e) 30%, transparent);
+}
+.cellBadge.warn {
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) var(--dsl-g-tint), transparent);
+  color: var(--dsw-alias-state-warn-secondary, #f7cf7d);
+  border-color: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #f5b83d) 30%, transparent);
+}
+.cellBadge.danger {
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) var(--dsl-g-tint), transparent);
+  color: var(--dsw-alias-state-error-primary, #ff9d9d);
+  border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary, #ff6b6b) 30%, transparent);
 }
 .cellSpark { display: block; width: 88px; height: 22px; overflow: visible; }
 .cellRing { display: inline-flex; align-items: center; gap: 6px; }
@@ -1550,6 +1794,9 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 
 .textarea {
   width: 100%;
+  /* Same control box as .input/.select, but multi-line: a fixed height would
+     clip the field, so only a floor is set. */
+  min-height: 76px;
   background: var(--dsl-g-surface);
   border: 1px solid var(--dsl-g-border-surface);
   border-radius: var(--dsl-g-radius-control);
@@ -1635,10 +1882,45 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 .copyChip:active { transform: translateY(1px); }
 .copyChipDone { border-color: var(--dsw-alias-state-success-primary, #3ecf8e); color: var(--dsw-alias-state-success-primary, #3ecf8e); }
 
+.copyExpandable { min-width: 0; max-width: 100%; }
+.copyControls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dsl-g-gap-xs); }
+.copyPreview {
+  box-sizing: border-box;
+  max-height: 240px;
+  overflow: auto;
+  margin: var(--dsl-g-gap-xs) 0 0;
+  padding: var(--dsl-g-gap-sm);
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-control);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--dsl-g-font-mono);
+  font-size: var(--dsl-g-font-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.copyPreviewHint { margin-top: var(--dsl-g-gap-xs); color: var(--dsw-alias-label-secondary); font-size: var(--dsl-g-font-meta); }
+
 /* ---------- mermaid ---------- */
 
-.mermaid { overflow-x: auto; padding: var(--dsl-g-gap-xs) 0; }
-.mermaid svg { max-width: 100%; height: auto; }
+.mermaid {
+  overflow-x: auto;
+  padding: var(--dsl-g-gap-xs) 0;
+  /* Auto-layout diagrams are drawn at their intrinsic size: a 3-node vertical
+     flowchart is ~130px wide and used to sit at the left edge of a 1000px
+     column as a thumbnail. Centre it and let it fill a readable width. */
+  display: flex;
+  justify-content: center;
+}
+.mermaid svg {
+  /* Both axes are capped: `max-width` stops a sparse diagram from becoming a
+     3000px-tall poster, `max-height` keeps a tall one on screen. The viewBox
+     keeps the aspect ratio, so the content letterboxes rather than stretches. */
+  width: 100%;
+  max-width: 720px;
+  max-height: 520px;
+  height: auto;
+}
 .mermaidFallback { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
 .mermaidFallback pre {
   margin: 0;
@@ -1652,6 +1934,23 @@ img.mediaPlayer { aspect-ratio: 16 / 9; object-fit: cover; background: var(--dsl
 }
 .mermaidErr { color: var(--dsw-alias-state-error-primary, #ff6b6b); font-size: var(--dsl-g-font-meta); }
 .mermaidHint { color: var(--dsw-alias-label-tertiary); font-size: var(--dsl-g-font-meta); }
+
+/* ---------- 交互图解 ---------- */
+
+.diagramNode { cursor: pointer; outline: none; }
+.diagramNode:focus-visible { filter: drop-shadow(0 0 2px var(--dsl-g-accent)); }
+.diagramDetails {
+  display: grid;
+  gap: var(--dsl-g-gap-xs);
+  margin-top: var(--dsl-g-gap-sm);
+  padding: var(--dsl-g-gap-sm) var(--dsl-g-gap-md);
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-control);
+  background: var(--dsl-g-surface);
+  color: var(--dsw-alias-label-primary);
+  font-size: var(--dsl-g-font-body);
+}
+.diagramDetailsHeading { color: var(--dsw-alias-label-tertiary); font-size: var(--dsl-g-font-meta); }
 
 /* ---------- scene3d ---------- */
 
@@ -1836,7 +2135,11 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   flex-direction: column;
   gap: var(--dsl-g-gap-md);
   padding: var(--dsl-g-gap-lg);
-  border: 1px solid var(--dsl-g-border);
+  /* Same surface as a card: the placeholder is announcing a block, and a block
+     in this product is an elevated surface. Without it the shimmer bars sit on
+     the page colour and the whole thing reads as a rectangle of nothing. */
+  background: var(--dsl-g-surface);
+  border: 1px solid var(--dsl-g-border-surface);
   border-radius: var(--dsl-g-radius-surface);
   background: var(--dsl-g-surface);
 }
@@ -1849,14 +2152,96 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 .skeletonBars { display: flex; gap: var(--dsl-g-gap-sm); }
 .skeletonBars > span { display: block; height: 44px; border-radius: var(--dsl-g-radius-control); }
 .skeletonBlock { display: block; height: 76px; border-radius: var(--dsl-g-radius-control); }
+/* The known title is real text, not a bar: seeing the card's own heading keeps
+   the placeholder from reading as a different component. */
+.skeletonHeading {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+  opacity: 0.75;
+}
+
+.skeletonRows { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
+.skeletonRows > span { display: block; border-radius: var(--dsl-g-radius-pill); }
+
+.skeletonTable { display: flex; flex-direction: column; gap: 6px; }
+.skeletonRowHead,
+.skeletonRow { display: flex; gap: var(--dsl-g-gap-md); }
+.skeletonRowHead > span,
+.skeletonRow > span { display: block; height: 10px; border-radius: var(--dsl-g-radius-pill); }
+.skeletonRowHead { padding-bottom: 6px; border-bottom: 1px solid var(--dsl-g-border); }
+.skeletonRowHead > span { height: 8px; opacity: 0.85; }
+
+.skeletonChart { display: flex; gap: 6px; align-items: stretch; height: 96px; }
+.skeletonAxis { width: 22px; border-radius: var(--dsl-g-radius-control); }
+.skeletonChart .skeletonBars { flex: 1; align-items: flex-end; gap: var(--dsl-g-gap-md); }
+.skeletonChart .skeletonBars > span { flex: 1; border-radius: 4px 4px 2px 2px; }
+
+.skeletonStat { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); }
+.skeletonStat > span { display: block; border-radius: var(--dsl-g-radius-control); }
+
+.skeletonDiagram { display: flex; align-items: center; gap: var(--dsl-g-gap-md); }
+.skeletonDiagram > span:first-child,
+.skeletonDiagram > span:last-child { display: block; border-radius: var(--dsl-g-radius-control); }
+.skeletonLink { flex: 1; height: 2px; border-radius: 2px; }
+
+.skeletonMedia {
+  display: block;
+  height: 132px;
+  border-radius: var(--dsl-g-radius-control);
+}
+
+/* An object placeholder (button/divider) has no surface: it is not a block. */
+.skeletonInline {
+  background: none;
+  border-color: transparent;
+  padding: var(--dsl-g-gap-sm) 0;
+}
+
+/* Donut charts arrive as a ring: the legend sits beside it, like the real one. */
+.skeletonDonut { display: flex; align-items: center; gap: var(--dsl-g-gap-lg); }
+.skeletonRing {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  /* A ring, not a white disc: same quiet fill as the other bars. */
+  border: 22px solid color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent);
+  box-sizing: border-box;
+  animation: dsl-skeletonPulse 1.4s ease-in-out infinite;
+}
+@keyframes dsl-skeletonPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.skeletonLegend { display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); flex: 1; }
+.skeletonLegend > span { display: block; height: 9px; border-radius: var(--dsl-g-radius-pill); }
+
+.skeletonControl { display: block; width: 132px; height: 30px; border-radius: var(--dsl-g-radius-control); }
+.skeletonRule { display: block; width: 100%; height: 1px; border-radius: 1px; }
+
 .skeletonTitle,
 .skeletonBars > span,
-.skeletonBlock {
+.skeletonBlock,
+.skeletonHeading + .skeletonBars,
+.skeletonRows > span,
+.skeletonRowHead > span,
+.skeletonRow > span,
+.skeletonAxis,
+.skeletonChart .skeletonBars > span,
+.skeletonStat > span,
+.skeletonDiagram > span,
+.skeletonLink,
+.skeletonMedia,
+.skeletonControl,
+.skeletonRule,
+.skeletonRing,
+.skeletonLegend > span {
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent) 0%,
-    color-mix(in srgb, var(--dsw-alias-label-primary) 13%, transparent) 50%,
-    color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent) 100%
+    color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent) 0%,
+    color-mix(in srgb, var(--dsw-alias-label-primary) 16%, transparent) 50%,
+    color-mix(in srgb, var(--dsw-alias-label-primary) 7%, transparent) 100%
   );
   background-size: 200% 100%;
   animation: dsl-skeleton 1.4s ease-in-out infinite;
@@ -1866,16 +2251,32 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
   100% { background-position: -200% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .skeletonRing { animation: none; }
   .skeletonTitle,
   .skeletonBars > span,
-  .skeletonBlock { animation: none; }
+  .skeletonBlock,
+  .skeletonRows > span,
+  .skeletonRowHead > span,
+  .skeletonRow > span,
+  .skeletonAxis,
+  .skeletonStat > span,
+  .skeletonDiagram > span,
+  .skeletonMedia,
+  .skeletonControl { animation: none; }
 }
+
+/* The skeleton → component transition is animated in the DOM channel
+   (dom-fence: swapWithTransition) so it stays contained to the block: a
+   document-level View Transition cross-faded the whole page, which made the
+   prose below appear twice mid-flight. */
 
 /* ---------- staggered reveal ---------- */
 
+/* Keep content visible when a WebView defers or pauses an entrance
+   animation (for example, while the component is offscreen). */
 @keyframes genuiReveal {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(10px); }
+  to { transform: translateY(0); }
 }
 
 @keyframes genuiPopIn {
@@ -1884,7 +2285,7 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 }
 
 .reveal {
-  animation: genuiReveal var(--dsl-g-dur-reveal) var(--dsl-g-ease-out) backwards;
+  animation: genuiReveal var(--dsl-g-dur-reveal) var(--dsl-g-ease-out);
 }
 
 /* "✓ 已触发" confirmation chip: appears next to the button without layout
@@ -2334,3 +2735,218 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
 /* Formula markup remains phrasing content inside labels and buttons. */
 .inlineMath { display: inline; }
 .inlineMath [class~="katex-display"] { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+
+/* ---------- v12: icon + blocks (figure primitives) ---------- */
+
+/* Inline glyph. Size comes from the node (16/20/24/32) so an icon can sit on
+   a title's optical baseline; the plate form adds the tinted rounded square
+   that marks a stage in a figure. */
+.iconNode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  line-height: 0;
+  vertical-align: -0.15em;
+  color: var(--dsw-alias-label-primary);
+}
+.iconNode svg { display: block; }
+.iconNode[data-tile="true"] {
+  border-radius: 10px;
+  background: color-mix(in srgb, currentColor var(--dsl-g-tint), transparent);
+}
+/* Tones pick the *foreground*; the plate derives its wash from currentColor,
+   so one declaration keeps glyph and plate on the same hue. */
+.iconNode[data-tone="muted"] { color: var(--dsw-alias-label-secondary); }
+.iconNode[data-tone="info"] { color: var(--dsl-g-accent); }
+.iconNode[data-tone="success"] { color: var(--dsw-alias-state-success-primary, #3ecf8e); }
+.iconNode[data-tone="warning"] { color: var(--dsw-alias-state-warn-primary, #f5b83d); }
+.iconNode[data-tone="danger"] { color: var(--dsw-alias-state-error-primary, #ff6b6b); }
+.iconDot {
+  display: block;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+/* Block figure: rows of filled cells. Rows are independent grids, so a
+   8 → 4 → 2 → 1 ladder and a fixed `columns` lane grid share one renderer. */
+.blocksFigure { margin: 0; display: flex; flex-direction: column; gap: var(--dsl-g-gap-sm); min-width: 0; }
+.blocksTitle {
+  font-size: var(--dsl-g-font-title);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--dsw-alias-label-primary);
+}
+.blocksRows { display: flex; flex-direction: column; gap: var(--dsl-g-gap-xs); min-width: 0; }
+.blocksRow {
+  display: flex;
+  align-items: center;
+  gap: var(--dsl-g-gap-sm);
+  min-width: 0;
+}
+.blocksRowLabel {
+  flex: none;
+  min-width: 3.2em;
+  font-size: var(--dsl-g-font-meta);
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.blocksCells {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.blocksCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 4px;
+  border-radius: 6px;
+  /* Default fill is the accent wash: a block without an explicit colour must
+     still read as a block, never as invisible text. */
+  background: color-mix(in srgb, var(--dsl-g-accent) var(--dsl-g-blocks-fill), transparent);
+  color: var(--dsw-alias-label-primary);
+  font-size: var(--dsl-g-font-meta);
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.blocksGap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  border-radius: 6px;
+  color: var(--dsw-alias-label-caption, var(--dsw-alias-label-secondary));
+  font-size: var(--dsl-g-font-meta);
+  line-height: 1.2;
+  opacity: 0.6;
+}
+.blocksGapPad { min-height: 32px; }
+.blocksCaption {
+  font-size: var(--dsl-g-font-meta);
+  line-height: 1.55;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* Cell wrapper: the cell box plus the optional caption hanging under it, so a
+   bit grid can name the sign bit without breaking the row's baseline. */
+.blocksCellWrap { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.blocksSub {
+  font-size: var(--dsl-g-font-data);
+  line-height: 1.3;
+  color: var(--dsw-alias-label-secondary);
+  text-align: center;
+}
+/* `variant: "outline"` — bit grids, matrices: a hairline box, no fill, so a
+   single highlighted cell is the only thing carrying colour. */
+.blocksCellOutline {
+  background: transparent;
+  border: 1px solid var(--dsl-g-border);
+  color: var(--dsw-alias-label-primary);
+  font-weight: 600;
+}
+.blocksCell[data-tone] {
+  background: color-mix(in srgb, var(--dsl-g-tone, var(--dsl-g-accent)) var(--dsl-g-blocks-tint), transparent);
+  color: var(--dsw-alias-label-primary);
+  border: 1px solid color-mix(in srgb, var(--dsl-g-tone, var(--dsl-g-accent)) var(--dsl-g-blocks-border), transparent);
+}
+.blocksCell[data-tone="accent"] { --dsl-g-tone: var(--dsl-g-accent); }
+.blocksCell[data-tone="success"] { --dsl-g-tone: var(--dsw-alias-state-success-primary, #3ecf8e); }
+.blocksCell[data-tone="warning"] { --dsl-g-tone: var(--dsw-alias-state-warn-primary, #f5b83d); }
+.blocksCell[data-tone="danger"] { --dsl-g-tone: var(--dsw-alias-state-error-primary, #ff6b6b); }
+.blocksCell[data-tone="muted"] { --dsl-g-tone: var(--dsw-alias-label-tertiary, #8a8f9c); }
+
+/* Row main-axis alignment (`row.justify`). Centering is what a figure header
+   needs: an icon plate + title stacked over a caption. */
+.row.justifyCenter { justify-content: center; }
+.row.justifyEnd { justify-content: flex-end; }
+.row.justifyBetween { justify-content: space-between; }
+
+/* ---------- v12.2: flat figure panels, connectors, run styling ---------- */
+
+/* `card.flat`: a printed block, not a floating card. Figures in the reference
+   style are drawn flat — elevation on every nested panel was what made the
+   first pass read as a stack of chips.
+   The faint wash is the design, so the fill stays opt-in: a skin that clears
+   the canvas can raise it to a real surface without every host losing the
+   printed look (issue #398). */
+.card.cardFlat {
+  box-shadow: none;
+  background: var(--dsh-genui-surface-flat, color-mix(in srgb, var(--dsw-alias-label-primary) 2.5%, transparent));
+  border-color: var(--dsl-g-border);
+}
+
+/* A card with no children renders its title as flat text: boxing a lone
+   heading drew a bordered empty block that read as a failed load. */
+.cardFlatText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-xs);
+  min-width: 0;
+}
+
+/* `text.mono`: hex / binary / identifiers without the inline-code pill. */
+/* `text.mono`: monospace run without the inline-code pill. It deliberately
+   does NOT set a font size — an unconditional `title` size here silently
+   overrode `size: "caption"` / `size: "h2"` and made every mono run the same
+   optical size. */
+.text.textMono {
+  font-family: var(--dsl-g-font-mono);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* `text.tone`: a red run without wrapping it in a badge. */
+.text[data-tone="danger"] { color: var(--dsw-alias-state-error-primary, #ff6b6b); }
+.text[data-tone="success"] { color: var(--dsw-alias-state-success-primary, #3ecf8e); }
+.text[data-tone="warning"] { color: var(--dsw-alias-state-warn-primary, #f5b83d); }
+.text[data-tone="info"] { color: var(--dsl-g-accent); }
+.text[data-tone="muted"] { color: var(--dsw-alias-label-secondary); }
+
+/* `arrow`: a hairline connector. Fixed length, chevron head, centred — the
+   `↓` text glyph could not hold a gap or keep its optical weight. */
+.arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
+  line-height: 1;
+}
+.arrow[data-dir="down"] { padding: 2px 0; }
+.arrow[data-dir="right"] {
+  flex-direction: row;
+  justify-content: flex-start;
+  padding: 0 2px;
+}
+.arrow svg { display: block; overflow: visible; }
+.arrowLabel {
+  font-size: var(--dsl-g-font-data);
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* `variant: "plain"` — digits, not a table: no box, no fill, larger type so an
+   8-bit string keeps the reference's optical weight. */
+.blocksCell.blocksCellPlain {
+  background: transparent;
+  border: 0;
+  font-size: var(--dsl-g-font-h2);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  padding: 2px 0;
+}
+/* A plain cell that carries a tone keeps its tint but not the outline. The
+   background must be re-declared: `.blocksCellPlain` also matches at the same
+   specificity and comes later in the file, so it would otherwise win with
+   `transparent` and erase the highlight. */
+.blocksCell.blocksCellPlain[data-tone] {
+  border: 0;
+  background: color-mix(in srgb, var(--dsl-g-tone, var(--dsl-g-accent)) var(--dsl-g-blocks-tint), transparent);
+  border-radius: 10px;
+}

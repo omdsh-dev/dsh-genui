@@ -19,8 +19,8 @@ jobs:
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name }}
       PRERELEASE: ${{ github.event.release.prerelease }}
-      HOST_REF: dsh-v0.2.0-rc.2
-      NEXT_HOST_REF: dsh-v0.2.1-alpha.3
+      HOST_REF: dsh-v0.2.1-rc.3
+      MINIMUM_HOST_REF: dsh-v0.2.0-rc.1
 
     steps:
       # actions/checkout@v4
@@ -115,18 +115,122 @@ jobs:
       - name: Check published host API
         run: pnpm run check:host-api "$HOST_REF"
 
+      - name: Check minimum published host API
+        run: pnpm run check:host-api "$MINIMUM_HOST_REF"
+
       - name: Check next published host API
-        run: pnpm run check:host-api "$NEXT_HOST_REF"
+        run: pnpm run check:host-api dsh-v0.2.1-rc.4
+
+      - name: Check published alpha API
+        run: pnpm run check:host-api dsh-v0.2.2-alpha.2
+
+      - name: Install exact published alpha host
+        id: alpha_host
+        run: node scripts/prepare-published-host.mjs 0.2.2-alpha.2
+
+      - name: Check published current API
+        run: pnpm run check:host-api dsh-v0.2.2-rc.1
+
+      - name: Check previous published RC API
+        run: pnpm run check:host-api dsh-v0.2.1-rc.5
+
+      - name: Install exact published current host
+        id: current_host
+        run: node scripts/prepare-published-host.mjs 0.2.2-rc.1
 
       - name: Verify and pack plugin tarball
         id: pack
         run: node scripts/verify-pack.mjs --keep
 
       - name: Smoke selected release channel
-        run: node scripts/e2e.mjs --smoke --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
+        run: |
+          node --test scripts/sidechat-acceptance/tests/*.test.mjs
+          node scripts/e2e.mjs --smoke --sidechat --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
         env:
           DSH_ROOT: ${{ github.workspace }}/../../.dsh/source/current
           DSH_BIN: ${{ github.workspace }}/../../.dsh/source/current/apps/cli/lib/bin.js
+
+      - name: Archive release browser acceptance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-browser-acceptance
+          path: |
+            gallery-*.png
+            gallery-*.json
+            computed-*.png
+            computed-browser-results.json
+            computed-acceptance.json
+            .e2e-artifacts/sidechat/dsh354-*.png
+            .e2e-artifacts/sidechat/dsh354-host-verdict.json
+            .e2e-artifacts/sidechat/dsh354-browser-report.json
+          if-no-files-found: ignore
+
+      - name: Alpha packed gallery and computed acceptance
+        run: node scripts/e2e.mjs --smoke --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
+        env:
+          DSH_ROOT: ${{ steps.alpha_host.outputs.root }}
+          DSH_BIN: ${{ steps.alpha_host.outputs.bin }}
+          DSH_HOST_LAYOUT: registry
+          DSH_HOST_VERSION: 0.2.2-alpha.2
+
+      - name: Alpha packed Map browser acceptance
+        run: node scripts/e2e.mjs --smoke --map --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
+        env:
+          DSH_ROOT: ${{ steps.alpha_host.outputs.root }}
+          DSH_BIN: ${{ steps.alpha_host.outputs.bin }}
+          DSH_HOST_LAYOUT: registry
+          DSH_HOST_VERSION: 0.2.2-alpha.2
+
+      - name: Archive alpha release browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-alpha-browser-acceptance
+          retention-days: 7
+          include-hidden-files: true
+          path: |
+            gallery-*.png
+            gallery-*.json
+            computed-*.png
+            computed-*.json
+            .e2e-artifacts/map/map-*.png
+            .e2e-artifacts/map/map-*.json
+            .e2e-artifacts/map/map-offline.html
+          if-no-files-found: ignore
+
+      - name: Current packed gallery and computed acceptance
+        run: node scripts/e2e.mjs --smoke --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
+        env:
+          DSH_ROOT: ${{ steps.current_host.outputs.root }}
+          DSH_BIN: ${{ steps.current_host.outputs.bin }}
+          DSH_HOST_LAYOUT: registry
+          DSH_HOST_VERSION: 0.2.2-rc.1
+
+      - name: Current packed Map browser acceptance
+        run: node scripts/e2e.mjs --smoke --map --install tarball --tarball "${{ steps.pack.outputs.tarball }}" --tarball-sha256 "${{ steps.pack.outputs.sha256 }}" --port 3190
+        env:
+          DSH_ROOT: ${{ steps.current_host.outputs.root }}
+          DSH_BIN: ${{ steps.current_host.outputs.bin }}
+          DSH_HOST_LAYOUT: registry
+          DSH_HOST_VERSION: 0.2.2-rc.1
+
+      - name: Archive current release browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-current-browser-acceptance
+          retention-days: 7
+          include-hidden-files: true
+          path: |
+            gallery-*.png
+            gallery-*.json
+            computed-*.png
+            computed-*.json
+            .e2e-artifacts/map/map-*.png
+            .e2e-artifacts/map/map-*.json
+            .e2e-artifacts/map/map-offline.html
+          if-no-files-found: ignore
 
       - name: Publish to npm
         run: npm publish "${{ steps.pack.outputs.tarball }}" --access public --tag "${{ steps.release.outputs.npm_tag }}"

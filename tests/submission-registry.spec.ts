@@ -48,16 +48,18 @@ describe('submission registry', () => {
       { type: 'textarea', id: 'note' },
       { type: 'select', id: 'choice', options: ['A'] },
       { type: 'slider', id: 'amount' },
+      { type: 'diagram', id: 'architecture', kind: 'architecture', nodes: [{ id: 'api', label: 'API' }] },
     ] } as GenuiSpec
     const { registry, diagnostics } = analyzeSubmissionRegistry(spec)
     expect(diagnostics).toEqual([])
     expect([...registry.members.values()]).toEqual([
       { kind: 'radio', key: 'q1', label: 'Question', options: ['A', 'B'], answer: 1, explanation: 'Because' },
-      { kind: 'checkbox', key: 'styles' },
+      { kind: 'checkbox', key: 'styles', choices: new Map([['A', 'A'], ['B', 'B']]) },
       { kind: 'field', key: 'secret', fieldType: 'input', secret: true },
       { kind: 'field', key: 'note', fieldType: 'textarea', secret: false },
       { kind: 'field', key: 'choice', fieldType: 'select', secret: false },
       { kind: 'field', key: 'amount', fieldType: 'slider', secret: false },
+      { kind: 'field', key: 'architecture', fieldType: 'diagram', secret: false },
     ])
   })
 
@@ -66,6 +68,8 @@ describe('submission registry', () => {
       { items: [{ type: 'submit', label: 'Send', groups: ['missing'] }], fragment: "items[0].groups[0]: submit.groups references unknown submission member 'missing'" },
       { items: [{ type: 'input', id: 'name' }, { type: 'submit', label: 'Send', groups: ['name', 'name'] }], fragment: "items[1].groups[1]: duplicate submission member 'name'" },
       { items: [{ type: 'input', id: 'name' }, { type: 'textarea', id: 'name' }], fragment: "items[1].id conflicts with items[0].id" },
+      { items: [{ type: 'diagram', id: 'selection', kind: 'architecture', nodes: [{ id: 'a', label: 'A' }] }, { type: 'input', id: 'selection' }], fragment: "items[1].id conflicts with items[0].id" },
+      { items: [{ type: 'diagram', id: 'selection', kind: 'architecture', nodes: [{ id: 'a', label: 'A' }] }, { type: 'diagram', id: 'selection', kind: 'architecture', nodes: [{ id: 'b', label: 'B' }] }], fragment: "items[1].id conflicts with items[0].id" },
       { items: [{ type: 'radio', group: 'q', options: ['A'] }, { type: 'radio', group: 'q', options: ['B'] }], fragment: "items[1].group conflicts with items[0].group" },
       { items: [{ type: 'radio', group: 'q', options: ['A'] }, { type: 'checkbox', group: 'q', label: 'B' }], fragment: "items[1].group conflicts with items[0].group" },
       { items: [{ type: 'radio', group: 'q', options: ['A'] }, { type: 'input', id: 'q' }], fragment: "items[1].id conflicts with items[0].group" },
@@ -84,7 +88,7 @@ describe('submission registry', () => {
     expect(processGenuiSpec({ items: [{ type: 'submit', label: 'Send', groups: ['missing'] }] }).errors)
       .toContain("items[0].groups[0]: submit.groups references unknown submission member 'missing'")
     expect(processGenuiSpec({ items: [
-      { type: 'custom-renderer', payload: 'opaque' },
+      { type: 'text', content: 'Supported sibling' },
       { type: 'submit', label: 'Send', action: 'send', groups: ['missing'] },
     ] }).errors).toContain("items[1].groups[0]: submit.groups references unknown submission member 'missing'")
     expect(validateGenuiSpec({ items: [

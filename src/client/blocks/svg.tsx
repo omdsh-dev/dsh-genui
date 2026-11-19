@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { GenuiSvg } from '../spec.ts'
 import { renderInline } from '../inline.ts'
 import { t } from '../i18n/index.ts'
+import { GENUI_LIMITS } from '../genui-runtime/limits.ts'
 import css from '../GenuiBlock.module.css'
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
@@ -40,15 +41,18 @@ function imageSource(code: string): string | null {
 }
 
 export function SvgNode({ node }: { node: GenuiSvg }) {
-  const src = useMemo(() => imageSource(node.code), [node.code])
+  const oversized = node.code.length > GENUI_LIMITS.maxCode
+  const src = useMemo(() => oversized ? null : imageSource(node.code), [node.code, oversized])
   const [failedSource, setFailedSource] = useState<string | null>(null)
   return (
     <div data-genui-svg>
       {node.title !== undefined && <div className={css.echartTitle}>{renderInline(node.title)}</div>}
       {src === null || failedSource === src ? (
         <div>
-          <div role="status">{t('block.svgError')}</div>
-          <pre style={{ overflow: 'auto', maxHeight: 400 }}><code>{node.code}</code></pre>
+          <div role="status">{oversized
+            ? t('block.svgTooLong', { actual: node.code.length, max: GENUI_LIMITS.maxCode })
+            : t('block.svgError')}</div>
+          {!oversized && <pre style={{ overflow: 'auto', maxHeight: 400 }}><code>{node.code}</code></pre>}
         </div>
       ) : (
         // SVG stays in image mode: never inject model markup into the host DOM

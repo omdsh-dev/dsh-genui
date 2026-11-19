@@ -1,0 +1,8 @@
+.editor { display: grid; gap: 8px; min-width: 0; color: var(--dsw-alias-label-primary, inherit); }
+.toolbar { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.label { min-width: 0; font-weight: 600; }
+.status { margin-inline-start: auto; color: var(--dsw-alias-label-secondary, #667085); font-size: .8em; }
+.copy { border: 1px solid var(--dsl-g-border, #a8b2c0); border-radius: 6px; padding: 5px 9px; color: inherit; background: var(--dsl-g-surface, #fff); font: inherit; cursor: pointer; }
+.textarea { box-sizing: border-box; width: 100%; min-height: 96px; resize: vertical; border: 1px solid var(--dsl-g-border, #a8b2c0); border-radius: 8px; padding: 10px 12px; color: inherit; background: var(--dsl-g-surface, #fff); font: inherit; line-height: 1.5; }
+.textarea:focus-visible, .copy:focus-visible { outline: 3px solid var(--dsl-g-accent, #315fa8); outline-offset: 2px; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

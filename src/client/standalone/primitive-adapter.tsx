@@ -1,4 +1,4 @@
-import { createContext, useState, type CSSProperties, type ReactNode } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import { t } from '../i18n/index.ts'
 
 export interface DiffBlockLabels {
@@ -84,11 +84,3 @@ export async function writeClipboard(text: string): Promise<boolean> {
     textarea.remove()
   }
 }
-
-/** standalone 模式不连接 DSH 注册表，因此自定义组件始终不可用。 */
-export function getGenuiComponent(_type: string): undefined {
-  return undefined
-}
-
-/** standalone 模式专用的空动作上下文。 */
-export const GenuiActionContext = createContext<((action: string, payload: Record<string, unknown>) => void) | undefined>(undefined)

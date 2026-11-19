@@ -1,0 +1,19 @@
+{
+  "id": "atlas-keyvalue",
+  "category": "atlas",
+  "note": "keyvalue：成对字段，左键右值；比列表更适合“属性表”，值里可用行内标记。",
+  "zh": { "title": "keyvalue · 属性表，不是长段落", "items": [
+    { "type": "keyvalue", "pairs": [
+      { "key": "围栏标记", "value": "`dsh-ui`" },
+      { "key": "规格根", "value": "title / gap / computed / items" },
+      { "key": "节点上限", "value": "200 个节点，8 层嵌套" }
+    ] }
+  ] },
+  "en": { "title": "keyvalue · a property table, not prose", "items": [
+    { "type": "keyvalue", "pairs": [
+      { "key": "Fence tag", "value": "`dsh-ui`" },
+      { "key": "Spec root", "value": "title / gap / computed / items" },
+      { "key": "Limits", "value": "200 nodes, 8 levels deep" }
+    ] }
+  ] }
+}

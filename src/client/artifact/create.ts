@@ -52,8 +52,9 @@ export function createGenuiArtifact(
   state?: BlockInteractionState,
   options: CreateGenuiArtifactOptions = {},
 ): GenuiArtifactV1 {
+  // 导出内容必须是完整文档，不能包含尚未合并的面板追加项。
   const processed = processGenuiSpec(spec)
-  if (processed.spec === null) throw new GenuiExportError('artifact-invalid', 'invalid GenUI spec')
+  if (processed.spec === null || processed.errors.length > 0) throw new GenuiExportError('artifact-invalid', 'invalid GenUI spec')
   const { panel: _panel, append: _append, ...portableSpec } = processed.spec
   const secretIds = new Set<string>()
   const sanitizedSpec = { ...portableSpec, items: sanitizeNodes(portableSpec.items, secretIds) }

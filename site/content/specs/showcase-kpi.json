@@ -1,0 +1,81 @@
+{
+  "id": "showcase-kpi",
+  "category": "showcase",
+  "note": "KPI 封面：hero 独占焦点，spark 是真实数据（v0.12→v0.16 各版本白名单节点类型数 47/47/50/53/60，由各 tag 的 schema.ts 计数得到）。其余为仓库可验证事实。",
+  "zh": {
+    "title": "六十块积木",
+    "gap": 16,
+    "items": [
+      {
+        "type": "hero",
+        "label": "白名单节点类型 · v0.16.0",
+        "value": "60",
+        "title": "一块围栏，六十种界面元素",
+        "subtitle": "每个节点都由渲染器直接映射到 DOM，没有任意 HTML 路径。围栏里出现什么，读者就看到什么。",
+        "tone": "accent",
+        "spark": [47, 47, 50, 53, 60]
+      },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          { "type": "stat", "label": "本地完成的交互", "value": "0 次往返" },
+          { "type": "stat", "label": "按需加载的引擎", "value": "6 个" },
+          { "type": "stat", "label": "界面语言", "value": "zh / en" }
+        ]
+      },
+      {
+        "type": "keyvalue",
+        "pairs": [
+          { "key": "当前版本", "value": "0.16.0 · 2026-11-03" },
+          { "key": "兼容 DSH", "value": "^0.2.0-rc.1 起" },
+          { "key": "授权", "value": "MIT" }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "数字来自仓库，不是估算",
+        "content": "节点数按 schema 注册表逐一计数：v0.12 为 47，v0.14 到 50，v0.15 到 53，v0.16 到 60。"
+      }
+    ]
+  },
+  "en": {
+    "title": "Sixty building blocks",
+    "gap": 16,
+    "items": [
+      {
+        "type": "hero",
+        "label": "Whitelisted node types · v0.16.0",
+        "value": "60",
+        "title": "One fence, sixty interface elements",
+        "subtitle": "Every node maps straight to the DOM with no arbitrary-HTML path. What the fence declares is exactly what the reader sees.",
+        "tone": "accent",
+        "spark": [47, 47, 50, 53, 60]
+      },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          { "type": "stat", "label": "Interactions kept local", "value": "0 round trips" },
+          { "type": "stat", "label": "Engines loaded on demand", "value": "6" },
+          { "type": "stat", "label": "Locales", "value": "zh / en" }
+        ]
+      },
+      {
+        "type": "keyvalue",
+        "pairs": [
+          { "key": "Version", "value": "0.16.0 · 2026-11-03" },
+          { "key": "DSH compatibility", "value": "^0.2.0-rc.1 and later" },
+          { "key": "License", "value": "MIT" }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "The numbers come from the repo, not from estimates",
+        "content": "Node types are counted from the schema registry: 47 in v0.12, 50 in v0.14, 53 in v0.15, 60 in v0.16."
+      }
+    ]
+  }
+}

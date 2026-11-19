@@ -4,7 +4,7 @@ import { StrictMode } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GENUI_ACTION_DEBOUNCE_MS } from '../src/client/GenuiBlock.tsx'
-import { renderGenuiFence } from '../src/client/index.tsx'
+import { renderGenuiFence } from '../src/client/fence-render.tsx'
 import { repairGenuiSpec } from '../src/client/guard.ts'
 import { GenuiPanel } from '../src/client/panel.tsx'
 import {
@@ -87,7 +87,10 @@ describe('GenuiPanel dock', () => {
     const openResource = vi.fn()
     const ctx = {
       get: () => ({ openResource }),
-      sessions: { list: { getSnapshot: () => ({ current: 's1', byId: { s1: { cwd: '/workspace/app' } } }) } },
+      sessions: {
+        list: { getSnapshot: () => ({ ids: ['s1'], byId: { s1: { cwd: '/workspace/app' } } }) },
+        retainInfo: () => ({ getSnapshot: () => ({ retainedBy: { mainView: 1 } }) }),
+      },
       inject: (_services: ['sidebarRight'], callback: (scope: unknown) => void) => callback({
         get: () => ({ openResource }),
         effect: (effect: () => void | (() => void)) => { effect() },

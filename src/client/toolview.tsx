@@ -16,10 +16,11 @@ import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import { ExportableGenuiBlock } from './artifact/ExportableGenuiBlock.tsx'
 import { ErrorBoundary } from './ErrorBoundary.tsx'
-import { repairGenuiSpec } from './guard.ts'
+import { isRenderableProcess, processGenuiSpec } from './guard.ts'
 import { toolStateKey } from './interaction-store.ts'
 import { applyPanelOperation } from './panel-store.ts'
 import css from './GenuiBlock.module.css'
+import { useT } from './i18n/index.ts'
 
 /**
  * Keyed toolview for the `render_ui` tool. `block` is the settled result
@@ -27,12 +28,17 @@ import css from './GenuiBlock.module.css'
  * the summary fallback is shown.
  */
 export function GenuiToolView({ toolName, block, sessionId }: ToolCallViewProps) {
+  const t = useT()
   // `meta` exists only on the settled result node; running calls (and
   // replayed logs without the projection) fall back to the summary row.
   // Memoized so the publish effect only fires when the settled spec
   // actually changes (same block → same object → no panel churn).
   const meta = 'meta' in block ? block.meta : undefined
-  const spec = useMemo(() => (meta === undefined ? null : repairGenuiSpec(meta)), [meta])
+  const spec = useMemo(() => {
+    if (meta === undefined) return null
+    const processed = processGenuiSpec(meta)
+    return isRenderableProcess(processed) ? processed.spec : null
+  }, [meta])
   useEffect(() => {
     // Publish the settled spec to the session panel (dock) as a REPLACE op
     // with the result block's call identity and message seq: the same block
@@ -58,7 +64,7 @@ export function GenuiToolView({ toolName, block, sessionId }: ToolCallViewProps)
   }
   return (
     <div className={css.tool} data-genui-tool>
-      <ErrorBoundary label="工具卡片">
+      <ErrorBoundary label={t('tool.card')}>
         {/* callId is stable across replay → tool-card interaction state is durable */}
         <ExportableGenuiBlock spec={spec} stateKey={toolStateKey(sessionId, block.callId)} />
       </ErrorBoundary>

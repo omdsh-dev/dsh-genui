@@ -1,0 +1,107 @@
+{
+  "id": "showcase-timeline",
+  "category": "showcase",
+  "note": "时间线叙事：四个真实版本（0.13.0→0.16.0）与各自新增能力，日期取自 CHANGELOG。收尾卡用 keyvalue 给当前事实。",
+  "zh": {
+    "title": "四个版本，一条时间线",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "从“排版字段”到“读者能做决定”，这条线记录的是同一个方向：让回答本身可以操作。"
+      },
+      {
+        "type": "timeline",
+        "items": [
+          {
+            "time": "2026-10-17 · 0.13.0",
+            "title": "章节与排版",
+            "desc": "divider.label 章节分隔、text.display 开篇句、card.eyebrow 小引题、image.caption 图注。"
+          },
+          {
+            "time": "2026-10-21 · 0.14.0",
+            "title": "图解三件套",
+            "desc": "icon、blocks、arrow 三个图元节点，配 card.flat 与 col.width，流程图不必再手写 svg 坐标。"
+          },
+          {
+            "time": "2026-10-28 · 0.15.0",
+            "title": "本地优先",
+            "desc": "carousel、image-group、computed 计算字段、map 地点选择：浏览与计算都不再打断对话。"
+          },
+          {
+            "time": "2026-11-03 · 0.16.0",
+            "title": "决策与编辑",
+            "desc": "compare 前后对比、choices 带代价的选项、editor 草稿、entity-card、popover、date-picker、segmented-control。"
+          }
+        ]
+      },
+      {
+        "type": "card",
+        "title": "当前状态",
+        "items": [
+          {
+            "type": "keyvalue",
+            "pairs": [
+              { "key": "最新版本", "value": "0.16.0" },
+              { "key": "白名单节点", "value": "60 种" },
+              { "key": "DSH 兼容", "value": "^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2" },
+              { "key": "授权", "value": "MIT" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "en": {
+    "title": "Four releases, one timeline",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "From layout fields to decisions the reader can actually make, the line records one direction: the reply itself becomes operable."
+      },
+      {
+        "type": "timeline",
+        "items": [
+          {
+            "time": "2026-10-17 · 0.13.0",
+            "title": "Chapters and type",
+            "desc": "divider.label chapter breaks, text.display openers, card.eyebrow overlines, image.caption captions."
+          },
+          {
+            "time": "2026-10-21 · 0.14.0",
+            "title": "Three figure primitives",
+            "desc": "icon, blocks and arrow join card.flat and col.width — flow diagrams no longer need hand-written SVG coordinates."
+          },
+          {
+            "time": "2026-10-28 · 0.15.0",
+            "title": "Local first",
+            "desc": "carousel, image-group, computed fields and the map picker: browsing and calculation stop interrupting the conversation."
+          },
+          {
+            "time": "2026-11-03 · 0.16.0",
+            "title": "Decisions and editing",
+            "desc": "compare before/after pairs, choices with per-option costs, editor drafts, entity-card, popover, date-picker and segmented-control."
+          }
+        ]
+      },
+      {
+        "type": "card",
+        "title": "Where it stands",
+        "items": [
+          {
+            "type": "keyvalue",
+            "pairs": [
+              { "key": "Latest version", "value": "0.16.0" },
+              { "key": "Whitelisted nodes", "value": "60 types" },
+              { "key": "DSH compatibility", "value": "^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2" },
+              { "key": "License", "value": "MIT" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

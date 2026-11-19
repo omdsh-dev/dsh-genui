@@ -1,0 +1,21 @@
+{
+  "id": "atlas-avatar",
+  "category": "atlas",
+  "note": "avatar：首字母头像，可指定颜色；不给颜色时按名字哈希取色。",
+  "zh": { "title": "avatar · 首字母 + 稳定配色", "items": [
+    { "type": "row", "items": [
+      { "type": "avatar", "name": "林澈" },
+      { "type": "avatar", "name": "Zhou Mei" },
+      { "type": "avatar", "name": "Ada" },
+      { "type": "avatar", "name": "顾言", "color": "#3d9e8f" }
+    ] }
+  ] },
+  "en": { "title": "avatar · initial plus a stable colour", "items": [
+    { "type": "row", "items": [
+      { "type": "avatar", "name": "Lin Che" },
+      { "type": "avatar", "name": "Zhou Mei" },
+      { "type": "avatar", "name": "Ada" },
+      { "type": "avatar", "name": "Gu Yan", "color": "#3d9e8f" }
+    ] }
+  ] }
+}

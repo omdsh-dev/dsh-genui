@@ -3,10 +3,11 @@
 // script injection, engine handoff, and the failure path.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { assetUrl, loadGenuiAsset } from '../src/client/asset-loader.ts'
-import { prefetchGenuiAssets } from '../src/client/index.tsx'
+import { FENCE_MOUNTED_EVENT, prefetchGenuiAssets, prefetchOnFirstFence } from '../src/client/index.tsx'
 
 afterEach(() => {
   document.head.innerHTML = ''
+  document.querySelector('iframe[data-genui-mermaid-measure]')?.remove()
   delete (window as unknown as Record<string, unknown>).__DSH_BOOT__
   delete (window as unknown as Record<string, unknown>).__GenuiAssets__
 })
@@ -30,19 +31,23 @@ describe('assetUrl', () => {
 })
 
 describe('loadGenuiAsset', () => {
-  it('injects one script per file and resolves the registered engine', async () => {
+  it('loads the Mermaid engine once in its measurement document', async () => {
     const api = { hello: 'engine' }
     const promise = loadGenuiAsset<typeof api>('mermaid')
-    const scripts = document.head.querySelectorAll('script')
+    const frames = document.querySelectorAll('iframe[data-genui-mermaid-measure]')
+    expect(frames).toHaveLength(1)
+    const owner = (frames[0] as HTMLIFrameElement).contentDocument!
+    const scripts = owner.head.querySelectorAll('script')
     expect(scripts).toHaveLength(1)
     expect(scripts[0]!.getAttribute('src')).toBe(`/plugins/${PLUGIN_ID}/assets/mermaid.js`)
     // Simulate the bundle having executed and registered its engine.
-    ;(window as unknown as Record<string, unknown>).__GenuiAssets__ = { mermaid: api }
+    ;(owner.defaultView as unknown as Record<string, unknown>).__GenuiAssets__ = { mermaid: api }
     scripts[0]!.dispatchEvent(new Event('load'))
     await expect(promise).resolves.toBe(api)
     // Memoized: a second request reuses the same promise, no new script tag.
     await loadGenuiAsset('mermaid')
-    expect(document.head.querySelectorAll('script')).toHaveLength(1)
+    expect(document.querySelectorAll('iframe[data-genui-mermaid-measure]')).toHaveLength(1)
+    expect(owner.head.querySelectorAll('script')).toHaveLength(1)
   })
 
   it('rejects when the script fails to load (old host without the route)', async () => {
@@ -77,5 +82,43 @@ describe('idle prefetch', () => {
     // idempotent: a second call adds nothing
     prefetchGenuiAssets()
     expect(document.head.querySelectorAll('link[rel="prefetch"]').length).toBe(2)
+  })
+})
+
+describe('prefetch on first fence', () => {
+  it('adds no prefetch link at boot and none until a fence mounts', () => {
+    vi.useFakeTimers()
+    const dispose = prefetchOnFirstFence()
+    vi.advanceTimersByTime(10_000)
+    expect(document.head.querySelectorAll('link[rel="prefetch"]').length).toBe(0)
+    dispose()
+    vi.useRealTimers()
+  })
+  it('prefetches the engines once, after the first fence mounts', () => {
+    vi.useFakeTimers()
+    const dispose = prefetchOnFirstFence()
+    document.dispatchEvent(new Event(FENCE_MOUNTED_EVENT))
+    document.dispatchEvent(new Event(FENCE_MOUNTED_EVENT))
+    vi.advanceTimersByTime(10_000)
+    expect(document.head.querySelectorAll('link[rel="prefetch"]').length).toBe(2)
+    dispose()
+    vi.useRealTimers()
+  })
+  it('the disposer removes the pending listener', () => {
+    vi.useFakeTimers()
+    prefetchOnFirstFence()()
+    document.dispatchEvent(new Event(FENCE_MOUNTED_EVENT))
+    vi.advanceTimersByTime(10_000)
+    expect(document.head.querySelectorAll('link[rel="prefetch"]').length).toBe(0)
+    vi.useRealTimers()
+  })
+  it('the disposer also cancels a prefetch that is already scheduled', () => {
+    vi.useFakeTimers()
+    const dispose = prefetchOnFirstFence()
+    document.dispatchEvent(new Event(FENCE_MOUNTED_EVENT))
+    dispose()
+    vi.advanceTimersByTime(10_000)
+    expect(document.head.querySelectorAll('link[rel="prefetch"]').length).toBe(0)
+    vi.useRealTimers()
   })
 })

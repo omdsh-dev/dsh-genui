@@ -1,9 +1,10 @@
 /** Deterministic GenUI alias and structural normalization. */
-import { COMPONENT_SCHEMAS } from './schema.ts'
+import { getComponentSchema } from './schema.ts'
 import type { ComponentRecordSchema } from './schema.ts'
 import { isComponentRoot } from '../spec.ts'
 import type { GenuiDiagnostic } from './diagnostics.ts'
 import { isTableDetailReachable } from '../table-details.ts'
+import { GENUI_LIMITS } from './limits.ts'
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -11,9 +12,35 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined
 }
 
-function isNode(value: unknown): value is Record<string, unknown> {
+/**
+ * Resolve an explicit component type or a type uniquely identified by fields.
+ *
+ * @param value - Value to inspect without changing it.
+ * @returns The explicit or inferred component type when available.
+ */
+function nodeTypeOf(value: unknown): string | undefined {
   const candidate = record(value)
-  return candidate !== undefined && typeof candidate.type === 'string'
+  if (candidate === undefined) return undefined
+  if (typeof candidate.type === 'string') return candidate.type
+  if ('type' in candidate) return undefined
+  const matches: string[] = []
+  if (Array.isArray(candidate.columns) && Array.isArray(candidate.rows)) matches.push('table')
+  if (Array.isArray(candidate.pairs)) matches.push('keyvalue')
+  if (Array.isArray(candidate.steps)) matches.push('steps')
+  if (Array.isArray(candidate.diffs)) matches.push('diff')
+  if (Array.isArray(candidate.meshes)) matches.push('scene3d')
+  if (Array.isArray(candidate.tabs)) matches.push('tabs')
+  return matches.length === 1 ? matches[0] : undefined
+}
+
+/**
+ * Check whether a value can be treated as a component node.
+ *
+ * @param value - Value to inspect without changing it.
+ * @returns Whether the value has an explicit or uniquely inferred type.
+ */
+function isNode(value: unknown): value is Record<string, unknown> {
+  return nodeTypeOf(value) !== undefined
 }
 
 /** Fields a `stat` keeps when a metric record is folded into its own node. */
@@ -52,7 +79,7 @@ function statMetricsOf(
 }
 
 function normalizeAliasFields(value: Record<string, unknown>, path: string, type: string, warnings: GenuiDiagnostic[]): Record<string, unknown> {
-  const definition = COMPONENT_SCHEMAS[type]
+  const definition = getComponentSchema(type)
   if (definition === undefined) return value
   const out: Record<string, unknown> = { ...value }
   for (const [alias, canonical] of Object.entries(definition.aliases)) {
@@ -75,7 +102,7 @@ function normalizeAliasFields(value: Record<string, unknown>, path: string, type
   for (const [field, values] of Object.entries(definition.valueAliases)) {
     const written = out[field]
     if (typeof written !== 'string') continue
-    const canonical = values[written]
+    const canonical = Object.hasOwn(values, written) ? values[written] : undefined
     if (canonical === undefined || canonical === written) continue
     out[field] = canonical
     warnings.push({
@@ -105,19 +132,25 @@ function normalizeRecordTree(
   warnings: GenuiDiagnostic[],
 ): unknown {
   if (Array.isArray(value)) {
-    return value.map((entry, index) => normalizeRecordTree(entry, definition, `${at}[${index}]`, type, warnings))
+    // A record collection is flat. Nested arrays are malformed records, not
+    // another collection to normalize; leave them for field validation.
+    return value.map((entry, index) => Array.isArray(entry)
+      ? entry : normalizeRecordTree(entry, definition, `${at}[${index}]`, type, warnings))
   }
   const holder = record(value)
   if (holder === undefined) return value
   const out = { ...holder }
   for (const [alias, canonical] of Object.entries(definition.aliases)) {
-    if (!(alias in out) || canonical in out) continue
-    out[canonical] = out[alias]
+    if (!(alias in out)) continue
+    const keptCanonical = canonical in out
+    if (!keptCanonical) out[canonical] = out[alias]
     delete out[alias]
     warnings.push({
       kind: 'alias',
       path: `${at}.${alias}`,
-      message: `${at}.${alias} normalized/adopted as '${canonical}'`,
+      message: keptCanonical
+        ? `${at}.${alias} is ignored because canonical field '${canonical}' is present`
+        : `${at}.${alias} normalized/adopted as '${canonical}'`,
       type,
       field: alias,
       canonical,
@@ -134,29 +167,61 @@ function normalizeRecordTree(
  * directory in every model-written tree, and the renderer's collapse
  * affordance depends on the marker (issue #186).
  */
-function defaultFileTreeDirectories(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(defaultFileTreeDirectories)
+function defaultFileTreeDirectories(value: unknown, depth = 0): unknown {
+  if (depth > GENUI_LIMITS.maxTreeDepth) return value
+  if (Array.isArray(value)) return value.map(entry => Array.isArray(entry)
+    ? entry : defaultFileTreeDirectories(entry, depth))
   const holder = record(value)
   if (holder === undefined) return value
   const out = { ...holder }
   if (out.type === undefined && Array.isArray(out.children)) out.type = 'dir'
-  if (out.children !== undefined) out.children = defaultFileTreeDirectories(out.children)
+  if (out.children !== undefined) out.children = defaultFileTreeDirectories(out.children, depth + 1)
   return out
 }
 
-function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[]): unknown {
-  if (!isNode(value)) return value
-  const type = value.type as string
-  const definition = COMPONENT_SCHEMAS[type]
-  // Custom nodes are opaque by contract: don't inspect or rewrite their data.
-  if (definition === undefined) return value
-  const out = normalizeAliasFields(value, path, type, warnings)
+/**
+ * Normalize one component node and its renderer-reachable children.
+ *
+ * @param value - Raw component or other value.
+ * @param path - Stable diagnostic path for this node.
+ * @param warnings - Alias and structural normalization diagnostics.
+ * @param depth - Node nesting depth; beyond {@link GENUI_LIMITS.maxDepth} the
+ *   subtree is returned untouched (validation and repair drop it anyway).
+ * @returns The normalized component, or the original value when it is not a node.
+ */
+function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[], depth = 0): unknown {
+  // Depth beyond the validator/repair limit is never rendered: keep the raw
+  // subtree instead of walking it (pathological nesting is model input, not
+  // trusted data).
+  if (depth > GENUI_LIMITS.maxDepth) return value
+  const type = nodeTypeOf(value)
+  const candidate = record(value)
+  if (type === undefined || candidate === undefined) return value
+  const node = typeof candidate.type === 'string' ? candidate : { ...candidate, type }
+  const definition = getComponentSchema(type)
+  // Keep unsupported input intact for the validator's type/path diagnostic.
+  if (definition === undefined) return node
+  const out = normalizeAliasFields(node, path, type, warnings)
   // Nested data records (keyvalue pairs, file-tree items, …) carry their own
   // field aliases — apply them before validation/repair see the records.
   for (const [field, nested] of Object.entries(definition.nested)) {
-    if (out[field] !== undefined) out[field] = normalizeRecordTree(out[field], nested, `${path}.${field}`, type, warnings)
+    if (out[field] === undefined) continue
+    const nestedValue = out[field]
+    const cap = type === 'image-group' && field === 'items' ? GENUI_LIMITS.maxImageGroupItems
+      : type === 'entity-card' && field === 'metadata' ? GENUI_LIMITS.maxEntityMetadata
+      : type === 'entity-card' && field === 'actions' ? GENUI_LIMITS.maxEntityActions
+      : type === 'map' && field === 'locations' ? GENUI_LIMITS.maxMapLocations
+      : type === 'map' && field === 'routes' ? GENUI_LIMITS.maxMapRoutes : undefined
+    if (cap !== undefined && Array.isArray(nestedValue)) {
+      out[field] = [
+        ...normalizeRecordTree(nestedValue.slice(0, cap), nested, `${path}.${field}`, type, warnings) as unknown[],
+        ...nestedValue.slice(cap),
+      ]
+    } else {
+      out[field] = normalizeRecordTree(nestedValue, nested, `${path}.${field}`, type, warnings)
+    }
   }
-  const normalizeNodeValue = (child: unknown, childPath: string): unknown => normalizeNode(child, childPath, warnings)
+  const normalizeNodeValue = (child: unknown, childPath: string): unknown => normalizeNode(child, childPath, warnings, depth + 1)
   const normalizeNodeArray = (children: unknown, childPath: string): unknown => Array.isArray(children)
     ? children.map((child, index) => normalizeNodeValue(child, `${childPath}[${index}]`))
     : children
@@ -186,8 +251,18 @@ function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[]
     }
   }
 
-  if (type === 'row' || type === 'col' || type === 'grid' || type === 'card' || type === 'file-tree' || type === 'timeline' || type === 'breadcrumb') {
-    if (type !== 'file-tree' && type !== 'timeline' && type !== 'breadcrumb') out.items = normalizeNodeArray(out.items, `${path}.items`)
+  if (type === 'row' || type === 'col' || type === 'grid' || type === 'card' || type === 'carousel' || type === 'file-tree' || type === 'timeline' || type === 'breadcrumb') {
+    if (type !== 'file-tree' && type !== 'timeline' && type !== 'breadcrumb') {
+      if (type === 'carousel' && Array.isArray(out.items)) {
+        const rendered = out.items.slice(0, GENUI_LIMITS.maxCarouselItems)
+        out.items = [
+          ...normalizeNodeArray(rendered, `${path}.items`) as unknown[],
+          ...out.items.slice(GENUI_LIMITS.maxCarouselItems),
+        ]
+      } else {
+        out.items = normalizeNodeArray(out.items, `${path}.items`)
+      }
+    }
   } else if (type === 'list' && Array.isArray(out.items)) {
     // List records and nested nodes share items; aliases only belong to records.
     out.items = out.items.map((child, index) => {
@@ -249,11 +324,11 @@ function normalizeNode(value: unknown, path: string, warnings: GenuiDiagnostic[]
           canonical: 'items',
         })
       }
-      normalizedHolder.items = Array.isArray(normalizedHolder.items)
-        ? normalizedHolder.items.map((child, childIndex) => normalizeNodeValue(child, `${path}.tabs[${index}].items[${childIndex}]`))
-        : normalizedHolder.items === undefined
-          ? []
+      if (normalizedHolder.items !== undefined) {
+        normalizedHolder.items = Array.isArray(normalizedHolder.items)
+          ? normalizedHolder.items.map((child, childIndex) => normalizeNodeValue(child, `${path}.tabs[${index}].items[${childIndex}]`))
           : [normalizeNodeValue(normalizedHolder.items, `${path}.tabs[${index}].items[0]`)]
+      }
       return normalizedHolder
     })
   } else if (type === 'accordion' && Array.isArray(out.items)) {

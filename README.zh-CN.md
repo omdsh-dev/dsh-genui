@@ -1,315 +1,422 @@
-# 🎨 dsh-genui
-
 <div align="center">
 
-[English](./README.md) · **简体中文**
+<img src="./assets/genui-logo.svg" width="380" alt="GenUI for DeepSeek Harness">
 
-<br>
+<p align="center">
+  <strong>为 DeepSeek Harness (DSH) 赋予原生交互式界面</strong><br>
+  文字回答依旧完整，富交互组件即刻上线。
+</p>
 
-[**打开在线产品站**](https://omdsh-dev.github.io/dsh-genui/) · [**看真实演示**](#观看真实界面) · [**安装到 DSH**](#-快速开始)
+[![npm version](https://img.shields.io/npm/v/@changfenhuang/dsh-genui.svg?style=flat-square&color=3B82F6)](https://www.npmjs.com/package/@changfenhuang/dsh-genui)
+[![DSH Compatibility](https://img.shields.io/badge/DSH-^0.2.0--rc.1%20||%20^0.2.1--rc.1%20||%20^0.2.2--alpha.2-10B981?style=flat-square)](https://github.com/omdsh-dev/dsh-genui)
+[![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg?style=flat-square)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Topic: dsh-plugin](https://img.shields.io/badge/ecosystem-dsh--plugin-purple?style=flat-square)](https://github.com/topics/dsh-plugin)
+
+<p align="center">
+  <a href="./README.md">English</a> · <strong>简体中文</strong>
+</p>
+
+<p align="center">
+  <a href="https://omdsh-dev.github.io/dsh-genui/"><strong>🌐 在线产品站</strong></a> · 
+  <a href="#-真实界面预览"><strong>🎬 界面演示</strong></a> · 
+  <a href="#-快速开始"><strong>🚀 快速开始</strong></a> · 
+  <a href="#-核心能力全景"><strong>🧩 核心特性</strong></a> · 
+  <a href="./SKILL.md"><strong>📖 组件语法 (SKILL.md)</strong></a>
+</p>
 
 </div>
 
-> 让模型的回答长出界面——文字还在，可交互的 UI 已经能用。
->
-> 🔌 生态：仓库已挂 `#dsh` · `#dsh-plugin` topic，欢迎 @dsh-plugin 收录。
+---
 
-`dsh-genui` 把模型回答变成**安全、可交互的 DSH 界面**。你问「这个月订单怎么样」，回答除了文字，还可以直接带上可排序的数据面板、原生音视频、可拖动的函数图、本地判题或常驻会话面板。
+`dsh-genui` 将大模型的文本回答无缝升级为**安全、可交互的原生 DSH 界面**。
 
-## 先看真实证据
+例如当你询问「这个月订单表现如何？」，模型给出的回答不再只是一串文字，而是边打字边在正文中展开一张**可排序的数据面板**、一段**内嵌音视频**、一个**可拖拽调参的函数图像**、一组**即时判卷的测验**，或是一个**常驻的会话工作区**——文本与 UI 和谐共存，浑然一体。
 
-| 你想做什么 | 直接看这里 | 可以确认什么 |
-|---|---|---|
-| 先看完整 DSH 流程 | [40 秒真实录屏](#40-秒完整演示) | 组件确实出现在 DSH 的真实对话里。 |
-| 看具体界面是什么样 | [三类真实输出](#一条-dsh-回答里的三类真实输出) | 监控、函数绘图和可组合的布局组件。 |
-| 立刻在自己的 DSH 里试 | [快速开始](#-快速开始) | npm 公开包安装、验证提示词与激活检查。 |
-| 学会 JSON 界面描述 | [组件语法](./SKILL.md) | 受白名单约束的 `dsh-ui` 组件规范。 |
+---
 
-## 观看真实界面
+## 🎬 真实界面预览
 
-> **不是概念图。** 本节的录屏与截图均来自 `dsh-genui` 在 DSH 界面中的实际渲染；先看它真正长什么样，再决定是否安装。
+> [!NOTE]
+> **真实截图与录屏：** 以下界面素材均直接截取自 DSH 真实对话环境中的渲染结果，无任何概念样机或预渲染伪造。
 
-### 40 秒完整演示
+### 40 秒完整体验
 
 <div align="center">
 
 https://github.com/user-attachments/assets/f5db33ec-7471-4d4a-a85b-79c9962ab4ef
 
+<p align="center">
+  <a href="./assets/demo.mp4"><img src="./assets/demo-thumb.png" width="88%" alt="dsh-genui 完整演示录屏封面"></a>
+  <br><em>（若 GitHub 视频播放器加载较慢，点击封面即可直接下载查看 <a href="./assets/demo.mp4">原始 MP4</a>；四幕测试提示词详见 <a href="./demo-prompts.md">demo-prompts.md</a>）</em>
+</p>
+
 </div>
 
-<p align="center">
-  <a href="./assets/demo.mp4"><img src="./assets/demo-thumb.png" width="92%" alt="dsh-genui 完整演示录屏封面"></a>
-  <br><em>若 GitHub 播放器不可用，点击封面即可下载原始 MP4。</em>
-</p>
+### 回答中的三类典型输出
 
-录屏依次经过回答内嵌面板、表单、函数绘图、Mermaid 与面向 3D 的组件。播放器不会自动播放；若没有加载，请打开[原始 MP4](./assets/demo.mp4)，四幕提示词见 [demo-prompts.md](./demo-prompts.md)。
-
-### 一条 DSH 回答里的三类真实输出
-
-#### 1. 监控面板就是回答的一部分，不是另开一个仪表盘
-
-<p align="center">
-  <img src="./assets/showcase-panel.png" width="92%" alt="真实 DSH 对话中渲染的 dsh-genui 监控面板">
-  <br><em>真实输出：eyebrow 指标卡、可筛选可钻取的服务表、分组合计，以及 spark/ring/bar 单元格类型，都活在助手回答里。</em>
-</p>
-
-#### 2. 改参数时，函数图在本地即时重绘
-
-<p align="center">
-  <img src="./assets/showcase-plot.png" width="76%" alt="带可拖动参数滑块的真实 dsh-genui 函数图">
-  <br><em>真实输出：`plot` 绘制曲线；拖动参数滑块即时重绘，零模型往返。</em>
-</p>
-
-#### 3. 布局原语可以组成有层级的工作界面
-
-<p align="center">
-  <img src="./assets/showcase.png" width="76%" alt="真实 dsh-genui 排版和卡片组件组合">
-  <br><em>真实输出：display 引言、eyebrow 指标卡、环形进度和带名字的章节分隔线，组合成模型能够声明的界面层级。</em>
-</p>
+| 1. 监控面板：回答即仪表盘 | 2. 探索绘图：本地即时重绘 | 3. 结构排版：构建工作界面 |
+| :--- | :--- | :--- |
+| ![监控面板](./assets/showcase-panel.png) | ![函数图](./assets/showcase-plot.png) | ![排版与卡片](./assets/showcase.png) |
+| **数据洞察：** 指标卡（Eyebrow）、可筛选可钻取的服务表、分组合计与 Spark/Ring 单元格直接内嵌在回答中。 | **即时交互：** `plot` 绘制数学曲线；拖动参数滑块在浏览器端实时重绘，零模型往返延迟。 | **层级工作区：** 标题引言、指标卡片、环形进度与章节分隔线，由模型声明式灵活编排。 |
 
 ---
 
-## ⚠️ 先看这里：双通道渲染（无需修改宿主源码）
+## ✨ 对比：装之前 vs 装之后
 
-本插件自带**两套渲染通道**；宿主激活浏览器模块后，插件会自动选择：
-
-- **Registry 通道**：宿主提供 `fence-registry` 扩展点（新版 dsh 构建）时，围栏经宿主流式渲染管线注册，行为与宿主无缝；
-- **DOM 通道**：宿主没有该扩展点（包括支持范围内的原版 DSH 构建）时，插件观察会话 DOM 自行挂载渲染树。自 0.7.2 起**支持流式渲染**：模型写到哪渲染到哪，首个完成的组件立即出现，不用等整段回复写完。自 0.8.3 起围栏发现**多表面兼容**：同时匹配标准 `md-code-block` 表面、部分宿主构建使用的 deepsuite 风格 `.code-block` / `.code-block-small` 表面，并以「label+`<pre>`」结构兜底——任何 banner 标注 `dsh-ui` 且含 `<pre>` 正文的元素都能被识别。即使你的 dsh 构建用了别的类名，围栏照常渲染（控制台会有一条一次性提示说明宿主 DOM 发生漂移）。
-- **DSH 0.1.7 通用代码块**：宿主最终 DOM 没有提供围栏 language metadata 时，dsh-genui 会从公开 ChatSnapshot 读取当前 assistant 的原始 Markdown，并且只接管 `dsh-ui` 围栏。DOM 负责确定挂载位置。source 数据暂时不可用时，assistant 已结束的通用 CodeBlock 才能通过严格的 canonical GenUI 规范校验进入最终兜底。
-
-无论走哪条通道，组件、交互、面板、持久化行为完全一致。
-
-CI 的 packed host smoke 会把实际生成的 npm tarball 安装到真实 DSH 宿主，并验证宿主启动与界面渲染。source-backed 围栏识别由 integration tests 覆盖；该 smoke 不代表真实模型回复验收。真实模型 E2E 需要配置模型凭据。
-
-本仓库已经包含两条渲染通道、服务端插件和浏览器构建产物；宿主仍负责**激活客户端模块**，并提供 `slots` 与 `sessions` 服务。`client.js` 返回 200 或出现在 ModuleLoader 缓存里，只能证明文件下载成功；真正激活后一定会打印 `[genui] client active; fence-channel=registry|dom`。没有这行时应先核对包名/网页配置/宿主激活链，`data-streaming`、`data-chat-anchor-key` 等页面属性只是可选信息，不是安装前提。
+| 场景 | 传统纯文本回答 | 安装 dsh-genui 之后 |
+| :--- | :--- | :--- |
+| **业务监控** | “本月收入 ¥128,430，环比 +12.4%，转化率稍有下滑……” | 一行文字分析 + 紧贴正文的**收入/订单/转化率指标卡**、**动态趋势图**与**进度条**。 |
+| **数据筛选** | 必须再发送一段提问要求模型重新生成表格。 | 表格自带**本地点击排序**与**实时过滤框**，无需重新请求模型。 |
+| **深入探索** | 想要调整参数看趋势，必须反复调用模型对话。 | 拖动参数滑块，函数曲线在前端**毫秒级重绘**，带播放动画演示。 |
+| **后续操作** | 复制文本自己另找工具处理。 | 面板自带「刷新」「切换视图」按钮，点击通过 **Action 闭环**驱动模型执行下一步。 |
 
 ---
-
-## ✨ 装之前 vs 装之后
-
-| 普通回答 | 装了 dsh-genui |
-|---|---|
-| "本月收入 ¥128,430，环比 +12.4%，建议关注转化率。" | 一行分析 + 旁边直接渲染：收入/订单/转化率三张统计卡、趋势图、进度条 |
-| 想再看别的？再打一段字问一遍 | 面板上就有「刷新」「切换视图」按钮，点一下，模型更新数据 |
 
 ## 🚀 快速开始
 
-前置条件，缺一不可：
+### 1. 环境准备
 
-1. **dsh `^0.1.2-rc.1 || ^0.1.5-alpha.1 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1 || >=0.2.0-rc.1 <0.3.0-0`**（DSH `0.2.1-alpha.3` 当前属于预发布版本；已验证宿主角色：minimum `dsh-v0.1.2-rc.1`、current `dsh-v0.2.0-rc.2`、next `dsh-v0.2.1-alpha.3`；使用 DSH `<=0.1.1-rc.x` 的用户请使用 dsh-genui `0.9.8`）
-2. **`pnpm` 在 PATH 上**：`dsh plugin` 命令依赖它。没有就 `corepack enable`（或 `npm i -g pnpm`），然后**新开一个终端**，确认 `pnpm -v` 有输出
+安装前请确认满足以下条件：
+- **DSH 版本**：`^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`。安装包浏览器验收覆盖 `0.2.0-rc.1`、`0.2.1-rc.3` 与 npm 精确安装的 `0.2.2-rc.1`（当前 `latest` / `next`）和 `0.2.2-alpha.2`；`0.2.1-rc.4` 与 `0.2.1-rc.5` 继续单独执行公开接口、完整单元测试与构建检查。当前 RC 与 alpha 宿主要求 **Node.js >=24.9.0**，图片集合、计算字段和地图使用官方本地回放验收；第三方侧栏接入在 rc.3 上验收。
+- **pnpm 处于 PATH 中**：`dsh plugin` 底层依赖 pnpm。如尚未安装，请执行 `corepack enable` 或 `npm i -g pnpm`，之后**重新打开终端**，确认 `pnpm -v` 可正常输出。
 
-安装并在 DSH 中激活（一行命令，自动带上全部依赖）：
+### 2. 一键安装与激活
+
+在终端中执行以下命令（一键全自动拉取依赖）：
 
 ```sh
-# npm 公开包安装（无需 npm 账号）
+# 安装并激活至 DSH web profile（公开包，无需登录 npm）
 dsh plugin --profile web add @changfenhuang/dsh-genui
 ```
 
-如果只想把它作为 Node 依赖加入现有项目：
+> [!TIP]
+> **仅作为依赖引入？** 若仅作为 Node 项目依赖引入而不注入 DSH 宿主，执行 `npm install @changfenhuang/dsh-genui` 即可。
 
-```sh
-npm install @changfenhuang/dsh-genui
-```
+### 3. 60 秒验证
 
-> `npm install` 只添加依赖，不会把插件注册到 DSH；在 DSH 中使用时仍应执行上面的 `dsh plugin add`。
-
-> ⚠️ **别用 `link:` 装一个刚 clone 的目录**——`link:` 不会安装插件的依赖（mermaid / three / react），装完渲染器会挂。正常安装请使用上面的 npm 命令；只有本地开发迭代才用 `link:`（见下文）。
-
-### 认准包名与版本
-
-- **包名必须带 scope**：npm 上另有一个同名但不带 scope 的 [`dsh-genui`](https://www.npmjs.com/package/dsh-genui)（Vue/OpenTiny 实现，与本仓库无关，维护者不同）。如果安装列表里描述是 "interactive charts, forms, calculators, dashboards, and mini apps"，那是那个项目——装上会因 peer 不兼容被宿主拒绝。本插件始终是 **`@changfenhuang/dsh-genui`**。
-- **宿主拒绝安装时**：支持的宿主范围由 peerDependencies 声明、宿主据此检查，升级到 npm 上 `latest` 的插件版本重装即可，无需改其他配置。
-- **解析到的版本低于 `latest`**：多半是 pnpm 的发布冷静期在起作用（默认跳过发布不满 24 小时的版本，且不提示）。等一天重试，或在 profile 的 `pnpm-workspace.yaml` 的 `minimumReleaseAgeExclude` 里加入目标版本；profile 里精确 pin 过旧版本的，先改依赖声明再重装。
-
-### 从旧 `@omdsh-dev` 包名迁移
-
-如果你在 v0.9.2 之前通过 `github:omdsh-dev/dsh-genui` 安装过，pnpm 可能仍把依赖保存在旧的 `@omdsh-dev/dsh-genui` 键下，但仓库当前声明的包名已经是 `@changfenhuang/dsh-genui`。加载器按 profile 的依赖键解析插件，后续重装时就可能报 `Cannot find package '@changfenhuang/dsh-genui'`。请用当前包名重新添加一次：
-
-```sh
-dsh plugin --profile web remove @omdsh-dev/dsh-genui
-dsh plugin --profile web add @changfenhuang/dsh-genui
-```
-
-这次迁移只针对改名前留下的 GitHub 源安装。此后新装统一使用上面的 npm 命令，并采用当前依赖键。
-
-### 60 秒验证安装
-
-命令完成后，重启 dsh web 并对浏览器硬刷新。在**新**会话中输入：
-
-```text
-用 dsh-ui 画一个带可排序服务表的统计看板。
-```
-
-正常情况下，回答会原地变成仪表盘，而不是显示成代码块。想做最明确的技术确认时，打开浏览器控制台：成功激活会打印 `[genui] client active; fence-channel=registry|dom`。
-
-### 开发者迭代（link 模式）
-
-```sh
-cd dsh-genui
-pnpm install
-dsh plugin --profile web add link:$PWD
-```
-
-## 🧩 能力地图
-
-| 界面方向 | 第一次怎么试 | 可以直接观察到的行为 |
-|---|---|---|
-| 数据 | 让它做订单或服务监控看板 | `stat`、`table`、`chart`、`progress` 直接出现；已支持的数值表格按数值排序。 |
-| 媒体 | 让它引用一段音频或视频 | 浏览器可访问的媒体直接内嵌播放，带封面/比例和失败状态。 |
-| 探索 | 让它用 `plot` 画带参数的函数 | 拖动滑块，本地立即重绘曲线。 |
-| 反馈 | 让它出一道小测 | 判题和解析在本地完成；需要模型参与的下一步才使用 `action`。 |
-| 工作区 | 使用 `/panel` 或 `panel: true` | 常驻、可调高的会话 dock 在原地更新。 |
-
-下面是完整能力说明。所有行为都受白名单 `dsh-ui` 规范约束；JSON 写法请看 [SKILL.md](./SKILL.md)。
-
-- **回答即界面**：组件嵌在回答里，边生成边出现，不用等整段写完
-- **30+ 组件**：卡片、表格、图表、表单、标签页、折叠面板、文件树、时间线、diff……
-- **原生音视频**：浏览器可访问的 http(s) 或同源相对地址直接嵌入回答；用户主动控制播放，视频支持封面与画面比例，失败时原位提示
-- **ECharts 集成**：`echart` 节点渲染完整的 ECharts 图表，自动适配主题色、提示框和图例。两种模式：**预设简写**（`preset: 'bar' | 'line' | 'area' | 'pie' | 'scatter'` + `data`/`series`）可从 `chart` 节点快速升级；**完整选项**（`option` 字段）支持自定义图表类型、dataZoom、visualMap 等高级 ECharts 功能。echarts 引擎（~1 MB）按需懒加载——主包不含引擎，没有 `echart` 节点的对话不会下载它- **函数图**：`plot` 画曲线，参数滑块拖动实时重绘，支持自动动画
-
-- **测验**：`quiz` 点选判题 + 解析 + 重试；带 `action` 时答案同时回传模型（判题仍本地即时）
-- **本地判卷（交卷）**：多道选择题的每个 `radio` 设置 `group`、`answer` 和 `explanation`，再添加 `submit` 按钮。所需 radio 均已选择且当前 block 没有其他需要发送的表单状态时，分数、每题对错和解析直接显示在界面中；其他情况通过聚合 action 发送 `answers`、可选的 `fields`、`total` 和 `answered`。
-- **提交分组**：`groups` 引用当前 block 中的 submission member key，来源为 `radio.group`、`checkbox.group`、`input.id`、`textarea.id`、`select.id`、`slider.id`。radio 需已选择，checkbox 组需至少选择一项，普通字段需在 trim 后非空。`groups` 控制提交所需成员与完成进度；payload 继续收集当前 block 中已填写的表单状态。未设置 `groups` 时，至少有一个已完成成员即可提交。
-- **状态持久化**：答案、交卷锁定、输入值按「会话 + 内容指纹」自动保存——刷新页面/重开会话原样恢复，重渲染相同内容保留用户状态，新内容自动从头开始；上限 200 块 LRU 淘汰
-- **表单语义**：`input` 回车 / `textarea` Ctrl+Enter 即时提交（`submit:true`），不用等失焦；带 `id` 的字段值进 submit 的 `fields` 收集
-- **秘密禁令**：GenUI 不得索取密码、API Key、访问令牌、恢复码或其他秘密；密码输入即使出现也保持打码、不持久化、不进表单收集
-- **本地优先原则**：UI 自己能完成的状态变化（判卷、判题、重置、展开、选中）一律本地即时完成；action 只用于必须模型参与的事（生成新内容、执行工具、下一步建议）
-- **诚实交互**：交互组件必须带 `action`；不带 `action` 的按钮渲染为禁用态（消灭"看着能点、点了没反应"的假按钮）；带 `action` 的按钮点击后立即显示「已触发」本地反馈（只证明本地事件已触发，不代表模型已收到）
-- **事件循环**：按钮、复选框、单选、开关、下拉、输入、文本域、提交和测验等离散交互按一次手势一次事件立即回传模型；`slider` 连续拖动保留尾沿防抖，同一滑块只回传最终值，不同 `id` 的滑块互不合并。
-- **工具通道**：默认注册 `render_ui`，并将同一份 spec 渲染成工具行卡片；`validate_dsh_ui` 始终可用。在本插件的 `config:` 中设置 `renderUiTool: false` 后，宿主不再注册 `render_ui`。正文 `dsh-ui` 围栏、`panel: true`、`/panel` 和客户端工具视图中的历史 `render_ui` 结果仍可使用。修改此设置后需要让宿主重新加载插件。
-- **关闭 `render_ui` 工具**：在用户 profile 中本插件条目的 `config:` 下添加：
-
-  ```yaml
-  - id: genui
-    name: '@changfenhuang/dsh-genui'
-    config:
-      renderUiTool: false
-  ```
-- **会话面板**：composer 上方常驻 dock，`render_ui` / `panel: true` 围栏原地更新同一块界面；`/panel` 命令客户端直开（`/panel <指令>` 转模型定制、`/panel clear` 清空）；顶边框可拖拽调高；`append: true` 增量合并——同名标签页追加内容、新标签页新增；整面板默认最多 200 节点 / 200 条追加，达到上限后模型应发送 `replace` 重建
-- **围栏自修**：默认开启；在 profile 的 cordis.patch.yml 中本插件条目的 `config:` 下设置 `fenceFeedback: false` 可以关闭同回合围栏修正。已调用 `validate_dsh_ui` 的 GenUI 回合若只输出 reasoning 并以 `stop` 结束，仍会转换为 `EMPTY_RESPONSE`，交给宿主重试策略处理。回答最终的 dsh-ui 围栏无法渲染时，插件借宿主的轮内转向（steer）把逐节点诊断送回**同一轮**，模型重发修好的围栏。每个 turn 最多发送两条 correction，渲染失败与“已验证但没有正式交付”共用该上限；同一 turn 内相同围栏 fingerprint 只修正一次，新 turn 可以重新修正相同错误；同一 turn 的零交付提醒只发送一次。plugin reload 后会从持久化的 correction message 恢复当前 turn 的围栏去重记录、已消费的 correction 次数以及零交付提醒记录。子代理回合不会收到围栏修正。
-- **自愈与上限**：每个围栏过规格守卫——坏节点静默丢弃（同围栏其余组件照常渲染，单个坏组件不再拖垮整条围栏）、数值钳位、字符串截断，整树 ≤200 节点 / 8 层嵌套，病态 spec 不会拖垮界面
-- **统一组件协议**：`card.label` → `title`、`table.data`/`table.items` → `rows`、`callout.kind`/`callout.desc` → `tone`/`content`（tone 值 `danger` → `error`）、`steps.items` → `steps`、`keyvalue.items` → `pairs`（记录内 `label` → `key`）、`file-tree.nodes` → `items`（记录内 `label` → `name`、有 children 时缺省 `dir`）等原生字段别名会在校验和渲染前确定性归一化；根级组件数组视为 `items`、双重编码的 JSON 字符串解一层；`validate_dsh_ui` 会报告归一化结果，并对原生组件未知字段给出警告，同时保持自定义 renderer 节点的透明兼容。
-- **图错误自愈**：mermaid 渲染失败自动修复重试（剥反引号、引号化中文/空格标签、去 `<br/>`），仍失败才降级源码；错误图永不直接上屏
-- **可访问性**：tabs/折叠/开关/进度条带完整 ARIA 与键盘导航（方向键切页、Home/End 跳转）
-- **零打扰**：不装插件时围栏只是代码块，不报错、不污染会话
-
-## 🏆 新手引导：模板中心与探索成就（0.9.4+）
-
-- **模板中心**：会话面板 dock 顶部的「模板」按钮——11 个分类示例（仪表盘/方案对比/上手流程/随堂测验/趋势图/标签页/清单/FAQ/架构图/3D/文件树），点击即内嵌预览（示例由 GenUI 本身渲染），「试用」一键把指令插入输入框、发送即让模型生成；「复制指令」可带走。
-- **探索成就**：同一 dock 的「成就」按钮——12 个成就（初次相见 → 蓝图之魂），按渲染/交互/面板/模板埋点计数，解锁弹 toast，成就页由 `dsh-ui` 渲染自己的列表；只存计数（localStorage），绝不读取消息内容；隐藏成就（传说）解锁前显示「？」。
-- **首次提示**：第一块面板出现时显示 6 秒一次性提示（指向「模板」按钮），不打扰式引导。
-
-组件 JSON 语法见 [SKILL.md](./SKILL.md)。宿主提供公开 skill registry 时，插件会自动注册内置 `genui` skill，因此新会话无需向 `~/.dsh` 复制文件即可获得完整组件与字段目录。
-
-`chart` 保持三种图形的紧凑渲染器：使用 `kind: 'bars' | 'line' | 'donut'`，且 `data[].value` 必须是有限数字。`validate_dsh_ui` 会明确报告误用的 `variant`、不支持的 kind 和非法数据字段；`render_ui` 对同样错误直接失败，不再静默渲染默认柱图。未知扩展字段仍允许存在。
-
-## 📄 示例
-
-模型输出这段围栏（写给浏览器看的，你不用读懂）：
-
-```dsh-ui
-{"title":"订单概览","items":[
-  {"type":"stat","label":"总收入","value":"¥128,430","delta":"+12.4%"},
-  {"type":"stat","label":"订单数","value":"1,024","delta":"-3.1%"}
-]}
-```
-
-你看到的是两张统计卡片。
-
-### ECharts 示例
-
-```dsh-ui
-{"title":"Q1 收入","items":[
-  {"type":"echart","title":"月度收入","preset":"bar","data":[
-    {"label":"1月","value":98},
-    {"label":"2月","value":112},
-    {"label":"3月","value":128}
-  ]}
-]}
-```
-
-你看到的是一张带提示框和坐标轴的主题色柱状图——由 ECharts 渲染，按需懒加载。
-
-## 🔧 原理
-
-模型把界面描述写成 JSON 放进 `dsh-ui` 围栏，浏览器端渲染器（`src/client`）通过主仓 `fence-registry` 接口认领这门语言并渲染。组件是白名单的，模型塞不进 HTML/脚本；函数表达式走独立解析器，不用 eval。
-
-主渲染包保持轻量（≈110 KB min / 28 KB gzip），mermaid、three.js 与 echarts 引擎单独打包为按需资产（首次用到时经插件自注册的 HTTP 路由加载），启动时只下载渲染核心。
-
-## ❓ 常见问题
-
-- **显示成代码块？** 先在浏览器控制台找 `[genui] client active; fence-channel=registry|dom`。没有这行，即使 `client.js` 返回 200，也只是下载了文件、没有激活：请对齐网页配置依赖名、`package.json.name`、`cordis.patch.yml`、ModuleLoader id 和配置中的 bundle 名。出现这行后再查围栏标签/正文；宿主没有 registry 时会自动走 DOM 通道。
-- **渲染 dsh-ui fence 时聊天界面白屏？** 此版 dsh-genui 要求 DSH `^0.1.2-rc.1 || ^0.1.5-alpha.1 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1`；使用 DSH `<=0.1.1-rc.x` 的用户请使用 dsh-genui `0.9.8`。
-- **`dsh: pnpm not found on PATH`？** 装 pnpm 后**新开终端**再试（`corepack enable` 或 `npm i -g pnpm`）。
-- **npm 安装返回 404？** npm 包是公开的，无需登录。先执行 `npm view @changfenhuang/dsh-genui version` 核对包名与公共 registry；若新版本刚发布仍返回 404，稍后重试。
-- **装了但 scene3d/mermaid/echarts 不渲染？** 引擎（mermaid / three / echarts）不再内联进 client.js——它们在首次用到时按需加载（`/plugins/@changfenhuang/dsh-genui/assets/*.js`，插件自带 HTTP 路由托管）。先重启 dsh web + 硬刷新（Cmd+Shift+R）；仍不渲染就卸掉重装（`dsh plugin --profile web remove @changfenhuang/dsh-genui` 后再 add）。旧版宿主缺少资产路由时会降级显示源码/加载失败提示，更新 dsh 即可。
-- **模型不主动输出？** 重启后新会话生效；或直接说"用 dsh-ui 输出"。
-- **clone 后没有 lib/？** `pnpm install && pnpm run check` 自己构建。
-
-## 🧑‍💻 开发
-
-### 嵌入其他应用
-
-支持 CSS Modules 和 TypeScript 的浏览器构建器可以从 `@changfenhuang/dsh-genui/embed` 导入 `GenuiBlock`、`GenuiActionContext`、`ErrorBoundary` 和 `processGenuiSpec`，复用同一份组件、样式与规格校验，无需加载 DSH 的插件入口。
-
-嵌入宿主通过 `initialState` / `onStateChange` 接管持久化，使用稳定的 `stateKey` 区分界面，通过 `GenuiActionContext.Provider` 接收动作。改变 `stateKey` 会开始新的交互生命周期；同一界面的后续刷新保留输入。设置 `onStateChange` 后不读写浏览器的交互状态存储。
-
-调用 `setGenuiAssetBase` 设置本地引擎目录；从公开的 `@changfenhuang/dsh-genui/assets/mermaid`、`assets/three`、`assets/echarts-core`、`assets/echarts` 构建对应脚本。模型指引从 `@changfenhuang/dsh-genui/skill` 读取。宿主只补自己的交付通道和设计变量；渲染器仍使用本包与 `@deepseek-ai/dsh-client-ui-primitives` 的组件。构建时提供 React、CSS Modules、KaTeX 字体及所用引擎依赖。
-
-### 导出 GenUI 成果文件
-
-已完成的 GenUI 区块提供“导出 → HTML”和“GenUI JSON”。`.html` 文件内含渲染器、样式、KaTeX WOFF2 字体和规格实际需要的图形引擎，本地控件可以继续使用，模型动作按钮会禁用。相对媒体地址会按导出页面的地址转换为绝对地址；离线打开时，网络媒体仍需连接原站点。`.genui.json` 保留原媒体地址、规范化规格、可持久化交互状态、语言和主题。自定义组件会禁用 HTML 导出，导出错误会显示在菜单旁。宿主可从 `@changfenhuang/dsh-genui/embed` 使用 `createGenuiArtifact`、`parseGenuiArtifact`、`serializeGenuiArtifact` 和 `buildStandaloneHtml`；`@changfenhuang/dsh-genui/assets/standalone` 指向可供复制或提供下载的运行文件。
-
-```sh
-pnpm install
-pnpm run check   # 类型检查 + 全量测试 + 构建
-```
-
-安装锁定依赖后，检查脚本（`pnpm run check` 或 `npm run check`）使用固定的 DSH `0.1.2-rc.1` 发布包。
-
-已验证宿主角色为 minimum `dsh-v0.1.2-rc.1`、current `dsh-v0.2.0-rc.2`、next `dsh-v0.2.1-alpha.3`。DSH `0.2.1-alpha.3` 当前属于预发布版本。CI 保持四条主要 lane：Node 22 + current，以及 Node 24 + minimum/current/next。DSH 发布新版本后，替换对应固定标签。
-
-`pnpm run check:host-api dsh-v0.2.0-rc.2` 与 `pnpm run check:host-api dsh-v0.2.1-alpha.3` 会安装对应 DSH 发布包（以及这些包未声明、由宿主 App 外层提供的运行时依赖闭包），运行 TypeScript 类型检查、**全量单元测试**和 tsdown 构建——所有非门控套件都会对真实的新宿主包执行。注意：被 `skipIf(!hasFenceRegistry)` 门控的套件在任何已发布宿主下都会跳过——`registerFenceRenderer` 从未出现在任何已发布的 `dsh-client-ui-primitives` 中（这批门控测试覆盖的是一个仅内部存在过的宿主契约，详见 CHANGELOG）。每条 CI 宿主 lane 随后会把生成的 tarball 安装到固定版本的 DSH 宿主并运行 packed smoke。
-
-运行 `node scripts/verify-pack.mjs --keep` 可保留已验收的 tarball，便于检查或运行 e2e；默认的 `node scripts/verify-pack.mjs` 会在验收后清理临时目录。
-
-### 真机 e2e
-
-真实链路验证：起一个临时 dsh web → 装上插件 → 浏览器里发消息让模型输出 `dsh-ui` fence → 断言渲染 → 点击 action 按钮 → 断言模型响应（事件循环闭环）：
-
-```sh
-export DSH_ROOT=/path/to/deepseek-harness-0.1.2-rc.1
-export DSH_BIN="$DSH_ROOT/apps/cli/lib/bin.js"
-DEEPSEEK_API_KEY=sk-... node scripts/e2e.mjs          # link 安装当前工作区
-```
-
-先构建 DSH `0.1.2-rc.1` checkout。按上面的示例将 `DSH_ROOT` 指向该 checkout，将 `DSH_BIN` 指向其中的 `apps/cli/lib/bin.js`；另需准备 `pnpm`、`DEEPSEEK_API_KEY` 和主仓 web 构建产物。PASS 时保存 `e2e-final.png` 截图。
-
-### 视觉 e2e（无需模型 key）
-
-样式/组件迭代用：使用 DSH `0.1.2-rc.1` checkout 起真实 dsh web + link 安装插件 → 通过 DOM 通道注入组件画廊围栏 → headless Chrome 全页截图 + 本地交互（表格排序 / 判题 / 目录折叠 / 数值对齐）硬断言，不需要任何模型额度。运行前按上面的示例将 `DSH_ROOT` 和 `DSH_BIN` 指向该 checkout：
-
-```sh
-npx tsx scripts/e2e-visual.mts          # → .e2e-artifacts/gallery.png + interactions.png
-npx tsx scripts/e2e-visual.mts --keep   # 保留 scratch DSH_HOME 便于排查
-```
-
-可覆盖：`--port 3098`、`--out <dir>`、`DSH_BIN`（设为 DSH `0.1.2-rc.1` checkout 内的 `apps/cli/lib/bin.js`）、`PLAYWRIGHT_PATH`（默认全局 playwright-core）。
-
-## 🗺️ Roadmap（已评估项）
-
-| 方向 | 结论 | 理由 |
-|---|---|---|
-| 增量 patch（模型只发 diff 不重发全量 spec） | 不做 | fence 一次 200–800 token，重发代价极小；patch 协议的教学成本与出错率不值得。若未来出现秒级自动刷新面板再议 |
-| action 回传 | ✅ 离散交互立即回传；slider 拖动按 action 和 `id` 防抖 | 离散操作逐次回传，slider 拖动只回传最终值 |
-| 跨会话状态持久化（回放恢复 tabs/开关） | 不做 | 回放重置是更正确的默认行为（模型已用新 fence 更新过界面）；流式期间状态天然保留 |
-| MCP 适配器 / 独立画廊页 / i18n | 不做 | 无跨工具需求信号；画廊素材已被 `gallery.ts` + demo-prompts + README 截图覆盖；内置文案仅 6 处 |
-
-## 🔗 友情链接
-
-- [Linux.do](https://linux.do)
+1. 重启 DSH web 服务，并在浏览器中执行**硬刷新**（`Cmd + Shift + R` 或 `Ctrl + F5`）。
+2. 在 DSH 中开启一个**新会话**，发送以下指令：
+   ```text
+   用 dsh-ui 画一个带可排序服务表的统计看板。
+   ```
+3. **预期效果**：回答中的代码块将实时转变为精美的交互式仪表盘，而非原样文本。
+4. **控制台激活检测**：打开浏览器开发者工具 Console，若看到输出 `[genui] client active; fence-channel=dom`，说明客户端已成功激活。
 
 ---
 
-📄 License: MIT
+> [!WARNING]
+> ### ⚠️ 安装避坑指南
+> 
+> 1. **认准包名 Scope（极为关键）**：
+>    必须安装 **`@changfenhuang/dsh-genui`**。npm 上存在一个同名但无 Scope 的 `dsh-genui`（由其他维护者基于 Vue/OpenTiny 开发，与本插件完全不兼容），如不慎安装会被 DSH 宿主因 peer 依赖冲突拒绝。
+> 2. **切勿使用 `link:` 安装刚 git clone 的目录**：
+>    纯 `link:` 不会自动安装 Mermaid、Three.js、React 等对等依赖，导致前端渲染报错。日常使用请走 npm 安装；仅本地源码开发时才使用 link（见[开发者指南](#-开发者指南)）。
+> 3. **从旧包名 `@omdsh-dev` 迁移**：
+>    若在 v0.9.2 之前使用过 GitHub 源或旧组织名安装，请执行：
+>    ```sh
+>    dsh plugin --profile web remove @omdsh-dev/dsh-genui
+>    dsh plugin --profile web add @changfenhuang/dsh-genui
+>    ```
+
+---
+
+## 🧩 核心能力全景
+
+`dsh-genui` 的所有组件与交互受严格的白名单规范约束，兼顾丰富表现力与高安全性。完整字段定义见 [SKILL.md](./SKILL.md)。
+
+```
+dsh-genui 核心能力矩阵
+├── 🌊 1. 边流边渲染 (Streaming UI)
+├── 🎨 2. 30+ 丰富组件生态 (Components Matrix)
+├── ⚡ 3. 本地优先即时交互 (Local-First Experience)
+├── 🔄 4. 闭环事件回传系统 (Action Event-Loop)
+├── 📌 5. 常驻会话工作台 (Session Panel & Templates)
+└── 🛡️ 6. 安全沙箱与容错自愈 (Safety & Self-Healing)
+```
+
+### 1. 🌊 边流边渲染 (Streaming UI)
+- **回答即界面**：组件内嵌在回复正文中，跟随模型 Token 流式吐出，边生成边即时挂载，**无需等待整段回复输出完毕**。
+- **零破坏降级**：若未安装或禁用插件，`dsh-ui` 围栏将退回为优雅的 Markdown 代码块，绝不破坏会话内容。
+
+### 2. 🎨 30+ 丰富组件生态 (Components Matrix)
+- **展示与排版**：包含指标卡（`stat`，支持 Hero 超大字号与微趋势线 Sparkline）、表格（`table`）、时间线（`timeline`）、代码对比（`diff`）、步骤条（`steps`）、文件树（`file-tree`，支持点击展开折叠）、提示卡（`callout`）、徽章（`badge`）等。
+- **内容字号**：卡片字号会随宿主「设置 → 外观 → 内容字号」增大；宿主设置为 17px 或更小时保留各组件原有字号。独立导出的 HTML 保留原有字号。
+- **高级表格**：
+  - 点击表头**纯本地排序**（升序/降序/还原，支持千分位、百分比、货币及万/亿数值感知）；
+  - 单元格支持 `bar` 进度条、`ring` 环形、`spark` 趋势线，带正负符号数值自动着色；
+  - 一键支持数据导出（复制 Markdown / CSV）与即时文本过滤（Filter）。
+- **ECharts 深度集成 (`echart`)**：
+  - **预设简写模式**（`preset`）：支持 `bar`、`line`、`area`、`pie`、`scatter`、`radar`、`gauge`、`funnel`、`treemap`、`sankey`、`graph`、`heatmap`、`bigline`、`wordCloud` 等数十种图形，配色自动匹配 DSH 主题；
+  - **完整配置模式**（`option`）：支持原生 ECharts 选项，轻松开启 DataZoom、VisualMap 等高级特性；
+  - **按需异步加载**：ECharts 引擎（~1MB）独立打包，未调用图表组件的会话绝不加载多余代码。
+- **数学函数绘图 (`plot`)**：
+  - 支持多曲线绘制（line / area / scatter），公式支持三角函数、对数、幂运算等；
+  - **动态参数滑块**：拖动滑块前端毫秒级重绘，锁定 Y 轴，支持自动动画循环演示。
+- **Mermaid & 3D 场景**：支持流程图、序列图及轻量 3D 模型渲染，引擎按需异步加载。渲染完成的 Mermaid 图可点击打开原生对话框查看大图：滚轮缩放、拖拽平移、工具栏放大/缩小/重置，Esc、关闭按钮或点遮罩退出并把焦点放回图表。
+- **原生多媒体**：支持浏览器可直达的音频（`audio`）与视频（`video`）嵌入播放，包含封面图、比例自适应及播放控制。
+- **数学公式集成**：基于 KaTeX，支持行内公式 `$...$`、块级公式 `$$...$$`，支持矩阵与多行推导。
+
+### 3. ⚡ 本地优先即时交互 (Local-First Experience)
+- **本地优先原则**：前端界面能够独立完成的操作（表格排序、过滤、内容展开/收起、标签切换、参数重绘、测验判题），**一律在浏览器本地即时完成**，绝不进行不必要的模型往返。
+- **测验与本地判卷 (`quiz` / `submit`)**：
+  - 单题测验点击即在本地判题、展示解析并支持重试；
+  - 多题问卷/表单可通过 `submit` 统一交卷，支持 `groups` 必填项控制与进度感知。
+- **状态持久化**：表单输入、单选多选与测验进度基于「会话 + 内容指纹」自动存入缓存（LRU 200 块），刷新页面或重开会话无缝恢复。
+
+### 4. 🔄 闭环事件回传系统 (Action Event-Loop)
+- **真实动作闭环**：当按钮或表单带上 `action` 字段时，用户的点击或提交会即时组装为结构化事件回传给大模型，触发下一轮智能分析。
+- **诚实交互设计**：未声明 `action` 的按钮自动渲染为禁用态，杜绝“看起来可点但无反应”的假交互；点击有效按钮触发即刻给予视觉反馈。
+- **智能防抖**：按钮与切换项单次手势单次发送，连续滑块拖动自动开启尾沿防抖，仅回传最终停顿值。
+
+### 5. 📌 常驻会话工作台 (Session Panel & Templates)
+- **常驻 Dock 面板**：支持通过 `/panel` 指令或 `panel: true` 将 UI 固化在输入框上方；支持鼠标拖拽边框调整高度；支持 `append: true` 增量追加标签页。
+- **模板中心与成就系统**：
+  - **模板中心**：点击 Dock 顶部的「模板」即可预览 11 类典型业务场景模板，一键插词唤起模型；
+  - **探索成就**：内置 12 项探索趣味成就，本地计数记录使用足迹。
+
+### 6. 🛡️ 安全沙箱与容错自愈 (Safety & Self-Healing)
+- **严格安全防线**：所有组件严格受白名单结构约束，杜绝一切外部代码注入与 `eval` 执行；**严禁索取与收集密码、API Key 等任何敏感凭据**，密码类输入强制打码且绝不持久化。
+- **同回合轮内自修 (Fence Steer Repair)**：若模型生成的 `dsh-ui` 围栏存在格式缺陷，插件自动捕获错误并在**同一回合内**将精确节点诊断反馈给模型，触发自主纠正与重发（可配置 `fenceFeedback: false` 关闭）。
+- **节点级自愈降级**：单个语法异常节点被静默舍弃，同级其他正常组件继续完好渲染，绝不因个别节点错误拖垮整屏界面；Mermaid 常见语法缺陷自动修复重试。
+
+---
+
+## 💻 快速示例
+
+### 示例 1：核心业务指标看板
+
+模型在正文中输出以下 `dsh-ui` 围栏（规范化 JSON）：
+
+```dsh-ui
+{
+  "title": "2026 Q3 业务运行概览",
+  "items": [
+    {
+      "type": "row",
+      "items": [
+        { "type": "stat", "label": "总营收", "value": "¥128,430", "delta": "+12.4%", "spark": [40, 55, 60, 85, 120] },
+        { "type": "stat", "label": "支付订单数", "value": "1,024", "delta": "-3.1%", "spark": [90, 85, 80, 75, 70] },
+        { "type": "progress", "label": "季度目标完成率", "value": 82, "variant": "ring" }
+      ]
+    }
+  ]
+}
+```
+
+### 示例 2：ECharts 丰富折线与柱状图
+
+```dsh-ui
+{
+  "title": "月度营收走势分析",
+  "items": [
+    {
+      "type": "echart",
+      "title": "2026 上半年走势",
+      "preset": "bar",
+      "data": [
+        { "label": "1月", "value": 98 },
+        { "label": "2月", "value": 112 },
+        { "label": "3月", "value": 128 },
+        { "label": "4月", "value": 145 },
+        { "label": "5月", "value": 160 }
+      ]
+    }
+  ]
+}
+```
+
+> 更多高级组件（函数绘图、表格排序过滤、测验表单等）的完整协议规范，请参阅 [SKILL.md](./SKILL.md)。
+
+---
+
+## ⚙️ 架构与运行机制
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 用户
+    participant Host as DSH 宿主 / 大模型
+    participant DOM as DSH 对话 DOM
+    participant GenUI as GenUI 客户端渲染器
+    participant Assets as 动态资产服务 (ECharts/Three)
+
+    User->>Host: 提问（例如："分析近期订单趋势"）
+    Host-->>DOM: 流式输出 Markdown 正文与 ```dsh-ui 围栏
+    DOM->>GenUI: 捕获围栏节点并进行白名单结构规范化
+    alt 依赖重型图表引擎
+        GenUI->>Assets: 动态按需加载引擎脚本
+        Assets-->>GenUI: 注入完成
+    end
+    GenUI->>DOM: 原地挂载独立 React 组件树，实时流式上屏
+    opt 本地即时交互
+        User->>GenUI: 点击表单排序 / 拖动函数滑块 / 答题判卷
+        GenUI-->>User: 毫秒级即时前端重绘与状态持久化
+    end
+    opt 触发闭环 Action
+        User->>GenUI: 点击触发模型交互的按钮
+        GenUI->>Host: 回传结构化 Action 数据流
+        Host-->>DOM: 模型响应下一轮分析或更新常驻 Panel
+    end
+```
+
+### 成果导出能力
+对渲染完成的 GenUI 内容，支持点击菜单导出为：
+- **独立 `.html`**：内嵌渲染核心、样式、KaTeX 字体、所用图表引擎，以及导出时能读到的同源图片，脱离 DSH 也能在任意浏览器中离线打开与交互。
+- **`.genui.json`**：完整保存规范化后的 Spec 结构与持久化交互状态。
+
+---
+
+## 🧑‍💻 开发者指南
+
+### 本地开发联调（Link 模式）
+
+```sh
+git clone https://github.com/omdsh-dev/dsh-genui.git
+cd dsh-genui
+pnpm install
+
+# 本地联调构建并软链至 DSH
+dsh plugin --profile web add link:$PWD
+```
+
+### 常用命令
+
+```sh
+pnpm run check           # 类型检查 + 单元测试 + 构建
+pnpm run test            # 运行 Vitest 测试套件
+pnpm run check:host-api dsh-v0.2.1-rc.3  # 检查保留的 rc.3 宿主公开接口
+pnpm run check:host-api dsh-v0.2.1-rc.4  # 检查此前的 rc.4 公开接口
+pnpm run check:host-api dsh-v0.2.1-rc.5  # 检查此前的 rc.5 接口、完整测试与构建
+pnpm run check:host-api dsh-v0.2.2-rc.1  # 检查当前 npm latest / next 接口、完整测试与构建
+pnpm run check:host-api dsh-v0.2.2-alpha.2  # 检查受支持的 npm alpha 接口、完整测试与构建
+node scripts/verify-pack.mjs --keep  # 生成并打包校验 tarball
+```
+
+Windows 下 Vitest 只校验检出后的 `SKILL.md` 文档头和示例，Windows CI 还会执行 `npm pack --json`。Linux CI 运行完整测试套件，包括 DOM 和 `install.sh` 测试。
+
+### 端到端 E2E 验证
+
+CI 与发布任务通过 `node scripts/prepare-published-host.mjs 0.2.2-alpha.2` 从 npm 安装精确版本，在独立 web profile 中验收插件安装包。此通道使用 `DSH_HOST_LAYOUT=registry`、`DSH_HOST_VERSION=0.2.2-alpha.2` 和脚本返回的 `DSH_ROOT`、`DSH_BIN`；源码宿主通道继续固定到对应官方标签。同一 registry 通道也安装 `0.2.2-rc.1`，对应设置 `DSH_HOST_VERSION=0.2.2-rc.1`。npm 宿主验收将 Cordis 基础框架依赖固定到对应宿主发布清单所列版本，避免后续依赖解析改变测试宿主。当前 RC 与 alpha 的接口、图片集合与计算字段、Linux 地图检查全部通过后才发布 npm。动作使用官方本地回放；Android 真机及原 Windows Desktop 环境仍需单独验收。
+
+- **视觉回归 E2E（无需模型 API Key）**：
+  ```sh
+  npx tsx scripts/e2e-visual.mts          # 生成全量组件截图与交互验证断言
+  ```
+- **真机闭环 E2E（调用模型真实响应）**：
+  ```sh
+  export DSH_ROOT=/path/to/deepseek-harness-0.2.1-rc.3
+  export DSH_BIN="$DSH_ROOT/apps/cli/lib/bin.js"
+  DEEPSEEK_API_KEY=sk-... node scripts/e2e.mjs
+  ```
+
+### 进阶配置项
+
+若需自定义插件行为，可在用户 profile 的 `cordis.patch.yml` 中调整：
+
+```yaml
+- id: genui
+  name: '@changfenhuang/dsh-genui'
+  config:
+    renderUiTool: false   # 关闭额外注入的 render_ui 工具调用，仅保留正文 dsh-ui 围栏与 panel
+    fenceFeedback: false  # 关闭模型生成失败时的同回合自动 steer 纠错
+    fenceSection: full    # 可选 full（默认）、minimal 或 false
+```
+
+`fenceSection` 同时控制围栏提示的详略与使用倾向：
+
+| 档位 | 行为 |
+| --- | --- |
+| `full`（默认） | 提供语法和基本规则，主动用组件呈现共同维度的比较、数值趋势、流程依赖和用户交互，无需用户每次提醒。 |
+| `minimal` | 只保留围栏示例和加载 GenUI Skill 的要求，使用倾向由用户指令决定。 |
+| `false` | 不注册 `genui:fence` 提示段。 |
+
+规则强度按 [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) 区分：合法 JSON、当前字段规范及用户明确的语言与呈现要求属于 MUST；`full` 对比较、趋势、流程依赖和交互使用合适 UI 属于 SHOULD，可因场景合理取舍；card 容器属于 MAY。`full` 不按要点条数或回答长度触发，没有组件数量配额；普通解释和短清单默认正文。档位调整提示倾向，不保证固定触发率。
+
+正文内联内容用围栏，工具结果区域的独立 UI 用 `render_ui`，持续更新的会话面板用 `panel:true`。围栏和工具都支持交互状态保存，按呈现位置选择。`card` 是可选容器，不默认套卡片不等于不用 GenUI。
+
+Skill 是否可用按当前 Agent 的工具视图判断，支持预设提供的工具，不要求存在全局 `skill`。可见工具必须符合 Skill 加载接口，且 `genui` 允许模型调用。技能已包含当前字段时，不再注入组件参考；旧技能只在 `genui:reference` 中补充缺失或变化的字段说明，追加用户偏好不会触发整份参考。用户技能文件保持原样，当前系统字段优先于加载到的旧字段。
+
+没有兼容的加载工具或允许模型调用的 GenUI 技能时，围栏指导开启或 `render_ui` 可用时，提供精简字段速查。`fenceSection: false` 关闭围栏指导；围栏指导和 `render_ui` 都关闭时，不注入参考。这些设置不禁用围栏渲染或 Panel。dsh-go 的 `genui:native` 提示段及工具定义独立计算提示与 Token 消耗。实际生成 UI 时加载完整技能仍会消耗上下文；此次移除的是无条件重复注入，并非让技能加载免费。
+
+---
+
+### dsh-go 接入
+
+dsh-go 适配使用 App 已有的原生卡片、正文选择与确认、插件面板，无需修改或重新安装 App。网页版继续读取完整的 GenUI 规格；原生面板支持选择、开关、按钮、提交、本地判卷、页签、折叠、复制和受控链接。正文围栏由验证工具生成网页与原生共用的 JSON。面板交互目前需要本机引擎提供 dsh-go 桥接；SSH、中转仍可显示原生工具卡。高级图形和自由输入等缺口会明确提示。详见[接入能力与验证范围](docs/dsh-go.md)。
+
+### Sidechat surface 接入（可选）
+
+GenUI 可在 provider 明确提供的 sidechat surface 上渲染已结算的 `dsh-ui` 围栏。BetterSidebar 使用现有的 `registerSidechatSurfaceAdapter` 能力；其他 provider 可提供可选的 `genuiSidechat` Cordis service。每个 surface 都携带所属线程身份和专属 prompt 回调，因此动作与交互状态留在对应子线程。流式内容及不支持或无效的围栏保留原 Markdown。
+
+请参阅 [sidechat surface adapter 接口说明](docs/sidechat-surfaces.md)。BetterSidebar 侧边对话渲染需要包含[配套 provider 实现](https://github.com/omdsh-dev/DSH-better-sidebar/pull/1033)的发布版本；已发布的 0.28.0 尚未提供 `registerSidechatSurfaceAdapter`。启用 DSH 原生 Side Chat 接入需要其 provider 提供 `genuiSidechat`。
+
+## ❓ 常见问题排查 (FAQ)
+
+<details>
+<summary><strong>Q: 为什么生成的 dsh-ui 仍然显示为普通代码块？</strong></summary>
+
+1. 打开浏览器开发者工具（F12），切换到 Console 面板；
+2. 检索是否有 `[genui] client active; fence-channel=dom` 日志：
+   - **若没有**：说明客户端 Bundle 尚未被 DSH 宿主激活。请检查 `dsh plugin list` 确认插件已正确安装，并尝试重启 DSH web 与硬刷新浏览器；
+   - **若已有**：检查模型输出的代码块标签是否准确为 `dsh-ui`，且内容为合法的 JSON。
+</details>
+
+<details>
+<summary><strong>Q: 提示 "pnpm not found on PATH"？</strong></summary>
+
+DSH 的插件管理需要调用宿主系统的 `pnpm`。请在系统终端执行 `corepack enable` 或 `npm i -g pnpm`，安装完成后**新开一个终端窗口**再执行 `dsh plugin add`。
+</details>
+
+<details>
+<summary><strong>Q: npm install 返回 404？</strong></summary>
+
+本包是公开包（无需任何 npm 账号授权）。可先执行 `npm view @changfenhuang/dsh-genui version` 查看最新公开版本。若刚发布可能存在几分钟镜像同步延迟，请稍后重试。
+</details>
+
+<details>
+<summary><strong>Q: 3D 场景、Mermaid 或 ECharts 无法渲染？</strong></summary>
+
+图形重型引擎采用按需加载机制（首次使用时通过插件内置的静态路由拉取）。请先硬刷新网页（`Cmd + Shift + R`）；如果仍失败，可尝试重新安装插件：
+```sh
+dsh plugin --profile web remove @changfenhuang/dsh-genui
+dsh plugin --profile web add @changfenhuang/dsh-genui
+```
+</details>
+
+<details>
+<summary><strong>Q: 渲染 dsh-ui 时界面出现白屏？</strong></summary>
+
+当前版本要求 DSH `^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`。如运行在较老版本的 DSH 上可能存在 React 上下文兼容问题，请升级 DSH 宿主。
+</details>
+
+---
+
+## 🗺️ 路线图评估 (Roadmap)
+
+| 探索方向 | 评估结论 | 决策理由 |
+| :--- | :---: | :--- |
+| **增量 Diff Patch** | 暂不做 | 一条围栏仅消耗 200–800 Token，全量重发代价极小且极其稳定；Patch 差异协议的模型遵循成本与出错率反而偏高。 |
+| **细粒度 Action 回传** | ✅ 已上线 | 按钮/表单离散手势立即回传；连续滑块拖动尾沿防抖，确保流畅度与模型上下文整洁。 |
+| **跨会话深度状态继承** | 暂不做 | 新一轮对话由模型更新新 UI，状态重置是更合理的自然行为；流式输出期间状态已完整保留。 |
+| **独立画廊与多语言抽取** | 暂不做 | 画廊素材已由 `demo-prompts`、`gallery.ts` 与 README 全面覆盖；核心内置文案仅数处，保持极简轻量。 |
+
+---
+
+## 🔗 链接与致谢
+
+- [Linux.do 社区讨论](https://linux.do)
+- 欢迎访问 [在线产品站](https://omdsh-dev.github.io/dsh-genui/) 体验更多特性
+
+---
+
+## 📄 开源许可
+
+本项目遵循 [MIT License](LICENSE) 开源协议。
+
+### 交互式地图
+
+`map` 使用延迟加载的 MapLibre 标记和内联路线，并始终提供可键盘操作的地点列表。
+地点选择只在本地更新，可通过既有字段机制持久化并由独立提交按钮发送地点 ID。
+默认是无街道底图的离线坐标地图；外部样式仅由可信宿主配置，不接受模型 JSON URL。
+详见 [地图契约与嵌入、导出说明](docs/map.md)。

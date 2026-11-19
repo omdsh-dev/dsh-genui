@@ -1,0 +1,19 @@
+{
+  "id": "atlas-input",
+  "category": "atlas",
+  "note": "input：文本与数字输入；带 id 的值刷新后保留并被 submit 收集，action 在失焦与回车时触发。",
+  "zh": { "title": "input · 带 id 才有记忆", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "input", "label": "模块名", "placeholder": "例如 渲染器", "id": "module-name" },
+      { "type": "input", "label": "本周合入", "inputType": "number", "value": "40", "id": "merge-count" }
+    ] },
+    { "type": "text", "size": "caption", "content": "没有 id 的输入框不会跨刷新保留，也不进 submit 的 fields。" }
+  ] },
+  "en": { "title": "input · an id is what makes it remember", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "input", "label": "Module", "placeholder": "e.g. Runtime", "id": "module-name" },
+      { "type": "input", "label": "Merged this week", "inputType": "number", "value": "40", "id": "merge-count" }
+    ] },
+    { "type": "text", "size": "caption", "content": "An input without an id neither survives a refresh nor joins the submit payload." }
+  ] }
+}

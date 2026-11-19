@@ -10,12 +10,12 @@
  * - **默认开启。** 插件配置中的 `fenceFeedback: false` 可以关闭回合转向。
  * - **修正上限。** 每个 turn 最多发送两条 correction；render failure 和 delivery reminder 共用上限，
  *   每个 fence body 在当前回合中最多修正一次，新回合可重新修正。
- * - **仅含 reasoning 的恢复。** 已验证的 GenUI 回合若只以 reasoning block 结束，使用宿主的
+ * - **无正文的恢复。** 已验证的 GenUI 回合只有思考或空白文本时，使用宿主的
  *   `EMPTY_RESPONSE` retry policy。
  * - **Never for subagents.** A child session's fence belongs to a parent reply.
- * - **Exact fence matching.** Only an info string of exactly `dsh-ui` opens a
- *   fence, so ` ```dsh-ui-dark `, indented prose, or a mention of the name is
- *   never rewritten.
+ * - **Shared fence matching.** GenUI labels use the renderer's case/punctuation
+ *   normalization. Unrelated labels such as ` ```dsh-ui-dark `, indented prose,
+ *   and mentions of the name are never rewritten.
  * - **Accounted before sending.** The fingerprint is recorded before `steer`,
  *   so a re-entrant boundary cannot deliver the same correction twice.
  * - **Cancellation-aware.** An aborted turn or a missing session is left alone.
@@ -30,8 +30,10 @@ import type {} from '@deepseek-ai/dsh-agent'
 import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionEvent, SessionStore, UserMessage } from '@deepseek-ai/dsh-session'
 import { createHash, randomUUID } from 'node:crypto'
+import { fromMarkdown } from 'mdast-util-from-markdown'
 import { droppedNodeFailure } from './genui-diagnostic.ts'
 import { resolveFence } from '../shared/fence-resolve.ts'
+import { isGenuiFenceLanguage } from '../shared/fence-language.ts'
 
 /** Plugin name recorded on every message this loop steers. */
 export const FEEDBACK_PLUGIN_NAME = '@changfenhuang/dsh-genui'
@@ -49,10 +51,11 @@ export const MAX_CORRECTIONS_PER_TURN = 2
 /** Marker prefix written by older plugin versions. */
 const LEGACY_MARKER_PREFIX = '[genui 自修 #'
 
-/** A fence opener is an info string of exactly `dsh-ui` (≤3 spaces indent). */
-const FENCE_OPEN = /^ {0,3}```[ \t]*dsh-ui[ \t]*$/u
+/** Read one language token (≤3 spaces indent); backticks are invalid in a backtick info string. */
+const FENCE_OPEN = /^ {0,3}```[ \t]*([^` \t]+)[ \t]*$/u
 /** Any fence closer (the renderer never nests fences in one body). */
 const FENCE_CLOSE = /^ {0,3}```[ \t]*$/u
+const MISPLACED_FENCE_OPEN = /[^\s`][^\r\n]*?```[ \t]*([^`\s]+)[ \t]*\r?\n/u
 /** Upper bound on fences inspected per reply — a reply is text, not a corpus. */
 const MAX_FENCES = 40
 
@@ -79,7 +82,8 @@ export function extractDshUiFences(text: string): ExtractedFence[] {
   for (let line = 0; line < lines.length; line++) {
     const current = lines[line] ?? ''
     if (open === null) {
-      if (FENCE_OPEN.test(current)) open = { start: line + 1, index: fences.length + 1 }
+      const label = FENCE_OPEN.exec(current)?.[1]
+      if (isGenuiFenceLanguage(label)) open = { start: line + 1, index: fences.length + 1 }
       continue
     }
     if (!FENCE_CLOSE.test(current)) continue
@@ -121,9 +125,32 @@ export function fenceFailures(text: string): FenceFailure[] {
   return failures
 }
 
+/** The Markdown renderer treats an opener attached to prose as paragraph text. */
+function misplacedFenceFailures(text: string): FenceFailure[] {
+  if (!MISPLACED_FENCE_OPEN.test(text)) return []
+  const failures: FenceFailure[] = []
+  for (const node of fromMarkdown(text).children) {
+    if (node.type !== 'paragraph' || node.position === undefined) continue
+    const paragraph = text.slice(node.position.start.offset, node.position.end.offset)
+    const opener = MISPLACED_FENCE_OPEN.exec(paragraph)
+    if (opener === null || !isGenuiFenceLanguage(opener[1])) continue
+    const raw = paragraph.slice(opener.index + opener[0].length)
+    if (resolveFence(raw, { settled: true }).spec === null) continue
+    failures.push({
+      index: failures.length + 1,
+      fingerprint: fenceFingerprint(raw),
+      detail: 'error=misplaced_fence_opening\nrequired=fence_opening_on_own_line',
+    })
+  }
+  return failures
+}
+
 /** `null` when this fence renders; otherwise the reason it does not. */
 function fenceFailureDetail(fence: ExtractedFence): string | null {
   const resolution = resolveFence(fence.raw, { settled: true })
+  if (resolution.unconsumedText !== undefined) {
+    return 'error=unconsumed_content\nrequired=close_fence_before_following_content\npreserve_unconsumed_content=true'
+  }
   if (resolution.spec !== null) return null
   // 缺少 Markdown 收尾不等于渲染失败；先复用 renderer 判断，避免把已显示的卡片重发（#288）。
   if (!fence.closed) return 'error=unterminated_fence\nrequired=closing_fence'
@@ -146,7 +173,9 @@ export function fenceCorrectionText(failures: readonly FenceFailure[]): string {
     .map(failure => `fence=${failure.index}\nfingerprint=${failure.fingerprint}\n${failure.detail}`)
     .join('\n\n')
   const marker = failures.map(failure => `${MARKER_PREFIX}${failure.fingerprint}]`).join(' ')
-  return `${marker}\n\n[genui-fence-repair]\nstatus=render_failed\nfences=${failures.length}\nnext=resend_corrected_fence_only\nrepeat_rendered_content=false\nreply_language=conversation\n\n${body}\n`
+  const next = failures.some(failure => failure.detail.startsWith('error=unconsumed_content'))
+    ? 'resend_corrected_fence_and_preserved_text' : 'resend_corrected_fence_only'
+  return `${marker}\n\n[genui-fence-repair]\nstatus=render_failed\nfences=${failures.length}\nnext=${next}\nrepeat_rendered_content=false\nreply_language=conversation\n\n${body}\n`
 }
 
 /**
@@ -279,7 +308,9 @@ export function planFenceFeedback(input: FenceFeedbackPlanInput): FenceFeedbackP
   if (input.aborted) return null
   const used = input.correctionsTurn === input.turn ? (input.correctionsThisTurn ?? 0) : 0
   if (used >= MAX_CORRECTIONS_PER_TURN) return null
-  const failures = fenceFailures(input.text).filter(failure => !input.correctedSpec.has(failure.fingerprint))
+  const detected = fenceFailures(input.text)
+  if (input.validatedThisTurn) detected.push(...misplacedFenceFailures(input.text))
+  const failures = detected.filter(failure => !input.correctedSpec.has(failure.fingerprint))
   if (failures.length > 0) {
     return {
       text: fenceCorrectionText(failures),
@@ -317,15 +348,24 @@ export function missingBodyCorrectionText(turn: number, attempt = 1, renderUiToo
 }
 
 /**
- * 将 GenUI 回合中仅含 reasoning 的完整响应转换为宿主已有的可重试空响应错误。
+ * 将 GenUI 回合中只有思考或空白文本的完整响应交给宿主重试。
+ *
+ * 只有回合边界确实还能发送交付提醒时，才放行原始 stop，
+ * 让回合正常结束并走到 `agent/turn-stopping` 边界——那里会 steer 一条交付提醒，
+ * 回合因此继续到下一个 step，模型有机会在同一回合把内容补进正文。
+ * 提醒发过仍然只有 reasoning，才用 EMPTY_RESPONSE 交给宿主重试兜底。
  *
  * @param options - LLM stream waterfall 拦截的请求。
  * @param source - 本次请求的 provider stream。
- * @returns 原始 stream；仅符合条件的终止 stop 会被改写。
+ * @param state - 当前回合状态；缺省时没有可用提醒，保留宿主重试。
+ * @param feedbackEnabled - 同回合修正是否启用。关闭时没有提醒可用，保持原有改写行为。
+ * @returns 原始 stream；仅在提醒已发出、或提醒不可用时改写无交付的终止。
  */
-async function* retryReasoningOnlyGenuiStream(
+async function* retryUndeliveredGenuiStream(
   options: GenerateOptions,
   source: AsyncIterable<StreamChunk>,
+  state?: SessionFeedback,
+  feedbackEnabled = true,
 ): AsyncGenerator<StreamChunk> {
   const { EMPTY_RESPONSE_CODE, isAgentLoopRequest } = await import('@deepseek-ai/dsh-llm')
   if (!isAgentLoopRequest(options)) {
@@ -333,20 +373,46 @@ async function* retryReasoningOnlyGenuiStream(
     return
   }
 
-  let hasReasoningBlock = false
-  let hasOtherBlock = false
+  let hasBlock = false
+  let hasDeliverableBlock = false
   for await (const chunk of source) {
     if (chunk.type === 'block-end') {
-      if (chunk.block.type === 'reasoning') hasReasoningBlock = true
-      else hasOtherBlock = true
+      hasBlock = true
+      const block = chunk.block
+      if (block.type !== 'reasoning' && (block.type !== 'text' || block.text.trim() !== '')) {
+        hasDeliverableBlock = true
+      }
     }
-    if (chunk.type === 'finish' && chunk.reason.kind === 'stop' && hasReasoningBlock && !hasOtherBlock) {
+    if (chunk.type === 'finish' && chunk.reason.kind === 'stop' && hasBlock && !hasDeliverableBlock) {
+      // Reuse the boundary's decision: an unused reminder is not necessarily
+      // available (for example, a previous broken fence counts as body delivery).
+      // This response has no body, so its assistant/message will clear text;
+      // do not plan against the previous step's fence before that event arrives.
+      const reminderAvailable = feedbackEnabled
+        && state !== undefined
+        && state.currentTurn !== undefined
+        && state.pendingRenders.size === 0
+        && planFenceFeedback({
+          text: '',
+          turn: state.currentTurn,
+          correctedSpec: state.correctedSpec,
+          deliveryRemindedTurns: state.deliveryRemindedTurns,
+          validatedThisTurn: state.validatedThisTurn,
+          deliveredThisTurn: state.deliveredThisTurn,
+          aborted: options.signal?.aborted ?? false,
+          correctionsThisTurn: state.correctionsThisTurn,
+          correctionsTurn: state.correctionsTurn,
+        })?.kind === 'delivery'
+      if (reminderAvailable) {
+        yield chunk
+        continue
+      }
       yield {
         type: 'finish',
         reason: {
           kind: 'error',
           failure: {
-            message: 'GenUI turn completed with reasoning only and no deliverable response',
+            message: 'GenUI turn completed without a deliverable response',
             code: EMPTY_RESPONSE_CODE,
           },
         },
@@ -538,7 +604,7 @@ export function installFenceFeedback(ctx: Context, enabled: boolean, renderUiToo
       state.isSubagent = session.header.parentSession !== undefined
       // Fences are read from the BODY only: a draft in the reasoning block is not
       // a delivery and must not become one.
-      state.text = extractDshUiFences(text).length > 0 ? text : ''
+      state.text = state.validatedThisTurn || extractDshUiFences(text).length > 0 ? text : ''
       // Delivery is sticky for the turn: once a body text exists, the turn has
       // answered and must never be corrected into publishing again. A
       // `render_ui` call in the content proves nothing here — its result does.
@@ -622,7 +688,7 @@ export function installFenceFeedback(ctx: Context, enabled: boolean, renderUiToo
     if (options.sessionId === undefined || options.purpose !== undefined) return next()
     const state = sessions.get(String(options.sessionId))
     if (state?.validatedThisTurn !== true || state.isSubagent) return next()
-    return retryReasoningOnlyGenuiStream(options, next())
+    return retryUndeliveredGenuiStream(options, next(), state, enabled)
   }, { global: true })
 
   ctx.on('agent/turn-stopping', ({ agent, turn, signal }): void => {

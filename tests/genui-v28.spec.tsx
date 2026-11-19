@@ -10,7 +10,6 @@
 //    delivery (no more empty focus-in/focus-out round trips).
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { hasComponentRegistry, registerGenuiComponent } from './host-registry.ts'
 import { GenuiActionContext } from '../src/client/action-context.ts'
 import { GenuiBlock, GENUI_ACTION_DEBOUNCE_MS } from '../src/client/GenuiBlock.tsx'
 import { repairGenuiSpec } from '../src/client/guard.ts'
@@ -30,51 +29,6 @@ function renderBlock(spec: unknown, actions: Array<[string, Record<string, unkno
     </GenuiActionContext.Provider>,
   )
 }
-
-describe('v2.8: memo comparator (streaming re-parse skips unchanged renders)', () => {
-  it.skipIf(!hasComponentRegistry)('does not re-render when an equal-but-fresh spec object arrives', () => {
-    let renders = 0
-    const dispose = registerGenuiComponent('probe', ({ node }: { node: { label?: string } }) => {
-      renders += 1
-      return <div data-probe>{node.label ?? 'probe'}</div>
-    })
-    try {
-      const spec = repairGenuiSpec({
-        items: [
-          { type: 'text', content: '静态' },
-          { type: 'probe', label: 'P' },
-        ],
-      })!
-      const { rerender } = render(
-        <GenuiActionContext.Provider value={undefined}>
-          <GenuiBlock spec={spec} />
-        </GenuiActionContext.Provider>,
-      )
-      expect(renders).toBe(1)
-      // Fresh object, identical content (what a streaming chunk re-parse hands over).
-      rerender(
-        <GenuiActionContext.Provider value={undefined}>
-          <GenuiBlock spec={JSON.parse(JSON.stringify(spec))!} />
-        </GenuiActionContext.Provider>,
-      )
-      expect(renders).toBe(1)
-      // Content actually changed → the block re-renders.
-      rerender(
-        <GenuiActionContext.Provider value={undefined}>
-          <GenuiBlock spec={repairGenuiSpec({
-            items: [
-              { type: 'text', content: '静态' },
-              { type: 'probe', label: 'Q' },
-            ],
-          })!} />
-        </GenuiActionContext.Provider>,
-      )
-      expect(renders).toBe(2)
-    } finally {
-      dispose()
-    }
-  })
-})
 
 describe('v2.8: select id/selected', () => {
   it('shows a placeholder and pre-registers nothing without a default', () => {

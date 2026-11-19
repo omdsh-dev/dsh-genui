@@ -6,9 +6,9 @@
   --dsl-g-radius-surface: 12px;
   --dsl-g-radius-control: 8px;
 
-  --dsl-g-font-title: 13px;
-  --dsl-g-font-meta: 12px;
-  --dsl-g-font-data: 11px;
+  --dsl-g-font-title: max(13px, calc(var(--dsh-content-font-size, 14px) * 0.764705882));
+  --dsl-g-font-meta: max(12px, calc(var(--dsh-content-font-size, 14px) * 0.705882353));
+  --dsl-g-font-data: max(11px, calc(var(--dsh-content-font-size, 14px) * 0.647058824));
 
   --dsl-g-gap-md: 12px;
   --dsl-g-gap-sm: 8px;
@@ -110,7 +110,7 @@
    to the way back. Without this, an accidental zoom left the reader with a
    domain nobody asked for and no visible affordance to restore it. */
 .plotTools { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 4px; }
-.plotHint { font-size: 12.5px; color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
+.plotHint { font-size: max(12.5px, calc(var(--dsh-content-font-size, 14px) * 0.735294118)); color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
 .plotReset {
   padding: 2px 9px;
   border: 1px solid var(--dsw-alias-border-l2, rgba(255, 255, 255, 0.12));
@@ -118,7 +118,7 @@
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: max(12.5px, calc(var(--dsh-content-font-size, 14px) * 0.735294118));
   cursor: pointer;
 }
 .plotReset:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-state-business-primary, #4f8ef7); }

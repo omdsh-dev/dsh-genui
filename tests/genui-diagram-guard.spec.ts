@@ -10,18 +10,21 @@ describe('repairGenuiSpec: diagram', () => {
   it('keeps a valid coordinate diagram and clamps to the 4px grid', () => {
     const spec = repairGenuiSpec({ items: [diagram({
       kind: 'architecture',
+      id: 'selectedNode',
       nodes: [
-        { id: 'n1', label: 'Web', x: 41, y: 40, w: 130, h: 48, type: 'focal', tag: 'API', sub: 'v1' },
+        { id: 'n1', label: 'Web', description: 'Handles requests'.padEnd(2100, '.'), x: 41, y: 40, w: 130, h: 48, type: 'focal', tag: 'API', sub: 'v1' },
         { id: 'n2', label: 'DB', x: 200, y: 140 },
       ],
       edges: [{ from: 'n1', to: 'n2', label: 'WRITE', kind: 'accent' }],
     })] })
-    const d = spec?.items[0] as { type: 'diagram'; nodes: Array<{ x: number; y: number; w: number; h: number }> }
+    const d = spec?.items[0] as { type: 'diagram'; id: string; nodes: Array<{ x: number; y: number; w: number; h: number; description?: string }> }
     expect(d.type).toBe('diagram')
     // 41 → 40, 130 → 132 (round to 4)
     expect(d.nodes[0].x).toBe(40)
     expect(d.nodes[0].w).toBe(132)
     expect(d.nodes[0].tag).toBe('API')
+    expect(d.id).toBe('selectedNode')
+    expect(d.nodes[0].description).toHaveLength(GENUI_LIMITS.maxString)
   })
 
   it('drops unknown kinds and nodes missing id/label', () => {

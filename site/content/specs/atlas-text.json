@@ -1,0 +1,15 @@
+{
+  "id": "atlas-text",
+  "category": "atlas",
+  "note": "text：七档字号；行内支持 `code`、**加粗**、==高亮==、链接与换行，不必为一个词单起组件。",
+  "zh": { "title": "text · 层级靠字，不靠框", "items": [
+    { "type": "text", "size": "h2", "content": "一张更小的排版层" },
+    { "type": "text", "size": "body", "content": "正文里可以直接写 `spec.ts`、**强调**、==高亮==，以及 [文档链接](https://github.com/omdsh-dev/dsh-genui)。\n换行写进同一个字段，不用拆成两个节点。" },
+    { "type": "text", "size": "caption", "content": "说明文字用 caption，弱化文字用 muted。" }
+  ] },
+  "en": { "title": "text · hierarchy from type, not boxes", "items": [
+    { "type": "text", "size": "h2", "content": "A smaller layer of type" },
+    { "type": "text", "size": "body", "content": "Inside body text you can write `spec.ts`, **emphasis**, ==highlight== and a [docs link](https://github.com/omdsh-dev/dsh-genui).\nLine breaks go in the same field instead of a second node." },
+    { "type": "text", "size": "caption", "content": "Captions use caption; de-emphasised runs use muted." }
+  ] }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "atlas-stat",
+  "category": "atlas",
+  "note": "stat：指标数字，delta 自动按正负着色，spark 画微趋势线；size:hero 一块围栏只用一次。",
+  "zh": { "title": "stat · 数字 + 变化 + 微趋势", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "stat", "label": "本周合入", "value": "40", "delta": "+8.1%" },
+      { "type": "stat", "label": "平均周期", "value": "2.4 天", "delta": "-0.3" },
+      { "type": "stat", "label": "一次通过率", "value": "91%", "spark": [84, 86, 88, 87, 90, 91] }
+    ] }
+  ] },
+  "en": { "title": "stat · number, change, micro trend", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "stat", "label": "Merged this week", "value": "40", "delta": "+8.1%" },
+      { "type": "stat", "label": "Mean cycle", "value": "2.4 days", "delta": "-0.3" },
+      { "type": "stat", "label": "First-pass rate", "value": "91%", "spark": [84, 86, 88, 87, 90, 91] }
+    ] }
+  ] }
+}

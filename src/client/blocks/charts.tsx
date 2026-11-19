@@ -19,8 +19,12 @@ import { renderInline } from '../inline.ts'
 import { t as tr, useT } from '../i18n/index.ts'
 import css from '../GenuiBlock.module.css'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
-import type { GenuiChart, GenuiTable } from '../spec.ts'
+import { GENUI_COMPUTED_CELL } from '../spec.ts'
+import type { GenuiChart, GenuiComputedCell, GenuiTable } from '../spec.ts'
 import { isTableGroupHeaderRow, tableRowsForDetails } from '../table-details.ts'
+import { tableCellText, tableToCsv, tableToMarkdown } from '../table-export.ts'
+
+type TableCell = GenuiTable['rows'][number][number]
 
 export const CHART_COLORS = [
   'var(--dsw-static-deepseek-400)',
@@ -49,6 +53,10 @@ const seriesColor = (i: number, n: number, c?: string, palette?: readonly string
  * (numbers first, then text).
  */
 export function parseSortableNumber(v: unknown): number {
+  if (v !== null && typeof v === 'object' && Object.hasOwn(v, GENUI_COMPUTED_CELL)) {
+    const value = (v as GenuiComputedCell).value
+    return Number.isFinite(value) ? value : NaN
+  }
   if (typeof v === 'number') return Number.isFinite(v) ? v : NaN
   if (typeof v !== 'string') return NaN
   let s = v.trim()
@@ -93,7 +101,7 @@ function numericColumns(rows: GenuiTable['rows'], nCols: number): boolean[] {
  * contain a line break get `pre-line` (see `.tdMultiline`), so the line
  * structure survives and the text still copies back as multiple lines.
  */
-function hasLineBreak(value: string | number): boolean {
+function hasLineBreak(value: TableCell): boolean {
   return typeof value === 'string' && /[\n\r]/.test(value)
 }
 
@@ -102,13 +110,13 @@ function hasLineBreak(value: string | number): boolean {
  * significant (`pre-wrap`), while a prose line break stays `pre-line` so its
  * surrounding spaces collapse exactly like the rest of the UI.
  */
-function isCodeCell(value: string | number): boolean {
+function isCodeCell(value: TableCell): boolean {
   if (typeof value !== 'string') return false
   return /(^|\n)[ \t]/.test(value) || value.includes('```')
 }
 
 /** The whitespace class a multi-line cell needs, or undefined for single-line. */
-function cellWrapClass(value: string | number): string | undefined {
+function cellWrapClass(value: TableCell): string | undefined {
   if (!hasLineBreak(value)) return undefined
   return isCodeCell(value) ? css.tdCode : css.tdMultiline
 }
@@ -122,11 +130,33 @@ function deltaTone(value: unknown): 'up' | 'down' | null {
   return s.startsWith('+') ? 'up' : 'down'
 }
 
+/** `types: ["badge"]` cell tone: the pill used to render in the accent colour
+ *  for EVERY value, so a 状态 column showed 正常 / 偏高 / 失败 in one colour and
+ *  stopped encoding status. Standalone `badge` nodes already carry a tone; the
+ *  table cell just never resolved one. Unknown labels keep the accent pill, so
+ *  arbitrary words are safe. Negatives are tested first: 不正常 contains 正常. */
+const BADGE_TONE_WORDS: ReadonlyArray<['success' | 'warn' | 'danger', RegExp]> = [
+  ['danger', /(偏高|异常|失败|错误|故障|离线|拒绝|超限|危险|失效|超时|fail|error|down|critical|offline|blocked)/i],
+  ['warn', /(关注|警告|波动|部分|降级|观察|待定|degraded|partial|pending|warn|slow)/i],
+  ['success', /(正常|健康|通过|成功|完成|在线|稳定|有效|命中|启用|healthy|active|done|ready|pass|ok)/i],
+]
+
+function badgeTone(value: unknown): 'success' | 'warn' | 'danger' | null {
+  if (typeof value !== 'string') return null
+  const s = value.trim()
+  if (s === '') return null
+  for (const [tone, pattern] of BADGE_TONE_WORDS) {
+    if (pattern.test(s)) return tone
+  }
+  return null
+}
+
 /** `types: ["spark"]` cell: comma/space separated numbers drawn as a micro
  *  trend line (area wash + end dot, same geometry as stat.spark). */
-function CellSpark({ cell }: { cell: string | number }) {
-  const values = String(cell).split(/[\s,;]+/).map(Number).filter(Number.isFinite)
-  if (values.length < 2) return <>{renderInline(String(cell), false)}</>
+function CellSpark({ cell }: { cell: TableCell }) {
+  const display = tableCellText(cell)
+  const values = display.split(/[\s,;]+/).map(Number).filter(Number.isFinite)
+  if (values.length < 2) return <>{renderInline(display, false)}</>
   const W = 88
   const H = 22
   const pad = 2
@@ -148,7 +178,7 @@ function CellSpark({ cell }: { cell: string | number }) {
 }
 
 /** `types: ["ring"]` cell: a 28px ring gauge read as 0-100. */
-function CellRing({ cell }: { cell: string | number }) {
+function CellRing({ cell }: { cell: TableCell }) {
   const n = parseSortableNumber(cell)
   const pct = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0
   const R = 11
@@ -162,32 +192,14 @@ function CellRing({ cell }: { cell: string | number }) {
           strokeDasharray={`${(pct / 100) * C} ${C}`} transform="rotate(-90 14 14)"
         />
       </svg>
-      <span className={css.cellRingText}>{renderInline(String(cell), false)}</span>
+      <span className={css.cellRingText}>{renderInline(tableCellText(cell), false)}</span>
     </span>
   )
 }
 
-/** Markdown table text for the 复制 Markdown chip (pipes escaped). */
-export function tableToMarkdown(columns: string[], rows: Array<Array<string | number>>): string {
-  const escape = (v: unknown): string => String(v ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')
-  const head = `| ${columns.map(escape).join(' | ')} |`
-  const rule = `| ${columns.map(() => '---').join(' | ')} |`
-  const body = rows.map(row => `| ${columns.map((_c, i) => escape(row[i])).join(' | ')} |`)
-  return [head, rule, ...body].join('\n')
-}
-
-/** RFC 4180 CSV text for the 复制 CSV chip. */
-export function tableToCsv(rows: Array<Array<string | number>>): string {
-  const cell = (v: unknown): string => {
-    const s = String(v ?? '')
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
-  return rows.map(row => row.map(cell).join(',')).join('\n')
-}
-
 /** Copy chips above a table (`table.export`). Local clipboard only — no action,
  *  no round trip; the label confirms for a moment and then resets. */
-function TableExportChips({ columns, rows }: { columns: string[]; rows: Array<Array<string | number>> }) {
+function TableExportChips({ columns, rows }: { columns: string[]; rows: Array<Array<TableCell>> }) {
   useT()
   const [copied, setCopied] = useState<'md' | 'csv' | null>(null)
   const copy = (kind: 'md' | 'csv'): void => {
@@ -211,13 +223,13 @@ function TableExportChips({ columns, rows }: { columns: string[]; rows: Array<Ar
 }
 
 /** `types: ["bar"]` cell: an inline 0-100 track with the value printed on it. */
-function CellBar({ cell }: { cell: string | number }) {
+function CellBar({ cell }: { cell: TableCell }) {
   const n = parseSortableNumber(cell)
   const pct = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0
   return (
     <span className={css.cellBar}>
       <span className={css.cellBarFill} style={{ width: `${pct}%` }} />
-      <span className={css.cellBarText}>{renderInline(String(cell), false)}</span>
+      <span className={css.cellBarText}>{renderInline(tableCellText(cell), false)}</span>
     </span>
   )
 }
@@ -229,8 +241,9 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
   /** Live value of `node.sortField`: a column header to sort by. */
   sortValue?: string | undefined
   /** Renders a row's detail nodes. Supplied by render-node so the table never
-   *  has to import the renderer back (import cycle). */
-  renderDetail?: ((items: NonNullable<GenuiTable['details']>[number] & object[]) => ReactNode) | undefined
+   *  has to import the renderer back (import cycle). The details lookup index
+   *  identifies the occurrence even when rows are sorted or arrays are reused. */
+  renderDetail?: ((items: NonNullable<GenuiTable['details']>[number] & object[], detailIndex: number) => ReactNode) | undefined
 }) {
   useT()
   const columns = node.columns.slice(0, GENUI_LIMITS.maxTableCols)
@@ -245,8 +258,8 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
     const bn = parseSortableNumber(b[col])
     if (Number.isFinite(an) && Number.isFinite(bn) && an !== bn) return (an - bn) * dir
     if (Number.isFinite(an) !== Number.isFinite(bn)) return Number.isFinite(an) ? -dir : dir
-    const as = String(a[col] ?? '')
-    const bs = String(b[col] ?? '')
+    const as = tableCellText(a[col])
+    const bs = tableCellText(b[col])
     return (as < bs ? -1 : as > bs ? 1 : 0) * dir
   }
 
@@ -265,19 +278,21 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
       const cells = node.filterColumn === undefined
         ? row
         : [row[node.filterColumn]]
-      return cells.some(cell => String(cell ?? '').toLowerCase().includes(needle))
+      return cells.some(cell => tableCellText(cell).toLowerCase().includes(needle))
     })
   const visibleRows = filtered.map(entry => entry.row)
   const hiddenCount = rows.length - visibleRows.length
 
-  interface Section { header: { row: GenuiTable['rows'][number]; index: number } | null; children: Array<{ row: GenuiTable['rows'][number]; index: number }> }
+  interface Section { header: { row: GenuiTable['rows'][number]; index: number } | null; children: Array<{ row: GenuiTable['rows'][number]; index: number; visibleIndex: number }> }
   const sections: Section[] = []
-  visibleRows.forEach((row, index) => {
+  // Details and local state belong to the original row, not its filtered
+  // position. Keep the latter separately for the displayed index column.
+  filtered.forEach(({ row, index }, visibleIndex) => {
     if (isGroupRow(row)) { sections.push({ header: { row, index }, children: [] }); return }
     if (sections.length === 0 || sections[sections.length - 1]!.header === null) {
       if (sections.length === 0) sections.push({ header: null, children: [] })
     }
-    sections[sections.length - 1]!.children.push({ row, index })
+    sections[sections.length - 1]!.children.push({ row, index, visibleIndex })
   })
 
   // Sorting keeps sections intact: each section's children sort among
@@ -331,12 +346,15 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
   const formatTotal = (n: number): string =>
     Number.isInteger(n) ? n.toLocaleString('en-US') : String(Math.round(n * 100) / 100)
 
-  const renderCell = (cell: string | number, j: number, rowIndex: number): ReactNode => {
+  const renderCell = (cell: TableCell, j: number, rowIndex: number): ReactNode => {
     const type = types[j]
     const wrap = cellWrapClass(cell)
     const tone = type === 'delta'
-      ? (String(cell).trim().startsWith('-') ? 'down' : 'up')
-      : deltaTone(cell)
+      ? (tableCellText(cell).trim().startsWith('-') ? 'down' : 'up')
+      : deltaTone(tableCellText(cell))
+    // Badge cells resolve a state keyword to the same tone classes the
+    // standalone `badge` node uses (css.success / css.warn / css.danger).
+    const pillTone = type === 'badge' ? badgeTone(tableCellText(cell)) : null
     return (
       <td
         key={j}
@@ -345,7 +363,9 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
           .join(' ') || undefined}
       >
         {type === 'badge'
-          ? <span className={css.cellBadge}>{renderInline(String(cell), 'file')}</span>
+          ? <span className={[css.cellBadge, pillTone === null ? undefined : css[pillTone]]
+              .filter(part => part !== undefined)
+              .join(' ')}>{renderInline(tableCellText(cell), true)}</span>
           : type === 'bar'
             ? <CellBar cell={cell} />
             : type === 'spark'
@@ -356,14 +376,14 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                   ? <span className={css.cellIndex}>{rowIndex + 1}</span>
                   : tone === null
                     // Format displayed text without changing sorting or exported data.
-                    ? renderInline(String(cell), 'file')
-                    : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{renderInline(String(cell), 'file')}</span>}
+                    ? renderInline(tableCellText(cell), true)
+                    : <span className={`${css.tdDelta} ${tone === 'up' ? css.tdDeltaUp : css.tdDeltaDown}`}>{renderInline(tableCellText(cell), true)}</span>}
       </td>
     )
   }
 
   return (
-    <div className={css.tableWrap}>
+    <div className={`${css.tableWrap}${node.wrap === true ? ` ${css.tableWrapProse}` : ''}`}>
       {node.export === true && <TableExportChips columns={columns} rows={rows} />}
       <table className={css.table}>
         <thead>
@@ -387,17 +407,18 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
         <tbody>
           {sortedSections.map((section, si) => {
             const headerIndex = section.header?.index ?? si
+            const groupLabel = section.header === null ? '' : tableCellText(section.header.row[0])
             const isCollapsed = collapsed.has(headerIndex)
             return (
               <Fragment key={section.header === null ? `s-${si}` : `g-${section.header.index}`}>
                 {section.header !== null && (
                   <tr className={css.groupRow}>
-                    <td colSpan={columns.length} className={cellWrapClass(String(section.header.row[0]))}>
+                    <td colSpan={columns.length} className={cellWrapClass(groupLabel)}>
                       <button
                         type="button"
                         className={css.groupToggle}
                         aria-label={tr(isCollapsed ? 'block.table.expandGroup' : 'block.table.collapseGroup', {
-                          label: String(section.header.row[0]).replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
+                            label: groupLabel.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
                         })}
                         aria-expanded={!isCollapsed}
                         onClick={() => toggleSection(headerIndex)}
@@ -405,10 +426,10 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                         <span className={css.groupChevron} aria-hidden>{isCollapsed ? '▸' : '▾'}</span>
                       </button>
                       <span className={css.groupLabel} onClick={event => {
-                        if (event.target instanceof Element && event.target.closest('button')) return
+                        if (event.target instanceof Element && event.target.closest('a, button')) return
                         toggleSection(headerIndex)
                       }}>
-                        {renderInline(String(section.header.row[0]), 'file')}
+                        {renderInline(groupLabel, true)}
                         <span className={css.groupCount}>{section.children.length}</span>
                       </span>
                     </td>
@@ -428,7 +449,7 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                                   type="button"
                                   className={css.detailToggle}
                                   aria-label={tr(open ? 'block.table.collapseDetails' : 'block.table.expandDetails', {
-                                    label: String(cell).replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
+                                    label: tableCellText(cell).replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'),
                                   })}
                                   aria-expanded={open}
                                   onClick={() => toggleDetail(child.index)}
@@ -436,21 +457,21 @@ export const TableNode = memo(function TableNode({ node, renderDetail, filterVal
                                   <span className={css.detailChevron} data-open={open} aria-hidden>▸</span>
                                 </button>
                                 <span className={css.detailContent} onClick={event => {
-                                  if (event.target instanceof Element && event.target.closest('button')) return
+                                  if (event.target instanceof Element && event.target.closest('a, button')) return
                                   toggleDetail(child.index)
                                 }}>
-                                  {renderInline(String(cell), 'file')}
+                                  {renderInline(tableCellText(cell), true)}
                                 </span>
                               </td>
                             )
-                            : renderCell(cell, j, child.index)
+                            : renderCell(cell, j, child.visibleIndex)
                         ))}
                       </tr>
                       {open && detail !== null && (
                         <tr className={css.detailRow}>
                           <td colSpan={columns.length}>
                             <div className={css.detailBody}>
-                              {renderDetail === undefined ? null : renderDetail(detail)}
+                              {renderDetail === undefined ? null : renderDetail(detail, child.index)}
                             </div>
                           </td>
                         </tr>
@@ -635,6 +656,47 @@ function applyChartFilter(chart: GenuiChart, filterValue: string | undefined): G
   return { ...chart, data, series }
 }
 
+/** 按类别名称和同名类别出现次数合并多条系列，保留每条系列独有的数据点。 */
+function alignChartSeries(series: Array<{ data: GenuiChart['data'] }>): { labels: string[]; values: Array<Array<number | null>> } {
+  const maxCategories = Math.min(series.length, GENUI_LIMITS.maxPlotSeries) * GENUI_LIMITS.maxChartPoints
+  const categoryKeys: string[] = []
+  const labelsByKey = new Map<string, string>()
+  const keysBySeries: string[][] = []
+  const valuesBySeries = series.map(entry => {
+    const occurrences = new Map<string, number>()
+    const values = new Map<string, number | null>()
+    const keys: string[] = []
+    for (const datum of entry.data.slice(0, GENUI_LIMITS.maxChartPoints)) {
+      const occurrence = occurrences.get(datum.label) ?? 0
+      occurrences.set(datum.label, occurrence + 1)
+      const key = `${datum.label}\u0000${occurrence}`
+      labelsByKey.set(key, datum.label)
+      keys.push(key)
+      values.set(key, typeof datum.value === 'number' ? datum.value : null)
+    }
+    keysBySeries.push(keys)
+    return values
+  })
+  for (const keys of keysBySeries) {
+    for (let index = 0; index < keys.length; index++) {
+      const key = keys[index]!
+      if (categoryKeys.includes(key) || categoryKeys.length >= maxCategories) continue
+      const nextIndex = keys.slice(index + 1).map(nextKey => categoryKeys.indexOf(nextKey)).find(position => position >= 0)
+      if (nextIndex !== undefined) {
+        categoryKeys.splice(nextIndex, 0, key)
+        continue
+      }
+      const previousKeys = keys.slice(0, index).reverse()
+      const previousIndex = previousKeys.map(previousKey => categoryKeys.indexOf(previousKey)).find(position => position >= 0)
+      categoryKeys.splice(previousIndex === undefined ? categoryKeys.length : previousIndex + 1, 0, key)
+    }
+  }
+  return {
+    labels: categoryKeys.map(key => labelsByKey.get(key)!),
+    values: valuesBySeries.map(values => categoryKeys.map(key => values.get(key) ?? null)),
+  }
+}
+
 /** Bars: one column per datum (grouped bars when `series` is present).
  *  Single-series bars render against a true zero line, so negative values
  *  draw downward instead of clamping to zero height. */
@@ -644,13 +706,14 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
   const grouped = chart.series !== undefined ? chart.series.slice(0, GENUI_LIMITS.maxPlotSeries) : undefined
   const isGrouped = grouped !== undefined && grouped.length > 0
   const data = chart.data.slice(0, GENUI_LIMITS.maxChartPoints)
-  const labels = isGrouped ? grouped[0]!.data.map(d => d.label) : data.map(d => d.label)
+  const aligned = isGrouped ? alignChartSeries(grouped) : undefined
+  const labels = aligned?.labels ?? data.map(d => d.label)
   const seriesValues = isGrouped
-    ? grouped.map(s => s.data.map(d => Number(d.value) || 0))
+    ? aligned!.values
     : [data.map(d => Number(d.value) || 0)]
   const colors = seriesValues.map((_values, si) =>
     seriesColor(si, seriesValues.length, isGrouped ? grouped[si]?.color : undefined, chart.palette) ?? 'var(--dsw-alias-state-business-primary, #4f8ef7)')
-  const flat = seriesValues.flat()
+  const flat = seriesValues.flatMap(values => values.filter((value): value is number => value !== null))
   const showValues = labels.length <= 12
   const stacked = chart.stacked === true && isGrouped
   const categoryTotals = labels.map((_l, i) => seriesValues.reduce((sum, values) => sum + Math.max(0, values[i] ?? 0), 0))
@@ -684,6 +747,7 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
                   ? (
                     <div className={css.hbarTrack} title={`${label}: ${formatChartValue(categoryTotals[i] ?? 0, categoryFractionDigits[i] ?? 0)}`}>
                       {seriesValues.map((values, si) => {
+                        if (values[i] === null) return null
                         const v = Math.max(0, values[i] ?? 0)
                         const total = categoryTotals[i] ?? 0
                         const width = total === 0 ? 0 : (v / total) * Math.max(0, Math.min(100, (total / scale) * 100))
@@ -700,6 +764,7 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
                     </div>
                   )
                   : seriesValues.map((values, si) => {
+                    if (values[i] === null) return <div key={si} className={css.hbarTrack} />
                     const v = values[i] ?? 0
                     const width = Math.max(0, Math.min(100, (Math.max(0, v) / scale) * 100))
                     return (
@@ -759,8 +824,8 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
                     )}
                     <div className={css.stack} style={{ height: `${Math.max(0, pct(categoryTotals[i] ?? 0))}%` }}>
                       {grouped.map((entry, si) => {
-                        const datum = entry.data[i]
-                        const raw = datum === undefined ? 0 : Number(datum.value) || 0
+                        const raw = seriesValues[si]?.[i]
+                        if (raw === null || raw === undefined) return null
                         const v = Math.max(0, raw)
                         const total = categoryTotals[i] ?? 0
                         const segHeight = total === 0 ? 0 : (v / total) * pct(total)
@@ -784,19 +849,20 @@ export const BarsNode = memo(function BarsNode({ chart }: { chart: GenuiChart })
                 ? (
                   <div className={css.groupedBars}>
                     {grouped.map((entry, si) => {
-                      const datum = entry.data[i]
-                      const v = datum === undefined ? 0 : Number(datum.value) || 0
+                      const value = seriesValues[si]?.[i]
+                      if (value === null || value === undefined) return <div key={si} className={css.groupedBar} />
+                      const v = value
                       return (
                         <div key={si} className={css.groupedBar}>
-                          {showValues && <span className={css.groupValue}>{datum === undefined ? '' : String(datum.value)}</span>}
+                          {showValues && <span className={css.groupValue}>{String(value)}</span>}
                           <div
                             className={css.groupedFill}
                             style={{
                               height: `${Math.max(0, pct(Math.max(0, v)))}%`,
                               background: colors[si],
                             }}
-                            onMouseEnter={event => show(event, [[entry.label, String(datum?.value ?? '')], [tr('block.total'), formatChartValue(categoryTotals[i] ?? 0, categoryFractionDigits[i] ?? 0)]])}
-                            onMouseMove={event => show(event, [[entry.label, String(datum?.value ?? '')], [tr('block.total'), formatChartValue(categoryTotals[i] ?? 0, categoryFractionDigits[i] ?? 0)]])}
+                            onMouseEnter={event => show(event, [[entry.label, String(value)], [tr('block.total'), formatChartValue(categoryTotals[i] ?? 0, categoryFractionDigits[i] ?? 0)]])}
+                            onMouseMove={event => show(event, [[entry.label, String(value)], [tr('block.total'), formatChartValue(categoryTotals[i] ?? 0, categoryFractionDigits[i] ?? 0)]])}
                           />
                         </div>
                       )
@@ -858,14 +924,15 @@ export const LineChartNode = memo(function LineChartNode({ chart }: { chart: Gen
     ? chart.series.slice(0, GENUI_LIMITS.maxPlotSeries)
     : undefined
   const data = chart.data.slice(0, GENUI_LIMITS.maxChartPoints)
-  const labels = grouped !== undefined ? grouped[0]!.data.map(d => d.label) : data.map(d => d.label)
+  const aligned = grouped !== undefined ? alignChartSeries(grouped) : undefined
+  const labels = aligned?.labels ?? data.map(d => d.label)
   const seriesValues = grouped !== undefined
-    ? grouped.map(entry => entry.data.map(d => Number(d.value) || 0))
+    ? aligned!.values
     : [data.map(d => Number(d.value) || 0)]
   const colors = seriesValues.map((_values, si) =>
     seriesColor(si, seriesValues.length, grouped !== undefined ? grouped[si]?.color : undefined, chart.palette) ?? 'var(--dsl-g-accent)')
   const multi = seriesValues.length > 1
-  const flat = seriesValues.flat()
+  const flat = seriesValues.flatMap(values => values.filter((value): value is number => value !== null))
   const pointCount = Math.max(...seriesValues.map(values => values.length), 0)
   const W = Math.max(measured, 260)
   const H = 176
@@ -881,9 +948,20 @@ export const LineChartNode = memo(function LineChartNode({ chart }: { chart: Gen
   const innerH = H - padT - padB
   const x = (i: number): number => padL + (pointCount <= 1 ? innerW / 2 : (i / (pointCount - 1)) * innerW)
   const y = (v: number): number => padT + (1 - (v - lo) / span) * innerH
-  const paths = seriesValues.map(values =>
-    values.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' '))
-  const area = !multi && pointCount > 1
+  const paths = seriesValues.map(values => {
+    let path = ''
+    let connected = false
+    values.forEach((value, index) => {
+      if (value === null) {
+        connected = false
+        return
+      }
+      path += `${connected ? ' L' : 'M'} ${x(index).toFixed(1)} ${y(value).toFixed(1)}`
+      connected = true
+    })
+    return path
+  })
+  const area = !multi && pointCount > 1 && seriesValues[0]!.every(value => value !== null)
     ? `${paths[0]} L ${x(pointCount - 1).toFixed(1)} ${y(lo).toFixed(1)} L ${x(0).toFixed(1)} ${y(lo).toFixed(1)} Z`
     : null
   // Keep x labels readable: at most one per ~64px of plot width.
@@ -915,6 +993,7 @@ export const LineChartNode = memo(function LineChartNode({ chart }: { chart: Gen
         {area !== null && <path d={area} fill={`url(#${gradientId})`} />}
         {paths.map((d, si) => <path key={si} d={d} className={css.linePath} style={{ stroke: colors[si] }} />)}
         {seriesValues.map((values, si) => values.map((v, i) => {
+          if (v === null) return null
           const rows: TipRow[] = multi
             ? [[grouped![si]!.label, String(v)], [tr('block.chart.node'), labels[i] ?? '']]
             : [[labels[i] ?? '', String(v)]]

@@ -4,7 +4,7 @@
  * rendering) and the node-side validate_dsh_ui tool (which returns the
  * repaired JSON to the model instead of making it re-author the fix).
  *
- * Two tiers, deliberately gated differently by the callers:
+ * Three repair layers behind two caller gates (streaming-safe vs settled-only):
  * - Tier-1 (`repairFenceJson`): heals the most common model JSON typos that
  *   do NOT change the body's structure — unescaped half-width quotes inside
  *   string values and trailing commas. Safe at any time (streaming included),
@@ -14,8 +14,22 @@
  *   skips mismatched closers (a `]` mistyped as `}`, duplicated terminators).
  *   SETTLED MESSAGES ONLY: a streaming half must never be adopted as a
  *   finished prefix.
+ * - Tier-3 (`repairWrappedMemberKey`): heals a member KEY written as a
+ *   one-element array — `{"a":1,["b"]:[2]}` — which leaves every bracket
+ *   balanced and the grammar wrong, so neither quote escaping nor closer
+ *   appending can recover it. NOT a separate gate: it rides tier-2's shape
+ *   pass, so it is SETTLED MESSAGES ONLY and adopted only when the rewritten
+ *   WHOLE body parses.
  * @module @changfenhuang/dsh-genui/shared/fence-repair
  */
+
+/** A repaired JSON value plus any original source it could not consume. */
+export interface FenceJsonRepair {
+  text: string
+  repairs: number
+  /** Original content outside the adopted JSON root. Never silently discard it. */
+  unconsumedText?: string
+}
 
 /** A fence body counts as complete when it parses as a whole JSON value. */
 export function isCompleteJson(raw: string): boolean {
@@ -52,6 +66,7 @@ export function describeJsonFailure(raw: string): string | null {
  *    fail near that quote with "Expected ',' or ']'...".
  * 2. Trailing commas before `}` / `]` or at end of input.
  * 3. Valueless object keys immediately before a complete key-and-colon pair.
+ * 4. CJK commas/colons in structural positions, never inside string content.
  *
  * A shared grammar-aware scan distinguishes object keys from values and
  * checks the continuation after a potential string terminator. Ambiguous
@@ -79,6 +94,12 @@ type JsonScope = {
   closer: '}' | ']'
   expecting: 'key' | 'colon' | 'value' | 'comma'
 }
+/** One lexical token of a fence body: a delimiter, or a complete JSON string. */
+type Token = {
+  kind: '{' | '}' | '[' | ']' | ',' | ':' | 'string'
+  start: number
+  end: number
+}
 type RepairScan = {
   text: string
   repairs: number
@@ -91,6 +112,17 @@ type RepairScan = {
 
 function isJsonSpace(ch: string | undefined): boolean {
   return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r'
+}
+
+/** Read punctuation at a structural boundary, including quote lookahead.
+ * String contents always use the original character, even when their quotes
+ * need repair; a separate quote-toggle normalization pass would corrupt them.
+ */
+function jsonStructureAt(raw: string, index: number): string {
+  const ch = raw[index] ?? '\0'
+  if (ch === '：') return ':'
+  if (ch === '，' || ch === '、' || ch === '；') return ','
+  return ch
 }
 
 /** Skip only complete, valueless object keys followed by a valued member. */
@@ -107,8 +139,8 @@ function skipValuelessKeys(raw: string, start: number, limit = raw.length): { st
     cursor++
     try { JSON.parse(raw.slice(keyStart, cursor)) } catch { return null }
     while (cursor < limit && isJsonSpace(raw[cursor])) cursor++
-    if (raw[cursor] === ':') return repairs > 0 ? { start: keyStart, repairs } : null
-    if (raw[cursor] !== ',') return null
+    if (jsonStructureAt(raw, cursor) === ':') return repairs > 0 ? { start: keyStart, repairs } : null
+    if (jsonStructureAt(raw, cursor) !== ',') return null
     repairs++
     cursor++
     while (cursor < limit && isJsonSpace(raw[cursor])) cursor++
@@ -130,9 +162,16 @@ function quoteCanClose(raw: string, index: number, key: boolean, scopes: JsonSco
   const skipSpace = (): void => { while (cursor < limit && isJsonSpace(raw[cursor])) cursor++ }
   skipSpace()
   if (cursor >= limit) return true
-  if (key) return raw[cursor] === ':'
+  if (key) {
+    const next = jsonStructureAt(raw, cursor)
+    const scope = scopes[scopes.length - 1]
+    // A malformed member name may end at its object's closer even without a
+    // colon. Keep that syntax error visible instead of absorbing later nodes
+    // into the key and manufacturing a valid but semantically corrupted JSON.
+    return next === ':' || (scope?.closer === '}' && next === '}')
+  }
   let scopeIndex = scopes.length - 1
-  if (raw[cursor] === ':') return false
+  if (jsonStructureAt(raw, cursor) === ':') return false
   while (raw[cursor] === '}' || raw[cursor] === ']') {
     const scope = scopes[scopeIndex]
     if (scope === undefined) return false
@@ -145,7 +184,7 @@ function quoteCanClose(raw: string, index: number, key: boolean, scopes: JsonSco
     // whole-body quote alternatives before actually adopting that prefix.
     if (scopeIndex < 0) return complete
   }
-  if (raw[cursor] !== ',') return false
+  if (jsonStructureAt(raw, cursor) !== ',') return false
   const scope = scopes[scopeIndex]
   if (scope === undefined) return false
   cursor++
@@ -166,7 +205,7 @@ function quoteCanClose(raw: string, index: number, key: boolean, scopes: JsonSco
     if (raw[cursor] === '"') {
       cursor++
       skipSpace()
-      return cursor >= limit || raw[cursor] === ':'
+      return cursor >= limit || jsonStructureAt(raw, cursor) === ':'
     }
     if (raw[cursor]!.charCodeAt(0) < 0x20) return false
     cursor++
@@ -192,7 +231,7 @@ function scanFenceCandidate(raw: string, complete: boolean, contentQuotes: Reado
     if (scope !== undefined) scope.expecting = 'comma'
   }
   for (let i = 0; i < raw.length; i++) {
-    const ch = raw[i]!
+    let ch = raw[i]!
     if (escaped) {
       if (inString && ch === '"') interiorQuote = true
       out += ch
@@ -207,6 +246,8 @@ function scanFenceCandidate(raw: string, complete: boolean, contentQuotes: Reado
       // Without any interior quote, a delimiter-looking quote is a normal
       // terminator even if its sibling is malformed. Do not absorb a broken
       // bare value merely to make structural completion succeed.
+      // CJK punctuation can follow an inch mark inside prose; unlike ASCII
+      // delimiters it needs the full continuation check in quoteCanClose.
       const ordinaryEnd = !key && ((!interiorQuote && ',}]:'.includes(raw[next] ?? '\0'))
         || (scopes[scopes.length - 1]?.closer === ']' && raw[next] === ','))
       if (!contentQuotes.has(i) && (ordinaryEnd || quoteCanClose(raw, i, key, scopes, complete))) {
@@ -231,6 +272,8 @@ function scanFenceCandidate(raw: string, complete: boolean, contentQuotes: Reado
       }
       continue
     }
+    const structural = jsonStructureAt(raw, i)
+    if (structural !== ch) { ch = structural; repairs++ }
     if (ch === '"') {
       key = scopes[scopes.length - 1]?.expecting === 'key'
       if (key) {
@@ -280,7 +323,7 @@ function scanFenceCandidate(raw: string, complete: boolean, contentQuotes: Reado
       // Invalid bare values are not quote ambiguity: do not turn an earlier
       // finished string into a container for `broken` / `undefined` tokens.
       let j = i + 1
-      while (j < raw.length && !isJsonSpace(raw[j]) && !'{}[],:"'.includes(raw[j]!)) j++
+      while (j < raw.length && !isJsonSpace(raw[j]) && !'{}[],:"'.includes(jsonStructureAt(raw, j))) j++
       const token = raw.slice(i, j)
       if (!/^(?:true|false|null|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)$/.test(token)) invalidValue = true
       finishValue()
@@ -336,11 +379,11 @@ function originalJsonPrefix(raw: string): string | null {
  * iterative scan, not a recursive parser; no engine-specific error offset is
  * needed. Fixed attempts/lookahead give O(n) time and O(n) working storage.
  */
-function scanFenceJson(raw: string, complete: boolean): { text: string; repairs: number } | null {
+function scanFenceJson(raw: string, complete: boolean): FenceJsonRepair | null {
   // A genuine original root is authoritative. Never reinterpret its closing
   // quote to absorb a second object or prose, even during speculative repair.
   const original = originalJsonPrefix(raw)
-  if (original !== null) return complete ? { text: original, repairs: 1 } : null
+  if (original !== null) return complete ? repairedPrefix(original, 1, raw.slice(original.length)) : null
   const pending: number[][] = [[]]
   let prefix: { text: string; repairs: number; rawEnd: number } | null = null
   for (let attempt = 0; attempt < MAX_QUOTE_ATTEMPTS && pending.length > 0; attempt++) {
@@ -375,8 +418,12 @@ function scanFenceJson(raw: string, complete: boolean): { text: string; repairs:
   }
   // Balanced-prefix adoption remains strictly tier-2 / settled-only, and only
   // after whole-body repair attempts have failed.
-  if (prefix !== null) return { text: prefix.text, repairs: prefix.repairs }
+  if (prefix !== null) return repairedPrefix(prefix.text, prefix.repairs, raw.slice(prefix.rawEnd))
   return null
+}
+
+function repairedPrefix(text: string, repairs: number, remainder: string): FenceJsonRepair {
+  return remainder.trim() === '' ? { text, repairs } : { text, repairs, unconsumedText: remainder }
 }
 
 /**
@@ -432,6 +479,131 @@ export function trimToBalancedRoot(text: string): string | null {
     }
   }
   return null
+}
+
+/**
+ * Tier-3 shape rewrite — a member KEY written as a one-element ARRAY:
+ *
+ *     {"type":"table",["columns"]:["a","b"],"rows":[["1","2"]]}
+ *
+ * Every bracket is still balanced and the quotes are all well-formed, so
+ * neither the quote/trailing-comma tier nor the closer-appending scan can see
+ * anything wrong: the first tier parses nothing, the second finds nothing to
+ * append. Only the GRAMMAR is wrong — a string sits where a key belongs.
+ *
+ * The key is recoverable because the wrapped string is a complete, already
+ * string-escaped JSON string: unwrap it in place (`["k"]` → `"k"`) and the
+ * member becomes legal. The rewrite is a pure splice of one string token, so
+ * it cannot invent content. Safe by construction: only applied to a body that
+ * does not parse, and the caller adopts the result only when the rewrite plus
+ * the remaining tiers produce a WHOLE body that parses.
+ *
+ * @param raw - the raw fence body.
+ * @returns the unwrapped body plus the edit count, or null when no key is
+ *   written that way.
+ */
+function repairWrappedMemberKey(raw: string): { text: string; repairs: number } | null {
+  // Cheap gate: without a `[` followed by a string there is nothing to do.
+  if (!/\[\s*"/.test(raw)) return null
+  const tokens: Token[] = []
+  let inString = false
+  let escaped = false
+  let stringStart = -1
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i]!
+    if (inString) {
+      if (escaped) { escaped = false; continue }
+      if (ch === '\\') { escaped = true; continue }
+      if (ch === '"') {
+        inString = false
+        tokens.push({ kind: 'string', start: stringStart, end: i + 1 })
+      }
+      continue
+    }
+    if (ch === '"') { inString = true; stringStart = i; continue }
+    if (ch === '{' || ch === '}' || ch === '[' || ch === ']' || ch === ',' || ch === ':') {
+      tokens.push({ kind: ch, start: i, end: i + 1 })
+    }
+  }
+  // Container of every token, from ONE forward pass: the top of the open-
+  // delimiter stack when the token is reached. A per-candidate backward scan
+  // is O(n) each, so a body with many array candidates degraded to O(n^2)
+  // (165KB of single-cell rows took ~640ms; 690KB took ~14s). This pass is
+  // O(n) and makes the cost independent of how many candidates the body has.
+  const enclosingOf: Array<'{' | '[' | null> = []
+  const openStack: Array<'{' | '['> = []
+  for (const token of tokens) {
+    if (token.kind === '}' || token.kind === ']') {
+      enclosingOf.push(openStack.pop() ?? null)
+      continue
+    }
+    enclosingOf.push(openStack[openStack.length - 1] ?? null)
+    if (token.kind === '{' || token.kind === '[') openStack.push(token.kind)
+  }
+  const unwraps: Array<{ from: number; to: number; key: string }> = []
+  for (let k = 0; k + 2 < tokens.length; k++) {
+    const open = tokens[k]!
+    const key = tokens[k + 1]!
+    const close = tokens[k + 2]!
+    if (open.kind !== '[' || key.kind !== 'string' || close.kind !== ']') continue
+    // The array must wrap EXACTLY one string — no extra elements, no prose.
+    if (raw.slice(open.end, key.start).trim() !== '') continue
+    if (raw.slice(key.end, close.start).trim() !== '') continue
+    const prev = tokens[k - 1]
+    if (prev === undefined) continue
+    // A key position is after `{` or after a member comma, and always inside
+    // an object: a wrapped string inside an ARRAY is an element, not a key.
+    // Defence in depth: the whole-body parse below also refuses the bodies
+    // these guards reject, so neither is observable end-to-end — they stop the
+    // wrong splice early instead of repairing into garbage and then discarding.
+    if (prev.kind !== '{' && prev.kind !== ',') continue
+    if (enclosingOf[k] !== '{') continue
+    // Only a key can be followed by `:`. Without the colon the body has a
+    // second defect (a valueless member); leave it to the other tiers rather
+    // than guess where the value went.
+    const next = tokens[k + 3]
+    if (next === undefined || next.kind !== ':') continue
+    unwraps.push({ from: open.start, to: close.end, key: raw.slice(key.start, key.end) })
+    k += 2
+  }
+  if (unwraps.length === 0) return null
+  let text = ''
+  let cursor = 0
+  for (const edit of unwraps) {
+    text += raw.slice(cursor, edit.from) + edit.key
+    cursor = edit.to
+  }
+  text += raw.slice(cursor)
+  return { text, repairs: unwraps.length }
+}
+
+/**
+ * Apply every shape rewrite that matches, in a fixed order, so a body that
+ * carries several balanced-but-wrong shapes is healed in one pass.
+ *
+ * THE ORDER IS LOAD-BEARING — wrapped keys must be unwrapped FIRST. On
+ * `{"columns":["a"],["rows"]:[["1"]]}` (a wrapped `rows` KEY whose value
+ * is the matrix) the Tetris rewrite alone claims the sibling `[…]` as a bare
+ * row matrix and splices it into `"rows": ["rows"]:[["1"]]]`, destroying the
+ * only recoverable path; unwrapping first leaves a real `"rows":` key that
+ * Tetris no longer matches. Verified: forward heals (repairs=1), reversed
+ * returns null, and a regression test pins that order by that exact literal.
+ *
+ * (Note the colon: WITHOUT it the two rewrites do not collide, because Tetris
+ * then takes its keyed branch and both orders agree.)
+ *
+ * @param raw - the raw fence body.
+ * @returns the rewritten body plus the total edit count, or null when no
+ *   shape rewrite applies.
+ */
+function rewriteFenceShapes(raw: string): { text: string; repairs: number } | null {
+  let text = raw
+  let repairs = 0
+  const wrapped = repairWrappedMemberKey(text)
+  if (wrapped !== null) { text = wrapped.text; repairs += wrapped.repairs }
+  const tetris = rewriteTetrisTableColumns(text)
+  if (tetris !== null) { text = tetris.text; repairs += tetris.repairs }
+  return repairs === 0 ? null : { text, repairs }
 }
 
 /**
@@ -546,27 +718,32 @@ function rewriteTetrisTableColumns(raw: string): { text: string; repairs: number
  * failed, and re-scanning the raw text could not compose the repairs.
  * Adopted only when the completed body parses as whole JSON.
  */
-export function completeFenceJson(raw: string): { text: string; repairs: number } | null {
+export function completeFenceJson(raw: string): FenceJsonRepair | null {
   try {
     JSON.parse(raw)
     return null
   } catch {
     // fall through to the unified repair scan
   }
-  // Shape defect first: the "Tetris table" nesting cannot be healed by the
-  // closer-appending scan below (its brackets are balanced — just nested
-  // wrongly), so rewrite the shape, then let the scan run on the result.
-  const tetris = rewriteTetrisTableColumns(raw)
-  if (tetris !== null) {
+  // Shape defects first: they are bracket-BALANCED (a key wrapped in an array,
+  // rows matrix nested as a sibling element), so the closer-appending scan
+  // below cannot see them. Rewrite the shape, then let the scan run on the
+  // result — a body can carry a shape defect AND a missing closer at once.
+  const shaped = rewriteFenceShapes(raw)
+  if (shaped !== null) {
     try {
-      JSON.parse(tetris.text)
-      return tetris
+      JSON.parse(shaped.text)
+      return shaped
     } catch {
-      // Tetris 形状修复可能暴露需要 tier-2 继续处理的结构问题。
+      // 形状修复可能暴露需要 tier-2 继续处理的结构问题。
     }
-    const scanned = completeFenceJson(tetris.text)
+    const scanned = completeFenceJson(shaped.text)
     if (scanned === null) return null
-    return { text: scanned.text, repairs: scanned.repairs + tetris.repairs }
+    // Shape repair may change offsets. Keep an exact original suffix when
+    // possible; otherwise retain the whole original input for a safe fallback.
+    const remainder = scanned.unconsumedText
+    return repairedPrefix(scanned.text, scanned.repairs + shaped.repairs,
+      remainder === undefined ? '' : raw.endsWith(remainder) ? remainder : raw)
   }
   return scanFenceJson(raw, true)
 }

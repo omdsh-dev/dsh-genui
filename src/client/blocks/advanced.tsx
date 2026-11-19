@@ -4,15 +4,19 @@
  * scene3d, timeline, file-tree, quiz, breadcrumb.
  * @module @changfenhuang/dsh-genui/client/blocks/advanced
  */
-import { memo, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { CodeBlock, DiffBlock, JsonTree, writeClipboard } from '../primitive-adapter.ts'
 import { renderInline } from '../inline.ts'
 import css from '../GenuiBlock.module.css'
+import zoomCss from './mermaid-zoom.module.css'
+import { MermaidZoomDialog } from './mermaid-zoom.tsx'
 import { GENUI_LIMITS } from '../genui-runtime/index.ts'
+import { renderMermaid } from '../mermaid-lazy.ts'
 import { PlotBlock } from '../PlotBlock.tsx'
 import { renderNode } from './render-node.tsx'
 import { codeBlockLabels, diffBlockLabels, jsonTreeLabels } from '../primitive-labels.ts'
 import { useT } from '../i18n/index.ts'
+import { CopyPreviewContext } from '../copy-preview-state.ts'
 import type { AnswersState, GenuiBlockProps } from './state.ts'
 import type {
   GenuiAccordion, GenuiBreadcrumb, GenuiCallout, GenuiCode, GenuiCopy, GenuiDiff, GenuiFileTree, GenuiFileTreeNode,
@@ -118,11 +122,12 @@ export const CodeNode = memo(function CodeNode({ node }: { node: GenuiCode }) {
  * round trip. Numeric cells (numbers or numeric strings) compare numerically;
  * everything else compares as text.
  */
-export function TabsNode({ tabs, onAction, depth = 0, answers }: {
+export function TabsNode({ tabs, onAction, depth = 0, answers, path = '' }: {
   tabs: GenuiTabs
   onAction?: GenuiBlockProps['onAction']
   depth?: number
   answers?: AnswersState | undefined
+  path?: string
 }) {
   const [active, setActive] = useState(0)
   const uid = useId()
@@ -169,7 +174,7 @@ export function TabsNode({ tabs, onAction, depth = 0, answers }: {
       </div>
       {current !== undefined && (
         <div className={css.col} role="tabpanel" id={`${uid}-panel-${safeActive}`} aria-labelledby={`${uid}-tab-${safeActive}`}>
-          {current.items.map((c, i) => renderNode(c, i, onAction, depth + 1, answers))}
+          {current.items.map((c, i) => renderNode(c, i, onAction, depth + 1, answers, `${path}.tabs[${safeActive}].items[${i}]`))}
         </div>
       )}
     </div>
@@ -185,11 +190,12 @@ export function TabsNode({ tabs, onAction, depth = 0, answers }: {
  * carry `answer` data) or collects all groups in ONE action. Without
  * `group`, the legacy per-click action fires. After a local grading the
  * group locks until 重新作答 resets it. */
-export function AccordionNode({ node, onAction, depth = 0, answers }: {
+export function AccordionNode({ node, onAction, depth = 0, answers, path = '' }: {
   node: GenuiAccordion
   onAction?: GenuiBlockProps['onAction']
   depth?: number
   answers?: AnswersState | undefined
+  path?: string
 }) {
   const [open, setOpen] = useState<number | null>(0)
   const uid = useId()
@@ -211,7 +217,7 @@ export function AccordionNode({ node, onAction, depth = 0, answers }: {
           </button>
           {open === i && (
             <div className={css.accBody} id={`${uid}-body-${i}`} aria-labelledby={`${uid}-head-${i}`}>
-              {item.items.map((c, ci) => renderNode(c, ci, onAction, depth + 1, answers))}
+              {item.items.map((c, ci) => renderNode(c, ci, onAction, depth + 1, answers, `${path}.items[${i}].items[${ci}]`))}
             </div>
           )}
         </div>
@@ -249,13 +255,26 @@ async function writeCopyText(text: string): Promise<boolean> {
   /* oxlint-enable typescript/no-deprecated */
 }
 
-/** Copy: a one-click copy chip. The live region is a visually-hidden SIBLING
+/** Keep the first N logical preview lines without normalizing line endings. */
+function firstCopyLines(text: string, lines: number): string {
+  let remaining = lines
+  for (const match of text.matchAll(/\r\n|\r|\n/g)) {
+    if (--remaining === 0) return text.slice(0, match.index)
+  }
+  return text
+}
+
+/** Copy: a one-click copy chip, with an opt-in plain-text preview. The live region is a visually-hidden SIBLING
  * (not inside the button) — button content is atomic to screen readers, so a
  * live region inside it would never announce. */
-export const CopyNode = memo(function CopyNode({ node }: { node: GenuiCopy }) {
+export const CopyNode = memo(function CopyNode({ node, path }: { node: GenuiCopy; path?: string }) {
   const t = useT()
   const [copied, setCopied] = useState(false)
-  return (
+  const [localExpanded, setLocalExpanded] = useState(false)
+  const previewState = useContext(CopyPreviewContext)
+  const expanded = path === undefined || previewState === undefined ? localExpanded : previewState.expanded.has(path)
+  const previewId = useId()
+  const chip = (
     <>
       <button
         type="button"
@@ -274,6 +293,35 @@ export const CopyNode = memo(function CopyNode({ node }: { node: GenuiCopy }) {
       <span className={css.visuallyHidden} role="status">{copied ? t('label.copiedToClipboard') : ''}</span>
     </>
   )
+  // Keep legacy markup and clipboard behavior identical unless explicitly enabled.
+  if (node.expandable !== true) return chip
+  const lines = Math.max(0, Math.min(GENUI_LIMITS.maxCopyPreviewLines, Math.trunc(node.previewLines ?? 0)))
+  const bounded = Array.from(node.text).slice(0, GENUI_LIMITS.maxCopyPreview).join('')
+  const preview = expanded ? bounded : lines > 0 ? firstCopyLines(bounded, lines) : ''
+  const visible = expanded || lines > 0
+  return (
+    <div className={css.copyExpandable}>
+      <div className={css.copyControls}>
+        {chip}
+        <button
+          type="button"
+          className={css.copyChip}
+          aria-expanded={expanded}
+          aria-controls={previewId}
+          onClick={() => {
+            if (path === undefined || previewState === undefined) setLocalExpanded(value => !value)
+            else previewState.toggle(path)
+          }}
+        >
+          {expanded ? t('label.copyHideText') : t('label.copyViewText')}
+        </button>
+      </div>
+      <pre id={previewId} className={css.copyPreview} hidden={!visible} tabIndex={0}>{preview}</pre>
+      {visible && preview.length < node.text.length && (
+        <div className={css.copyPreviewHint}>{t('label.copyPreviewTruncated')}</div>
+      )}
+    </div>
+  )
 })
 
 type MermaidRenderState =
@@ -285,24 +333,158 @@ type MermaidRenderState =
 export const MermaidNode = memo(function MermaidNode({ node }: { node: GenuiMermaid }) {
   const t = useT()
   const [state, setState] = useState<MermaidRenderState>({ status: 'loading' })
+  const [zoomed, setZoomed] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const openerRef = useRef<HTMLButtonElement | null>(null)
+  const zoomedRef = useRef(false)
   const code = node.code.slice(0, GENUI_LIMITS.maxMermaid)
+
+  zoomedRef.current = zoomed
+  const restoreFocus = useCallback(() => {
+    const opener = openerRef.current
+    openerRef.current = null
+    if (opener?.isConnected === true) opener.focus({ preventScroll: true })
+  }, [])
+  const closeZoom = useCallback(() => { setZoomed(false); restoreFocus() }, [restoreFocus])
+  const openZoom = useCallback((opener: HTMLButtonElement) => {
+    openerRef.current = opener
+    setZoomed(true)
+  }, [])
+  // 图里的 <a> 是 Mermaid 的 click 链接，选中的文字要能复制；两者都不该触发放大。
+  const onDiagramClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target
+    if (!(target instanceof Element)) return
+    if (target.closest('a') !== null) return
+    if (window.getSelection?.()?.toString()) return
+    const opener = event.currentTarget.parentElement?.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')
+    if (opener !== null && opener !== undefined) openZoom(opener)
+  }, [openZoom])
+  useEffect(() => restoreFocus, [restoreFocus])
   useEffect(() => {
     let alive = true
+    let visible = typeof IntersectionObserver === 'undefined'
+    let finished = false
+    let controller: AbortController | undefined
     setState({ status: 'loading' })
-    void (async () => {
-      try {
-        const m = await import('../mermaid-lazy.ts')
-        const svg = await m.renderMermaid(code)
-        if (alive) setState({ status: 'ready', html: svg })
-      } catch {
-        if (alive) setState({ status: 'error' })
+    // 新源码会卸载整棵 ready 子树；先收起弹层并把焦点留在稳定的容器上，
+    // 否则原生的 top layer 会随 dialog 一起消失，焦点掉回 body。
+    if (zoomedRef.current) {
+      ref.current?.focus({ preventScroll: true })
+      setZoomed(false)
+    }
+    const start = (): void => {
+      const target = ref.current
+      if (target === null || !alive || !visible || finished || controller !== undefined) return
+      const current = new AbortController()
+      controller = current
+      void (async () => {
+        try {
+          const svg = await renderMermaid(code, { signal: current.signal, target })
+          if (alive && !current.signal.aborted) {
+            finished = true
+            setState({ status: 'ready', html: svg })
+          }
+        } catch {
+          if (alive && !current.signal.aborted) {
+            finished = true
+            setState({ status: 'error' })
+          }
+        }
+      })()
+    }
+    // One viewport of lookahead also works inside clipped/nested scroll
+    // containers. Keep observing until completion so queued work can leave.
+    const observer = typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        visible = entry.isIntersecting
+        if (!visible && !finished) { controller?.abort(); controller = undefined }
+        if (visible) { onTheme(); start() }
       }
-    })()
-    return () => { alive = false }
+    }, { rootMargin: `${window.innerHeight}px 0px` })
+    if (ref.current !== null) observer?.observe(ref.current)
+    // Host themes may live on either root. No SVG cache: a theme change
+    // invalidates the mounted diagram and re-reads tokens at render time.
+    const themeKey = (): string => {
+      const style = getComputedStyle(ref.current ?? document.body)
+      const bodyStyle = getComputedStyle(document.body)
+      return [
+        '--dsw-alias-label-primary', '--dsw-alias-bg-layer-2',
+        '--dsw-alias-border-l2', '--dsw-alias-label-tertiary',
+      ].flatMap(token => [style.getPropertyValue(token), bodyStyle.getPropertyValue(token)])
+        .concat(style.fontFamily, style.color, style.colorScheme,
+          String(window.matchMedia?.('(prefers-color-scheme: dark)').matches))
+        .join('\n')
+    }
+    let previousTheme: string | undefined
+    const onTheme = (): void => {
+      if (!alive || !visible) return
+      const nextTheme = themeKey()
+      const changed = previousTheme !== undefined && previousTheme !== nextTheme
+      previousTheme = nextTheme
+      if (!changed) return
+      controller?.abort()
+      controller = undefined
+      finished = false
+      // Preserve ready geometry while recoloring, especially for offscreen
+      // history. A new source still clears the old SVG at effect setup.
+      setState(previous => previous.status === 'ready' ? previous : { status: 'loading' })
+      start()
+    }
+    const theme = new MutationObserver(onTheme)
+    for (let target: HTMLElement | null = ref.current; target !== null; target = target.parentElement) {
+      theme.observe(target, {
+        attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-ds-dark-theme'],
+      })
+    }
+    // Appearance plugins can replace a stylesheet without touching the card
+    // or body attributes. Recheck the palette only when those styles change;
+    // unrelated changes still stop at the themeKey equality gate.
+    theme.observe(document.head, {
+      childList: true, characterData: true, subtree: true,
+      attributes: true, attributeFilter: ['href', 'rel', 'media', 'disabled'],
+    })
+    document.head.addEventListener('load', onTheme, true)
+    const scheme = window.matchMedia?.('(prefers-color-scheme: dark)')
+    scheme?.addEventListener('change', onTheme)
+    onTheme()
+    start()
+    return () => {
+      alive = false
+      controller?.abort()
+      observer?.disconnect()
+      theme.disconnect()
+      document.head.removeEventListener('load', onTheme, true)
+      scheme?.removeEventListener('change', onTheme)
+    }
   }, [code])
-  if (state.status === 'error') return <div className={css.mermaidFallback}><pre>{code}</pre><div className={css.mermaidErr}>{t('block.mermaidError')}</div></div>
-  if (state.status === 'loading') return <div className={css.mermaidFallback}><pre>{code}</pre><div className={css.mermaidHint}>{t('block.mermaidLoading')}</div></div>
-  return <div className={css.mermaid} dangerouslySetInnerHTML={{ __html: state.html }} data-genui-mermaid />
+  return (
+    <>
+      <div
+        ref={ref}
+        tabIndex={-1}
+        className={`${state.status === 'ready' ? css.mermaid : css.mermaidFallback} ${zoomCss.host}`}
+        data-genui-mermaid={state.status === 'ready' ? '' : undefined}
+      >
+        {state.status === 'ready'
+          ? <div className={zoomCss.frame}>
+            <div className={zoomCss.diagram} onClick={onDiagramClick} dangerouslySetInnerHTML={{ __html: state.html }} />
+            <button
+              type="button"
+              className={zoomCss.opener}
+              aria-label={t('block.mermaidOpen')}
+              aria-haspopup="dialog"
+              onClick={event => openZoom(event.currentTarget)}
+            >
+              <span className={zoomCss.expand} aria-hidden="true">⤢</span>
+            </button>
+          </div>
+          : state.status === 'error'
+            ? <><pre>{code}</pre><div className={css.mermaidErr}>{t('block.mermaidError')}</div></>
+            : <><pre>{code}</pre><div className={css.mermaidHint}>{t('block.mermaidLoading')}</div></>}
+      </div>
+      {state.status === 'ready' && <MermaidZoomDialog html={state.html} open={zoomed} onClose={closeZoom} />}
+    </>
+  )
 })
 
 /** Scene3D: three.js WebGL canvas, lazily imported. */

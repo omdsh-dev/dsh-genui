@@ -1,301 +1,450 @@
-# 🎨 dsh-genui
-
 <div align="center">
 
-**English** · [简体中文](./README.zh-CN.md)
+<img src="./assets/genui-logo.svg" width="380" alt="GenUI for DeepSeek Harness">
 
-<br>
+<p align="center">
+  <strong>Generative UI for DeepSeek Harness (DSH)</strong><br>
+  Interactive, rich components rendered inline alongside the model's textual responses.
+</p>
 
-[**Open the live product site**](https://omdsh-dev.github.io/dsh-genui/) · [**Watch the real demo**](#watch-the-real-interface) · [**Install in DSH**](#quick-start)
+[![npm version](https://img.shields.io/npm/v/@changfenhuang/dsh-genui.svg?style=flat-square&color=3B82F6)](https://www.npmjs.com/package/@changfenhuang/dsh-genui)
+[![DSH Compatibility](https://img.shields.io/badge/DSH-^0.2.0--rc.1%20||%20^0.2.1--rc.1%20||%20^0.2.2--alpha.2-10B981?style=flat-square)](https://github.com/omdsh-dev/dsh-genui)
+[![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg?style=flat-square)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Topic: dsh-plugin](https://img.shields.io/badge/ecosystem-dsh--plugin-purple?style=flat-square)](https://github.com/topics/dsh-plugin)
+
+<p align="center">
+  <strong>English</strong> · <a href="./README.zh-CN.md">简体中文</a>
+</p>
+
+<p align="center">
+  <a href="https://omdsh-dev.github.io/dsh-genui/"><strong>🌐 Live Product Site</strong></a> · 
+  <a href="#-real-interface-showcase"><strong>🎬 Real Demo</strong></a> · 
+  <a href="#-quick-start"><strong>🚀 Quick Start</strong></a> · 
+  <a href="#-capability-matrix"><strong>🧩 Feature Matrix</strong></a> · 
+  <a href="./SKILL.md"><strong>📖 Component Syntax (SKILL.md)</strong></a>
+</p>
 
 </div>
 
-> Give the model's answers a face — the text is still there, and an interactive UI is already live.
->
-> 🔌 Ecosystem: the repo carries the `#dsh` · `#dsh-plugin` topics — welcome to be listed by @dsh-plugin.
+---
 
-`dsh-genui` turns a model reply into a **safe, interactive DSH surface**. Ask “how are this month’s orders doing?” and the answer can include a sortable data panel, a native video, a draggable plot, a local quiz, or a persistent session panel — without replacing the surrounding text.
+`dsh-genui` turns DeepSeek Harness (DSH) assistant replies into **safe, fully interactive UI surfaces**.
 
-## Start with the evidence
+Ask “How are this month’s orders doing?”, and instead of plain text or raw code blocks, the response streams out an **interactive sortable data table**, **audio/video players**, **draggable function plots**, **self-grading quizzes**, or a **persistent workspace dock** — all embedded seamlessly within the conversation.
 
-| If you want to… | Go straight to… | What you can verify |
-|---|---|---|
-| See the complete DSH flow first | [40-second real walkthrough](#40-second-walkthrough) | Components are rendered inside a real DSH conversation. |
-| Inspect concrete UI outputs | [Three real outputs](#three-real-outputs-inside-a-dsh-reply) | Monitoring, function plots, and composable layout primitives. |
-| Try it in your own DSH | [Quick start](#quick-start) | A public npm install, a prompt to run, and an activation check. |
-| Learn the JSON language | [Component syntax](./SKILL.md) | The supported, guarded `dsh-ui` component specification. |
+---
 
-## Watch the real interface
+## 🎬 Real Interface Showcase
 
-> **No concept mockups.** The recording and images in this section are captured from `dsh-genui` rendering in the DSH interface. Use them to see the actual visual language before installing.
+> [!NOTE]
+> **Real Interface Captures:** All recordings and screenshots below are captured directly from real DSH interface rendering — no conceptual mockups or faked pre-renders.
 
-### 40-second walkthrough
+### 40-Second Walkthrough
 
 <div align="center">
 
 https://github.com/user-attachments/assets/f5db33ec-7471-4d4a-a85b-79c9962ab4ef
 
+<p align="center">
+  <a href="./assets/demo.mp4"><img src="./assets/demo-thumb.png" width="88%" alt="Preview of the complete dsh-genui walkthrough video"></a>
+  <br><em>(Click the thumbnail to download the <a href="./assets/demo.mp4">original MP4</a> if the GitHub video player fails to load. The prompt sequence is documented in <a href="./demo-prompts.md">demo-prompts.md</a>.)</em>
+</p>
+
 </div>
 
-<p align="center">
-  <a href="./assets/demo.mp4"><img src="./assets/demo-thumb.png" width="92%" alt="Preview of the complete dsh-genui walkthrough video"></a>
-  <br><em>Click the preview to download the original MP4 if the GitHub player is unavailable.</em>
-</p>
+### Three Concrete Real Outputs
 
-The walkthrough moves from an answer-embedded panel through forms, plotting, Mermaid, and 3D-oriented components. The player does **not** auto-play. If it does not load, use the [original MP4](./assets/demo.mp4); the four-step prompt sequence is documented in [demo-prompts.md](./demo-prompts.md).
-
-### Three real outputs inside a DSH reply
-
-#### 1. A monitoring panel is an answer, not a separate dashboard
-
-<p align="center">
-  <img src="./assets/showcase-panel.png" width="92%" alt="Real dsh-genui monitoring panel rendered inside a DSH conversation">
-  <br><em>Real output: eyebrow stat cards, a filterable service table with drill-down rows, grouped totals, and spark/ring/bar cell types live inside the assistant reply.</em>
-</p>
-
-#### 2. A function plot redraws locally as its parameters change
-
-<p align="center">
-  <img src="./assets/showcase-plot.png" width="76%" alt="Real dsh-genui function plot with draggable parameter sliders">
-  <br><em>Real output: `plot` renders curves while parameter sliders update the graph locally — drag to redraw, no round-trip.</em>
-</p>
-
-#### 3. Layout primitives compose into structured work surfaces
-
-<p align="center">
-  <img src="./assets/showcase.png" width="76%" alt="Real dsh-genui layout and card component composition">
-  <br><em>Real output: display typography, eyebrow stat cards, a ring progress, and labeled chapter dividers combine into a hierarchy the model can describe declaratively.</em>
-</p>
+| 1. Monitoring Panel: Answer is the Dashboard | 2. Function Plot: Drag to Redraw Instantly | 3. Composable Hierarchy: Work Surface |
+| :--- | :--- | :--- |
+| ![Monitoring Panel](./assets/showcase-panel.png) | ![Function Plot](./assets/showcase-plot.png) | ![Composable Hierarchy](./assets/showcase.png) |
+| **Data Insights:** Eyebrow stats, filterable/drill-down service table, grouped totals, and spark/ring cells directly live in the assistant reply. | **Zero-Latency Exploration:** `plot` draws mathematical curves; drag parameter sliders to re-calculate and redraw locally in real time. | **Structured Hierarchy:** Display quotes, stat cards, ring progress, and labeled chapter dividers composed declaratively by the model. |
 
 ---
 
-## ⚠️ Read this first: dual-channel rendering (no host source patch required)
+## ✨ Before vs. After
 
-The plugin ships **two rendering channels** and picks one automatically after the host activates its browser module:
-
-- **Registry channel**: when the host exposes the `fence-registry` extension point (newer dsh builds), fences register through the host's streaming render pipeline and behave seamlessly with the host;
-- **DOM channel**: when the host lacks that extension point (including supported stock DSH builds), the plugin observes the session DOM and mounts its own render tree. Since 0.7.2 it **supports streaming rendering**: components appear as the model writes them — the first finished component shows up immediately, no need to wait for the whole reply. Since 0.8.3 fence discovery is **multi-surface**: it matches the stock `md-code-block` surface, the deepsuite-style `.code-block` / `.code-block-small` surfaces some host builds render instead, and — as a structural backstop — any element whose banner labels it `dsh-ui` and contains a `<pre>` body. If your dsh build renders fences with a different class name, they still render (and a one-time console warning tells you the host DOM drifted).
-- **DSH 0.1.7 generic code banner**: when the host's final DOM omits fenced-code language metadata, dsh-genui reads the current assistant's original Markdown from the public ChatSnapshot and only takes over `dsh-ui` fences. The DOM identifies the mount location. If source data is temporarily unavailable, a settled assistant CodeBlock can use the strict canonical GenUI validation as a final fallback.
-
-Whichever channel is active, components, interactions, panels, and persistence behave identically.
-
-CI's packed host smoke installs the generated npm tarball in a real DSH host and verifies host startup and rendering. Source-backed fence routing is covered by integration tests; the smoke does not claim to validate a real model response. Real-model E2E requires configured model credentials.
-
-The repository ships both renderer channels, the host plugin, and the built browser bundle. The host still owns **client activation** and must provide the `slots` and `sessions` services. A downloaded `client.js` or a ModuleLoader cache entry proves only that bytes arrived — successful activation always prints `[genui] client active; fence-channel=registry|dom`. If that line is absent, fix package/profile identity or host activation first; DOM attributes such as `data-streaming` and `data-chat-anchor-key` are optional fallbacks, not installation prerequisites.
+| Scenario | Plain Text Response | With dsh-genui |
+| :--- | :--- | :--- |
+| **Business Overview** | “Revenue this month is ¥128,430 (+12.4% MoM); conversion rate is slightly dipping…” | One line of concise prose + 3 stat cards (revenue/orders/conversion), a trend chart, and a progress bar rendered right beside it. |
+| **Data Exploration** | Type another prompt to ask the model to re-sort or filter. | Click table headers to **sort numbers locally**, or use the search box to filter rows in real time. |
+| **Parameter Tuning** | Re-prompt the model and wait for another full generation. | Drag sliders to see curves update in **sub-millisecond speed** with animation preview. |
+| **Next Actions** | Copy text and manually perform follow-up tasks elsewhere. | Click interactive action buttons (e.g. “Refresh”, “Switch View”) to trigger **bidirectional model event loops**. |
 
 ---
 
-## ✨ Before vs. after
+## 🚀 Quick Start
 
-| Plain answer | With dsh-genui |
-|---|---|
-| "Revenue this month: ¥128,430, +12.4% MoM — watch the conversion rate." | One line of analysis + three stat cards (revenue / orders / conversion), a trend chart, and a progress bar rendered right beside it |
-| Want to see more? Type another question. | The panel already has "Refresh" / "Switch view" buttons — click, and the model updates the data |
+### 1. Prerequisites
 
-## 🚀 Quick start
+Ensure your environment meets the following requirements:
+- **DSH Version**: `^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`. Packed browser acceptance covers `0.2.0-rc.1`, `0.2.1-rc.3` and the exact npm hosts `0.2.2-rc.1` (current `latest` / `next`) and `0.2.2-alpha.2`; `0.2.1-rc.4` and `0.2.1-rc.5` retain separate public-API, full-unit-suite and build checks. The current RC and alpha hosts require **Node.js >=24.9.0**. Its gallery, computed-field and Map acceptance uses official local replay; third-party sidebar integration is checked on rc.3.
+- **pnpm on PATH**: The `dsh plugin` CLI requires pnpm. If missing: run `corepack enable` or `npm i -g pnpm`, then **open a new terminal** and confirm `pnpm -v` prints a version number.
 
-Prerequisites — all required:
+### 2. Install & Activate
 
-1. **dsh `^0.1.2-rc.1 || ^0.1.5-alpha.1 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1 || >=0.2.0-rc.1 <0.3.0-0`** (DSH `0.2.1-alpha.3` is currently a prerelease; verified host roles: minimum `dsh-v0.1.2-rc.1`, current `dsh-v0.2.0-rc.2`, next `dsh-v0.2.1-alpha.3`; users on DSH `<=0.1.1-rc.x` should use dsh-genui `0.9.8`)
-2. **`pnpm` on your PATH**: the `dsh plugin` command depends on it. If missing: `corepack enable` (or `npm i -g pnpm`), then **open a new terminal** and confirm `pnpm -v` prints a version
-
-Install and activate in DSH (one command, all dependencies included):
+Run a single command in your terminal (all dependencies are fetched automatically):
 
 ```sh
 # Public npm package (works without an npm account)
 dsh plugin --profile web add @changfenhuang/dsh-genui
 ```
 
-To add it only as a Node dependency in an existing project:
+> [!TIP]
+> **Adding only as a Node package?** Run `npm install @changfenhuang/dsh-genui`. Note that `npm install` only adds the dependency and does not register the plugin with DSH; use the `dsh plugin add` command above for DSH integration.
 
-```sh
-npm install @changfenhuang/dsh-genui
-```
+### 3. Verify in 60 Seconds
 
-> `npm install` only adds the dependency; it does not register the plugin with DSH. Use `dsh plugin add` above when installing it into DSH.
-
-> ⚠️ **Don't use `link:` on a freshly cloned directory** — `link:` does not install the plugin's dependencies (mermaid / three / react), so the renderer will break. Use the npm command above for normal installation; reserve `link:` for local development iteration (see below).
-
-### Package name and version matter
-
-- **The scope matters**: npm also hosts a same-named, unscoped [`dsh-genui`](https://www.npmjs.com/package/dsh-genui) (a Vue/OpenTiny implementation by a different maintainer, unrelated to this repo). If an install listing describes "interactive charts, forms, calculators, dashboards, and mini apps", that is the other project — the host will reject it over incompatible peers. This plugin is always **`@changfenhuang/dsh-genui`**.
-- **When the host rejects the install**: the supported host range is declared in peerDependencies and enforced by the host — upgrade to the `latest` plugin version on npm and reinstall; no other config changes are needed.
-- **When the resolved version is older than `latest`**: this is usually pnpm's release-age policy (versions published within the last 24 hours are silently skipped). Wait a day and retry, or add the target version to `minimumReleaseAgeExclude` in the profile's `pnpm-workspace.yaml`; if the profile exact-pins an old version, update the declaration first, then reinstall.
-
-### Migrating from the old `@omdsh-dev` package name
-
-If you installed from `github:omdsh-dev/dsh-genui` before v0.9.2, pnpm may keep the dependency under the old `@omdsh-dev/dsh-genui` key even though the repository now declares `@changfenhuang/dsh-genui`. The loader resolves plugins from the profile's dependency keys, so a later reinstall can then fail with `Cannot find package '@changfenhuang/dsh-genui'`. Re-add the plugin under its current package name:
-
-```sh
-dsh plugin --profile web remove @omdsh-dev/dsh-genui
-dsh plugin --profile web add @changfenhuang/dsh-genui
-```
-
-This migration is required once for old GitHub-spec installs. New installs should use the npm command above and will use the current dependency key.
-
-### Verify the install in 60 seconds
-
-After the command completes, restart dsh web and hard-refresh the browser. In a **new** session, say:
-
-```text
-Use dsh-ui to draw a stats dashboard with a sortable service table.
-```
-
-You should see the reply turn into an in-place dashboard rather than a code block. For an unambiguous technical check, open the browser console: successful activation prints `[genui] client active; fence-channel=registry|dom`.
-
-### Developer iteration (link mode)
-
-```sh
-cd dsh-genui
-pnpm install
-dsh plugin --profile web add link:$PWD
-```
-
-## 🧩 Capability map
-
-| Surface | First thing to try | Observable behavior |
-|---|---|---|
-| Data | Ask for an order or service dashboard | `stat`, `table`, `chart`, and `progress` appear inside the reply; supported numeric table values sort numerically. |
-| Media | Ask for an audio or video reference | Browser-reachable media plays inline, with poster/aspect-ratio and failure states. |
-| Exploration | Ask for `plot` with a parameter | Dragging sliders redraws the curve locally and immediately. |
-| Feedback | Ask for a short quiz | The UI grades and explains locally; only the next model step needs an `action`. |
-| Workspace | Ask for `/panel` or `panel: true` | A persistent, resizable session dock is updated in place. |
-
-The following is the detailed capability reference. Every behavior is constrained by the whitelisted `dsh-ui` specification; see [SKILL.md](./SKILL.md) for the JSON syntax.
-
-- **Answer-as-UI**: components are embedded in the reply and appear as they stream — no waiting for the whole message
-- **30+ components**: cards, tables, charts, forms, tabs, accordions, file trees, timelines, diffs…
-- **Native media**: audio and video play inline from browser-reachable http(s) or same-origin relative URLs, with user-controlled playback, video posters/aspect ratios, and visible failure states
-- **ECharts integration**: the `echart` node renders full ECharts charts with theme-aware colors, tooltips, and legends. Two modes: **preset shorthand** (`preset: 'bar' | 'line' | 'area' | 'pie' | 'scatter'` + `data`/`series`) for quick upgrade from the `chart` node, or **full option** (`option` field) for custom chart types, dataZoom, visualMap, and other advanced ECharts features. The echarts engine (~1 MB) is lazy-loaded on demand — the main bundle never carries it, and conversations without `echart` nodes never download it- **Function plots**: `plot` draws curves; parameter sliders redraw in real time, with optional auto-animation
-
-- **Quiz**: `quiz` grades on click with explanation and retry; with `action`, the answer is also sent back to the model (grading stays local and instant)
-- **Local grading (submit)**: a multiple-choice set uses one `radio` per question with `group` + `answer` + `explanation` and a `submit` button. Once the required radio members are answered, grading appears in the UI when no other collected block state needs delivery. An aggregated action sends `answers`, optional `fields`, `total`, and `answered` in other cases.
-- **Submit groups**: `groups` names submission member keys from `radio.group`, `checkbox.group`, `input.id`, `textarea.id`, `select.id`, and `slider.id`. A radio needs a selection, a checkbox group needs at least one selection, and a field needs a value that remains after trimming. `groups` controls required members and progress; the payload still collects filled form state across the block. Without `groups`, any answered member enables submission.
-- **State persistence**: answers, submission locks, and input values are saved per "session + content fingerprint" — refresh or reopen restores everything; re-rendering identical content keeps user state; new content starts fresh; LRU cap of 200 blocks
-- **Form semantics**: `input` Enter / `textarea` Ctrl+Enter submits immediately (`submit:true`), no blur needed; fields with an `id` are collected into the submit's `fields`
-- **Secrets ban**: GenUI must never ask for passwords, API keys, access tokens, recovery codes, or other secrets; even if a password input appears, it stays masked, is never persisted, and never enters form collection
-- **Local-first principle**: state changes the UI can do itself (grading, quiz checking, resets, expand/collapse, selection) always happen locally and instantly; actions are reserved for things that genuinely need the model (generating new content, running tools, next-step suggestions)
-- **Honest interactions**: interactive components must carry `action`; buttons without one render disabled (kills the "looks clickable, does nothing" fake button); buttons with `action` show instant "triggered" local feedback (proof the local event fired, not that the model received it)
-- **Event loop**: buttons, checkboxes, radio buttons, switches, selects, inputs, textareas, submits, and quizzes send one event immediately per gesture; slider drags keep trailing-edge debounce, sending only the final value per slider, with different `id`s handled independently
-- **Tool channel**: `render_ui` is registered by default and renders the same spec as a card in the tool row; `validate_dsh_ui` remains available. Set `renderUiTool: false` in this plugin's config to stop registering `render_ui`. The `dsh-ui` fence, `panel: true`, `/panel`, and historical `render_ui` results in the client tool view continue to work. Reload the host plugin after changing this setting.
-- **Disable the `render_ui` tool**: add `renderUiTool: false` under this plugin's `config:` in your profile:
-
-  ```yaml
-  - id: genui
-    name: '@changfenhuang/dsh-genui'
-    config:
-      renderUiTool: false
-  ```
-- **Session panel**: a persistent dock above the composer; `render_ui` / `panel: true` fences update the same surface in place; `/panel` opens it from the client (`/panel <instruction>` customizes via the model, `/panel clear` clears); the top border is draggable to resize; `append: true` merges incrementally — same-named tabs append content, new tabs get added; the whole panel caps at 200 nodes / 200 appends, after which the model should send `replace` to rebuild
-- **Fence auto-repair**: enabled by default; set `fenceFeedback: false` in this plugin's config (under the plugin entry's `config:` in your profile's cordis.patch.yml) to disable same-turn fence corrections. A validated GenUI turn that ends with reasoning only still becomes `EMPTY_RESPONSE` and uses the host's retry policy. When a reply's final dsh-ui fence fails to render, the plugin steers the SAME turn with the per-node diagnosis so the model can resend a fixed fence. At most two corrections are sent per turn, shared by render failures and validated turns with no formal delivery; each fence fingerprint is corrected once per turn, and a nothing-delivered reminder is sent once per turn. A new turn can correct the same failed fence again. Plugin reload restores the current turn's fence fingerprints and correction count, along with delivery reminders, from persisted correction messages. Corrections are never sent in subagent sessions.
-- **Self-healing & limits**: every fence passes a spec guard — bad nodes are silently dropped (the surviving siblings keep rendering: one bad component no longer degrades the whole fence), numbers clamped, strings truncated; the whole tree is capped at 200 nodes / 8 nesting levels; pathological specs never crash the UI
-- **Canonical component protocol**: native field aliases such as `card.label` → `title`, `table.data`/`table.items` → `rows`, `callout.kind`/`callout.desc` → `tone`/`content` (tone value `danger` → `error`), `steps.items` → `steps`, `keyvalue.items` → `pairs` (record `label` → `key`), and `file-tree.nodes` → `items` (record `label` → `name`, `type` defaults to `dir` when children exist) are normalized deterministically before validation and rendering. A root-level component array is adopted as `items`, and a double-encoded JSON string is decoded once. `validate_dsh_ui` reports these normalizations and warns about unknown native fields without blocking custom renderer nodes.
-- **Chart error self-healing**: mermaid failures auto-retry with repairs (strip backticks, quote Chinese/space labels, remove `<br/>`) before degrading to source; a broken chart never hits the screen
-- **Accessibility**: tabs/accordions/switches/progress bars carry full ARIA and keyboard navigation (arrow keys switch tabs, Home/End jump)
-- **Zero intrusion**: without the plugin, fences are just code blocks — no errors, no session pollution
-
-Component JSON syntax lives in [SKILL.md](./SKILL.md). On hosts with the public skill registry, the plugin registers this bundled `genui` skill automatically, so new Sessions receive the complete component and field catalog without copying files into `~/.dsh`.
-
-`chart` stays the compact three-kind renderer: use `kind: 'bars' | 'line' | 'donut'` with finite numeric `data[].value` fields. `validate_dsh_ui` reports `variant`, unsupported kinds, and invalid datum fields explicitly; `render_ui` rejects the same errors instead of silently rendering the default bars view. Unknown extension fields remain allowed.
-
-## 📄 Example
-
-The model outputs this fence (written for the browser — you don't need to read it):
-
-```dsh-ui
-{"title":"Order overview","items":[
-  {"type":"stat","label":"Total revenue","value":"¥128,430","delta":"+12.4%"},
-  {"type":"stat","label":"Orders","value":"1,024","delta":"-3.1%"}
-]}
-```
-
-What you see: two stat cards.
-
-### ECharts example
-
-```dsh-ui
-{"title":"Q1 Revenue","items":[
-  {"type":"echart","title":"Monthly Revenue","preset":"bar","data":[
-    {"label":"Jan","value":98},
-    {"label":"Feb","value":112},
-    {"label":"Mar","value":128}
-  ]}
-]}
-```
-
-What you see: a themed bar chart with tooltips and axis labels — rendered by ECharts, lazy-loaded on demand.
-
-## 🔧 How it works
-
-The model writes the interface description as JSON inside a `dsh-ui` fence; the browser-side renderer (`src/client`) claims this language through the main repo's `fence-registry` interface and renders it. Components are whitelisted — the model can't smuggle in HTML/scripts; function expressions go through a standalone parser, never `eval`.
-
-The core render package stays light (≈110 KB min / 28 KB gzip); the mermaid, three.js, and echarts engines are bundled separately as on-demand assets (loaded through the plugin's self-registered HTTP routes the first time they're used), so startup only downloads the rendering core.
-
-## Export a GenUI artifact
-
-Settled GenUI blocks expose **Export → HTML** and **GenUI JSON**. The `.html` file includes its renderer, styles, KaTeX WOFF2 fonts, and only the chart engines used by the spec. Local controls continue to work; model actions are disabled. Relative media URLs become absolute URLs based on the export page; media still requires network access when the file is opened offline. `.genui.json` preserves the original media URLs, normalized spec, durable interaction state, locale, and theme. Custom components disable HTML export, and export errors appear beside the menu. Hosts can use `createGenuiArtifact`, `parseGenuiArtifact`, `serializeGenuiArtifact`, and `buildStandaloneHtml` from `@changfenhuang/dsh-genui/embed`; `@changfenhuang/dsh-genui/assets/standalone` resolves to the built runtime script for copying or serving.
-
-## ❓ FAQ
-
-- **Rendering as a code block?** First check the browser console for `[genui] client active; fence-channel=registry|dom`. If absent, the client bundle was not activated even if its URL returns 200 — align the profile dependency, `package.json.name`, `cordis.patch.yml`, ModuleLoader id, and configured bundle name. If present, inspect the fence label/body; registry-less hosts automatically use the DOM channel.
-- **Chat UI goes blank when rendering a dsh-ui fence?** This dsh-genui release requires DSH `^0.1.2-rc.1 || ^0.1.5-alpha.1 || ^0.1.6-alpha.1 || ^0.1.7-alpha.1`; users on DSH `<=0.1.1-rc.x` should use dsh-genui `0.9.8`.
-- **`dsh: pnpm not found on PATH`?** Install pnpm, then **open a new terminal** and retry (`corepack enable` or `npm i -g pnpm`).
-- **npm install returns 404?** The npm package is public and requires no login. Run `npm view @changfenhuang/dsh-genui version` to verify the package name and public registry; if a newly published version still returns 404, retry shortly.
-- **Installed but scene3d/mermaid/echarts don't render?** The engines (mermaid / three / echarts) are no longer inlined in client.js — they load on demand the first time they're used (`/plugins/@changfenhuang/dsh-genui/assets/*.js`, hosted by the plugin's own HTTP routes). First restart dsh web + hard refresh (Cmd+Shift+R); still broken, remove and reinstall (`dsh plugin --profile web remove @changfenhuang/dsh-genui`, then add again). Hosts without the asset routes degrade to source/load-error hints — update dsh.
-- **Model not outputting fences?** New sessions pick it up after a restart; or just say "output it with dsh-ui".
-- **No lib/ after cloning?** Build it yourself: `pnpm install && pnpm run check`.
-
-## 🧑‍💻 Development
-
-```sh
-pnpm install
-pnpm run check   # type check + full tests + build
-```
-
-With the locked dependencies installed, the check script (`pnpm run check` or `npm run check`) uses the pinned DSH `0.1.2-rc.1` release packages.
-
-The verified host roles are minimum `dsh-v0.1.2-rc.1`, current `dsh-v0.2.0-rc.2`, and next `dsh-v0.2.1-alpha.3`. DSH `0.2.1-alpha.3` is currently a prerelease. CI keeps four primary lanes: Node 22 + current, and Node 24 + minimum/current/next. Replace these pinned tags as DSH publishes newer versions.
-
-`pnpm run check:host-api dsh-v0.2.0-rc.2` and `pnpm run check:host-api dsh-v0.2.1-alpha.3` install the corresponding published DSH packages (plus the host-app runtime closure those packages import without declaring) and run TypeScript typecheck, the **full unit test suite**, and tsdown build — every non-gated suite executes against the real new host packages. Note: the `skipIf(!hasFenceRegistry)`-gated suites stay skipped under every published host — `registerFenceRenderer` has never shipped in any published `dsh-client-ui-primitives` (the gated tests cover a host contract that only existed internally; see CHANGELOG). Each CI host lane then installs the generated tarball in its pinned DSH host and runs the packed smoke.
-
-Run `node scripts/verify-pack.mjs --keep` to retain the verified tarball for inspection or e2e use. The default `node scripts/verify-pack.mjs` removes its temporary directory after verification.
-
-### Real-device e2e
-
-The real chain end to end: start a temporary dsh web → install the plugin → send a message in a browser so the model outputs a `dsh-ui` fence → assert the rendering → click an action button → assert the model responds (event-loop closure):
-
-```sh
-export DSH_ROOT=/path/to/deepseek-harness-0.1.2-rc.1
-export DSH_BIN="$DSH_ROOT/apps/cli/lib/bin.js"
-DEEPSEEK_API_KEY=sk-... node scripts/e2e.mjs          # link-installs the current workspace
-```
-
-Build the DSH `0.1.2-rc.1` checkout first. Set `DSH_ROOT` to that checkout and `DSH_BIN` to its `apps/cli/lib/bin.js`, as shown above; also provide `pnpm`, `DEEPSEEK_API_KEY`, and the main repo's web build output. On PASS it saves an `e2e-final.png` screenshot.
-
-### Visual e2e (no model key)
-
-For style/component iterations, a visual smoke that needs no API key: boots a real DSH `0.1.2-rc.1` checkout with the plugin link-installed, injects the component gallery fence through the DOM channel, renders it in headless Chrome, screenshots the full page, and exercises local interactions (table sort, quiz judging, tree collapse, numeric alignment) with hard assertions. Set `DSH_ROOT` and `DSH_BIN` to that checkout as shown above before running it.
-
-```sh
-npx tsx scripts/e2e-visual.mts          # → .e2e-artifacts/gallery.png + interactions.png
-npx tsx scripts/e2e-visual.mts --keep   # keep the scratch DSH_HOME for debugging
-```
-
-Overridable: `--port 3098`, `--out <dir>`, `DSH_BIN` (set it to the `apps/cli/lib/bin.js` inside the DSH `0.1.2-rc.1` checkout), `PLAYWRIGHT_PATH` (defaults to the global playwright-core).
-
-## 🗺️ Roadmap (evaluated)
-
-| Direction | Verdict | Rationale |
-|---|---|---|
-| Incremental patching (model sends diffs, not full specs) | Not doing | A fence costs 200–800 tokens; resending is nearly free; a patch protocol's teaching cost and error rate aren't worth it. Revisit if sub-second auto-refreshing panels ever appear |
-| Action delivery | ✅ Discrete interactions send immediately; slider drags debounce by action and `id` | Discrete gestures remain individually observable while slider drags send their final value |
-| Cross-session state persistence (replay restores tabs/switches) | Not doing | Replay-reset is the more correct default (the model has already updated the UI with a new fence); state survives naturally during streaming |
-| MCP adapter / standalone gallery page / i18n | Not doing | No cross-tool demand signal; gallery material is covered by `gallery.ts` + demo-prompts + README screenshots; only 6 built-in strings |
-
-## 🔗 Friendly links
-
-- [Linux.do](https://linux.do)
+1. Restart the DSH web service and **hard refresh** your browser (`Cmd + Shift + R` or `Ctrl + F5`).
+2. In a **new conversation session**, send:
+   ```text
+   Use dsh-ui to draw a stats dashboard with a sortable service table.
+   ```
+3. **Expected result**: The reply renders an in-place interactive dashboard rather than a plain code block.
+4. **Console activation check**: Open your browser Developer Tools Console and look for `[genui] client active; fence-channel=dom`.
 
 ---
 
-📄 License: MIT
+> [!WARNING]
+> ### ⚠️ Installation Pitfalls to Avoid
+> 
+> 1. **Watch the Package Scope (Crucial)**:
+>    The package must be **`@changfenhuang/dsh-genui`**. npm hosts an unrelated, unscoped package named `dsh-genui` (a Vue/OpenTiny implementation by another maintainer); installing it will fail due to incompatible host peer dependencies.
+> 2. **Do Not Use `link:` on a Freshly Cloned Directory**:
+>    `link:` alone does not bundle or resolve peer assets (mermaid, three.js, React). Use npm for standard usage; reserve `link:` strictly for local development (see [Developer Guide](#-developer-guide)).
+> 3. **Migrating from Legacy `@omdsh-dev`**:
+>    If you installed from GitHub or the old org name before v0.9.2, clean up the stale key:
+>    ```sh
+>    dsh plugin --profile web remove @omdsh-dev/dsh-genui
+>    dsh plugin --profile web add @changfenhuang/dsh-genui
+>    ```
+
+---
+
+## 🧩 Capability Matrix
+
+Every component and behavior is guarded by the strict `dsh-ui` specification. See [SKILL.md](./SKILL.md) for full JSON schema details.
+
+```
+dsh-genui Capabilities
+├── 🌊 1. Streaming & Realtime Mounting
+├── 🎨 2. 30+ Component Ecosystem
+├── ⚡ 3. Local-First Responsiveness
+├── 🔄 4. Bidirectional Action Event Loop
+├── 📌 5. Persistent Session Workspace & Templates
+└── 🛡️ 6. Sandboxing, Guards & Self-Healing
+```
+
+### 1. 🌊 Streaming & Realtime Mounting
+- **Answer-as-UI**: Components stream into the conversation as tokens arrive, mounting incrementally without waiting for the full reply to finish.
+- **Graceful Fallback**: If the plugin is absent or disabled, fences degrade cleanly to standard Markdown code blocks without breaking the chat history.
+
+### 2. 🎨 30+ Component Ecosystem
+- **Display & Typography**: Hero banner, Stat cards (`stat` with eyebrow labels, deltas, and sparklines), Tables, Timelines, Code Diffs, Step progress, File trees (interactive expand/collapse), Callouts, and Badges.
+- **Content Font Size**: Card typography grows with the host's Appearance → Content Font Size setting above 17px. At 17px or below, each component keeps its existing size. Standalone HTML exports keep their existing sizes.
+- **Advanced Tables**:
+  - Click headers to **sort locally** (ascending / descending / reset) with smart parsing for numbers, currency, commas, percentages, and `k/m/b` units;
+  - Columns support inline progress bars (`bar`), rings (`ring`), sparklines (`spark`), and badges;
+  - One-click data export (Copy Markdown / CSV) and instant client-side text filtering (`filter`).
+- **ECharts Integration (`echart`)**:
+  - **Preset Mode**: Shorthand presets (`bar`, `line`, `area`, `pie`, `scatter`, `radar`, `gauge`, `funnel`, `treemap`, `sankey`, `graph`, `heatmap`, `bigline`, `wordCloud`) that adapt automatically to host light/dark themes;
+  - **Full Option Mode**: Full native ECharts options for advanced features like DataZoom and VisualMap;
+  - **On-Demand Lazy Loading**: The ~1 MB ECharts engine is loaded asynchronously only when an `echart` block is encountered.
+- **Mathematical Function Plots (`plot`)**:
+  - Multi-series plotting with expressions (trig, log, exp, power);
+  - **Live Parameter Sliders**: Drag sliders to redraw curves instantly at 60 FPS; supports auto-animation loops.
+- **Mermaid & 3D Visuals**: Flowcharts, sequence diagrams, and lightweight 3D models with on-demand asset loading. A rendered Mermaid diagram opens a zoomable SVG dialog on click: wheel zoom, drag pan, zoom/reset controls, Esc, Close or backdrop to close with focus restored.
+- **Native Galleries**: `carousel` composes existing cards and forms in a responsive, keyboard-navigable horizontal track; `image-group` opens images in a local lightbox with focus restoration. Navigation does not invoke model actions. [Examples and verification](docs/gallery.md).
+- **Native Media**: Inline playback for accessible audio and video URLs, with poster images, aspect ratios, and controls; a single `image` opens a zoom dialog on click and returns focus to the picture when it closes.
+- **KaTeX Math Rendering**: Inline math (`$...$`) and display blocks (`$$...$$`), supporting matrices and multi-line equations.
+
+### 3. ⚡ Local-First Responsiveness
+- **Zero-Latency Interactions**: State transitions that the frontend can handle alone (sorting, filtering, accordion toggling, slider redraws, tab switches) execute **entirely client-side** without round-trips to the model.
+- **Quizzes & Submission (`quiz` / `submit`)**:
+  - Single quizzes evaluate instantly with explanations and retry options;
+  - Multi-question assessments support batch grading and progress tracking with the `groups` schema.
+- **Durable Persistence**: User inputs, form fields, and quiz states persist across page reloads via session fingerprints (LRU cache of 200 blocks).
+
+### 4. 🔄 Bidirectional Action Event Loop
+- **Closed-Loop Interactions**: Interactive elements equipped with an `action` payload package user events back to the model to trigger follow-up reasoning.
+- **Honest UI Guarantee**: Buttons without an `action` render disabled to eliminate "dead clicks"; active buttons show immediate visual feedback upon trigger.
+- **Debounced Delivery**: Discrete taps send immediately; continuous slider drags apply trailing-edge debounce to prevent message flooding.
+
+### 5. 📌 Persistent Session Workspace & Templates
+- **Session Dock Panel**: Open a persistent dock above the composer via `/panel` or `panel: true`; resize by dragging its border; append tabs incrementally with `append: true`.
+- **Template Center & Badges**:
+  - **Templates**: Browse 11 pre-built scenario templates directly from the dock to kickstart prompts;
+  - **Achievements**: Unlock 12 built-in local exploration badges as you interact with various components.
+
+### 6. 🛡️ Sandboxing, Guards & Self-Healing
+- **Security by Design**: Strictly whitelisted JSON components; zero script injection or `eval`; **strict prohibition of passwords or secret collection**.
+- **Same-Turn Fence Steering**: If a generated fence fails validation, diagnostic errors are fed back to the model within the **same turn** so it can self-correct (can be disabled via `fenceFeedback: false`).
+- **Resilient Fallbacks**: Malformed nodes are safely discarded while siblings render normally (single node errors never crash the fence); Mermaid syntax glitches are automatically repaired.
+
+---
+
+## 💻 Quick Examples
+
+### Example 1: Executive KPI Dashboard
+
+The model emits the following `dsh-ui` code block:
+
+```dsh-ui
+{
+  "title": "Q3 2026 Executive Overview",
+  "items": [
+    {
+      "type": "row",
+      "items": [
+        { "type": "stat", "label": "Total Revenue", "value": "¥128,430", "delta": "+12.4%", "spark": [40, 55, 60, 85, 120] },
+        { "type": "stat", "label": "Completed Orders", "value": "1,024", "delta": "-3.1%", "spark": [90, 85, 80, 75, 70] },
+        { "type": "progress", "label": "Quarterly Target", "value": 82, "variant": "ring" }
+      ]
+    }
+  ]
+}
+```
+
+### Example 2: ECharts Revenue Trend
+
+```dsh-ui
+{
+  "title": "Revenue Breakdown",
+  "items": [
+    {
+      "type": "echart",
+      "title": "Monthly Performance",
+      "preset": "bar",
+      "data": [
+        { "label": "Jan", "value": 98 },
+        { "label": "Feb", "value": 112 },
+        { "label": "Mar", "value": 128 },
+        { "label": "Apr", "value": 145 },
+        { "label": "May", "value": 160 }
+      ]
+    }
+  ]
+}
+```
+
+> For the comprehensive specification and full component catalog, refer to [SKILL.md](./SKILL.md).
+
+---
+
+## ⚙️ Architecture & How It Works
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User
+    participant Host as DSH Host / LLM
+    participant DOM as Conversation DOM
+    participant GenUI as GenUI Client Renderer
+    participant Assets as On-Demand Assets (ECharts/Three)
+
+    User->>Host: Prompt (e.g. "Analyze recent order trends")
+    Host-->>DOM: Streams Markdown prose & ```dsh-ui fence
+    DOM->>GenUI: Detects fence and normalizes schema against whitelist
+    alt Requires Heavy Engines
+        GenUI->>Assets: Dynamically fetches engine bundles
+        Assets-->>GenUI: Assets loaded
+    end
+    GenUI->>DOM: Mounts React component tree incrementally
+    opt Client-Side Local Actions
+        User->>GenUI: Sort table / Drag plot slider / Answer quiz
+        GenUI-->>User: Instant sub-millisecond local update
+    end
+    opt Model Action Feedback
+        User->>GenUI: Click interactive action button
+        GenUI->>Host: Dispatches structured action payload
+        Host-->>DOM: Model responds with next-step reasoning / updates panel
+    end
+```
+
+### Artifact Exporting
+Completed GenUI blocks can be exported on demand:
+- **Standalone `.html`**: Inlines the lightweight renderer, CSS styles, KaTeX fonts, required chart engines, and the same-origin images it can read so the interactive UI can be viewed and tested offline in any browser.
+- **`.genui.json`**: Retains the normalized specification and durable interaction states for storage and portability.
+
+---
+
+## 🧑‍💻 Developer Guide
+
+### Local Development (Link Mode)
+
+```sh
+git clone https://github.com/omdsh-dev/dsh-genui.git
+cd dsh-genui
+pnpm install
+
+# Build and link into your DSH web profile
+dsh plugin --profile web add link:$PWD
+```
+
+### Useful Commands
+
+```sh
+pnpm run check           # Type checks + platform test suite + build
+pnpm run test            # Run Vitest unit tests
+pnpm run check:host-api dsh-v0.2.1-rc.3  # Check the retained rc.3 host API
+pnpm run check:host-api dsh-v0.2.1-rc.4  # Check the earlier rc.4 API
+pnpm run check:host-api dsh-v0.2.1-rc.5  # Check the earlier rc.5 API, full suite and build
+pnpm run check:host-api dsh-v0.2.2-rc.1  # Check the current npm latest / next API, full suite and build
+pnpm run check:host-api dsh-v0.2.2-alpha.2  # Check the supported npm alpha API, full suite and build
+node scripts/verify-pack.mjs --keep  # Verify and inspect npm tarball
+```
+
+On Windows, Vitest checks the `SKILL.md` frontmatter and examples from the checkout. Windows CI also runs `npm pack --json`. Linux CI runs the full test suite, including DOM and `install.sh` tests.
+
+### End-to-End (E2E) Testing
+
+CI and the release workflow install `0.2.2-alpha.2` from npm with `node scripts/prepare-published-host.mjs 0.2.2-alpha.2`, then verify the packed plugin in a fresh web profile. This lane uses `DSH_HOST_LAYOUT=registry` and `DSH_HOST_VERSION=0.2.2-alpha.2` with the returned `DSH_ROOT` and `DSH_BIN`; the source-host lanes remain pinned to their official tags. The same registry-host lane also installs `0.2.2-rc.1`, with `DSH_HOST_VERSION=0.2.2-rc.1`. Registry-host checks pin Cordis framework dependencies to the versions recorded in each host’s published manifest so later dependency resolution cannot change the host graph. Both current RC and alpha API, gallery/computed and Linux Map checks must pass before npm publication. Actions use official local replay; Android device and original Windows Desktop acceptance remain separate.
+
+- **Visual E2E Smoke (No Model API Key Required)**:
+  ```sh
+  npx tsx scripts/e2e-visual.mts          # Boots headless Chrome, tests gallery rendering and asserts interactions
+  ```
+- **Real-Model Integration E2E**:
+  ```sh
+  export DSH_ROOT=/path/to/deepseek-harness-0.2.1-rc.3
+  export DSH_BIN="$DSH_ROOT/apps/cli/lib/bin.js"
+  DEEPSEEK_API_KEY=sk-... node scripts/e2e.mjs
+  ```
+
+### Advanced Profile Configurations
+
+To customize plugin behaviors, add configurations under `cordis.patch.yml` in your profile:
+
+```yaml
+- id: genui
+  name: '@changfenhuang/dsh-genui'
+  config:
+    renderUiTool: false   # Disable registering the render_ui tool card (fences and panel remain active)
+    fenceFeedback: false  # Disable automatic same-turn steer correction on malformed fences
+    fenceSection: full    # full (default), minimal, or false
+```
+
+`fenceSection` controls both fence guidance detail and usage preference:
+
+| Mode | Behavior |
+| --- | --- |
+| `full` (default) | Provides syntax and essential rules, and proactively uses components for comparisons along shared dimensions, numerical trends, process dependencies, and user interaction, without waiting for a reminder. |
+| `minimal` | Keeps only the fence example and the requirement to load the GenUI skill; user instructions determine usage preference. |
+| `false` | Omits the `genui:fence` section. |
+
+Requirement words follow [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119): valid JSON, current fields, and explicit user language and presentation requirements are MUST rules. In `full`, using appropriate UI for comparisons, trends, dependencies, and interaction is SHOULD guidance; card wrappers are MAY. `full` sets no list-length trigger or component quota. Ordinary explanations and short lists default to prose. Modes guide behavior rather than guaranteeing a fixed usage rate.
+
+Use fences for inline reply content, `render_ui` for a standalone UI in the tool result, and `panel:true` for the session panel that updates in place. Both fences and tools preserve interaction state; choose by placement. `card` is an optional container: avoiding unnecessary card wrappers does not mean avoiding GenUI.
+
+Skill availability is resolved in the current agent's tool view, including preset-owned loaders; a global `skill` registration is not required. The visible tool must expose the Skill loader contract, and `genui` must allow model invocation. When the skill already includes current fields, no component reference is injected. An older skill receives only missing or changed field descriptions in `genui:reference`; appended user preferences do not trigger a full reference. User skill files remain untouched, and current system fields take precedence over loaded older fields.
+
+If a compatible loader or model-invocable GenUI skill is unavailable, a compact field reference is supplied for fence guidance or an available `render_ui` tool. `fenceSection: false` omits fence guidance; disabling both fence guidance and `render_ui` also omits the reference. Neither setting disables fence rendering or panels. The dsh-go `genui:native` section and tool definitions have independent guidance and token costs. Loading the full skill for an actual UI response still consumes context; this change removes the unconditional duplicate catalog rather than making that load free.
+
+### Embedding into Other Applications
+
+You can import `GenuiBlock`, `GenuiActionContext`, and `processGenuiSpec` from `@changfenhuang/dsh-genui/embed` to embed the renderer into any React application supporting CSS Modules.
+
+### dsh-go integration
+
+The dsh-go integration uses the App’s existing native cards, inline choices and plugin panels; no App patch or replacement APK is needed. The complete web spec stays authoritative. Native panels support choices, switches, buttons, submissions, local grading, tabs, accordions, copy and confirmed HTTPS links. Validation can produce one JSON fence readable by both renderers. Panels currently require the local-engine dsh-go bridge; SSH and relay hosts retain native tool cards. Advanced graphics and free-text input remain explicit limitations. See [capabilities and verification](docs/dsh-go.md).
+
+### Theming: non-opaque host canvases
+
+Every surface resolves through one chain: `--dsl-g-surface` → `--dsh-genui-surface` → `--dsw-alias-bg-layer-2` → … → `#fff`. A skin that paints the page itself (wallpaper, glass / translucent look) can pin the surface once without touching the host's own tokens:
+
+```css
+:root { --dsh-genui-surface: rgba(255, 255, 255, 0.58); }
+body[data-ds-dark-theme] { --dsh-genui-surface: rgba(32, 32, 34, 0.54); }
+```
+
+`callout` and toned `card` washes are painted *over* that surface, so they stay readable on any canvas. `card.flat` and `table` are surface-less by design (a printed block, a bare data grid) and would show a non-opaque page through — they fill only when a skin asks for it:
+
+```css
+:root {
+  --dsh-genui-surface: rgba(255, 255, 255, 0.58);      /* cards, callouts, controls */
+  --dsh-genui-surface-flat: var(--dsh-genui-surface);  /* card.flat */
+  --dsh-genui-surface-table: var(--dsh-genui-surface); /* table */
+}
+```
+
+Leaving the last two unset keeps today's look (transparent table, 2.5% printed flat card); pointing them at `var(--dsh-genui-surface)` gives all three one fill. Wrapping a table in a `card` fills it too, since the parent surface shows through (issue #398).
+
+---
+
+### Sidechat surfaces (optional)
+
+GenUI can render settled `dsh-ui` fences on provider-declared sidechat surfaces. BetterSidebar uses its `registerSidechatSurfaceAdapter` capability; other providers can expose the optional `genuiSidechat` Cordis service. Each surface carries its owning thread identity and prompt callback, so actions and interaction state stay within that child thread. Streaming rows and unsupported or invalid fences keep their original Markdown.
+
+See [the sidechat surface adapter contract](docs/sidechat-surfaces.md). BetterSidebar support requires a release containing [its provider implementation](https://github.com/omdsh-dev/DSH-better-sidebar/pull/1033); the released 0.28.0 does not expose `registerSidechatSurfaceAdapter`. The DSH native Side Chat provider must expose `genuiSidechat` to enable this integration.
+
+## ❓ FAQ & Troubleshooting
+
+<details>
+<summary><strong>Q: Why are dsh-ui fences still showing up as raw code blocks?</strong></summary>
+
+1. Open your browser Developer Tools (F12) and inspect the Console.
+2. Search for the log `[genui] client active; fence-channel=dom`:
+   - **If missing**: The client bundle was not activated by the host. Verify that `dsh plugin list` shows the plugin as active, restart DSH web, and hard refresh your browser;
+   - **If present**: Check whether the code block language identifier is strictly `dsh-ui` and that its body contains valid JSON.
+</details>
+
+<details>
+<summary><strong>Q: Error: "pnpm not found on PATH"?</strong></summary>
+
+DSH plugin management calls `pnpm` under the hood. Run `corepack enable` or `npm i -g pnpm`, then **open a new terminal window** before running `dsh plugin add`.
+</details>
+
+<details>
+<summary><strong>Q: npm install returns 404?</strong></summary>
+
+The package is public and requires no login. Verify the package name via `npm view @changfenhuang/dsh-genui version`. If a version was published very recently, allow a few moments for registry mirrors to synchronize.
+</details>
+
+<details>
+<summary><strong>Q: 3D scene, Mermaid, or ECharts does not render?</strong></summary>
+
+Heavier engines are lazy-loaded through plugin-provided static routes upon their first appearance. Hard refresh your browser (`Cmd + Shift + R`). If the issue persists, reinstall the package:
+```sh
+dsh plugin --profile web remove @changfenhuang/dsh-genui
+dsh plugin --profile web add @changfenhuang/dsh-genui
+```
+</details>
+
+<details>
+<summary><strong>Q: The chat screen goes blank when rendering a fence?</strong></summary>
+
+This version requires DSH `^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.2.2-alpha.2`. Older host versions lack necessary React slot/context capabilities; please upgrade DSH.
+</details>
+
+---
+
+## 🗺️ Roadmap Evaluation
+
+| Exploration Area | Decision | Rationale |
+| :--- | :---: | :--- |
+| **Incremental Diff Patching** | Declined | A fence costs only 200–800 tokens; resending is fast and safe. Teaching models a patch diff protocol introduces high friction and hallucination rates. |
+| **Granular Action Delivery** | ✅ Done | Discrete gestures send immediately; continuous slider drags apply trailing-edge debounce to keep chat context clean. |
+| **Cross-Session Replay Persistence** | Declined | Resetting on replay is the more natural expectation when the model updates the UI; state is preserved seamlessly during streaming. |
+| **Separate Gallery / i18n Strings** | Declined | The component gallery is covered by `demo-prompts`, `gallery.ts`, and README screenshots; the core bundle carries only 6 built-in UI strings. |
+
+---
+
+## 🔗 Links & Community
+
+- [Linux.do Community Discussion](https://linux.do)
+- Visit the [Live Product Site](https://omdsh-dev.github.io/dsh-genui/) to explore more demos.
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
+### Interactive maps
+
+The `map` node combines lazy MapLibre markers and inline routes with an
+always-available keyboard-operable location list. Selection stays local and can
+be persisted/submitted as a stable location ID through the existing fields
+contract. The default is an offline blank coordinate map, not a street basemap;
+external styles belong to trusted host configuration, never model JSON.
+See [the map contract and embedding/export guide](docs/map.md).

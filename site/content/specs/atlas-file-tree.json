@@ -1,0 +1,29 @@
+{
+  "id": "atlas-file-tree",
+  "category": "atlas",
+  "note": "file-tree：目录行可点击折叠（本地）；children 是记录 {name,type,children}，不是 GenUI 节点。",
+  "zh": { "title": "file-tree · 可折叠的目录", "items": [
+    { "type": "file-tree", "items": [
+      { "name": "src", "type": "dir", "children": [
+        { "name": "client", "type": "dir", "children": [
+          { "name": "spec.ts", "type": "file" },
+          { "name": "guard.ts", "type": "file" }
+        ] },
+        { "name": "plugin", "type": "dir", "children": [{ "name": "tool.ts", "type": "file" }] }
+      ] },
+      { "name": "SKILL.md", "type": "file" }
+    ] }
+  ] },
+  "en": { "title": "file-tree · a directory that folds", "items": [
+    { "type": "file-tree", "items": [
+      { "name": "src", "type": "dir", "children": [
+        { "name": "client", "type": "dir", "children": [
+          { "name": "spec.ts", "type": "file" },
+          { "name": "guard.ts", "type": "file" }
+        ] },
+        { "name": "plugin", "type": "dir", "children": [{ "name": "tool.ts", "type": "file" }] }
+      ] },
+      { "name": "SKILL.md", "type": "file" }
+    ] }
+  ] }
+}

@@ -1,0 +1,31 @@
+{
+  "id": "atlas-diagram",
+  "category": "atlas",
+  "note": "diagram：编辑级图解，kind=architecture 用坐标定位，节点可选、选择后可读说明；≤9 节点 / ≤12 边。",
+  "zh": { "title": "diagram · 可点选的架构图", "items": [
+    { "type": "diagram", "kind": "architecture", "title": "一块围栏的旅程", "nodes": [
+      { "id": "m", "label": "模型", "sub": "reply", "type": "external", "x": 24, "y": 48, "w": 112, "h": 48 },
+      { "id": "f", "label": "围栏 JSON", "sub": "dsh-ui", "type": "focal", "x": 176, "y": 48, "w": 136, "h": 48 },
+      { "id": "g", "label": "校验", "sub": "guard", "type": "backend", "x": 352, "y": 48, "w": 120, "h": 48 },
+      { "id": "s", "label": "节点渲染", "sub": "DOM", "type": "store", "x": 512, "y": 48, "w": 128, "h": 48 }
+    ], "edges": [
+      { "from": "m", "to": "f" },
+      { "from": "f", "to": "g" },
+      { "from": "g", "to": "s", "kind": "accent" }
+    ] },
+    { "type": "text", "size": "caption", "content": "点选任意节点查看它的说明；选择只在本地更新，不发 action。" }
+  ] },
+  "en": { "title": "diagram · an architecture you can click", "items": [
+    { "type": "diagram", "kind": "architecture", "title": "The journey of one fence", "nodes": [
+      { "id": "m", "label": "Model", "sub": "reply", "type": "external", "x": 24, "y": 48, "w": 112, "h": 48 },
+      { "id": "f", "label": "Fence JSON", "sub": "dsh-ui", "type": "focal", "x": 176, "y": 48, "w": 136, "h": 48 },
+      { "id": "g", "label": "Validation", "sub": "guard", "type": "backend", "x": 352, "y": 48, "w": 120, "h": 48 },
+      { "id": "s", "label": "Node render", "sub": "DOM", "type": "store", "x": 512, "y": 48, "w": 128, "h": 48 }
+    ], "edges": [
+      { "from": "m", "to": "f" },
+      { "from": "f", "to": "g" },
+      { "from": "g", "to": "s", "kind": "accent" }
+    ] },
+    { "type": "text", "size": "caption", "content": "Select any node to read its description; the selection stays local and sends no action." }
+  ] }
+}

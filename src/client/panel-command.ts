@@ -21,6 +21,14 @@ import type { GenuiSpec } from './spec.ts'
 import { requestPanelExpand, setLocalPanel } from './panel-store.ts'
 import { t } from './i18n/index.ts'
 
+type PanelInputTriggerSource = InputTriggerSource & {
+  matchClaim: (
+    session: Parameters<InputTriggerSource['onPick']>[0]['session'],
+    token: string,
+    signal: AbortSignal,
+  ) => Promise<ReturnType<typeof panelClaim> | undefined>
+}
+
 /**
  * Default panel content published by `/panel`: the component overview.
  *
@@ -108,8 +116,8 @@ function panelClaim(sessionId: SessionId, sendInstruction: (sessionId: SessionId
  * works without opening the menu (leading-token adjudication), and it also
  * catches `/panel clear` style args.
  */
-export function createPanelSlashSource(sendInstruction: (sessionId: SessionId, instruction: string) => void): InputTriggerSource {
-  return {
+export function createPanelSlashSource(sendInstruction: (sessionId: SessionId, instruction: string) => void): PanelInputTriggerSource {
+  const source: PanelInputTriggerSource = {
     trigger: '/',
     name: 'genui',
     order: 60,
@@ -134,5 +142,11 @@ export function createPanelSlashSource(sendInstruction: (sessionId: SessionId, i
       if (!/^\/panel(?:\s|$)/.test(line.trim())) return undefined
       return { claim: panelClaim(session.sessionId, sendInstruction) }
     },
+    matchClaim: async (session, token, signal) => {
+      signal.throwIfAborted()
+      if (token !== '/panel') return undefined
+      return panelClaim(session.sessionId, sendInstruction)
+    },
   }
+  return source
 }

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="../../src/client/GenuiBlock.module.css">
+</head>
+<body>
+  <div class="block" id="block"></div>
+  <div class="panel" id="panel"></div>
+  <pre id="results">pending</pre>
+  <script>
+    const tokenSizes = {
+      stat: 34,
+      'stat-hero': 44,
+      mega: 52,
+      display: 28,
+      h1: 24,
+      h2: 19,
+      h3: 16,
+      body: 14.5,
+      title: 13.5,
+      meta: 12.5,
+      data: 12,
+    }
+    const roots = [document.getElementById('block'), document.getElementById('panel')]
+    const samples = []
+    for (const root of roots) {
+      for (const token of Object.keys(tokenSizes)) {
+        const element = document.createElement('span')
+        element.dataset.token = token
+        element.style.fontSize = `var(--dsl-g-font-${token})`
+        root.appendChild(element)
+      }
+    }
+    for (const contentSize of [null, 10, 14, 17, 21, 22]) {
+      if (contentSize === null) document.body.style.removeProperty('--dsh-content-font-size')
+      else document.body.style.setProperty('--dsh-content-font-size', `${contentSize}px`)
+      for (const root of roots) {
+        for (const element of root.children) {
+          samples.push({ root: root.id, token: element.dataset.token, contentSize, fontSize: Number.parseFloat(getComputedStyle(element).fontSize) })
+        }
+      }
+    }
+    document.getElementById('results').textContent = JSON.stringify({ tokenSizes, samples })
+  </script>
+</body>
+</html>

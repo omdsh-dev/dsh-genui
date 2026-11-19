@@ -126,7 +126,9 @@ describe('native chart renderability contract', () => {
     const renderTool = createRenderUiTool()
     const meta = renderTool.output.presentationMeta!({ spec: input })
     const resolved = resolveGenuiSpec(JSON.stringify(input))
-    expect(meta).toEqual(resolved)
+    const { 'dsh-go/view': nativeView, ...webSpec } = meta as Record<string, unknown>
+    expect(webSpec).toEqual(resolved)
+    expect(nativeView).toMatchObject({ type: 'stack', title: '协议别名' })
     expect(meta).toMatchObject({
       title: '协议别名',
       items: [
@@ -138,11 +140,10 @@ describe('native chart renderability contract', () => {
     })
   })
 
-  it('warns for native extension fields while preserving custom renderer payloads', async () => {
+  it('warns for native extension fields and blocks unsupported component payloads', async () => {
     const input = {
       items: [
         { type: 'callout', content: '保留', extension: true },
-        { type: 'custom-widget', extension: { owner: 'plugin' } },
       ],
     }
     const validation = String(await createValidateDshUiTool().execute({ spec: JSON.stringify(input) }))
@@ -155,7 +156,9 @@ describe('native chart renderability contract', () => {
       items: Array<Record<string, unknown>>
     }
     expect(meta.items[0]).not.toHaveProperty('extension')
-    expect(meta.items[1]).toEqual(input.items[1])
-    expect(await renderTool.execute({ spec: input })).toContain('rendered=2')
+    expect(await renderTool.execute({ spec: input })).toContain('rendered=1')
+    const unsupported = { items: [...input.items, { type: 'custom-widget', extension: { owner: 'plugin' } }] }
+    expect(renderTool.output.presentationMeta!({ spec: unsupported })).toBeNull()
+    await expect(renderTool.execute({ spec: unsupported })).rejects.toThrow("unknown type 'custom-widget'")
   })
 })

@@ -79,7 +79,7 @@ export const GENUI_LOCALE_NS = 'genui'
  * Hosts WITHOUT the locale service degrade silently to browser detection —
  * the service is read optionally, never declared in `inject`, because a
  * declared-but-absent service parks the fiber forever and would kill all
- * GenUI rendering on pristine hosts.
+ * GenUI rendering when the host has no locale service.
  *
  * @param ctx - client cordis context (read optionally).
  * @returns disposer removing the registrations and the subscription.

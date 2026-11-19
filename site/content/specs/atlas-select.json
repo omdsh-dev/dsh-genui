@@ -1,0 +1,13 @@
+{
+  "id": "atlas-select",
+  "category": "atlas",
+  "note": "select：原生下拉；不给 selected 时显示占位项，不静默预选第一项。",
+  "zh": { "title": "select · 不静默预选", "items": [
+    { "type": "select", "label": "环境", "options": ["dev", "staging", "production"], "id": "atlas-env" },
+    { "type": "select", "label": "导出格式", "options": ["HTML", "Markdown", "CSV"], "selected": 1, "id": "atlas-format" }
+  ] },
+  "en": { "title": "select · nothing preselected by accident", "items": [
+    { "type": "select", "label": "Environment", "options": ["dev", "staging", "production"], "id": "atlas-env" },
+    { "type": "select", "label": "Export format", "options": ["HTML", "Markdown", "CSV"], "selected": 1, "id": "atlas-format" }
+  ] }
+}

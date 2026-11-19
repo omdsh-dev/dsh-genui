@@ -160,6 +160,46 @@ describe('component design contract (measured defects)', () => {
 })
 
 describe('surface elevation contract', () => {
+  it('paints tone washes over the surface instead of replacing it (issue #398)', () => {
+    const css = readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
+    // A tone rule that assigns the `background` shorthand resets
+    // background-color to transparent, so on a canvas that is not opaque
+    // (wallpaper / glass skin) the callout and tone card let the page pattern
+    // through their own text. The tone keeps the opaque surface and adds the
+    // hue as an image on top of it.
+    for (const rule of ['calloutInfo', 'calloutSuccess', 'calloutWarning', 'calloutError', 'cardInfo', 'cardSuccess', 'cardWarning', 'cardDanger']) {
+      const block = new RegExp(`^\\.${rule} \\{([^}]*)\\}`, 'm').exec(css)
+      expect(block, `.${rule} must exist`).not.toBeNull()
+      expect(block![1], `.${rule} must not replace the surface`).not.toMatch(/(^|[^-])background:/)
+      expect(block![1], `.${rule} must paint the wash as an image`).toMatch(/background-image: linear-gradient\(var\(--dsl-(callout|card)-wash\), var\(--dsl-(callout|card)-wash\)\)/)
+    }
+  })
+
+  it('lets a skin pin the surface from :root (--dsh-genui-surface)', () => {
+    // The declaration lives on .block/.panel, so without this indirection a
+    // skin's :root value is shadowed by our own declaration and silently
+    // ignored — the escape hatch must appear in BOTH theme branches.
+    const css = readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
+    expect(css).toMatch(/--dsl-g-surface: var\(--dsh-genui-surface, var\(--dsw-alias-bg-layer-2,/)
+    expect(css).toMatch(/--dsl-g-surface: var\(--dsh-genui-surface, color-mix\(in srgb, var\(--dsw-alias-label-primary\) 4%,/)
+  })
+
+  it('keeps the table and flat fills opt-in (issue #398)', () => {
+    // Both components are surface-less by design: a table is a bare data grid,
+    // a flat card is a printed block. On a canvas that is not opaque a skin can
+    // raise them, but the DEFAULT must stay exactly what it is today — a
+    // variable whose fallback resolved to the host layer would silently turn
+    // every table into a panel.
+    const css = readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
+    const table = /\.tableWrap\s*\{([^}]*)\}/.exec(css)
+    expect(table, '.tableWrap rule must exist').not.toBeNull()
+    expect(table![1]).toMatch(/background: var\(--dsh-genui-surface-table, transparent\)/)
+    expect(table![1], 'the fallback must not be the resolved surface').not.toMatch(/--dsh-genui-surface-table, var\(/)
+    const flat = /\.card\.cardFlat\s*\{([^}]*)\}/.exec(css)
+    expect(flat, '.card.cardFlat rule must exist').not.toBeNull()
+    expect(flat![1]).toMatch(/background: var\(--dsh-genui-surface-flat, color-mix\(in srgb, var\(--dsw-alias-label-primary\) 2\.5%, transparent\)\)/)
+  })
+
   it('puts cards on the elevated host layer, not the page layer', () => {
     const css = readFileSync(join(process.cwd(), 'src/client/GenuiBlock.module.css'), 'utf8')
     // Dark theme: page 21,21,23 → layer-1 35,35,36 (only 14 units: "a black
@@ -179,7 +219,7 @@ describe('surface elevation contract', () => {
     // a card there would be invisible without border-l2 + a shadow, and it
     // must NOT be darkened to compensate (issue #159).
     expect(css).toMatch(/--dsl-g-shadow-card:/)
-    expect(css).toMatch(/--dsl-g-surface: var\(--dsw-alias-bg-layer-2,/)
+    expect(css).toMatch(/--dsl-g-surface: var\(--dsh-genui-surface, var\(--dsw-alias-bg-layer-2,/)
     expect(css).toMatch(/--dsl-g-border-surface: color-mix\(in srgb, var\(--dsw-alias-label-primary\) 12%/)
     for (const rule of ['card', 'stat', 'callout', 'hero', 'accordion']) {
       const block = new RegExp(`^\\s*\\.${rule} \\{([^}]*)\\}`, 'm').exec(css)
@@ -203,7 +243,7 @@ describe('design-standard contract (research-driven)', () => {
     // label tint, 255 -> ~231) is the wrong direction — 0.10.0 shipped that
     // and issue #159 reported "every card is grey". Elevation in light comes
     // from the 1px surface border + this shadow; the tint belongs to dark.
-    expect(css()).toMatch(/--dsl-g-surface: var\(--dsw-alias-bg-layer-2,/)
+    expect(css()).toMatch(/--dsl-g-surface: var\(--dsh-genui-surface, var\(--dsw-alias-bg-layer-2,/)
     expect(css()).toMatch(/--dsl-g-shadow-card: 0 1px 3px rgba\(0, 0, 0, 0\.10\)/)
   })
 
@@ -214,14 +254,14 @@ describe('design-standard contract (research-driven)', () => {
     // therefore be a host layer token; only the dark override may use a tint.
     const defaults = /\.block,\s*\.panel \{([\s\S]*?)\n\}/.exec(css())
     expect(defaults, '.block, .panel token block must exist').not.toBeNull()
-    expect(defaults![1]).toMatch(/--dsl-g-surface: var\(--dsw-alias-bg-layer-2,/)
+    expect(defaults![1]).toMatch(/--dsl-g-surface: var\(--dsh-genui-surface, var\(--dsw-alias-bg-layer-2,/)
     expect(defaults![1]).not.toMatch(/--dsl-g-surface: color-mix/)
   })
 
   it('keeps dark elevation as a small overlay, not a light-mode tint', () => {
     // Dark communicates elevation with the layer step plus a ~4% overlay;
     // drop shadows are nearly invisible on dark surfaces.
-    const dark = /body\[data-ds-dark-theme\] \.block,[\s\S]{0,200}?--dsl-g-surface: color-mix\(in srgb, var\(--dsw-alias-label-primary\) 4%/.exec(css())
+    const dark = /body\[data-ds-dark-theme\] \.block,[\s\S]{0,240}?--dsl-g-surface: var\(--dsh-genui-surface, color-mix\(in srgb, var\(--dsw-alias-label-primary\) 4%/.exec(css())
     expect(dark, 'dark override must use a 4% overlay').not.toBeNull()
   })
 

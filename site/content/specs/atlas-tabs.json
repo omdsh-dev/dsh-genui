@@ -1,0 +1,17 @@
+{
+  "id": "atlas-tabs",
+  "category": "atlas",
+  "note": "tabs：同位置切换多页内容，空 tab 按空数组处理；切页是本地状态。",
+  "zh": { "title": "tabs · 同一位置的三个深度", "items": [
+    { "type": "tabs", "tabs": [
+      { "label": "结论", "items": [{ "type": "text", "size": "body", "content": "一句话结论先给出来。" }] },
+      { "label": "证据", "items": [{ "type": "chart", "kind": "bars", "data": [{ "label": "一", "value": 8 }, { "label": "二", "value": 12 }, { "label": "三", "value": 9 }] }] }
+    ] }
+  ] },
+  "en": { "title": "tabs · three depths in one place", "items": [
+    { "type": "tabs", "tabs": [
+      { "label": "Conclusion", "items": [{ "type": "text", "size": "body", "content": "The one-line conclusion comes first." }] },
+      { "label": "Evidence", "items": [{ "type": "chart", "kind": "bars", "data": [{ "label": "Mon", "value": 8 }, { "label": "Tue", "value": 12 }, { "label": "Wed", "value": 9 }] }] }
+    ] }
+  ] }
+}

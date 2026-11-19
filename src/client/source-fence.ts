@@ -1,5 +1,6 @@
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import type { AssistantBlock, ChatNode, ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
+import { normalizeFenceLanguage } from '../shared/fence-language.ts'
 
 export interface SourceFence {
   lang: string | null
@@ -27,8 +28,9 @@ export function sourceFencesOf(markdown: string): SourceFence[] {
     if (node.type === 'code') {
       const openingOffset = node.position?.start.offset
       const openingLineEnd = openingOffset === undefined ? -1 : markdown.indexOf('\n', openingOffset)
+      const rawLang = node.lang ?? null
       fences.push({
-        lang: node.lang ?? null,
+        lang: rawLang === null ? null : normalizeFenceLanguage(rawLang),
         value: node.value as string,
         openingLineComplete: openingLineEnd >= 0,
       })
@@ -59,7 +61,7 @@ export function sourceFencesOfAssistant(blocks: readonly AssistantBlock[]): Sour
  * @param chat - 当前会话的 ChatSnapshot
  * @param nodeKey - DOM assistant row 对应的 Chat node key
  * @param index - assistant row 内从零开始的宿主代码块序号
- * @returns 原始 language；null 表示围栏没有 language，undefined 表示 source 不可用
+ * @returns 规范化后的 language；null 表示围栏没有 language，undefined 表示 source 不可用
  */
 export function sourceLanguageAt(chat: ChatSnapshot | undefined, nodeKey: string, index: number): string | null | undefined {
   const node = chat?.nodes.get(nodeKey)

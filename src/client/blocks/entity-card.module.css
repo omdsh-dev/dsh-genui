@@ -1,0 +1,21 @@
+.card { display: flex; align-items: flex-start; gap: 14px; min-width: 0; padding: 14px; border: 1px solid var(--dsl-g-border, #c6ced8); border-radius: var(--dsl-g-radius-surface, 12px); background: var(--dsl-g-surface, #fff); color: var(--dsw-alias-label-primary, inherit); }
+.image, .avatar { flex: none; width: 64px; height: 64px; border-radius: 10px; object-fit: cover; }
+.avatar { display: grid; place-items: center; color: white; font-size: 1.4rem; font-weight: 700; }
+.body { display: grid; gap: 7px; min-width: 0; flex: 1; }
+.name { margin: 0; font-size: var(--dsl-g-font-h3, 1.05rem); line-height: 1.35; }
+.description { margin: 0; color: var(--dsw-alias-label-secondary, #667085); line-height: 1.5; }
+.metadata { display: grid; gap: 5px; margin: 2px 0; }
+.metaRow { display: grid; grid-template-columns: minmax(80px, .45fr) minmax(0, 1fr); gap: 10px; }
+.metaRow dt { color: var(--dsw-alias-label-secondary, #667085); }
+.metaRow dd { margin: 0; overflow-wrap: anywhere; }
+.footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 2px; }
+.source { color: var(--dsl-g-link, var(--dsl-g-accent, #315fa8)); font: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.action { border: 1px solid var(--dsl-g-border, #a8b2c0); border-radius: 6px; padding: 6px 10px; color: inherit; background: var(--dsl-g-surface, #fff); font: inherit; cursor: pointer; }
+.action:disabled { cursor: default; opacity: .55; }
+.action[data-tone='primary'] { border-color: var(--dsl-g-accent, #315fa8); background: var(--dsl-g-accent, #315fa8); color: white; }
+.action[data-tone='danger'] { border-color: var(--dsw-alias-state-error-primary, #b42318); background: var(--dsw-alias-state-error-primary, #b42318); color: white; }
+.action[data-tone='success'] { border-color: var(--dsw-alias-state-success-primary, #16803c); background: var(--dsw-alias-state-success-primary, #16803c); color: white; }
+.action[data-tone='ghost'] { border-color: transparent; background: transparent; color: var(--dsl-g-link, var(--dsl-g-accent, #315fa8)); }
+.action[data-tone='ghost']:hover { background: var(--dsl-g-hover, rgb(0 0 0 / 6%)); }
+.action:focus-visible, .source:focus-visible { outline: 3px solid var(--dsl-g-accent, #315fa8); outline-offset: 2px; }
+@media (max-width: 520px) { .card { gap: 10px; padding: 11px; } .image, .avatar { width: 48px; height: 48px; } .metaRow { grid-template-columns: 1fr; gap: 1px; } }

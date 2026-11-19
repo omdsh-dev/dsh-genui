@@ -1,19 +1,22 @@
 /** Resolve host CSS colors before passing them to Mermaid's limited parser. */
-export function readMermaidThemeColor(name: string, fallback: string): string {
+export function readMermaidThemeColor(name: string, fallback: string, target?: HTMLElement): string {
   if (typeof document === 'undefined' || document.body === null) return fallback
-  const value = getComputedStyle(document.body).getPropertyValue(name).trim()
+  const source = target ?? document.body
+  const owner = source.ownerDocument
+  const view = owner.defaultView!
+  const value = view.getComputedStyle(source).getPropertyValue(name).trim()
   if (value === '') return fallback
 
   // Computed custom properties still contain calc(), unlike computed color.
   // A real color property also resolves currentColor and inherited variables.
-  const probe = document.createElement('span')
+  const probe = owner.createElement('span')
   probe.style.setProperty('color', value, 'important')
   if (probe.style.color === '') return fallback
   probe.style.setProperty('display', 'none', 'important')
-  document.body.appendChild(probe)
+  source.appendChild(probe)
   let color: string
   try {
-    color = getComputedStyle(probe).color
+    color = view.getComputedStyle(probe).color
   } finally {
     probe.remove()
   }
@@ -21,7 +24,7 @@ export function readMermaidThemeColor(name: string, fallback: string): string {
 
   // Modern colors such as oklch() and color-mix() may remain in those formats
   // after style resolution. Canvas converts them to the sRGB Mermaid accepts.
-  const canvas = document.createElement('canvas')
+  const canvas = owner.createElement('canvas')
   canvas.width = canvas.height = 1
   const context = canvas.getContext('2d')
   if (context === null) return fallback

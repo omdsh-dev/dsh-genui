@@ -11,3 +11,9 @@ lib/
 site/anthology.html
 # macOS Finder metadata (never source)
 .DS_Store
+# 产品站点：渲染器与 artifact 在 CI 里由 site/scripts/build-site.mjs 生成，不进 git
+site/assets/genui/*.js
+site/assets/genui/theme.css
+site/assets/genui/artifacts.json
+site/proto/demo-artifacts.json
+site/proto/shots/

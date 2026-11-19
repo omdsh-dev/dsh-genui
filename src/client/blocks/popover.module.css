@@ -1,0 +1,7 @@
+.root { display: inline-flex; }
+.trigger { border: 0; border-bottom: 1px dashed var(--dsl-g-accent, #315fa8); padding: 0 1px; color: var(--dsl-g-link, var(--dsl-g-accent, #315fa8)); background: transparent; font: inherit; cursor: pointer; }
+.trigger:focus-visible, .close:focus-visible { outline: 3px solid var(--dsl-g-accent, #315fa8); outline-offset: 2px; }
+.panel { z-index: 1000; box-sizing: border-box; display: flex; gap: 12px; max-width: min(360px, calc(100vw - 24px)); max-height: min(420px, calc(100vh - 24px)); overflow: auto; padding: 14px 38px 14px 16px; border: 1px solid var(--dsw-alias-border-l1, var(--dsl-g-border, #c6ced8)); border-radius: 10px; background: var(--dsl-g-surface, var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1, #fff))); color: var(--dsw-alias-label-primary, #182230); box-shadow: 0 8px 28px rgb(0 0 0 / 18%); }
+.content { min-width: 0; overflow-wrap: anywhere; line-height: 1.55; }
+.close { position: absolute; inset-block-start: 6px; inset-inline-end: 7px; display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 5px; color: inherit; background: transparent; font: inherit; font-size: 1.2rem; cursor: pointer; }
+.close:hover { background: var(--dsl-g-hover, rgb(0 0 0 / 6%)); }

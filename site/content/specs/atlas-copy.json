@@ -1,0 +1,11 @@
+{
+  "id": "atlas-copy",
+  "category": "atlas",
+  "note": "copy：本地剪贴板复制，可展开查看全文；不发请求、不动模型。",
+  "zh": { "title": "copy · 一键拿走，不发请求", "items": [
+    { "type": "copy", "label": "复制这段围栏", "text": "{\"items\":[{\"type\":\"stat\",\"label\":\"本周合入\",\"value\":\"40\"}]}", "expandable": true, "previewLines": 2 }
+  ] },
+  "en": { "title": "copy · take it away, no request", "items": [
+    { "type": "copy", "label": "Copy this fence", "text": "{\"items\":[{\"type\":\"stat\",\"label\":\"Merged this week\",\"value\":\"40\"}]}", "expandable": true, "previewLines": 2 }
+  ] }
+}

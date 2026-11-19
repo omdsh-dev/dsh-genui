@@ -57,6 +57,80 @@ describe('render caps', () => {
     expect(processed.warnings.some(w => w.kind === 'truncated')).toBe(true)
   })
 
+  it('reports actual table, list, and file-tree truncation counts', () => {
+    const spec = { items: [
+      { type: 'table', columns: ['value'], rows: Array.from({ length: 51 }, (_, index) => [`row ${index}`]) },
+      { type: 'list', items: Array.from({ length: 51 }, (_, index) => `item ${index}`) },
+      { type: 'file-tree', items: [
+        ...Array.from({ length: 51 }, (_, index) => ({ name: `root ${index}`, type: 'file' })),
+      ] },
+      { type: 'file-tree', items: [{ name: 'dir', type: 'dir', children: [
+        ...Array.from({ length: 52 }, (_, index) => ({ name: `child ${index}`, type: 'file' })),
+      ] }] },
+      { type: 'card', title: 'Nested', items: [
+        { type: 'table', columns: ['value'], rows: Array.from({ length: 51 }, (_, index) => [`nested row ${index}`]) },
+        { type: 'list', items: Array.from({ length: 51 }, (_, index) => `nested item ${index}`) },
+      ] },
+    ] }
+    const processed = processGenuiSpec(spec)
+    const warning = processed.warnings.find(item => item.kind === 'truncated')
+
+    expect(processed.errors).toEqual([])
+    expect(warning?.message).toContain('2 行超出 table.rows')
+    expect(warning?.message).toContain('2 项超出 list.items')
+    expect(warning?.message).toContain('3 个节点超出 file-tree 每层')
+  })
+
+  it('does not report data arrays at their exact caps or invalid trailing entries', () => {
+    const rows = Array.from({ length: GENUI_LIMITS.maxTableRows }, (_, index) => [`row ${index}`])
+    const listItems = Array.from({ length: GENUI_LIMITS.maxListItems }, (_, index) => `item ${index}`)
+    const treeItems = Array.from({ length: GENUI_LIMITS.maxListItems }, (_, index) => ({ name: `node ${index}`, type: 'file' }))
+    const processed = processGenuiSpec({ items: [
+      { type: 'table', columns: ['value'], rows: [null, ...rows, null] },
+      { type: 'list', items: [null, ...listItems, null] },
+      { type: 'file-tree', items: [null, ...treeItems, null] },
+    ] })
+
+    expect(processed.warnings.some(item => item.kind === 'truncated')).toBe(false)
+  })
+
+  it('skips invalid object rows while counting actual table overflow', () => {
+    const rows = Array.from({ length: GENUI_LIMITS.maxTableRows }, (_, index) => ({ value: `row ${index}` }))
+    const exactLimit = processGenuiSpec({ items: [
+      { type: 'table', columns: ['value'], rows: [...rows, null, 'invalid'] },
+    ] })
+    const overflow = processGenuiSpec({ items: [
+      { type: 'table', columns: ['value'], rows: [...rows, null, { value: 'extra' }] },
+    ] })
+
+    expect(exactLimit.warnings.some(item => item.kind === 'truncated')).toBe(false)
+    expect(overflow.warnings.find(item => item.kind === 'truncated')?.message).toContain('1 行超出 table.rows')
+  })
+
+  it('counts implicit table-header overflow once', () => {
+    const processed = processGenuiSpec({ items: [{
+      type: 'table', rows: [['value'], ...Array.from({ length: GENUI_LIMITS.maxTableRows }, (_, index) => [`row ${index}`])],
+    }] })
+
+    expect(processed.warnings.find(item => item.kind === 'truncated')?.message).toContain('1 行超出 table.rows')
+  })
+
+  it('counts valid overflow after invalid entries beyond each cap', () => {
+    const rows = Array.from({ length: GENUI_LIMITS.maxTableRows }, (_, index) => ({ value: `row ${index}` }))
+    const listItems = Array.from({ length: GENUI_LIMITS.maxListItems }, (_, index) => `item ${index}`)
+    const treeItems = Array.from({ length: GENUI_LIMITS.maxListItems }, (_, index) => ({ name: `node ${index}`, type: 'file' }))
+    const processed = processGenuiSpec({ items: [
+      { type: 'table', columns: ['value'], rows: [...rows, null, { value: 'extra' }] },
+      { type: 'list', items: [...listItems, null, 'extra'] },
+      { type: 'file-tree', items: [...treeItems, null, { name: 'extra', type: 'file' }] },
+    ] })
+    const warning = processed.warnings.find(item => item.kind === 'truncated')
+
+    expect(warning?.message).toContain('1 行超出 table.rows')
+    expect(warning?.message).toContain('1 项超出 list.items')
+    expect(warning?.message).toContain('1 个节点超出 file-tree 每层')
+  })
+
   it('caps file-tree depth at render time', () => {
     let node: Record<string, unknown> = { name: 'leaf', type: 'file' }
     for (let i = 0; i < 20; i++) node = { name: `dir ${i}`, type: 'dir', children: [node] }

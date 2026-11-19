@@ -199,8 +199,42 @@ export const gallerySpec: GenuiSpec = {
       { type: 'avatar', name: 'Bob', color: '#3d9e8f' },
       { type: 'link', label: '详情链接' },
     ], wrap: true },
+    // v12 figure primitives: the tinted icon plate carries a stage's semantic
+    // role, and `blocks` draws the diagram without a single hand-written
+    // coordinate.
+    { type: 'row', items: [
+      { type: 'icon', name: 'Function', tone: 'info', tile: true },
+      { type: 'icon', name: 'Nodes', tone: 'success', tile: true },
+      { type: 'icon', name: 'Warning', tone: 'warning', tile: true },
+      { type: 'icon', name: 'CheckCircle', tone: 'success', size: 24 },
+      { type: 'icon', name: 'Clock', tone: 'muted' },
+    ] },
+    { type: 'blocks', title: '递归加倍：每轮已知数据量翻倍', rows: [
+      { label: '初始', cells: ['0', '1', '2', '3', '4', '5', '6', '7'], color: '#64748b' },
+      { label: '轮 1', cells: ['01', '23', '45', '67'], color: '#4a7fb5' },
+      { label: '轮 2', cells: ['0123', '4567'], color: '#35688f' },
+      { label: '轮 3', cells: ['01234567'], color: '#1f6f7a' },
+    ], caption: '每格代表一个已完成组内交换的小组；轮数只需 log₂N。' },
+    { type: 'row', justify: 'center', items: [
+      { type: 'card', flat: true, items: [{ type: 'text', size: 'caption', content: 'flat 面板', align: 'center' }] },
+      { type: 'arrow', length: 24 },
+      { type: 'card', flat: true, items: [{ type: 'text', size: 'caption', mono: true, tone: 'danger', content: '0x1F' }] },
+    ] },
+    { type: 'blocks', title: '流水线：块 × 轮', columns: 5, rows: [
+      { label: '块 1', cells: ['A', 'B', 'C', '—', '—'], color: '#2f6ea8' },
+      { label: '块 2', cells: ['—', 'A', 'B', 'C', '—'], color: '#1f7d70' },
+      { label: '块 3', cells: ['—', '—', 'A', 'B', 'C'], color: '#8a5a2b' },
+    ], caption: '示意：假设每个工序耗时一轮，独立工序可以并行。' },
     { type: 'chart', kind: 'bars', data: [
       { label: '一', value: 10 }, { label: '二', value: 20 }, { label: '三', value: 15 },
+    ] },
+    { type: 'carousel', title: '横向浏览 · 本地切换，不发送消息', itemWidth: 280, items: [
+      { type: 'card', title: '方案 A', items: [{ type: 'text', content: '这里可以放原生卡片、表单和独立 action；无需额外 renderer。' }] },
+      { type: 'card', title: '方案 B', items: [{ type: 'text', content: '左右方向键 / Home / End 只在轨道聚焦时导航，不抢占卡片内输入。' }] },
+    ] },
+    { type: 'image-group', title: '项目图片 · 点击放大，Esc 返回', items: [
+      { src: 'https://raw.githubusercontent.com/omdsh-dev/dsh-genui/7301d8a8ec6d5a164beff75e5a8afd20e45f9518/assets/genui-icon.svg', alt: 'GenUI 图标', caption: '本仓库 MIT 图标；外部图片仍需要网络访问。' },
+      { src: 'https://raw.githubusercontent.com/omdsh-dev/dsh-genui/7301d8a8ec6d5a164beff75e5a8afd20e45f9518/assets/genui-logo.svg', alt: 'GenUI 标志', caption: '本仓库 MIT 标志；放大与切图不触发模型 action。' },
     ] },
     { type: 'image', src: '/demo-image.png', alt: '图片展示演示', caption: '图注：演示图加载失败时展示错误态——caption（B4）在图下方，alt 标签行在图上方。' },
     { type: 'audio', src: '/demo-audio.mp3', alt: '音频播放器演示' },

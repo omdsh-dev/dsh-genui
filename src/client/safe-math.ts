@@ -1,27 +1,45 @@
 /**
- * SafeMath: a restricted math expression evaluator for GenUI plot specs.
+ * SafeMath 为 GenUI plot 和 Computed 提供受限数学表达式解析。
  *
- * The model supplies an expression string like "sin(x) * 2 + 1". It is parsed
- * and evaluated here WITHOUT eval / new Function: a hand-written recursive
- * descent parser over a white-listed function/constant vocabulary. Unknown
- * identifiers, object property access, and call syntax other than the
- * white-listed functions are parse errors, so an adversarial expression
- * cannot reach globals, prototypes, or side effects.
+ * 表达式使用白名单函数与常量，不调用 eval 或 new Function。strict 模式拒绝未声明名称，但允许内置常量；plot 模式允许单字母隐式参数。对象属性访问和未允许的函数调用始终会被拒绝。
  *
- * Supported grammar:
+ * 支持的语法：
  *   expr    := term (('+' | '-') term)*
  *   term    := unary (('*' | '/' | '%') unary)*
  *   unary   := ('-' | '+') unary | power
  *   power   := atom ('^' atom)?
  *   atom    := number | variable | constant | func '(' expr ')' | '(' expr ')'
- *   variable: 'x' (and any single-letter variable present in vars)
  *   constant: 'pi' | 'e' | 'tau'
  *   func    : sin cos tan asin acos atan sqrt cbrt exp log ln abs floor ceil round min max pow
  */
 
 export interface SafeMathOptions {
-  /** Variable values; only names present here may be referenced as variables. */
+  /** 字段值；strict 模式还允许使用未被字段覆盖的内置常量。 */
   vars?: Record<string, number>
+  /** 关闭 plot 使用的单字母隐式参数。 */
+  allowImplicitVariables?: boolean
+  /** 面板上下文确定前解析追加项引用；未绑定的值按 NaN 处理，不提供运行时备用值。 */
+  allowUnboundVariables?: boolean
+}
+
+export interface SafeMathProgram {
+  /** 计算编译后的表达式；plot 模式使用传入的 x 作为采样值。 */
+  evaluate: (x: number) => number
+  /** 表达式引用的已声明字段名称；strict 模式下同名字段可以覆盖内置常量。 */
+  variables: string[]
+}
+
+export const SAFE_MATH_LIMITS = {
+  maxExpressionLength: 512,
+  maxDepth: 32,
+} as const
+
+/** 解析十进制输入，拒绝 JavaScript Number 接受的非十进制进制写法。 */
+export function parseDecimalNumber(value: string): number | undefined {
+  const normalized = value.trim()
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(normalized)) return undefined
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : undefined
 }
 
 const CONSTANTS: Record<string, number> = {
@@ -48,13 +66,20 @@ class ParseError extends Error {
 
 class SafeMathParser {
   private i = 0
-  constructor(private readonly src: string, private readonly vars: Record<string, number>) {}
+  private depth = 0
+  private readonly variables = new Set<string>()
+  constructor(
+    private readonly src: string,
+    private readonly vars: Record<string, number>,
+    private readonly allowImplicitVariables: boolean,
+    private readonly allowUnboundVariables: boolean,
+  ) {}
 
-  parse(): (x: number) => number {
+  parse(): SafeMathProgram {
     const node = this.parseExpr()
     this.skipWs()
     if (this.i < this.src.length) throw new ParseError('unexpected trailing input', this.i)
-    return this.evalNode(node)
+    return { evaluate: this.evalNode(node), variables: [...this.variables] }
   }
 
   private evalNode(node: number | ((x: number) => number)): (x: number) => number {
@@ -103,7 +128,7 @@ class SafeMathParser {
     const c = this.char()
     if (c === '-' || c === '+') {
       this.i++
-      const operand = this.parseUnary()
+      const operand = this.withDepth(() => this.parseUnary())
       return c === '-' ? (x) => -this.asNum(operand, x) : (x) => this.asNum(operand, x)
     }
     return this.parsePower()
@@ -114,7 +139,7 @@ class SafeMathParser {
     this.skipWs()
     if (this.peek() === '^') {
       this.i++
-      const exp = this.parsePower()
+      const exp = this.withDepth(() => this.parsePower())
       const prev = base
       return (x) => Math.pow(this.asNum(prev, x), this.asNum(exp, x))
     }
@@ -126,7 +151,7 @@ class SafeMathParser {
     const c = this.char()
     if (c === '(') {
       this.i++
-      const inner = this.parseExpr()
+      const inner = this.withDepth(() => this.parseExpr())
       this.skipWs()
       if (this.peek() !== ')') throw new ParseError('expected )', this.i)
       this.i++
@@ -170,7 +195,7 @@ class SafeMathParser {
 
     const text = this.src.slice(start, this.i)
     const value = Number(text)
-    if (Number.isNaN(value)) throw new ParseError(`invalid number '${text}'`, start)
+    if (!Number.isFinite(value)) throw new ParseError(`invalid number '${text}'`, start)
     return value
   }
 
@@ -180,9 +205,9 @@ class SafeMathParser {
     const name = this.src.slice(start, this.i)
     this.skipWs()
     if (this.peek() === '(') {
-      // Function call.
-      const fn = FUNCTIONS[name]
-      if (fn === undefined) throw new ParseError(`unknown function '${name}'`, start)
+      // 解析白名单函数调用。
+      if (!Object.hasOwn(FUNCTIONS, name)) throw new ParseError(`unknown function '${name}'`, start)
+      const fn = FUNCTIONS[name]!
       this.i++
       const args: Array<number | ((x: number) => number)> = []
       this.skipWs()
@@ -190,7 +215,7 @@ class SafeMathParser {
         this.i++
       } else {
         for (;;) {
-          args.push(this.parseExpr())
+          args.push(this.withDepth(() => this.parseExpr()))
           this.skipWs()
           const sep = this.peek()
           if (sep === ',') { this.i++; continue }
@@ -200,30 +225,49 @@ class SafeMathParser {
       }
       return (x) => fn(...args.map(a => this.asNum(a, x)))
     }
-    // Own-property checks only: `in` would match inherited members like
-    // `constructor`/`toString` on the vars object.
-    if (Object.hasOwn(CONSTANTS, name)) return CONSTANTS[name]!
-    if (name === 'x') {
-      // The sampling variable resolves against the evaluation argument.
-      return (value: number) => value
-    }
-    if (Object.hasOwn(this.vars, name)) {
-      // A declared parameter (a/b/c…) resolves against its captured value,
-      // which the caller changes by recompiling with new vars.
+    // 使用自有属性检查，避免 `constructor` 和 `toString` 等原型名称被当作字段。
+    if (!this.allowImplicitVariables && Object.hasOwn(this.vars, name)) {
+      this.variables.add(name)
       const captured = this.vars[name]!
       return () => captured
     }
-    // Implicit parameters: an undeclared single-lowercase-letter identifier
-    // (a/b/k/m/n…) is a parameter that defaults to 1, so a model expression
-    // like "a*sin(b*x)" without a params declaration still renders instead
-    // of failing as "unknown identifier". This is safe: only [a-z] matches,
-    // so injection names (constructor, window, process…) still parse-error.
-    if (/^[a-z]$/.test(name)) return () => 1
+    if (Object.hasOwn(CONSTANTS, name) && this.allowImplicitVariables) return CONSTANTS[name]!
+    if (this.allowImplicitVariables && name === 'x') {
+      // plot 的采样变量从计算参数读取。
+      return (value: number) => value
+    }
+    if (Object.hasOwn(this.vars, name)) {
+      this.variables.add(name)
+      // 声明参数使用编译时的值；更新参数时会以新值重新编译。
+      const captured = this.vars[name]!
+      return () => captured
+    }
+    // plot 中未声明的单个小写字母参数默认取 1；该规则不接受全局对象名称。
+    if (Object.hasOwn(CONSTANTS, name)) return CONSTANTS[name]!
+    if (this.allowImplicitVariables && /^[a-z]$/.test(name)) return () => 1
+    if (this.allowUnboundVariables) {
+      this.variables.add(name)
+      return () => NaN
+    }
     throw new ParseError(`unknown identifier '${name}'`, start)
   }
 
   private asNum(node: number | ((x: number) => number), x: number): number {
     return typeof node === 'number' ? node : node(x)
+  }
+
+  /** 在递归解析前限制表达式层数。 */
+  private withDepth<T>(read: () => T): T {
+    this.depth += 1
+    if (this.depth > SAFE_MATH_LIMITS.maxDepth) {
+      this.depth -= 1
+      throw new ParseError('expression nesting exceeds limit', this.i)
+    }
+    try {
+      return read()
+    } finally {
+      this.depth -= 1
+    }
   }
 
   private skipWs(): void {
@@ -250,32 +294,43 @@ class SafeMathParser {
 }
 
 /**
- * Compile an expression into an evaluable function.
- * @param expr - the math expression. `x` is the sampling variable; any other
- *   name in `vars` is a parameter whose captured value the evaluator returns
- *   (recompile with new vars to change a parameter — expressions are short).
- * @param options - parameter values; `x` is reserved and ignored here.
- * @returns evaluator, or null when the expression is invalid.
+ * 编译表达式以便后续计算。
+ * @param expr - 数学表达式；默认模式将 `x` 作为采样变量，strict 模式按已声明字段解析。
+ * @param options - 字段值和变量解析规则。
+ * @returns 可执行的计算函数；表达式无效时返回 null。
  */
 export function compileMathExpr(expr: string, options: SafeMathOptions = {}): ((x: number) => number) | null {
+  return compileMathExprProgram(expr, options)?.evaluate ?? null
+}
+
+/**
+ * 编译安全数学表达式，并返回表达式引用的字段名称。
+ *
+ * @param expr - 受限算术表达式。
+ * @param options - 字段值和变量解析规则。
+ * @returns 编译后的程序；表达式无效时返回 null。
+ */
+export function compileMathExprProgram(expr: string, options: SafeMathOptions = {}): SafeMathProgram | null {
   try {
-    // `x` is the sampling variable and must never be shadowed by a param.
+    // plot 模式保留 `x` 采样变量；strict 模式允许字段使用该名称。
     const vars: Record<string, number> = { ...options.vars }
-    delete vars.x
-    return new SafeMathParser(expr, vars).parse()
+    if (options.allowImplicitVariables !== false) delete vars.x
+    if (expr.length > SAFE_MATH_LIMITS.maxExpressionLength
+      || Object.values(vars).some(value => !Number.isFinite(value))) return null
+    return new SafeMathParser(expr, vars, options.allowImplicitVariables !== false, options.allowUnboundVariables === true).parse()
   } catch {
     return null
   }
 }
 
 /**
- * Sample an expression over a range.
- * @param expr - math expression in x, with optional parameters.
- * @param xMin - inclusive start.
- * @param xMax - inclusive end.
- * @param samples - number of samples (>= 2).
- * @param params - parameter values (e.g. { a: 2, b: 3 }); recompile per change.
- * @returns [x, y] pairs; non-finite samples are dropped.
+ * 在指定范围内采样表达式。
+ * @param expr - 使用 x 和可选参数的数学表达式。
+ * @param xMin - 采样起点。
+ * @param xMax - 采样终点。
+ * @param samples - 采样点数量，至少为 2。
+ * @param params - 参数值；参数变化时会重新编译表达式。
+ * @returns 有限的 [x, y] 坐标对。
  */
 export function sampleExpr(
   expr: string,

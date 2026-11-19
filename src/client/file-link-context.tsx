@@ -1,4 +1,5 @@
 import { createContext, createElement, useContext, useMemo, useSyncExternalStore, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { fileAddressFor } from './file-address.ts'
 import { resolveViewedSessionId } from './session-resolver.ts'
 import css from './GenuiBlock.module.css'
@@ -11,6 +12,7 @@ interface FileLinkHostContext {
   get(name: 'sidebarRight', strict?: false): SidebarRightService | undefined
   sessions: {
     list: { getSnapshot(): unknown }
+    retainInfo(sessionId: SessionId): { getSnapshot(): { retainedBy: { mainView?: number } } }
   }
 }
 
@@ -72,7 +74,7 @@ function FileLinkProvider({ ctx, availability, sessionId, streaming, children }:
     if (!available || streaming || sessionId === undefined) return undefined
     return (path: string, line?: number): void => {
       const snapshot = ctx.sessions.list.getSnapshot()
-      if (resolveViewedSessionId(snapshot) !== sessionId) return
+      if (resolveViewedSessionId(snapshot as { ids: SessionId[] }, id => ctx.sessions.retainInfo(id)) !== sessionId) return
       const sessions = snapshot as { byId?: Record<string, { cwd?: string } | undefined> }
       const cwd = sessions.byId?.[sessionId]?.cwd
       const address = fileAddressFor(sessionId, cwd, path)

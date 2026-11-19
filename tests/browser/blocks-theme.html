@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Issue 408: semantic blocks</title>
+    <style>
+      body { padding: 24px; }
+      main { max-width: 940px; margin: auto; }
+      h1 { font-size: 22px; }
+      h2 { font-size: 16px; margin: 24px 0 10px; }
+      #results { display: none; }
+    </style>
+  </head>
+  <body>
+    <main><h1>Semantic blocks · synthetic confusion matrix</h1><div id="root"></div></main>
+    <pre id="results">pending</pre>
+    <pre id="browser-errors"></pre>
+    <script>
+      window.addEventListener('error', event => {
+        document.getElementById('browser-errors').textContent += event.message + '\n'
+      })
+      window.addEventListener('unhandledrejection', event => {
+        document.getElementById('browser-errors').textContent += String(event.reason) + '\n'
+      })
+    </script>
+    <script type="module" src="/tests/browser/blocks-theme.tsx"></script>
+  </body>
+</html>

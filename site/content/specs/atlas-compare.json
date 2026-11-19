@@ -1,0 +1,19 @@
+{
+  "id": "atlas-compare",
+  "category": "atlas",
+  "note": "compare：两张图成对呈现，mode 可选 side/stack/slider；用仓库自带 icon 与 logo 两个 MIT 素材，固定 commit 的 raw 地址。",
+  "zh": { "title": "compare · 成对读两张图", "items": [
+    { "type": "compare", "title": "方标 vs 横向标志", "mode": "side", "height": 200,
+      "before": { "src": "assets/img/media/genui-icon.svg", "label": "方标", "alt": "GenUI 方形图标", "caption": "36 × 36，方形场景" },
+      "after": { "src": "assets/img/media/genui-logo.svg", "label": "横向标志", "alt": "GenUI 横向标志", "caption": "284 × 64，页头场景" }
+    },
+    { "type": "text", "size": "caption", "content": "缺 before 或 after 任一侧，整个节点会被丢弃，不会降级成单图。" }
+  ] },
+  "en": { "title": "compare · read two images as a pair", "items": [
+    { "type": "compare", "title": "Square mark vs horizontal lockup", "mode": "side", "height": 200,
+      "before": { "src": "assets/img/media/genui-icon.svg", "label": "Square mark", "alt": "GenUI square icon", "caption": "36 × 36, square contexts" },
+      "after": { "src": "assets/img/media/genui-logo.svg", "label": "Horizontal lockup", "alt": "GenUI horizontal logo", "caption": "284 × 64, header contexts" }
+    },
+    { "type": "text", "size": "caption", "content": "Missing either side drops the whole node — it never degrades into a single image." }
+  ] }
+}

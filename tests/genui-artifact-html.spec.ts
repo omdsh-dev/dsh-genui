@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createServer } from 'node:http'
-import { createStandaloneHtmlDocument } from '../src/client/artifact/html.ts'
+import { createStandaloneHtmlDocument, resolveMediaUrls } from '../src/client/artifact/html.ts'
 import { createGenuiArtifact } from '../src/client/artifact/create.ts'
 import { buildStandaloneHtml } from '../src/client/artifact/html.ts'
 import { setGenuiAssetBase } from '../src/client/asset-loader.ts'
@@ -88,9 +88,11 @@ describe('standalone HTML serialization', () => {
     expect(artifact.spec.items[0]).toMatchObject({ src: '/attachments/foo.png' })
   })
 
-  it('rejects custom renderers before fetching standalone bundles', async () => {
-    const artifact = createGenuiArtifact({ items: [{ type: 'weather', temp: 20 }] } as unknown as GenuiSpec)
-    await expect(buildStandaloneHtml(artifact)).rejects.toMatchObject({ code: 'unsupported-custom-component' })
+  it('rejects unsupported components as invalid artifacts before fetching bundles', async () => {
+    // Bypass the creation gate to check the standalone loader's own boundary.
+    const artifact = createGenuiArtifact({ items: [{ type: 'text', content: 'valid' }] })
+    artifact.spec = { items: [{ type: 'weather', temp: 20 }] } as unknown as GenuiSpec
+    await expect(buildStandaloneHtml(artifact)).rejects.toMatchObject({ code: 'artifact-invalid' })
   })
 
   it('retries bundle fetching after a failed request', async () => {
@@ -119,6 +121,77 @@ describe('standalone HTML serialization', () => {
       expect(bundleText(doc, 'runtime')).toBe('globalThis.standaloneRuntimeLoaded = true;')
     } finally {
       await new Promise<void>((resolve, reject) => server.close(error => error === undefined ? resolve() : reject(error)))
+    }
+  })
+
+  it('embeds the export media table next to the artifact', () => {
+    const artifact = createGenuiArtifact({ items: [{ type: 'image', src: '/a.png' }] } as GenuiSpec)
+    const media = new Map([['https://example.com/a.png', 'data:image/png;base64,AAA']])
+    const html = createStandaloneHtmlDocument(
+      artifact,
+      new Map([['standalone-runtime.js', new TextEncoder().encode('runtime')]]),
+      'https://example.com/page',
+      media,
+    )
+    const doc = parseHtml(html)
+
+    expect(JSON.parse(doc.querySelector('#genui-media')?.textContent ?? '')).toEqual({
+      'https://example.com/a.png': 'data:image/png;base64,AAA',
+    })
+    // The spec keeps the URL the author wrote; rendering swaps in the copy.
+    const exported = artifactFromDocument(doc) as { spec: { items: Array<{ src: string }> } }
+    expect(exported.spec.items[0]?.src).toBe('https://example.com/a.png')
+  })
+
+  it('cannot be closed early by a media key', () => {
+    const artifact = createGenuiArtifact({ items: [{ type: 'text', content: 'x' }] })
+    const hostile = '</script><script>window.pwned=true</script>'
+    const html = createStandaloneHtmlDocument(
+      artifact,
+      new Map([['standalone-runtime.js', new TextEncoder().encode('runtime')]]),
+      'https://example.com/page',
+      new Map([[hostile, 'data:image/png;base64,AAA']]),
+    )
+
+    expect(html).not.toContain('</script><script>window.pwned=true')
+    const doc = parseHtml(html)
+    expect(Object.keys(JSON.parse(doc.querySelector('#genui-media')?.textContent ?? '{}'))).toEqual([hostile])
+  })
+
+  it('resolves compare panels and entity-card portraits, not just image nodes', () => {
+    const spec = {
+      items: [
+        { type: 'compare', before: { src: 'before.png' }, after: { src: 'after.png' } },
+        { type: 'entity-card', name: 'n', image: 'portrait.png' },
+      ],
+    } as unknown as GenuiSpec
+    const resolved = resolveMediaUrls(spec, 'https://example.com/reports/page')
+    const serialized = JSON.stringify(resolved)
+
+    expect(serialized).toContain('https://example.com/reports/before.png')
+    expect(serialized).toContain('https://example.com/reports/after.png')
+    expect(serialized).toContain('https://example.com/reports/portrait.png')
+  })
+
+  it('embeds a readable same-origin image while exporting', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const url = String(input)
+      if (url.includes('/api/file')) {
+        return new Response(Uint8Array.from([0x89, 0x50, 0x4e, 0x47]), { status: 200, headers: { 'content-type': 'image/png' } })
+      }
+      return new Response('globalThis.standaloneRuntimeLoaded = true;', { status: 200, headers: { 'content-type': 'text/javascript' } })
+    }))
+
+    try {
+      const artifact = createGenuiArtifact({ items: [{ type: 'image', src: '/api/file?path=%2Fa.png' }] } as GenuiSpec)
+      const html = await buildStandaloneHtml(artifact)
+      const doc = parseHtml(html)
+      const payload = JSON.parse(doc.querySelector('#genui-media')?.textContent ?? '{}') as Record<string, string>
+      const source = `${new URL(document.baseURI).origin}/api/file?path=%2Fa.png`
+
+      expect(payload[source]?.startsWith('data:image/png;base64,')).toBe(true)
+    } finally {
+      vi.unstubAllGlobals()
     }
   })
 })

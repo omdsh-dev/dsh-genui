@@ -17,3 +17,7 @@ export {
   serializeGenuiArtifact,
 } from './artifact/index.ts'
 export type { GenuiArtifactV1, GenuiPortabilityReport } from './artifact/index.ts'
+
+/** Trusted host configuration, separate from model-authored JSON. */
+export { GenuiMapContext, setGenuiMapConfig } from './map-config.ts'
+export type { GenuiMapConfig, GenuiMapStyle } from './map-config.ts'

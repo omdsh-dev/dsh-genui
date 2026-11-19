@@ -19,9 +19,7 @@
 export interface BlockInteractionState {
   /** group → chosen option label (radio aggregation answers). */
   answers?: Record<string, string>
-  /** group → chosen option labels (checkbox aggregation answers). Empty arrays
-   * are retained so an explicitly cleared group wins over `checked` defaults
-   * after refresh. */
+  /** group → 已选的来源文案模板（复选框稳定身份）。空数组表示用户已清空选项，刷新后不恢复默认勾选。 */
   multiAnswers?: Record<string, string[]>
   /** True after a local grading: the paper stays graded across refresh. */
   locked?: boolean

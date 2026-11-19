@@ -1,0 +1,51 @@
+.datePicker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-sm);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.label,
+.dateField > span {
+  color: var(--dsw-alias-label-secondary);
+  font-size: var(--dsl-g-font-meta);
+}
+
+.range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dsl-g-gap-md);
+}
+
+.dateField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dateField input {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-control);
+  background: var(--dsl-g-surface);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  color-scheme: light;
+}
+
+body[data-ds-dark-theme] .dateField input { color-scheme: dark; }
+
+.dateField input:focus-visible {
+  outline: 2px solid var(--dsl-g-accent);
+  outline-offset: 2px;
+}
+
+.error {
+  color: var(--dsw-alias-state-error-primary, #b42318);
+  font-size: var(--dsl-g-font-meta);
+}

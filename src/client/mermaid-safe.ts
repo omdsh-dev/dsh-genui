@@ -45,7 +45,7 @@ export function assertSafeSvg(svg: string): void {
  * elsewhere on the line.
  *
  * Pipe-style edge labels (`-->|文本|`) are the opposite: an UNQUOTED pipe
- * label containing `[` or `]` breaks the parser ("Parse error", observed
+ * label containing `@`, `[` or `]` breaks the parser ("Parse error", observed
  * live with `-->|6. 用户交互 → [genui-action]|`) because the brackets are
  * node grammar. Quoting the label text is display-neutral (mermaid renders
  * `-->|"文本"|` without the quotes) and parses. These spans are masked too,
@@ -63,22 +63,60 @@ export function repairMermaidSource(code: string): string {
   const EDGE = /(--|==|-\.)(?!>)[ \t]*([^-\n]|-(?!--))*?[ \t]*(-->|==>|\.->)/g
   const spans: string[] = []
   const masked = cleaned.replace(EDGE, (span) => {
+    // Extra-length arrows are operator-only links, not free-text labels.
+    if (/^[-=.<>]+$/.test(span)) return span
     spans.push(span)
     return `\uE000${spans.length - 1}\uE001`
   })
-  // Pipe label spans whose text carries at least one bracket char. The
-  // bracket requirement keeps legitimate pipe characters inside node labels
-  // (e.g. `A[a | b | c]`) untouched. Already-quoted labels (any `"` in the
-  // text) are left alone. The placeholder must be bracket-free so the
-  // node-label quote pass below cannot match inside it.
-  const PIPE = /\|([^|\n]*[\[\]][^|\n]*)\|/g
+  // Only a link outside node shapes, quoted text and comments can introduce
+  // a pipe edge label. Mask every such label before the node-quoting pass,
+  // including already-quoted labels and labels containing parentheses.
+  const PIPE_LINK = /(?:<|[ox])?(?:-{2,}[>ox]?|={2,}[>ox]?|-\.+-[>ox]?)[ \t]*\|/y
   const pipeSpans: string[] = []
-  const maskedPipes = masked.replace(PIPE, (whole, text: string) => {
+  const closers: string[] = []
+  let inQuote = false
+  let copied = 0
+  let maskedPipes = ''
+  for (let i = 0; i < masked.length; i++) {
+    const ch = masked[i]!
+    if (inQuote) {
+      if (ch === '\\') i++
+      else if (ch === '"') inQuote = false
+      continue
+    }
+    if (ch === '"') { inQuote = true; continue }
+    if (ch === '%' && masked[i + 1] === '%') {
+      const end = masked.indexOf('\n', i)
+      if (end === -1) break
+      i = end
+      continue
+    }
+    if ('[({'.includes(ch)) { closers.push(ch === '[' ? ']' : ch === '(' ? ')' : '}'); continue }
+    if (ch === closers[closers.length - 1]) { closers.pop(); continue }
+    if (closers.length > 0 || !'<ox-='.includes(ch)) continue
+    // Do not retry suffixes of a long operator run when no pipe follows it.
+    if (i > 0 && '-=.'.includes(masked[i - 1]!)) continue
+    PIPE_LINK.lastIndex = i
+    const link = PIPE_LINK.exec(masked)
+    if (link === null) continue
+    const start = PIPE_LINK.lastIndex
+    let end = start
+    let labelQuote = false
+    for (; end < masked.length && masked[end] !== '\n'; end++) {
+      if (masked[end] === '\\' && labelQuote) { end++; continue }
+      if (masked[end] === '"') labelQuote = !labelQuote
+      if (masked[end] === '|' && !labelQuote) break
+    }
+    if (masked[end] !== '|') continue
+    const text = masked.slice(start, end)
     const trimmed = text.trim()
-    if (trimmed.includes('"')) return whole
-    pipeSpans.push(trimmed)
-    return `\uE002${pipeSpans.length - 1}\uE003`
-  })
+    const label = /[@\[\]]/.test(trimmed) && !trimmed.includes('"') ? `"${trimmed}"` : text
+    pipeSpans.push(`${link[0]}${label}|`)
+    maskedPipes += masked.slice(copied, i) + `\uE002${pipeSpans.length - 1}\uE003`
+    copied = end + 1
+    i = end
+  }
+  maskedPipes += masked.slice(copied)
   const quoted = maskedPipes.replace(
     /([\[\(])([^\[\]\(\)\{\}"'\n]*)([\]\)])/g,
     (whole, open: string, label: string, close: string) => {
@@ -90,12 +128,10 @@ export function repairMermaidSource(code: string): string {
       return whole
     },
   )
+  // PIPE spans can contain an earlier EDGE placeholder: restore inside-out.
   return quoted
+    .replace(/\uE002(\d+)\uE003/g, (whole, i: string) => pipeSpans[Number(i)] ?? whole)
     .replace(/\uE000(\d+)\uE001/g, (whole, i: string) => spans[Number(i)] ?? whole)
-    .replace(/\uE002(\d+)\uE003/g, (whole, i: string) => {
-      const text = pipeSpans[Number(i)]
-      return text === undefined ? whole : `|"${text}"|`
-    })
 }
 
 /** Flowchart edge arrows. The negative lookahead on `-->(?!>)` keeps

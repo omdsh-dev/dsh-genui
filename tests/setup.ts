@@ -35,23 +35,3 @@ if (typeof window.PointerEvent === 'undefined') {
   // @ts-expect-error test-only polyfill
   globalThis.PointerEvent = PointerEventPolyfill
 }
-
-// jsdom only exposes `localStorage` for a non-opaque origin, and on Node 26 + jsdom 25 it comes
-// back undefined even with `environmentOptions.jsdom.url` set — 218 tests then die on
-// `localStorage.clear()`, which reads as "the product is broken" on a clean checkout. Guarded like
-// the rAF and PointerEvent stubs above: the shape is the real Storage API, so a genuine storage bug
-// still shows up as a failing assertion rather than being papered over.
-if (typeof globalThis.localStorage === 'undefined') {
-  class MemoryStorage implements Storage {
-    private data = new Map<string, string>()
-    get length(): number { return this.data.size }
-    clear(): void { this.data.clear() }
-    getItem(key: string): string | null { return this.data.has(key) ? this.data.get(key)! : null }
-    key(index: number): string | null { return [...this.data.keys()][index] ?? null }
-    removeItem(key: string): void { this.data.delete(key) }
-    setItem(key: string, value: string): void { this.data.set(key, String(value)) }
-  }
-  const memory = new MemoryStorage()
-  Object.defineProperty(globalThis, 'localStorage', { value: memory, configurable: true })
-  Object.defineProperty(window, 'localStorage', { value: memory, configurable: true })
-}

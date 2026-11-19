@@ -1,0 +1,25 @@
+{
+  "id": "atlas-table",
+  "category": "atlas",
+  "note": "table：columns + rows 必填；types 按列指定渲染，数值列自动右对齐；这里只放三行，保持卡片高度。",
+  "zh": { "title": "table · 三行也能说清", "items": [
+    { "type": "table",
+      "columns": ["模块", "本周合入", "状态"],
+      "types": ["text", "num", "badge"],
+      "rows": [
+        ["渲染器 runtime", "12", "正常"],
+        ["组件词汇", "9", "正常"],
+        ["性能预算", "3", "风险"]
+      ] }
+  ] },
+  "en": { "title": "table · three rows are enough", "items": [
+    { "type": "table",
+      "columns": ["Module", "Merged", "Status"],
+      "types": ["text", "num", "badge"],
+      "rows": [
+        ["Runtime", "12", "Healthy"],
+        ["Vocabulary", "9", "Healthy"],
+        ["Perf budget", "3", "At risk"]
+      ] }
+  ] }
+}

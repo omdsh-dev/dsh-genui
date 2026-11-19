@@ -1,0 +1,21 @@
+{
+  "id": "atlas-checkbox",
+  "category": "atlas",
+  "note": "checkbox：逐项勾选；加 group 进入多选聚合，由兄弟 submit 一次性收集。",
+  "zh": { "title": "checkbox · 多选，加 group 才聚合", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "checkbox", "label": "包含图表", "checked": true },
+      { "type": "checkbox", "label": "包含表格" },
+      { "type": "checkbox", "label": "包含源码" }
+    ] },
+    { "type": "text", "size": "caption", "content": "勾选是本地状态；默认逐次记录，加 group 后才由 submit 汇总。" }
+  ] },
+  "en": { "title": "checkbox · multi-select, aggregated by group", "items": [
+    { "type": "row", "wrap": true, "items": [
+      { "type": "checkbox", "label": "Include charts", "checked": true },
+      { "type": "checkbox", "label": "Include tables" },
+      { "type": "checkbox", "label": "Include source" }
+    ] },
+    { "type": "text", "size": "caption", "content": "Ticking is local state; a submit only collects it when the boxes share a group." }
+  ] }
+}

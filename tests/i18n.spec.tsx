@@ -26,6 +26,8 @@ import { genuiTemplates, TEMPLATE_CATEGORIES } from '../src/client/templates.ts'
 import { defaultPanelSpec } from '../src/client/panel-command.ts'
 import { ACHIEVEMENTS, buildAchievementsSpec, emptyState } from '../src/client/achievements.ts'
 import { TemplateDrawer } from '../src/client/TemplateDrawer.tsx'
+import { GenuiSkeleton } from '../src/client/blocks/skeleton.tsx'
+import { PlotBlock } from '../src/client/PlotBlock.tsx'
 import { validateGenuiSpec } from '../src/client/guard.ts'
 
 afterEach(() => {
@@ -102,6 +104,22 @@ describe('locale resolution', () => {
     setLocale('zh')
     setLocale('fr')
     expect(getLocale()).toBe('zh')
+  })
+})
+
+describe('action prompt', () => {
+  // The relay prompt becomes a visible user message, so it must follow the
+  // interface language instead of always shipping Chinese.
+  it('is written in the active locale and keeps the wire marker', () => {
+    setLocale('en')
+    const english = t('action.inline', { action: 'ping', payload: '' })
+    expect(english).toMatch(/^\[genui-action\] ping\. /)
+    expect(english).not.toMatch(/[\u4e00-\u9fff]/)
+    expect(t('action.payload', { json: '{"a":1}' })).not.toMatch(/[\u4e00-\u9fff]/)
+
+    setLocale('zh')
+    expect(t('action.inline', { action: 'ping', payload: '' }))
+      .toMatch(/^\[genui-action\] ping。/)
   })
 })
 
@@ -200,5 +218,33 @@ describe('live components', () => {
 
     expect(screen.getByText('项目仪表盘')).toBeTruthy()
     expect(screen.queryByText('Project dashboard')).toBeNull()
+  })
+})
+
+describe('component chrome follows the active locale', () => {
+  it('the streaming skeleton label', () => {
+    setLocale('en')
+    render(<GenuiSkeleton shape="generic" title="Report" />)
+    expect(screen.getByRole('status').getAttribute('aria-label')).toBe('Generating interface: Report')
+    cleanup()
+    setLocale('zh')
+    render(<GenuiSkeleton shape="generic" title="Report" />)
+    expect(screen.getByRole('status').getAttribute('aria-label')).toBe('正在生成界面：Report')
+  })
+
+  it('the plot controls', () => {
+    const series = [{ name: 'a', expr: 'a*x', params: [{ name: 'a', min: 0, max: 2, step: 0.5, value: 1, animateTo: 2 }] }]
+    setLocale('en')
+    render(<PlotBlock series={series} />)
+    expect(screen.getByText('Parameters')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '▶ Play animation' })).toBeTruthy()
+  })
+
+  it('the plot controls in Chinese', () => {
+    const series = [{ name: 'a', expr: 'a*x', params: [{ name: 'a', min: 0, max: 2, step: 0.5, value: 1, animateTo: 2 }] }]
+    setLocale('zh')
+    render(<PlotBlock series={series} />)
+    expect(screen.getByText('参数调节')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '▶ 播放动画' })).toBeTruthy()
   })
 })

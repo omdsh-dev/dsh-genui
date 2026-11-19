@@ -1,22 +1,11 @@
 // @vitest-environment jsdom
-import { readFileSync } from 'node:fs'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { gt } from 'semver'
 import { CodeNode, DiffNode, JsonNode } from '../src/client/blocks/advanced.tsx'
 import type { GenuiCode, GenuiDiff, GenuiJson } from '../src/client/spec.ts'
 import { diffBlockLabels } from '../src/client/primitive-labels.ts'
 
 const originalClipboard = navigator.clipboard
-
-// 0.1.7+ 与 0.2.x 宿主的 DiffBlock 工具栏不再随容器 textContent 暴露（DOM 契约
-// 调整）。「rc.1 内联标签契约」只在最低宿主世代（≤0.1.2-rc.1，即本仓库锁定的
-// devDependencies）上断言；check:host-api 切换到更新的宿主时跳过。
-// 0.1.7+/0.2.x 专属契约待真实宿主浏览器验证后补充。
-const hostPrimitivesVersion = JSON.parse(
-  readFileSync('node_modules/@deepseek-ai/dsh-client-ui-primitives/package.json', 'utf8'),
-).version as string
-const isRc1ContractHost = !gt(hostPrimitivesVersion, '0.1.2-rc.1')
 
 afterEach(() => {
   cleanup()
@@ -28,7 +17,7 @@ describe('GenUI diff labels', () => {
     expect(diffBlockLabels()).toMatchObject({ codeLabel: '代码', wrapLabel: '自动换行', unwrapLabel: '取消自动换行' })
   })
 
-  it.skipIf(!isRc1ContractHost)('renders the rc.1 diff contract with localized copy labels', () => {
+  it('renders the current DiffBlock with localized labels', () => {
     const node: GenuiDiff = {
       type: 'diff',
       diffs: [{ path: 'a.txt', oldText: 'x', newText: 'y' }],
@@ -38,9 +27,8 @@ describe('GenUI diff labels', () => {
 
     const diff = document.querySelector('[data-diff]')
     expect(diff).not.toBeNull()
-    expect(diff?.textContent).toContain('复制')
-    expect(diff?.textContent).toContain('1 个文件')
-    expect(diff?.textContent).not.toContain('undefined')
+    expect(diff?.querySelector('button[aria-label="复制"]')).not.toBeNull()
+    expect(diff?.textContent).toContain('a.txt')
   })
 
   it('passes required copy labels to CodeBlock', () => {

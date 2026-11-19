@@ -1,0 +1,13 @@
+{
+  "id": "atlas-switch",
+  "category": "atlas",
+  "note": "switch：开关设置；不带 action 时纯本地，带 action 才回传。",
+  "zh": { "title": "switch · 一个开关，别写两个按钮", "items": [
+    { "type": "switch", "label": "自动保存草稿", "checked": true },
+    { "type": "switch", "label": "发布后通知", "checked": false }
+  ] },
+  "en": { "title": "switch · one toggle, not two buttons", "items": [
+    { "type": "switch", "label": "Autosave drafts", "checked": true },
+    { "type": "switch", "label": "Notify after release", "checked": false }
+  ] }
+}

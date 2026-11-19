@@ -1,0 +1,21 @@
+{
+  "id": "atlas-blocks",
+  "category": "atlas",
+  "note": "blocks：阶梯图（每行格子数不同，各行自己等分）；caption 必须说明每格代表什么。",
+  "zh": { "title": "blocks · 阶梯：8 → 4 → 2 → 1", "items": [
+    { "type": "blocks", "title": "每轮减半", "rows": [
+      { "label": "初始", "cells": ["0", "1", "2", "3", "4", "5", "6", "7"], "color": "#5b6b7f" },
+      { "label": "轮 1", "cells": ["01", "23", "45", "67"], "color": "#4a7fb5" },
+      { "label": "轮 2", "cells": ["0123", "4567"], "color": "#35688f" },
+      { "label": "轮 3", "cells": ["01234567"], "color": "#1f6f7a" }
+    ], "caption": "每格是一组已完成的交换；四轮之后只剩全序。" }
+  ] },
+  "en": { "title": "blocks · ladder: 8 → 4 → 2 → 1", "items": [
+    { "type": "blocks", "title": "Halve each round", "rows": [
+      { "label": "Start", "cells": ["0", "1", "2", "3", "4", "5", "6", "7"], "color": "#5b6b7f" },
+      { "label": "Round 1", "cells": ["01", "23", "45", "67"], "color": "#4a7fb5" },
+      { "label": "Round 2", "cells": ["0123", "4567"], "color": "#35688f" },
+      { "label": "Round 3", "cells": ["01234567"], "color": "#1f6f7a" }
+    ], "caption": "Each cell is one completed swap group; four rounds leave a full ordering." }
+  ] }
+}

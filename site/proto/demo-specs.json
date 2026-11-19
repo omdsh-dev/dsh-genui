@@ -1,0 +1,261 @@
+[
+  {
+    "id": "demo-table",
+    "category": "proof",
+    "note": "Harness proof: sortable/filterable table with badge + bar + details — no engine bundle needed.",
+    "zh": {
+      "title": "交付指标 · 近 8 周（示例数据）",
+      "gap": 12,
+      "items": [
+        {
+          "type": "row",
+          "wrap": true,
+          "items": [
+            { "type": "badge", "label": "示例数据", "tone": "accent" },
+            { "type": "badge", "label": "点击表头排序", "tone": "success" },
+            { "type": "badge", "label": "本地筛选" }
+          ]
+        },
+        { "type": "input", "label": "筛选服务", "placeholder": "输入关键字即时过滤下表", "id": "demo-table-filter" },
+        {
+          "type": "table",
+          "columns": ["服务", "P95 (ms)", "可用率", "负载", "状态"],
+          "types": ["text", "num", "num", "bar", "badge"],
+          "filter": "demo-table-filter",
+          "rows": [
+            ["API 网关", 128, "99.96", 62, "正常"],
+            ["搜索", 190, "99.82", 78, "关注"],
+            ["推荐", 250, "99.41", 91, "偏高"]
+          ],
+          "details": [
+            [{ "type": "keyvalue", "pairs": [{ "key": "负责人", "value": "平台组" }, { "key": "SLO", "value": "P95 < 150ms" }] }],
+            null,
+            [{ "type": "text", "size": "caption", "content": "展开行可以放任意白名单组件" }]
+          ]
+        },
+        { "type": "text", "size": "caption", "content": "排序、筛选、展开全部在浏览器内完成；没有网络请求，也没有模型回合。" }
+      ]
+    },
+    "en": {
+      "title": "Delivery metrics · last 8 weeks (sample data)",
+      "gap": 12,
+      "items": [
+        {
+          "type": "row",
+          "wrap": true,
+          "items": [
+            { "type": "badge", "label": "Sample data", "tone": "accent" },
+            { "type": "badge", "label": "Click a header to sort", "tone": "success" },
+            { "type": "badge", "label": "Local filter" }
+          ]
+        },
+        { "type": "input", "label": "Filter services", "placeholder": "Type to filter the table instantly", "id": "demo-table-filter" },
+        {
+          "type": "table",
+          "columns": ["Service", "P95 (ms)", "Uptime", "Load", "Status"],
+          "types": ["text", "num", "num", "bar", "badge"],
+          "filter": "demo-table-filter",
+          "rows": [
+            ["API gateway", 128, "99.96", 62, "OK"],
+            ["Search", 190, "99.82", 78, "Watch"],
+            ["Recs", 250, "99.41", 91, "High"]
+          ],
+          "details": [
+            [{ "type": "keyvalue", "pairs": [{ "key": "Owner", "value": "Platform" }, { "key": "SLO", "value": "P95 < 150ms" }] }],
+            null,
+            [{ "type": "text", "size": "caption", "content": "An expanded row can hold any whitelisted component" }]
+          ]
+        },
+        { "type": "text", "size": "caption", "content": "Sorting, filtering and expanding all happen client-side — no network request, no model turn." }
+      ]
+    }
+  },
+  {
+    "id": "demo-chart",
+    "category": "proof",
+    "note": "Harness proof: native chart node (no engine) — stats + line + donut + bars.",
+    "zh": {
+      "title": "回答质量 · 本周（示例数据）",
+      "gap": 12,
+      "items": [
+        {
+          "type": "grid",
+          "cols": 3,
+          "items": [
+            { "type": "card", "eyebrow": "采纳", "title": "界面采纳率", "items": [{ "type": "stat", "label": "本周", "value": "68%", "delta": "+6.2%" }] },
+            { "type": "card", "eyebrow": "渲染", "title": "平均耗时", "items": [{ "type": "stat", "label": "P50", "value": "42ms", "delta": "-8ms" }] },
+            { "type": "card", "eyebrow": "覆盖", "title": "节点白名单", "items": [{ "type": "stat", "label": "类型", "value": "60" }] }
+          ]
+        },
+        {
+          "type": "card",
+          "title": "每日渲染次数",
+          "items": [
+            {
+              "type": "chart",
+              "kind": "line",
+              "series": [
+                { "label": "本周", "data": [{ "label": "一", "value": 120 }, { "label": "二", "value": 168 }, { "label": "三", "value": 142 }, { "label": "四", "value": 196 }, { "label": "五", "value": 214 }] },
+                { "label": "上周", "data": [{ "label": "一", "value": 96 }, { "label": "二", "value": 132 }, { "label": "三", "value": 118 }, { "label": "四", "value": 150 }, { "label": "五", "value": 171 }] }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cols": 2,
+          "items": [
+            { "type": "card", "title": "回答表面分布", "items": [{ "type": "chart", "kind": "donut", "data": [{ "label": "文字", "value": 34 }, { "label": "表格", "value": 28 }, { "label": "图表", "value": 22 }, { "label": "交互", "value": 16 }] }] },
+            { "type": "card", "title": "节点类型 Top 5", "items": [{ "type": "chart", "kind": "bars", "data": [{ "label": "text", "value": 420 }, { "label": "card", "value": 260 }, { "label": "table", "value": 180 }, { "label": "chart", "value": 120 }, { "label": "quiz", "value": 64 }] }] }
+          ]
+        }
+      ]
+    },
+    "en": {
+      "title": "Answer quality · this week (sample data)",
+      "gap": 12,
+      "items": [
+        {
+          "type": "grid",
+          "cols": 3,
+          "items": [
+            { "type": "card", "eyebrow": "Adoption", "title": "UI adoption", "items": [{ "type": "stat", "label": "This week", "value": "68%", "delta": "+6.2%" }] },
+            { "type": "card", "eyebrow": "Render", "title": "Mean time", "items": [{ "type": "stat", "label": "P50", "value": "42ms", "delta": "-8ms" }] },
+            { "type": "card", "eyebrow": "Coverage", "title": "Node whitelist", "items": [{ "type": "stat", "label": "Types", "value": "60" }] }
+          ]
+        },
+        {
+          "type": "card",
+          "title": "Renders per day",
+          "items": [
+            {
+              "type": "chart",
+              "kind": "line",
+              "series": [
+                { "label": "This week", "data": [{ "label": "Mon", "value": 120 }, { "label": "Tue", "value": 168 }, { "label": "Wed", "value": 142 }, { "label": "Thu", "value": 196 }, { "label": "Fri", "value": 214 }] },
+                { "label": "Last week", "data": [{ "label": "Mon", "value": 96 }, { "label": "Tue", "value": 132 }, { "label": "Wed", "value": 118 }, { "label": "Thu", "value": 150 }, { "label": "Fri", "value": 171 }] }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cols": 2,
+          "items": [
+            { "type": "card", "title": "Answer surfaces", "items": [{ "type": "chart", "kind": "donut", "data": [{ "label": "Prose", "value": 34 }, { "label": "Table", "value": 28 }, { "label": "Chart", "value": 22 }, { "label": "Interactive", "value": 16 }] }] },
+            { "type": "card", "title": "Top 5 node types", "items": [{ "type": "chart", "kind": "bars", "data": [{ "label": "text", "value": 420 }, { "label": "card", "value": 260 }, { "label": "table", "value": 180 }, { "label": "chart", "value": 120 }, { "label": "quiz", "value": 64 }] }] }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "demo-quiz",
+    "category": "proof",
+    "note": "Harness proof: quiz grades locally (correct/feedback/explanation) — no engine, no model turn.",
+    "zh": {
+      "title": "dsh-ui 小测",
+      "gap": 12,
+      "items": [
+        {
+          "type": "quiz",
+          "question": "一段 dsh-ui 围栏渲染出来的界面，由谁绘制？",
+          "id": "demo-quiz-1",
+          "options": [
+            { "label": "浏览器里手写的 HTML 模板" },
+            { "label": "dsh-genui 的白名单渲染器", "correct": true, "feedback": "对：围栏 JSON 被映射成白名单组件。" },
+            { "label": "模型生成的一张截图" }
+          ],
+          "explanation": "渲染器把每个节点映射为 DOM。作答在本地判分，不会触发模型回合。"
+        },
+        { "type": "text", "size": "caption", "content": "作答、判分与解释全部在本地完成。" }
+      ]
+    },
+    "en": {
+      "title": "dsh-ui quiz",
+      "gap": 12,
+      "items": [
+        {
+          "type": "quiz",
+          "question": "Who paints an interface rendered from a dsh-ui fence?",
+          "id": "demo-quiz-1",
+          "options": [
+            { "label": "Hand-written HTML templates in the browser" },
+            { "label": "The dsh-genui whitelist renderer", "correct": true, "feedback": "Right: the fence JSON is mapped onto whitelisted components." },
+            { "label": "A screenshot generated by the model" }
+          ],
+          "explanation": "The renderer maps every node to DOM. Grading happens locally and never triggers a model turn."
+        },
+        { "type": "text", "size": "caption", "content": "Answers, grading and explanations all happen client-side." }
+      ]
+    }
+  },
+  {
+    "id": "demo-mermaid",
+    "category": "proof",
+    "note": "Harness proof: heavy engine node, ~3.4 MB mermaid bundle, deferred until the user asks to mount it.",
+    "zh": {
+      "title": "一条回答的处理链路（mermaid）",
+      "gap": 12,
+      "items": [
+        { "type": "text", "size": "caption", "content": "mermaid 节点会按需加载独立引擎；这才是渲染器真正下载的负担。" },
+        {
+          "type": "mermaid",
+          "code": "graph LR\n  A[模型回复] --> B[dsh-ui 围栏]\n  B --> C[guard 校验]\n  C --> D[白名单组件]\n  D --> E[可交互界面]"
+        }
+      ]
+    },
+    "en": {
+      "title": "How one reply becomes an interface (mermaid)",
+      "gap": 12,
+      "items": [
+        { "type": "text", "size": "caption", "content": "A mermaid node pulls its own engine bundle on demand — the renderer's real download cost." },
+        {
+          "type": "mermaid",
+          "code": "graph LR\n  A[Model reply] --> B[dsh-ui fence]\n  B --> C[guard validation]\n  C --> D[Whitelisted components]\n  D --> E[Interactive interface]"
+        }
+      ]
+    }
+  },
+  {
+    "id": "demo-echart",
+    "category": "proof",
+    "note": "Harness proof: echart preset node loads the echarts-core engine (~0.6 MB) — deferred until mounted.",
+    "zh": {
+      "title": "echart · preset: bars",
+      "gap": 12,
+      "items": [
+        { "type": "text", "size": "caption", "content": "带 preset 的 echart 节点只需 echarts-core 引擎；option 直通才需要完整引擎。" },
+        {
+          "type": "echart",
+          "preset": "bar",
+          "height": 220,
+          "data": [
+            { "label": "文字", "value": 420 },
+            { "label": "表格", "value": 260 },
+            { "label": "图表", "value": 180 },
+            { "label": "交互", "value": 120 }
+          ]
+        }
+      ]
+    },
+    "en": {
+      "title": "echart · preset: bars",
+      "gap": 12,
+      "items": [
+        { "type": "text", "size": "caption", "content": "A preset echart node only needs the echarts-core engine; a raw option needs the full engine." },
+        {
+          "type": "echart",
+          "preset": "bar",
+          "height": 220,
+          "data": [
+            { "label": "Prose", "value": 420 },
+            { "label": "Table", "value": 260 },
+            { "label": "Chart", "value": 180 },
+            { "label": "Interactive", "value": 120 }
+          ]
+        }
+      ]
+    }
+  }
+]

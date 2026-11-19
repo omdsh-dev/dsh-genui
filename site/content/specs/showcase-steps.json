@@ -1,0 +1,81 @@
+{
+  "id": "showcase-steps",
+  "category": "showcase",
+  "note": "重引擎：mermaid（按需加载 mermaid.js）。mermaid 画五组词汇的归属，steps 画首屏渲染的四个阶段——两张图回答不同问题，不重复表达。",
+  "zh": {
+    "title": "六十种节点，四步渲染",
+    "gap": 14,
+    "items": [
+      {
+        "type": "mermaid",
+        "code": "graph TD\n    R[dsh-ui 围栏] --> L[布局]\n    R --> D[展示]\n    R --> C[图表]\n    R --> I[交互]\n    R --> A[高级]"
+      },
+      {
+        "type": "steps",
+        "current": 4,
+        "steps": [
+          {
+            "title": "识别",
+            "desc": "正文里认出 dsh-ui 围栏，不猜其他语言标记"
+          },
+          {
+            "title": "解析",
+            "desc": "JSON 解析；只做标点级容错"
+          },
+          {
+            "title": "归一化",
+            "desc": "别名转规范字段，未知字段只告警不丢整块"
+          },
+          {
+            "title": "挂载",
+            "desc": "节点逐个映射成 DOM，动作留在本地"
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "两组数字都对得上",
+        "content": "mermaid 里的五组相加正好 60：布局 10、展示 22、图表 3、交互 18、高级 7（choices 与 map 分别计入交互与高级）。"
+      }
+    ]
+  },
+  "en": {
+    "title": "Sixty node types, four render stages",
+    "gap": 14,
+    "items": [
+      {
+        "type": "mermaid",
+        "code": "graph TD\n    R[dsh-ui fence] --> L[Layout]\n    R --> D[Display]\n    R --> C[Charts]\n    R --> I[UI]\n    R --> A[Advanced]"
+      },
+      {
+        "type": "steps",
+        "current": 4,
+        "steps": [
+          {
+            "title": "Recognize",
+            "desc": "Find the dsh-ui fence in the reply; no other language tag is guessed"
+          },
+          {
+            "title": "Parse",
+            "desc": "Parse the JSON; only punctuation-level repair"
+          },
+          {
+            "title": "Normalize",
+            "desc": "Aliases become canonical fields; unknown fields warn but never drop the block"
+          },
+          {
+            "title": "Mount",
+            "desc": "Each node maps to the DOM; interaction state stays local"
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "The two sets of numbers agree",
+        "content": "The five groups in the diagram add up to exactly 60: layout 10, display 22, charts 3, interactive 18, advanced 7 (choices counts as interactive, map as advanced)."
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "atlas-timeline",
+  "category": "atlas",
+  "note": "timeline：有先后顺序的叙事；三步以内用正文讲清，纯日志列举不必套卡。",
+  "zh": { "title": "timeline · 有先后的一段过程", "items": [
+    { "type": "timeline", "items": [
+      { "title": "发现", "desc": "宽度计算把行间距也算进百分比", "time": "10-14" },
+      { "title": "修复", "desc": "百分比列宽为行间距留出空间", "time": "10-16" },
+      { "title": "验证", "desc": "50/50、40/60 两种布局不再横向溢出", "time": "10-17" }
+    ] }
+  ] },
+  "en": { "title": "timeline · a process in order", "items": [
+    { "type": "timeline", "items": [
+      { "title": "Found", "desc": "Percentage widths counted the row gap as content", "time": "Oct 14" },
+      { "title": "Fixed", "desc": "Percentage columns reserve space for the gap", "time": "Oct 16" },
+      { "title": "Verified", "desc": "50/50 and 40/60 layouts no longer overflow", "time": "Oct 17" }
+    ] }
+  ] }
+}

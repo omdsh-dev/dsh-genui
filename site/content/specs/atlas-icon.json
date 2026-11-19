@@ -1,0 +1,25 @@
+{
+  "id": "atlas-icon",
+  "category": "atlas",
+  "note": "icon：内置图标集，64 个随包内联、其余按需载入。这里只用内联名，避免拉取 1MB 图标表。",
+  "zh": { "title": "icon · 淡色方底 + 行内两种形态", "items": [
+    { "type": "row", "items": [
+      { "type": "icon", "name": "Function", "tone": "info", "tile": true },
+      { "type": "icon", "name": "Nodes", "tone": "success", "tile": true },
+      { "type": "icon", "name": "Warning", "tone": "warning", "tile": true },
+      { "type": "icon", "name": "CheckCircle", "tone": "success", "size": 24 },
+      { "type": "icon", "name": "Clock", "tone": "muted" }
+    ] },
+    { "type": "text", "size": "caption", "content": "成对出现时只给一个图标加 label；纯装饰的可省。" }
+  ] },
+  "en": { "title": "icon · tinted tile and inline", "items": [
+    { "type": "row", "items": [
+      { "type": "icon", "name": "Function", "tone": "info", "tile": true },
+      { "type": "icon", "name": "Nodes", "tone": "success", "tile": true },
+      { "type": "icon", "name": "Warning", "tone": "warning", "tile": true },
+      { "type": "icon", "name": "CheckCircle", "tone": "success", "size": 24 },
+      { "type": "icon", "name": "Clock", "tone": "muted" }
+    ] },
+    { "type": "text", "size": "caption", "content": "When icons pair up, label only one; purely decorative ones can omit it." }
+  ] }
+}

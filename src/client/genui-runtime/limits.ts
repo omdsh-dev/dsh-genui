@@ -8,12 +8,18 @@ export const GENUI_LIMITS = {
   maxString: 2000,
   /** Maximum length of a `code` body. */
   maxCode: 12_000,
+  /** Copy preview only; clipboard text keeps the existing maxCode limit. */
+  maxCopyPreview: 2000,
+  maxCopyPreviewLines: 30,
   /** Maximum length of a mermaid source. */
   maxMermaid: 8000,
   /** Maximum `grid` columns. */
   maxGridCols: 12,
   /** Maximum `tabs` count. */
   maxTabs: 12,
+  /** Bounded gallery/slide counts; carousel children also consume maxNodes. */
+  maxCarouselItems: 24,
+  maxImageGroupItems: 24,
   /** Maximum `accordion` items. */
   maxAccordionItems: 24,
   /** Maximum `list` items. */
@@ -28,8 +34,17 @@ export const GENUI_LIMITS = {
   /** Maximum `plot` series and per-series parameters. */
   maxPlotSeries: 8,
   maxPlotParams: 6,
+  /** Maximum computed fields evaluated for one GenUI specification. */
+  maxComputedFields: 50,
   /** Maximum `scene3d` meshes. */
   maxMeshes: 5,
+  maxMapLocations: 50,
+  maxMapRoutes: 8,
+  maxMapRoutePoints: 500,
+  /** Maximum editable text length and entity-card record counts. */
+  maxEditorChars: 12_000,
+  maxEntityMetadata: 24,
+  maxEntityActions: 8,
   /** Maximum `quiz` options. */
   maxQuizOptions: 8,
   /** Maximum `steps` / `timeline` / `breadcrumb` / `keyvalue` entries. */
@@ -39,6 +54,10 @@ export const GENUI_LIMITS = {
   maxKeyValuePairs: 24,
   /** Maximum `file-tree` nesting. */
   maxTreeDepth: 6,
+  /** Maximum `blocks` figure rows / cells per row. Cells are data, not nodes,
+   *  so a wide figure still costs one node against `maxNodes`. */
+  maxBlocksRows: 14,
+  maxBlocksCells: 16,
   /** Maximum `diagram` nodes / edges / zones / focal accents. */
   maxDiagramNodes: 9,
   maxDiagramEdges: 12,
@@ -51,4 +70,8 @@ export const GENUI_LIMITS = {
   maxEChartArrayLen: 500,
   /** Maximum entries traversed while sanitizing an `echart` option. */
   maxEChartOptionNodes: 2000,
+  /** Maximum nesting depth of a `json` node value. Deeper payloads cannot be
+   *  serialized by the block fingerprints (`JSON.stringify`) or drawn by the
+   *  JSON tree without overflowing the stack. */
+  maxJsonDepth: 32,
 } as const

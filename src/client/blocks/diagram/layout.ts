@@ -15,8 +15,8 @@
  * React, no DOM, fully unit-testable.
  * @module @changfenhuang/dsh-genui/client/blocks/diagram/layout
  */
-import type { GenuiDiagram, GenuiDiagramEdge, GenuiDiagramKind, GenuiDiagramNode } from '../../spec.ts'
-import { Box } from './geometry.ts'
+import type { GenuiDiagram, GenuiDiagramEdge, GenuiDiagramKind, GenuiDiagramNode, GenuiDiagramZone } from '../../spec.ts'
+import { edgeLabelMetrics, labelGeometry, routeEdge, type Box } from './geometry.ts'
 
 export interface LayoutNode {
   node: GenuiDiagramNode
@@ -28,6 +28,8 @@ export interface LayoutEdge {
   /** Resolved box references for routing. */
   fromId: string
   toId: string
+  /** Horizontal center of a label slot when row layout allocates a widened gap. */
+  labelCx?: number | undefined
 }
 
 export interface DiagramLayout {
@@ -72,12 +74,161 @@ function columnLayout(nodes: GenuiDiagramNode[]): LayoutNode[] {
   }))
 }
 
-/** Simple left-right flow layout: nodes in a row. */
-function rowLayout(nodes: GenuiDiagramNode[]): LayoutNode[] {
-  return nodes.map((node, i) => ({
-    node,
-    box: { x: MARGIN + i * (NODE_W + GAP), y: MARGIN, w: NODE_W, h: NODE_H },
-  }))
+const EDGE_LABEL_CLEARANCE = 12
+const EDGE_LABEL_SLOT_GAP = 8
+const LAYOUT_GRID = 4
+
+interface RowLayoutResult {
+  placed: LayoutNode[]
+  labelCenters: Map<number, number>
+}
+
+interface EdgeLabelSlot {
+  edgeIndex: number
+  boxWidth: number
+}
+
+function roundUpToGrid(value: number): number {
+  return Math.ceil(value / LAYOUT_GRID) * LAYOUT_GRID
+}
+
+function placeRowNodes(nodes: GenuiDiagramNode[], gaps: number[]): LayoutNode[] {
+  let x = MARGIN
+  return nodes.map((node, i) => {
+    const placed = { node, box: { x, y: MARGIN, w: NODE_W, h: NODE_H } }
+    x += NODE_W + (gaps[i] ?? 0)
+    return placed
+  })
+}
+
+function zoneMembership(placed: LayoutNode[], zones: readonly GenuiDiagramZone[]): number[][] {
+  return placed.map(({ box }) => {
+    const cx = box.x + box.w / 2
+    const cy = box.y + box.h / 2
+    return zones.flatMap((zone, index) => {
+      const x = zone.x ?? 0
+      const y = zone.y ?? 0
+      const w = zone.w ?? 100
+      const h = zone.h ?? 100
+      return cx >= x && cx <= x + w && cy >= y && cy <= y + h ? [index] : []
+    })
+  })
+}
+
+function sameZoneMembership(before: number[][], after: number[][]): boolean {
+  return before.length === after.length && before.every((membership, index) => {
+    const candidate = after[index] ?? []
+    return membership.length === candidate.length && membership.every((zone, i) => zone === candidate[i])
+  })
+}
+
+function boxesOverlap(a: Box, b: Box): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+}
+
+/** Match the opaque title plate painted by renderZone in index.tsx. */
+function zoneTitleBox(zone: GenuiDiagramZone): Box {
+  const width = zone.label.length * 7 + 12
+  const x = zone.x ?? 0
+  const y = zone.y ?? 0
+  const w = zone.w ?? 100
+  return { x: x + w / 2 - width / 2, y: y + 4, w: width, h: 12 }
+}
+
+function isValidRowLayout(
+  candidate: LayoutNode[],
+  baseline: LayoutNode[],
+  edges: GenuiDiagramEdge[],
+  labelCenters: Map<number, number>,
+  zones: readonly GenuiDiagramZone[],
+): boolean {
+  if (!sameZoneMembership(zoneMembership(baseline, zones), zoneMembership(candidate, zones))) return false
+
+  const byId = new Map(candidate.map(item => [item.node.id, item.box]))
+  const labels: Array<{ box: Box; managed: boolean }> = []
+
+  for (const [edgeIndex, edge] of edges.entries()) {
+    if (edge.label === undefined) continue
+    const from = byId.get(edge.from)
+    const to = byId.get(edge.to)
+    if (from === undefined || to === undefined) continue
+
+    const routed = routeEdge(from, to)
+    const geometry = labelGeometry(routed.a, routed.b)
+    const metrics = edgeLabelMetrics(edge.label)
+    const managed = labelCenters.has(edgeIndex)
+    const cx = labelCenters.get(edgeIndex) ?? geometry.cx
+    const box = { x: cx - metrics.boxWidth / 2, y: geometry.maskY, w: metrics.boxWidth, h: 12 }
+
+    if (managed) {
+      if (candidate.some(item => boxesOverlap(box, item.box))) return false
+      if (zones.some(zone => boxesOverlap(box, zoneTitleBox(zone)))) return false
+    }
+    labels.push({ box, managed })
+  }
+
+  for (let i = 0; i < labels.length; i++) {
+    for (let j = i + 1; j < labels.length; j++) {
+      const a = labels[i]!
+      const b = labels[j]!
+      if ((a.managed || b.managed) && boxesOverlap(a.box, b.box)) return false
+    }
+  }
+  return true
+}
+
+/**
+ * Horizontal rule layouts widen only the node gaps that need room for their
+ * adjacent edge labels. Every label in one gap gets its own centered slot.
+ */
+function rowLayout(
+  nodes: GenuiDiagramNode[],
+  edges: GenuiDiagramEdge[],
+  zones: readonly GenuiDiagramZone[],
+): RowLayoutResult {
+  const baseGaps = Array.from({ length: Math.max(0, nodes.length - 1) }, () => GAP)
+  const baseline = placeRowNodes(nodes, baseGaps)
+  const nodeIndex = new Map(nodes.map((node, index) => [node.id, index]))
+  const groups = new Map<number, EdgeLabelSlot[]>()
+
+  for (const [edgeIndex, edge] of edges.entries()) {
+    if (edge.label === undefined) continue
+    const from = nodeIndex.get(edge.from)
+    const to = nodeIndex.get(edge.to)
+    if (from === undefined || to === undefined || Math.abs(from - to) !== 1) continue
+    const boundary = Math.min(from, to)
+    const group = groups.get(boundary) ?? []
+    group.push({ edgeIndex, boxWidth: edgeLabelMetrics(edge.label).boxWidth })
+    groups.set(boundary, group)
+  }
+
+  if (groups.size === 0) return { placed: baseline, labelCenters: new Map() }
+
+  const gaps = [...baseGaps]
+  for (const [boundary, group] of groups) {
+    const labelsWidth = group.reduce((sum, label) => sum + label.boxWidth, 0)
+      + Math.max(0, group.length - 1) * EDGE_LABEL_SLOT_GAP
+    gaps[boundary] = Math.max(GAP, roundUpToGrid(labelsWidth + EDGE_LABEL_CLEARANCE))
+  }
+
+  const candidate = placeRowNodes(nodes, gaps)
+  const labelCenters = new Map<number, number>()
+  for (const [boundary, group] of groups) {
+    const left = candidate[boundary]!.box.x + candidate[boundary]!.box.w
+    const gap = gaps[boundary] ?? GAP
+    const labelsWidth = group.reduce((sum, label) => sum + label.boxWidth, 0)
+      + Math.max(0, group.length - 1) * EDGE_LABEL_SLOT_GAP
+    let cursor = left + (gap - labelsWidth) / 2
+    for (const label of group) {
+      labelCenters.set(label.edgeIndex, cursor + label.boxWidth / 2)
+      cursor += label.boxWidth + EDGE_LABEL_SLOT_GAP
+    }
+  }
+
+  if (!isValidRowLayout(candidate, baseline, edges, labelCenters, zones)) {
+    return { placed: baseline, labelCenters: new Map() }
+  }
+  return { placed: candidate, labelCenters }
 }
 
 /** Layered horizontal layout (layers, pyramid, gantt phases): stacked rows. */
@@ -160,6 +311,7 @@ export function resolveLayout(
   const edges = diagram.edges ?? []
 
   let placed: LayoutNode[]
+  let edgeLabelCenters = new Map<number, number>()
   if (isCoord(diagram.kind)) {
     placed = nodes.map((node, i) => ({
       node,
@@ -178,7 +330,9 @@ export function resolveLayout(
     // Directed flows read top-down.
     placed = columnLayout(nodes)
   } else if (diagram.kind === 'timeline' || diagram.kind === 'line' || diagram.kind === 'scatter' || diagram.kind === 'bar') {
-    placed = rowLayout(nodes)
+    const row = rowLayout(nodes, edges, diagram.zones ?? [])
+    placed = row.placed
+    edgeLabelCenters = row.labelCenters
   } else {
     placed = nodes.map((node, i) => ({ node, box: defaultBox(i, 3) }))
   }
@@ -196,7 +350,12 @@ export function resolveLayout(
   // scales to the container width, so the empty band was amplified on screen.
   height = Math.max(96, Math.ceil((height + MARGIN) / 4) * 4)
 
-  const edgesOut: LayoutEdge[] = edges.map(e => ({ edge: e, fromId: e.from, toId: e.to }))
+  const edgesOut: LayoutEdge[] = edges.map((edge, index) => {
+    const labelCx = edgeLabelCenters.get(index)
+    return labelCx === undefined
+      ? { edge, fromId: edge.from, toId: edge.to }
+      : { edge, fromId: edge.from, toId: edge.to, labelCx }
+  })
 
   return { nodes: placed, edges: edgesOut, width, height }
 }

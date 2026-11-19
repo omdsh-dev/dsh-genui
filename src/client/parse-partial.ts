@@ -8,9 +8,11 @@
  * 1. Full parse first (the common settled case) — at most one.
  * 2. ONE left-to-right scan collects the repair candidates: every position
  *    where the prefix is bracket-balanced (trailing comma / fence tail) and
- *    every top-level `items[]` component close (an unfinished trailing
- *    component is dropped by closing the root array/object). Partial candidates
- *    must parse as a spec root; bare components wait for their own root close.
+ *    every value close inside the still-open root, with the closing brackets
+ *    that would end the open scopes there. The latter is what makes a finished
+ *    CHILD appear before its container closes. Partial candidates must parse as
+ *    a spec root (an invalid close is simply skipped); bare components wait for
+ *    their own root close.
  *    The ring buffer keeps only the longest-direction candidates (≤ MAX_PARTIAL_REPAIR_ATTEMPTS),
  *    so the work is O(n) with a hard parse-attempt cap — a pathological
  *    input can never re-scan prefixes or burn seconds in JSON.parse.
@@ -93,11 +95,21 @@ export function collectPartialCandidates(raw: string): { candidates: PartialCand
         // balanced prefixes recorded earlier stay valid. Stop scanning.
         break
       }
-      if (ch === '}' && stack.length === 2 && stack[0] === '{' && stack[1] === '[') {
-        // Only a direct root-array member can be a finished component.
-        // Partial parsing later requires an actual spec root, so a bare
-        // component's data[] member cannot become a candidate.
-        push({ end: scanned + 1, closingSuffix: ']}' })
+      // A value just closed. If the root object is still open, the prefix can
+      // become a spec by closing whatever scopes remain — this is what lets a
+      // finished CHILD appear before its container closes (a row/col/card whose
+      // `items` are still growing, or the rows of a table). Deeper closes are
+      // candidates too; the attempts budget and the parse check discard the
+      // ones that would produce an invalid node.
+      // A nested close is only a candidate when the value that just closed is a
+      // member of an ARRAY (`items`, `rows`…): that is a finished child of a
+      // container, or a finished table row. A close whose parent is an object
+      // (`option`, `xAxis`…) is mid-node and would render a half-configured
+      // component — those keep waiting for the node to close.
+      if (stack.length > 0 && stack[stack.length - 1] === '[') {
+        let closing = ''
+        for (let i = stack.length - 1; i >= 0; i--) closing += stack[i] === '[' ? ']' : '}'
+        push({ end: scanned + 1, closingSuffix: closing })
       }
       if (stack.length === 0) {
         // Whole prefix balanced: a complete-JSON candidate (trailing comma /

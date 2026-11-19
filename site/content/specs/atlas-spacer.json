@@ -1,0 +1,15 @@
+{
+  "id": "atlas-spacer",
+  "category": "atlas",
+  "note": "spacer：纯留白节点，用来在块之间拉开呼吸；不要拿空文本冒充。",
+  "zh": { "title": "spacer · 用留白分组", "items": [
+    { "type": "text", "size": "body", "content": "第一组内容。" },
+    { "type": "spacer" },
+    { "type": "text", "size": "body", "content": "留白之后的第二组内容。" }
+  ] },
+  "en": { "title": "spacer · group with whitespace", "items": [
+    { "type": "text", "size": "body", "content": "The first group." },
+    { "type": "spacer" },
+    { "type": "text", "size": "body", "content": "The second group, after the gap." }
+  ] }
+}

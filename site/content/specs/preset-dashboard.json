@@ -1,0 +1,393 @@
+{
+  "id": "preset-dashboard",
+  "category": "playground",
+  "note": "看板预设：指标行 + bento(span:2 折线 / 环形进度) + 可过滤可排序的表格。按钮 action 在站内只做本地反馈（标注为本地演示），不假设宿主模型回合。示例数据。",
+  "zh": {
+    "title": "迭代看板",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "示例数据。这张看板里的每个操作都在本地完成：排序、过滤、展开、切换，零模型往返。"
+      },
+      {
+        "type": "grid",
+        "cols": 4,
+        "items": [
+          {
+            "type": "stat",
+            "label": "本周合入",
+            "value": "40",
+            "delta": "+8.1%"
+          },
+          {
+            "type": "stat",
+            "label": "进行中",
+            "value": "6"
+          },
+          {
+            "type": "stat",
+            "label": "阻塞",
+            "value": "1",
+            "delta": "-2"
+          },
+          {
+            "type": "stat",
+            "label": "距发布",
+            "value": "5 天"
+          }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          {
+            "type": "card",
+            "span": 2,
+            "eyebrow": "节奏",
+            "title": "每日合入",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "line",
+                "data": [
+                  {
+                    "label": "周一",
+                    "value": 6
+                  },
+                  {
+                    "label": "周二",
+                    "value": 9
+                  },
+                  {
+                    "label": "周三",
+                    "value": 7
+                  },
+                  {
+                    "label": "周四",
+                    "value": 11
+                  },
+                  {
+                    "label": "周五",
+                    "value": 7
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "title": "发布准备",
+            "items": [
+              {
+                "type": "progress",
+                "variant": "ring",
+                "value": 78,
+                "target": 90,
+                "label": "清单完成度"
+              },
+              {
+                "type": "list",
+                "items": [
+                  "回归用例通过",
+                  "文档同步",
+                  "变更日志待补"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "row",
+        "wrap": true,
+        "items": [
+          {
+            "type": "input",
+            "label": "筛选",
+            "placeholder": "模块或状态",
+            "id": "dash-filter"
+          },
+          {
+            "type": "select",
+            "label": "排序",
+            "options": [
+              "模块",
+              "本周合入",
+              "进度"
+            ],
+            "id": "dash-sort"
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "columns": [
+          "模块",
+          "本周合入",
+          "进度",
+          "状态"
+        ],
+        "types": [
+          "text",
+          "num",
+          "bar",
+          "badge"
+        ],
+        "filter": "dash-filter",
+        "sortField": "dash-sort",
+        "rows": [
+          [
+            "渲染器 runtime",
+            "12",
+            "86",
+            "正常"
+          ],
+          [
+            "组件词汇",
+            "9",
+            "74",
+            "正常"
+          ],
+          [
+            "无障碍",
+            "5",
+            "68",
+            "关注"
+          ],
+          [
+            "文档",
+            "7",
+            "61",
+            "关注"
+          ],
+          [
+            "导出页面",
+            "4",
+            "52",
+            "风险"
+          ],
+          [
+            "性能预算",
+            "3",
+            "47",
+            "风险"
+          ]
+        ]
+      },
+      {
+        "type": "row",
+        "items": [
+          {
+            "type": "button",
+            "label": "刷新看板",
+            "tone": "primary",
+            "action": "refresh-dashboard"
+          },
+          {
+            "type": "button",
+            "label": "导出快照",
+            "tone": "ghost",
+            "action": "export-snapshot"
+          }
+        ]
+      }
+    ]
+  },
+  "en": {
+    "title": "Iteration board",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Sample data. Every control on this board works locally — sorting, filtering, expanding, switching — with zero model round trips."
+      },
+      {
+        "type": "grid",
+        "cols": 4,
+        "items": [
+          {
+            "type": "stat",
+            "label": "Merged this week",
+            "value": "40",
+            "delta": "+8.1%"
+          },
+          {
+            "type": "stat",
+            "label": "In progress",
+            "value": "6"
+          },
+          {
+            "type": "stat",
+            "label": "Blocked",
+            "value": "1",
+            "delta": "-2"
+          },
+          {
+            "type": "stat",
+            "label": "To release",
+            "value": "5 days"
+          }
+        ]
+      },
+      {
+        "type": "grid",
+        "cols": 3,
+        "items": [
+          {
+            "type": "card",
+            "span": 2,
+            "eyebrow": "Cadence",
+            "title": "Merges per day",
+            "items": [
+              {
+                "type": "chart",
+                "kind": "line",
+                "data": [
+                  {
+                    "label": "Mon",
+                    "value": 6
+                  },
+                  {
+                    "label": "Tue",
+                    "value": 9
+                  },
+                  {
+                    "label": "Wed",
+                    "value": 7
+                  },
+                  {
+                    "label": "Thu",
+                    "value": 11
+                  },
+                  {
+                    "label": "Fri",
+                    "value": 7
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "card",
+            "title": "Release readiness",
+            "items": [
+              {
+                "type": "progress",
+                "variant": "ring",
+                "value": 78,
+                "target": 90,
+                "label": "Checklist"
+              },
+              {
+                "type": "list",
+                "items": [
+                  "Regression suite green",
+                  "Docs synced",
+                  "Changelog pending"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "row",
+        "wrap": true,
+        "items": [
+          {
+            "type": "input",
+            "label": "Filter",
+            "placeholder": "Module or status",
+            "id": "dash-filter"
+          },
+          {
+            "type": "select",
+            "label": "Sort by",
+            "options": [
+              "Module",
+              "Merged",
+              "Progress"
+            ],
+            "id": "dash-sort"
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "columns": [
+          "Module",
+          "Merged",
+          "Progress",
+          "Status"
+        ],
+        "types": [
+          "text",
+          "num",
+          "bar",
+          "badge"
+        ],
+        "filter": "dash-filter",
+        "sortField": "dash-sort",
+        "rows": [
+          [
+            "Runtime",
+            "12",
+            "86",
+            "Healthy"
+          ],
+          [
+            "Vocabulary",
+            "9",
+            "74",
+            "Healthy"
+          ],
+          [
+            "Accessibility",
+            "5",
+            "68",
+            "Watch"
+          ],
+          [
+            "Docs",
+            "7",
+            "61",
+            "Watch"
+          ],
+          [
+            "Export page",
+            "4",
+            "52",
+            "At risk"
+          ],
+          [
+            "Perf budget",
+            "3",
+            "47",
+            "At risk"
+          ]
+        ]
+      },
+      {
+        "type": "row",
+        "items": [
+          {
+            "type": "button",
+            "label": "Refresh board",
+            "tone": "primary",
+            "action": "refresh-dashboard"
+          },
+          {
+            "type": "button",
+            "label": "Export snapshot",
+            "tone": "ghost",
+            "action": "export-snapshot"
+          }
+        ]
+      }
+    ]
+  }
+}

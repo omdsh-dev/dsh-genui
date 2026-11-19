@@ -1,0 +1,14 @@
+.map { display: grid; gap: 10px; min-width: 0; color: var(--dsw-alias-label-primary, inherit); }
+.canvas { position: relative; width: 100%; overflow: hidden; border: 1px solid var(--dsl-g-border, #c6ced8); border-radius: 10px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.controls button, .location { font: inherit; color: inherit; border: 1px solid var(--dsl-g-border, #a8b2c0); background: var(--dsl-g-surface, #fff); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+.controls button:disabled { cursor: default; opacity: .5; }
+.controls button:focus-visible, .location:focus-visible { outline: 3px solid var(--dsl-g-accent, #315fa8); outline-offset: 2px; }
+.locations { display: grid; gap: 8px; list-style: none; padding: 0; margin: 0; max-height: 320px; overflow: auto; }
+.location { display: grid; gap: 4px; width: 100%; text-align: start; }
+.location[aria-pressed="true"] { border-color: var(--dsl-g-accent, #315fa8); box-shadow: inset 3px 0 var(--dsl-g-accent, #315fa8); }
+.description, .status { font-size: .85em; opacity: .8; }
+.routes { margin: 0; padding-inline-start: 20px; }
+:global(.genui-map-marker) { width: 32px; height: 32px; padding: 0; background: white; color: #315fa8; border: 2px solid #315fa8; border-radius: 50%; cursor: pointer; }
+:global(.genui-map-marker[aria-pressed="true"]) { background: #315fa8; color: white; }
+:global(.genui-map-marker:focus-visible) { outline: 3px solid #172330; outline-offset: 2px; }

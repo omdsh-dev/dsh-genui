@@ -15,12 +15,28 @@ import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 
 const { values: options } = parseArgs({
-  options: { keep: { type: 'boolean', default: false } },
+  options: {
+    keep: { type: 'boolean', default: false },
+    prebuilt: { type: 'boolean', default: false },
+  },
   strict: true,
 })
 
-const MAX_TARBALL = Number(process.env.GENUI_PACK_MAX_TARBALL ?? 3 * 1024 * 1024)
-const MAX_UNPACKED = Number(process.env.GENUI_PACK_MAX_UNPACKED ?? 10 * 1024 * 1024)
+// 2026-10-19: 字形目录（749 个 apps-sdk-ui glyph，MIT）把包体推过原上限：
+// +0.29 MB tarball / +1.80 MB unpacked，其中 lib/assets/icons.js 是运行时
+// 懒加载资源、src/client/icons/icon-data-full.ts 是它的可复现构建输入（issue #15）。
+// 两者都不可裁掉，因此把上限显式抬一档；若上游决定缩减字形集，同步回落这两个值。
+const MAX_TARBALL = Number(process.env.GENUI_PACK_MAX_TARBALL ?? 4.5 * 1024 * 1024)
+// 2026-10-23: 内置懒加载 MapLibre 的 CSP 主包、CSS 和独立 worker（issue #358 / PR #362）
+// 使解包体积达到约 12.33 MiB。维护者同意保留完整引擎、许可和可复现源码，
+// 将解包预算从 12 MiB 调整为 13 MiB；压缩包预算仍为上面的 4 MiB。
+// 2026-10-29: 包体在 13 MiB 线上贴边——main 实测解包 13,629,406 B，距上限只剩
+// 2 KB，任何改动都会失败（先是 #400 的骨架模块 +20 KB）。tarball 同样只剩 ~100 KB
+// 余量。两个预算各抬一档；压缩包仍远低于 npm 的限制。
+// 若要压缩回来：749 字形集（icon-data-full.ts 1.0 MB + icons.js 0.97 MB）或某个懒加载
+// 引擎（mermaid 3.4 MB / maplibre 1.7 MB / echarts-full 1.0 MB）是可裁的两处，
+// 都需要产品决定，不该由包体预算被动触发。
+const MAX_UNPACKED = Number(process.env.GENUI_PACK_MAX_UNPACKED ?? 14 * 1024 * 1024)
 
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
@@ -39,7 +55,10 @@ for (const entry of Object.values(pkgJson.exports)) {
 // engine assets the node-half route serves to the browser on demand.
 const required = [
   'package.json', 'LICENSE', 'SKILL.md', 'README.md', 'CHANGELOG.md', 'demo-prompts.md', 'cordis.patch.yml',
-  'lib/assets/mermaid.js', 'lib/assets/three.js',
+  'lib/assets/mermaid.js', 'lib/assets/three.js', 'lib/assets/icons.js',
+  // 字形资产与它的两份说明文件：漏掉任何一个都意味着 npm 用户拿到坏包，
+  // 而主渲染路径在本地开发时照样是绿的。
+  'ICON-NAMES.md', 'THIRD_PARTY_NOTICES.md',
   // ECharts ships as two bundles: core (common presets) + full (the rest).
   'lib/assets/echarts-core.js', 'lib/assets/echarts-full.js',
   // plugin_check 发布规范（issue #15）：tarball 必须携带可复现构建所需的
@@ -51,7 +70,9 @@ const required = [
 const dir = mkdtempSync(join(tmpdir(), 'dsh-genui-pack-'))
 let keepTarball = false
 try {
-  const out = execFileSync('npm', ['pack', '--pack-destination', dir, '--json'], {
+  const packArgs = ['pack', '--pack-destination', dir, '--json']
+  if (options.prebuilt) packArgs.push('--ignore-scripts')
+  const out = execFileSync('npm', packArgs, {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   })

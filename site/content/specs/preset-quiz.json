@@ -1,0 +1,77 @@
+{
+  "id": "preset-quiz",
+  "category": "playground",
+  "note": "试卷预设：两道 choices（带 group/answer/explanation）+ 一个 submit 聚合交卷。分数与对错在客户端当场算，点“交卷”不产生模型回合。",
+  "zh": {
+    "title": "随堂两题",
+    "gap": 12,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "选完点交卷，分数和解析立刻出现——判卷在浏览器里完成，不需要模型参与。"
+      },
+      {
+        "type": "choices",
+        "group": "q1",
+        "answer": 1,
+        "prompt": "一段 dsh-ui 围栏最外层必须是什么？",
+        "explanation": "围栏体是一个至少含 items 数组的规格对象；单个组件根也能被规范成一行规格。",
+        "items": [
+          { "label": "一个组件对象", "hint": "只写 {\"type\":\"table\"} 也能渲染，但不是完整规格" },
+          { "label": "一个含 items 的规格对象", "hint": "标题、间距、计算字段都挂在规格根上", "recommended": true },
+          { "label": "一段 HTML", "hint": "白名单渲染，没有任意 HTML 路径" }
+        ]
+      },
+      {
+        "type": "choices",
+        "group": "q2",
+        "answer": 2,
+        "prompt": "哪种操作需要模型回合？",
+        "explanation": "排序、过滤、判卷、折叠都是本地状态；只有需要新内容或执行工具时才回传 action。",
+        "items": [
+          { "label": "点表头排序", "hint": "本地即时排序，零往返" },
+          { "label": "展开行明细", "hint": "本地状态，刷新后按内容指纹恢复" },
+          { "label": "让模型换一份数据", "hint": "只有这类请求才需要 action 回传", "recommended": true }
+        ]
+      },
+      { "type": "submit", "label": "交卷", "groups": ["q1", "q2"] }
+    ]
+  },
+  "en": {
+    "title": "Two-question check",
+    "gap": 12,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Answer both, press submit, and the score plus explanations appear at once — grading happens in the browser, with no model involved."
+      },
+      {
+        "type": "choices",
+        "group": "q1",
+        "answer": 1,
+        "prompt": "What must the outermost value of a dsh-ui fence be?",
+        "explanation": "The fence body is a spec object with at least an items array; a bare component root is normalized into a one-item spec.",
+        "items": [
+          { "label": "A single component object", "hint": "{\"type\":\"table\"} renders too, but it is not a full spec" },
+          { "label": "A spec object containing items", "hint": "Title, gap and computed fields all live on the spec root", "recommended": true },
+          { "label": "A block of HTML", "hint": "Rendering is whitelisted — there is no arbitrary-HTML path" }
+        ]
+      },
+      {
+        "type": "choices",
+        "group": "q2",
+        "answer": 2,
+        "prompt": "Which interaction actually needs a model turn?",
+        "explanation": "Sorting, filtering, grading and collapsing are local state; an action only flows back when new content or a tool run is required.",
+        "items": [
+          { "label": "Clicking a table header to sort", "hint": "Sorted locally, zero round trips" },
+          { "label": "Expanding a row's detail", "hint": "Local state, restored by content fingerprint" },
+          { "label": "Asking the model for a different dataset", "hint": "Only this kind of request sends an action back", "recommended": true }
+        ]
+      },
+      { "type": "submit", "label": "Hand in", "groups": ["q1", "q2"] }
+    ]
+  }
+}

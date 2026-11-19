@@ -1,0 +1,13 @@
+{
+  "id": "atlas-segmented-control",
+  "category": "atlas",
+  "note": "segmented-control：胶囊单选；带 id 时选中值进共享状态，可被同级组件的 when 读取。",
+  "zh": { "title": "segmented-control · 胶囊切换", "items": [
+    { "type": "segmented-control", "label": "视图", "options": ["总览", "明细", "源码"], "value": "总览", "id": "atlas-view" },
+    { "type": "text", "size": "caption", "content": "当前选中值写进字段 atlas-view，其他节点可以用 when 跟着变。" }
+  ] },
+  "en": { "title": "segmented-control · a capsule switch", "items": [
+    { "type": "segmented-control", "label": "View", "options": ["Overview", "Details", "Source"], "value": "Overview", "id": "atlas-view" },
+    { "type": "text", "size": "caption", "content": "The selection lands in the field atlas-view, so sibling nodes can react through when." }
+  ] }
+}

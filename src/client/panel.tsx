@@ -30,9 +30,8 @@ import { withFileLinkContext, type FileLinkAvailability, type FileLinkCordisCont
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { ExportableGenuiBlock } from './artifact/ExportableGenuiBlock.tsx'
 import { ErrorBoundary } from './ErrorBoundary.tsx'
-import { panelStateKey } from './interaction-store.ts'
 import { TemplateDrawer } from './TemplateDrawer.tsx'
-import { clearSessionPanel, getPanelExpandToken, getPanelSpec, setLocalPanel, subscribePanel, subscribePanelExpand } from './panel-store.ts'
+import { clearSessionPanel, getPanelExpandToken, getPanelSpec, getPanelStateKey, setLocalPanel, subscribePanel, subscribePanelExpand } from './panel-store.ts'
 import { useT } from './i18n/index.ts'
 import css from './GenuiBlock.module.css'
 
@@ -275,8 +274,8 @@ export function GenuiPanel({ sessionId, sendGenuiAction, insertTemplate, fileLin
             <GenuiActionContext.Provider value={sendGenuiAction}>
               {fileLinkContext === undefined
                 ? <ErrorBoundary label={t('panel.boundary')}>
-                  {/* content-fingerprinted: same panel spec re-published restores its state */}
-                  <ExportableGenuiBlock spec={spec} stateKey={panelStateKey(sessionId, JSON.stringify(spec))} />
+                  {/* 追加沿用基项身份，替换操作使用自身内容身份 */}
+                  <ExportableGenuiBlock spec={spec} stateKey={getPanelStateKey(sessionId)} />
                 </ErrorBoundary>
                 : withFileLinkContext(
                   fileLinkContext.ctx,
@@ -284,8 +283,8 @@ export function GenuiPanel({ sessionId, sendGenuiAction, insertTemplate, fileLin
                   sessionId,
                   false,
                   <ErrorBoundary label={t('panel.boundary')}>
-                    {/* content-fingerprinted: same panel spec re-published restores its state */}
-                    <ExportableGenuiBlock spec={spec} stateKey={panelStateKey(sessionId, JSON.stringify(spec))} />
+                    {/* 追加沿用基项身份，替换操作使用自身内容身份 */}
+                    <ExportableGenuiBlock spec={spec} stateKey={getPanelStateKey(sessionId)} />
                   </ErrorBoundary>,
                 )}
             </GenuiActionContext.Provider>

@@ -10,7 +10,39 @@ const tool = createRenderUiTool()
 
 const text = (content: string) => ({ type: 'text', content })
 
+describe('validated fence delivery', () => {
+  it('returns an exact validated JSON body when native projection is unavailable', async () => {
+    const spec = { computed: [{ id: 'total', expr: 'people*30+60' }], items: [
+      { type: 'input', id: 'people', inputType: 'number', value: '8' },
+      { type: 'stat', label: '合计', value: '{{total}}' },
+    ] }
+    const value = String(await createValidateDshUiTool().execute({ spec }))
+    expect(value).toContain('next=emit_fence')
+    expect(value).not.toContain('native_fence_json:')
+    const body = value.split('validated_json:\n```\n')[1]?.split('\n```')[0]
+    expect(body).toBeDefined()
+    expect(JSON.parse(body!)).toEqual(processGenuiSpec(spec).spec)
+  })
+
+  it('blocks the table placeholder from the real-model failure before delivery', async () => {
+    const value = String(await createValidateDshUiTool().execute({ spec: {
+      items: [{ type: 'input', id: 'people', value: '8' }, { type: 'table', columns: ['人数'], rows: [['{{people}} 人']] }],
+    } }))
+    expect(value).toContain("references unknown computed field 'people'")
+    expect(value).toContain('next=fix_and_revalidate')
+    expect(value).not.toContain('validated_json:')
+  })
+})
+
 describe('render_ui tool definition', () => {
+  it('keeps channel selection independent of usage frequency and state persistence', () => {
+    const description = JSON.stringify({ description: tool.description, parameters: tool.parameters })
+    expect(description).toContain('current usage preference')
+    expect(description).toContain('Both channels preserve interaction state')
+    expect(description).not.toContain('USE THIS whenever')
+    expect(description).not.toContain('≥3 parallel points')
+  })
+
   it('registers under the render_ui name with an open spec argument', () => {
     expect(tool.name).toBe('render_ui')
     expect(typeof tool.description).toBe('string')
@@ -44,6 +76,16 @@ describe('render_ui tool definition', () => {
 })
 
 describe('render_ui execute', () => {
+  it('rejects oversized SVG with its path and lengths before reporting a valid delivery', async () => {
+    const code = `<svg>${' '.repeat(GENUI_LIMITS.maxCode)}</svg>`
+    const spec = { items: [{ type: 'svg', code }] }
+    const result = String(await createValidateDshUiTool().execute({ spec }))
+    expect(result).toContain('status=invalid')
+    expect(result).toContain(`items[0].code length ${code.length} exceeds SVG limit ${GENUI_LIMITS.maxCode}`)
+    expect(result).toContain('next=fix_and_revalidate')
+    await expect(tool.execute({ spec })).rejects.toThrow('exceeds SVG limit')
+  })
+
   it('returns a render summary for a valid spec', async () => {
     const value = await tool.execute({ spec: { title: '监控面板', items: [text('a'), { type: 'stat', label: 'CPU', value: '42%' }] } })
     expect(String(value)).toContain('监控面板')
@@ -227,9 +269,8 @@ describe('validate_dsh_ui tool', () => {
     expect(value).not.toContain('next=emit_repaired_fence')
   })
 
-  it('allows opaque custom fields and correctly escaped quotes', async () => {
+  it('accepts correctly escaped quotes in supported components', async () => {
     const value = String(await vtool.execute({ spec: { items: [
-      { type: 'custom-widget', payload: { title: '私有字段' } },
       { type: 'text', content: '含有 "引号" 的正文' },
     ] } }))
     expect(value).toContain('status=valid')
@@ -307,7 +348,6 @@ describe('validate_dsh_ui tool', () => {
       { type: 'echart', option: { type: 'text', content: '```data```' } },
       { type: 'text', content: 'foo | bar' },
       { type: 'text', content: 'A | B\n普通第二行' },
-      { type: 'custom-widget', content: '```opaque```' },
     ] } }))
     expect(value).toContain('status=valid')
     expect(value).toContain('next=emit_fence')

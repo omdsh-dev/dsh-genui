@@ -1,0 +1,13 @@
+{
+  "id": "atlas-mermaid",
+  "category": "atlas",
+  "note": "重引擎：mermaid（按需加载 mermaid.js，约 3.4MB，主题跟随宿主）。内容保持最小合法流程图；架构图优先用 diagram。",
+  "zh": { "title": "mermaid · 自动布局的流程图", "items": [
+    { "type": "mermaid", "code": "graph LR\n    A[dsh-ui 围栏] --> B[解析]\n    B --> C[节点]\n    C --> D[界面]" },
+    { "type": "text", "size": "caption", "content": "需要自动布局的流程/时序图用 mermaid；要精确坐标与可点选节点用 diagram。" }
+  ] },
+  "en": { "title": "mermaid · a flow chart laid out for you", "items": [
+    { "type": "mermaid", "code": "graph LR\n    A[dsh-ui fence] --> B[Parse]\n    B --> C[Nodes]\n    C --> D[Interface]" },
+    { "type": "text", "size": "caption", "content": "Use mermaid when the layout can be automatic; use diagram when you need exact coordinates and selectable nodes." }
+  ] }
+}

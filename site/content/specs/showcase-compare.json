@@ -1,0 +1,75 @@
+{
+  "id": "showcase-compare",
+  "category": "showcase",
+  "note": "compare 成对呈现：两张真实宿主截图（docs/screenshots 内 chain 自仓库，浅色宿主拍摄）作为方案 A/B 对照，mode:side 并窄容器自动竖排。图片走 raw.githubusercontent 固定 commit，不需要鉴权。",
+  "zh": {
+    "title": "同一个面板，两种密度",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "两张都是真实宿主里的截图：左边是入口网格，右边是指标面板。同一套组件，两种信息密度。"
+      },
+      {
+        "type": "compare",
+        "title": "入口网格 vs 指标面板",
+        "mode": "side",
+        "height": 300,
+        "before": {
+          "src": "assets/img/media/template-center.png",
+          "label": "方案 A · 入口网格",
+          "alt": "宿主面板中的模板中心：九张模板卡按三列排布",
+          "caption": "九张卡片一屏内看完，适合浏览与挑选。"
+        },
+        "after": {
+          "src": "assets/img/media/achievements.png",
+          "label": "方案 B · 指标面板",
+          "alt": "宿主面板中的探索成就：三个指标、一条进度和三行成就条目",
+          "caption": "三个数字加一条进度条，适合回答“到哪一步了”。"
+        }
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "为什么并排而不是两张单图",
+        "content": "对照阅读时，两张图必须共享同一个阅读轴。compare 的 side / stack / slider 三种模式都在本地浏览，不发 action。"
+      }
+    ]
+  },
+  "en": {
+    "title": "One panel, two densities",
+    "gap": 14,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Both are real captures from a host panel: an entry grid on the left, a metrics panel on the right. Same components, two information densities."
+      },
+      {
+        "type": "compare",
+        "title": "Entry grid vs metrics panel",
+        "mode": "side",
+        "height": 300,
+        "before": {
+          "src": "assets/img/media/template-center.png",
+          "label": "Option A · entry grid",
+          "alt": "A template centre inside a host panel: nine template cards in three columns",
+          "caption": "Nine cards visible in one screen — built for browsing and picking."
+        },
+        "after": {
+          "src": "assets/img/media/achievements.png",
+          "label": "Option B · metrics panel",
+          "alt": "An achievement panel inside a host panel: three metrics, one progress bar and three rows",
+          "caption": "Three figures and a progress bar — built to answer \"how far along are we\"."
+        }
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "Why pair them instead of stacking two images",
+        "content": "A comparison only works when both frames share one reading axis. The side / stack / slider modes all browse locally and send no action."
+      }
+    ]
+  }
+}

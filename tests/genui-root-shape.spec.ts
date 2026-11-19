@@ -151,7 +151,7 @@ describe('issue #172 case B: bare data-component roots', () => {
     expect(processed.spec?.items.some(node => node.type === 'col')).toBe(false)
   })
 
-  it('still reads an envelope root with a stray non-native type as a spec', () => {
+  it('still reads the explicit genui envelope marker as a spec', () => {
     const processed = processGenuiSpec({ type: 'genui', items: [{ type: 'text', content: 'x' }] })
     expect(processed.errors).toEqual([])
     expect(processed.spec?.items[0]?.type).toBe('text')
@@ -179,7 +179,8 @@ describe('isComponentRoot: root-shape discrimination', () => {
     expect(isComponentRoot({ type: '', items: [] })).toBe(false)
     expect(isComponentRoot('nope')).toBe(false)
     expect(isComponentRoot(null)).toBe(false)
-    expect(isComponentRoot({ type: 'widget', items: [{ label: 'a' }] })).toBe(false)
+    expect(isComponentRoot({ type: 'widget', items: [{ label: 'a' }] })).toBe(true)
+    expect(isComponentRoot({ type: 'stack', children: [], items: [] })).toBe(false)
   })
 
   it('isGenuiSpec answers false for a bare component root', () => {

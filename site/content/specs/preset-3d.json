@@ -1,0 +1,91 @@
+{
+  "id": "preset-3d",
+  "category": "playground",
+  "note": "3D 预设：scene3d 引擎节点（three.js 按需加载），3 个 mesh，拖拽旋转/滚轮缩放。另有 plot 演示参数滑块的本地重绘。",
+  "zh": {
+    "title": "几何与曲线",
+    "gap": 12,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "两个重引擎节点都按需加载：3D 用 three.js，函数图是原生 SVG。先看，再动手。"
+      },
+      {
+        "type": "scene3d",
+        "title": "三种基本体 · 拖拽旋转",
+        "ambient": 1,
+        "meshes": [
+          { "shape": "box", "color": "#e6d3ac", "position": [-1.5, 0, 0], "rotation": [0.5, 0.8, 0] },
+          { "shape": "sphere", "color": "#7fb98a", "position": [0, 0, 0] },
+          { "shape": "torus", "color": "#d8a55c", "position": [1.5, 0, 0], "rotation": [1.57, 0, 0] }
+        ]
+      },
+      {
+        "type": "plot",
+        "title": "阻尼振荡 · 拖动 a 与 b 即时重绘",
+        "xMin": -3.14,
+        "xMax": 9.42,
+        "series": [
+          {
+            "expr": "a*exp(-0.2*x)*sin(b*x)",
+            "label": "阻尼振荡",
+            "params": [
+              { "name": "a", "value": 1, "min": 0.2, "max": 2 },
+              { "name": "b", "value": 2, "min": 0.5, "max": 4 }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "只有内容本身是几何或曲线时才用",
+        "content": "这两个节点都带引擎体积。内容不需要空间感时，它们就不该出现在回答里。"
+      }
+    ]
+  },
+  "en": {
+    "title": "Geometry and curves",
+    "gap": 12,
+    "items": [
+      {
+        "type": "text",
+        "size": "muted",
+        "content": "Both heavy nodes load on demand: three.js for the 3D scene, plain SVG for the function plot. Look first, then drag."
+      },
+      {
+        "type": "scene3d",
+        "title": "Three primitives · drag to orbit",
+        "ambient": 1,
+        "meshes": [
+          { "shape": "box", "color": "#e6d3ac", "position": [-1.5, 0, 0], "rotation": [0.5, 0.8, 0] },
+          { "shape": "sphere", "color": "#7fb98a", "position": [0, 0, 0] },
+          { "shape": "torus", "color": "#d8a55c", "position": [1.5, 0, 0], "rotation": [1.57, 0, 0] }
+        ]
+      },
+      {
+        "type": "plot",
+        "title": "Damped oscillation · drag a and b to redraw",
+        "xMin": -3.14,
+        "xMax": 9.42,
+        "series": [
+          {
+            "expr": "a*exp(-0.2*x)*sin(b*x)",
+            "label": "Damped",
+            "params": [
+              { "name": "a", "value": 1, "min": 0.2, "max": 2 },
+              { "name": "b", "value": 2, "min": 0.5, "max": 4 }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "callout",
+        "tone": "info",
+        "title": "Use it only when the content is geometry",
+        "content": "Both nodes ship an engine. When the answer does not need spatial form, they should not appear in it."
+      }
+    ]
+  }
+}

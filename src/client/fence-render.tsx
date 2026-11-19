@@ -1,28 +1,16 @@
 /**
- * The dsh-ui fence render pipeline, shared by both render channels:
- *
- * - **Registry channel** (contract hosts): the host's MarkdownText resolves
- *   ```dsh-ui fences through the fence-registry extension point and calls
- *   {@link renderGenuiFence} with a session-scoped context (sessionId + the
- *   settled source identity). An unrepairable body renders {@link FenceFallback}.
- * - **DOM channel** (pristine hosts, no extension point): the DOM observer
- *   (`dom-fence.ts`) finds stock code blocks labelled `dsh-ui` and mounts
- *   {@link renderResolvedFenceNode} into its own React root, wrapped in the
- *   plugin-owned action context. An unrepairable body returns `null` so the
- *   stock code block stays visible, with {@link FenceDiagnostic} mounted above
- *   it so the defect is never silent (issue #158).
- *
- * Structural types are declared locally on purpose: the context contract is
- * a data shape, and pristine hosts do not export the host-side type names.
+ * The dsh-ui fence render pipeline used by the DOM observer and renderer tests.
+ * An unrepairable body returns `null` so the stock code block stays visible,
+ * with {@link FenceDiagnostic} mounted above it (issue #158).
  */
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Key, type ReactNode } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type Key, type ReactNode } from 'react'
 import { CodeBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import { codeBlockLabels } from './primitive-labels.ts'
 import { t, useT } from './i18n/index.ts'
 import { ErrorBoundary } from './ErrorBoundary.tsx'
 import { ExportableGenuiBlock } from './artifact/ExportableGenuiBlock.tsx'
 import { fenceStateKey } from './interaction-store.ts'
-import { applyPanelOperation, diagnosePanelBudget, type PanelOperationStatus } from './panel-store.ts'
+import { applyPanelOperation, diagnosePanelBudget, getPanelOperationError, subscribePanel, type PanelOperationStatus } from './panel-store.ts'
 import type { GenuiSpec } from './spec.ts'
 import { describeJsonFailure, isCompleteJson } from '../shared/fence-repair.ts'
 import { resolveFence, resolveFenceSpec, type FenceResolution } from '../shared/fence-resolve.ts'
@@ -98,6 +86,7 @@ function processSemanticFailure(resolution: FenceResolution): string | null {
  */
 export function describeFenceFailure(raw: string, options: { settled?: boolean } = {}): string | null {
   const resolution = resolveFence(raw, { settled: options.settled ?? true })
+  if (resolution.unconsumedText !== undefined) return t('err.fenceTrailingContent')
   if (resolution.spec !== null) return null
   const processDiagnostic = processSemanticFailure(resolution)
   if (processDiagnostic !== null) {
@@ -112,8 +101,7 @@ export function describeFenceFailure(raw: string, options: { settled?: boolean }
 /**
  * The visible diagnostic for a settled, unrenderable ```dsh-ui body.
  *
- * Shared by both channels: the registry channel renders it above its own
- * fallback code block, the DOM channel above the host's stock code block. A
+ * The DOM channel renders this above the host's stock code block. A
  * fence that keeps degrading to raw JSON must say why it degraded — the
  * console-only path left the defect invisible (issues #158/#172).
  *
@@ -153,12 +141,15 @@ function FenceFallback({ raw, fenceKey }: { raw: string; fenceKey: Key }) {
  * are absorbed by the operation map's per-source dedup, so the panel folds
  * and notifies exactly once per source. Renders nothing.
  */
-function FencePanelPublisher({ sessionId, sourceId, order, spec }: {
+function FencePanelPublisher({ sessionId, sourceId, order, spec, raw }: {
   sessionId: string
   sourceId: string
   order: readonly [number, number, number]
   spec: GenuiSpec
+  raw: string
 }) {
+  const error = useSyncExternalStore(subscribePanel, () => getPanelOperationError(sessionId, sourceId))
+  useT()
   useEffect(() => {
     const status: PanelOperationStatus = applyPanelOperation(sessionId, {
       sourceId,
@@ -168,7 +159,11 @@ function FencePanelPublisher({ sessionId, sourceId, order, spec }: {
     })
     if (status === 'overflow') diagnosePanelBudget(sessionId, sourceId)
   }, [sessionId, sourceId, order, spec])
-  return null
+  if (error === null) return null
+  return <div>
+    <div style={FENCE_ERROR_STYLE} role="alert">{t('err.fieldValidation', { errors: error })}</div>
+    <CodeBlock {...codeBlockLabels()} code={`${raw}\n`} lang="dsh-ui" />
+  </div>
 }
 
 /**
@@ -180,6 +175,10 @@ function FencePanelPublisher({ sessionId, sourceId, order, spec }: {
  * - Tier-2 completion (missing quotes/brackets): settled renders only —
  *   `context.source` exists exclusively once the message finished, so
  *   streaming halves are never completed early.
+ * - Tier-2 also runs a SHAPE pass before appending closers: it rewrites a
+ *   bracket-balanced but grammatically wrong body (a wrapped member key, a
+ *   "Tetris" table) — the same settled-only gate, since a half-typed body
+ *   must never be reshaped.
  * - Native chart semantics are checked before repair on every candidate so
  *   aliases, empty collections, or line/donut series cannot repair into a
  *   default/blank chart.
@@ -230,6 +229,7 @@ export function renderResolvedFenceNode(raw: string, key: Key, context?: GenuiFe
           sourceId={context.source.id}
           order={context.source.order}
           spec={spec}
+          raw={raw}
         />
       )
     }
@@ -239,10 +239,7 @@ export function renderResolvedFenceNode(raw: string, key: Key, context?: GenuiFe
 }
 
 /**
- * Registry-channel fence renderer (contract hosts): like the resolved node,
- * but an unrepairable body renders the fallback code block + settled
- * diagnostic — the host replaced its own block with our output — and an
- * unpublishable `panel:true` fence renders `null` (nothing in the flow).
+ * Render a complete fence body for renderer-level tests.
  */
 export function renderGenuiFence(raw: string, key: Key, context?: GenuiFenceContext): ReactNode {
   const spec = resolveGenuiSpec(raw, context)
@@ -257,6 +254,7 @@ export function renderGenuiFence(raw: string, key: Key, context?: GenuiFenceCont
           sourceId={context.source.id}
           order={context.source.order}
           spec={spec}
+          raw={raw}
         />
       )
     }

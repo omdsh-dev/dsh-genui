@@ -1,0 +1,237 @@
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsl-g-gap-md, 12px);
+  min-width: 0;
+  color: var(--dsw-alias-label-primary, inherit);
+}
+
+.header,
+.lightboxFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dsl-g-gap-md, 12px);
+}
+
+.title {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--dsl-g-font-h3, 16px);
+  font-weight: 650;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.controls {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--dsl-g-gap-xs, 4px);
+}
+
+/* Overlay placement and touch hiding belong only to carousel navigation. */
+.carouselControls {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+}
+
+.trackWrap {
+  position: relative;
+  min-width: 0;
+}
+
+.control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 36px;
+  min-height: 36px;
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-control, 8px);
+  padding: var(--dsl-g-gap-xs, 4px) var(--dsl-g-gap-sm, 8px);
+  background: var(--dsl-g-surface);
+  color: inherit;
+  font: inherit;
+  font-size: var(--dsl-g-font-h3, 16px);
+  cursor: pointer;
+  transition: background var(--dsl-g-dur-fast, 0.15s) var(--dsl-g-ease-out, ease-out);
+}
+
+.carouselControl {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: auto;
+}
+
+.control:hover:not([aria-disabled="true"]) { background: var(--dsl-g-hover-strong); }
+.previous { left: 8px; }
+.next { right: 8px; }
+
+.control:focus-visible,
+.thumbnail:focus-visible,
+.track:focus-visible,
+.gallery:focus-visible {
+  outline: 2px solid var(--dsl-g-accent);
+  outline-offset: 3px;
+}
+
+.track {
+  display: flex;
+  gap: var(--gallery-gap, 12px);
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  /* A little breathing room keeps child focus rings and card shadows visible. */
+  padding: var(--dsl-g-gap-xs, 4px) 0 var(--dsl-g-gap-md, 12px);
+}
+
+.slide {
+  flex: 0 0 min(var(--gallery-item-width, 240px), 85%);
+  min-width: 0;
+  scroll-snap-align: start;
+  overflow-wrap: anywhere;
+}
+
+.slide > * { max-width: 100%; }
+
+@media (hover: none) {
+  .carouselControls { display: none; }
+}
+
+.empty,
+.position {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: var(--dsl-g-font-meta, 12.5px);
+}
+
+.imageGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dsl-g-gap-md, 12px);
+  align-items: flex-start;
+}
+
+.imageTile {
+  /* Natural aspect ratios determine each tile's share of a justified row.
+     flex-wrap also adapts to a narrow chat pane, not just viewport width. */
+  flex: var(--gallery-image-ratio, 1.333) 1 calc(var(--gallery-image-ratio, 1.333) * 160px);
+  min-width: min(100%, 160px);
+  max-width: 100%;
+  margin: 0;
+}
+
+.thumbnail {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: var(--gallery-image-ratio, 1.333);
+  max-height: min(50vh, 360px);
+  min-height: 100px;
+  overflow: hidden;
+  border: 1px solid var(--dsl-g-border-surface, var(--dsl-g-border));
+  border-radius: var(--dsl-g-radius-surface, 12px);
+  padding: 0;
+  background: var(--dsl-g-surface);
+  color: inherit;
+  font: inherit;
+  cursor: zoom-in;
+}
+
+.thumbnailImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.expandHint {
+  position: absolute;
+  right: var(--dsl-g-gap-sm, 8px);
+  bottom: var(--dsl-g-gap-sm, 8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--dsl-g-border);
+  border-radius: var(--dsl-g-radius-control, 8px);
+  background: var(--dsl-g-surface);
+  color: var(--dsw-alias-label-primary, inherit);
+  pointer-events: none;
+}
+
+.caption {
+  margin-top: var(--dsl-g-gap-sm, 8px);
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: var(--dsl-g-font-meta, 12.5px);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.imageError {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 100px;
+  padding: var(--dsl-g-gap-lg, 16px);
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: var(--dsl-g-font-body, 14.5px);
+  text-align: center;
+}
+
+.dialog {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  width: min(960px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--dsl-g-border-surface, var(--dsl-g-border));
+  border-radius: var(--dsl-g-radius-surface, 12px);
+  padding: var(--dsl-g-gap-lg, 16px);
+  background: var(--dsl-g-surface, var(--dsw-alias-bg-layer-2, #fff));
+  color: var(--dsw-alias-label-primary, inherit);
+  box-shadow: var(--dsl-g-shadow-card);
+}
+
+.dialog::backdrop { background: rgb(0 0 0 / 65%); }
+.dialog .header { margin-bottom: var(--dsl-g-gap-md, 12px); }
+.expandedFigure { margin: 0; }
+
+.expandedFrame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  height: min(65vh, 640px);
+}
+
+.expandedImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.lightboxFooter { margin-top: var(--dsl-g-gap-md, 12px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .control { transition: none; }
+  .track { scroll-behavior: auto; }
+}

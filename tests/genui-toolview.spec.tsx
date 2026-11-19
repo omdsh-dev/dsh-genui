@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { ToolCallBlock } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import { GenuiToolView } from '../src/client/toolview.tsx'
+import { createRenderUiTool } from '../src/plugin/tool.ts'
 
 afterEach(cleanup)
 
@@ -35,6 +36,15 @@ const resultBlock = (meta: unknown): ToolCallBlock => ({
 } as unknown as ToolCallBlock)
 
 describe('GenuiToolView', () => {
+  it('renders and replays metadata that also carries a dsh-go native view', () => {
+    const meta = createRenderUiTool().output.presentationMeta!({ spec: { title: 'Native + Web', items: [
+      { type: 'stat', label: 'Revenue', value: '42' },
+    ] } })
+    expect((meta as Record<string, unknown>)['dsh-go/view']).toBeDefined()
+    render(<GenuiToolView {...props(resultBlock(JSON.parse(JSON.stringify(meta))))} />)
+    expect(document.querySelector('[data-genui]')?.textContent).toContain('Revenue')
+    expect(document.querySelector('[data-genui]')?.textContent).toContain('42')
+  })
   it('renders the spec from result meta', () => {
     render(<GenuiToolView {...props(resultBlock({ title: '监控面板', items: [
       { type: 'stat', label: 'CPU', value: '42%' },

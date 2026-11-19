@@ -18,6 +18,7 @@ import {
   planFenceFeedback,
   FEEDBACK_PLUGIN_NAME,
   FEEDBACK_SOURCE_KIND,
+  MAX_CORRECTIONS_PER_TURN,
 } from '../src/plugin/fence-feedback.ts'
 
 /** A fence body that renders: one stat carrying a metric list (#172 case A). */
@@ -186,6 +187,13 @@ async function persistedFeedbackHarness() {
 }
 
 describe('exact fence matching', () => {
+  it.each(['dsh-ui>', 'DSH-UI', 'DSH-UI>'])('uses the renderer language rule for %s feedback', label => {
+    const text = `\`\`\`${label}\n${BROKEN}\n\`\`\``
+    expect(extractDshUiFences(text)).toEqual([{ raw: BROKEN, closed: true, index: 1 }])
+    expect(fenceFailures(text)).toHaveLength(1)
+    expect(fenceFailures(`\`\`\`${label}\n${STAT_GROUP}\n\`\`\``)).toEqual([])
+  })
+
   it('extracts only a fence whose info string is exactly dsh-ui', () => {
     const text = [
       '```dsh-ui',
@@ -266,7 +274,6 @@ describe('fenceFailures: only fences that would stay a code block', () => {
 
   it.each([
     ['complete JSON', STAT_GROUP],
-    ['trailing tool syntax', `${STAT_GROUP}\n<|tool_calls_begin|>\n{"name":"render_ui",`],
     ['tier-1 repair', REPAIRABLE],
     ['settled tier-2 completion', TIER2_ONLY],
   ])('does not reject a renderable unclosed fence: %s (#288)', (_name, body) => {
@@ -413,14 +420,16 @@ describe('the steered correction message', () => {
 })
 
 describe('installFenceFeedback wiring', () => {
-  it('does not request a duplicate card for an unclosed renderable reply (#288)', () => {
+  it('requests one boundary correction for unconsumed content, without retry loops (#418)', () => {
     const h = harness()
     h.emitSession(userEvent())
     h.emitSession(assistantEvent(`\`\`\`dsh-ui\n${STAT_GROUP}\n<|tool_calls_begin|>\n{"name":"render_ui",`))
     const agent = { session: { id: 'sess-1', header: { id: 'sess-1', version: 4 } }, steer: h.steer }
     h.boundary({ agent, turn: 4, signal: new AbortController().signal })
     h.boundary({ agent, turn: 4, signal: new AbortController().signal })
-    expect(h.steer).not.toHaveBeenCalled()
+    expect(h.steer).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(h.steer.mock.calls)).toContain('resend_corrected_fence_and_preserved_text')
+    expect(JSON.stringify(h.steer.mock.calls)).toContain('preserve_unconsumed_content=true')
   })
 
   it('keeps stream recovery active and disables same-turn steering when configured off', () => {
@@ -451,6 +460,17 @@ describe('installFenceFeedback wiring', () => {
 
   const toolCallEvent = (name: string, callId?: string): unknown =>
     ({ type: 'tool/call', seq: 4, time: 2, data: callId === undefined ? { name } : { name, callId } }) as unknown as SessionEvent
+  it('asks for a new line when a validated fence starts after prose (#432)', () => {
+    const h = harness()
+    h.emitSession(userEvent())
+    h.emitSession(toolCallEvent('validate_dsh_ui'))
+    h.emitSession(assistantEvent('比较如下。```dsh-ui\n' + STAT_GROUP + '\n```'))
+    const agent = { session: { id: 'sess-1', header: { id: 'sess-1', version: 4 } }, steer: h.steer }
+    h.boundary({ agent, turn: 4, signal: new AbortController().signal })
+    expect(h.steer).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(h.steer.mock.calls)).toContain('required=fence_opening_on_own_line')
+  })
+
   interface ToolResultOptions {
     internal?: boolean
     blockError?: boolean
@@ -850,19 +870,29 @@ describe('GenUI reasoning-only stream recovery', () => {
     { type: 'finish', reason: { kind: 'stop' } },
   ]
 
-  it('rewrites a validated top-level GenUI reasoning-only stop as EMPTY_RESPONSE', async () => {
+  const blankBody: StreamChunk[] = [
+    { type: 'block-start', index: 0, blockType: 'text' },
+    { type: 'text-delta', index: 0, text: ' \n ' },
+    { type: 'block-end', index: 0, block: { type: 'text', text: ' \n ' } },
+    { type: 'finish', reason: { kind: 'stop' } },
+  ]
+
+  it.each([
+    { name: 'reasoning only', stream: reasoningOnly },
+    { name: 'blank text only', stream: blankBody },
+  ])('rewrites a validated top-level GenUI stop with $name as EMPTY_RESPONSE', async ({ stream }) => {
     const h = streamHarness()
     h.emitSession(userEvent() as SessionEvent)
     h.emitSession({ type: 'tool/call', seq: 3, time: 1, data: { name: 'validate_dsh_ui', callId: 'validate-1' } } as unknown as SessionEvent)
-    const chunks = await collectChunks(h.stream(agentRequest(), reasoningOnly))
+    const chunks = await collectChunks(h.stream(agentRequest(), stream))
 
-    expect(chunks.slice(0, -1)).toEqual(reasoningOnly.slice(0, -1))
+    expect(chunks.slice(0, -1)).toEqual(stream.slice(0, -1))
     expect(chunks.at(-1)).toEqual({
       type: 'finish',
       reason: {
         kind: 'error',
         failure: {
-          message: 'GenUI turn completed with reasoning only and no deliverable response',
+          message: 'GenUI turn completed without a deliverable response',
           code: 'EMPTY_RESPONSE',
         },
       },
@@ -1039,6 +1069,19 @@ describe('persisted fence feedback lifecycle', () => {
     try {
       h.startTurn()
       h.validate()
+      // 第一次只有 reasoning：提醒尚可用，放行让 turn-stopping 去 steer。
+      const first = await collectChunks(h.ctx.waterfall('llm/stream', agentRequest({ sessionId: h.session.id }), () => streamChunks([
+        { type: 'block-start', index: 0, blockType: 'reasoning' },
+        { type: 'reasoning-delta', index: 0, text: 'private reasoning draft' },
+        { type: 'block-end', index: 0, block: { type: 'reasoning', text: 'private reasoning draft' } },
+        { type: 'finish', reason: { kind: 'stop' } },
+      ])))
+      expect((first.at(-1) as Extract<StreamChunk, { type: 'finish' }>).reason.kind).toBe('stop')
+
+      h.boundary()
+      expect(h.steer).toHaveBeenCalledTimes(1)
+
+      // reload 后提醒记录被恢复：再次只有 reasoning 时仍交给宿主重试兜底。
       let chunks: StreamChunk[] = []
       await h.reload(async () => {
         chunks = await collectChunks(h.ctx.waterfall('llm/stream', agentRequest({ sessionId: h.session.id }), () => streamChunks([
@@ -1102,6 +1145,106 @@ describe('persisted fence feedback lifecycle', () => {
         agent: { session: restored, steer } as never, turn: 7, signal: new AbortController().signal,
       })
       expect(steer).not.toHaveBeenCalled()
+    } finally {
+      await h.dispose()
+    }
+  })
+})
+
+// 端到端路径：只有 reasoning 的回合不再被当场判死，而是正常结束、在 turn-stopping
+// 边界 steer 一条交付提醒进会话；那条提醒就是 agent-loop 下一次请求的消息来源。
+// 第二次仍然只有 reasoning 时才退回 EMPTY_RESPONSE，交给宿主既有重试策略。
+describe('reasoning-only 交付提醒进入下一次模型请求', () => {
+  /** 只有 reasoning、没有任何正文与工具调用的流。 */
+  const reasoningOnlyStream: StreamChunk[] = [
+    { type: 'block-start', index: 0, blockType: 'reasoning' },
+    { type: 'reasoning-delta', index: 0, text: 'private reasoning draft' },
+    { type: 'block-end', index: 0, block: { type: 'reasoning', text: 'private reasoning draft' } },
+    { type: 'finish', reason: { kind: 'stop' } },
+  ]
+
+  it('lets the turn finish so turn-stopping can steer the reminder into the conversation', async () => {
+    const h = await persistedFeedbackHarness()
+    try {
+      h.startTurn()
+      h.validate()
+
+      // 提醒尚未发出：放行原始 stop，回合正常结束，而不是把已产生的整轮输出判死。
+      const chunks = await collectChunks(h.ctx.waterfall(
+        'llm/stream',
+        agentRequest({ sessionId: h.session.id }),
+        () => streamChunks(reasoningOnlyStream),
+      ))
+      expect((chunks.at(-1) as Extract<StreamChunk, { type: 'finish' }>).reason.kind).toBe('stop')
+
+      // 回合边界：交付提醒被 steer 进会话，成为下一次请求的消息来源。
+      h.boundary()
+      expect(h.steer).toHaveBeenCalledTimes(1)
+
+      const lastUserMessage = h.session.snapshotEvents()
+        .filter(event => event.type === 'user/message')
+        .at(-1)
+      const text = JSON.stringify(lastUserMessage)
+      expect(text).toContain('本轮尚未产生正式回答')
+      expect(text).toContain('next=emit_fence_in_body')
+    } finally {
+      await h.dispose()
+    }
+  })
+
+  it('falls back to EMPTY_RESPONSE only after the reminder was already sent', async () => {
+    const h = await persistedFeedbackHarness()
+    try {
+      h.startTurn()
+      h.validate()
+
+      const first = await collectChunks(h.ctx.waterfall(
+        'llm/stream',
+        agentRequest({ sessionId: h.session.id }),
+        () => streamChunks(reasoningOnlyStream),
+      ))
+      expect((first.at(-1) as Extract<StreamChunk, { type: 'finish' }>).reason.kind).toBe('stop')
+
+      h.boundary()
+      expect(h.steer).toHaveBeenCalledTimes(1)
+
+      // 提醒已发仍然只有 reasoning：才交给宿主重试兜底。
+      const second = await collectChunks(h.ctx.waterfall(
+        'llm/stream',
+        agentRequest({ sessionId: h.session.id }),
+        () => streamChunks(reasoningOnlyStream),
+      ))
+      expect(second.at(-1)).toMatchObject({
+        type: 'finish',
+        reason: { kind: 'error', failure: { code: 'EMPTY_RESPONSE' } },
+      })
+    } finally {
+      await h.dispose()
+    }
+  })
+
+  it('falls back to EMPTY_RESPONSE when the shared correction budget is exhausted', async () => {
+    const h = await persistedFeedbackHarness()
+    try {
+      h.startTurn()
+      h.validate()
+
+      h.assistant(BROKEN)
+      h.boundary()
+      h.assistant('{"items":[{"type":"table"}]}')
+      h.boundary()
+      expect(h.steer).toHaveBeenCalledTimes(MAX_CORRECTIONS_PER_TURN)
+
+      const chunks = await collectChunks(h.ctx.waterfall(
+        'llm/stream',
+        agentRequest({ sessionId: h.session.id }),
+        () => streamChunks(reasoningOnlyStream),
+      ))
+
+      expect(chunks.at(-1)).toMatchObject({
+        type: 'finish',
+        reason: { kind: 'error', failure: { code: 'EMPTY_RESPONSE' } },
+      })
     } finally {
       await h.dispose()
     }

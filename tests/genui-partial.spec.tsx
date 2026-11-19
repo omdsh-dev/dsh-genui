@@ -154,3 +154,38 @@ describe('bounded repair (single scan, capped attempts)', () => {
     expect(parsePartialGenuiSpec('{"items":[{"type":"text","content":"a {b} [c] }"},{"type":"but')?.items).toHaveLength(1)
   })
 })
+
+describe('progressive inside a container', () => {
+  it('shows a finished child before its container closes', () => {
+    // The answer is mid-container: the col has one complete text child and the
+    // second child is still being written.
+    const raw = '{"items":[{"type":"col","items":[{"type":"text","content":"第一行"},{"type":"te'
+    const spec = parsePartialGenuiSpec(raw)
+    expect(spec).not.toBeNull()
+    const col = spec!.items[0] as { type: string; items: Array<{ type: string; content?: string }> }
+    expect(col.type).toBe('col')
+    expect(col.items).toHaveLength(1)
+    expect(col.items[0]!.content).toBe('第一行')
+  })
+
+  it('grows a card child by child instead of waiting for the closing brace', () => {
+    const one = '{"items":[{"type":"card","title":"指标","items":[{"type":"stat","label":"A","value":"1"}]'
+    expect((parsePartialGenuiSpec(one)!.items[0] as { items: unknown[] }).items).toHaveLength(1)
+
+    const two = '{"items":[{"type":"card","title":"指标","items":[{"type":"stat","label":"A","value":"1"},{"type":"stat","label":"B","value":"2"}]'
+    expect((parsePartialGenuiSpec(two)!.items[0] as { items: unknown[] }).items).toHaveLength(2)
+  })
+
+  it('shows finished table rows before the table closes', () => {
+    const raw = '{"items":[{"type":"table","columns":["a","b"],"rows":[["1","2"]'
+    const table = parsePartialGenuiSpec(raw)!.items[0] as { type: string; rows: unknown[] }
+    expect(table.type).toBe('table')
+    expect(table.rows).toHaveLength(1)
+  })
+
+  it('does not invent a child from a half-written object', () => {
+    // The second child never closed: nothing of it may appear.
+    const raw = '{"items":[{"type":"col","items":[{"type":"text","content":"完整"},{"type":"text","content":"半'
+    expect((parsePartialGenuiSpec(raw)!.items[0] as { items: unknown[] }).items).toHaveLength(1)
+  })
+})

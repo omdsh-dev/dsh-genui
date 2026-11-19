@@ -6,6 +6,8 @@ import { getPanelExpandToken, getPanelSpec } from '../src/client/panel-store.ts'
 import { repairGenuiSpec } from '../src/client/guard.ts'
 
 const SID = 'panel-command-test'
+const RESTORE_SID = 'panel-command-restore-test'
+const ABORT_SID = 'panel-command-abort-test'
 
 describe('defaultPanelSpec()', () => {
   it('is a valid repairable spec', () => {
@@ -22,6 +24,9 @@ describe('/panel slash source', () => {
     instructions.push({ sessionId, instruction })
   }
   const source = createPanelSlashSource(sendInstruction as never)
+  const sourceWithMatchClaim = source as typeof source & {
+    matchClaim?: (session: { sessionId: string }, token: string, signal: AbortSignal) => Promise<unknown>
+  }
 
   it('is a leading "/" source grouped under genui', () => {
     expect(source.trigger).toBe('/')
@@ -93,5 +98,35 @@ describe('/panel slash source', () => {
   it('ignores non-panel lines in matchEnter', async () => {
     const outcome = await source.matchEnter!({ sessionId: SID } as never, '/other', new AbortController().signal)
     expect(outcome).toBeUndefined()
+  })
+
+  it('restores a persisted /panel claim without applying the command', async () => {
+    const instructionCount = instructions.length
+    const claim = await sourceWithMatchClaim.matchClaim!({ sessionId: RESTORE_SID }, '/panel', new AbortController().signal) as {
+      name: string
+      submit: (args: string) => Promise<unknown>
+    }
+
+    expect(claim.name).toBe('panel')
+    expect(getPanelSpec(RESTORE_SID)).toBeNull()
+    expect(instructions).toHaveLength(instructionCount)
+
+    await claim.submit('')
+    expect(getPanelSpec(RESTORE_SID)).toEqual(defaultPanelSpec())
+  })
+
+  it('restores only the exact /panel token', async () => {
+    for (const token of ['/panel clear', '/panelx', 'panel', '/Panel']) {
+    await expect(sourceWithMatchClaim.matchClaim!({ sessionId: RESTORE_SID }, token, new AbortController().signal)).resolves.toBeUndefined()
+    }
+  })
+
+  it('rejects a persisted claim request when its signal is aborted', async () => {
+    const controller = new AbortController()
+    const reason = new Error('claim lookup aborted')
+    controller.abort(reason)
+
+    await expect(sourceWithMatchClaim.matchClaim!({ sessionId: ABORT_SID }, '/panel', controller.signal)).rejects.toBe(reason)
+    expect(getPanelSpec(ABORT_SID)).toBeNull()
   })
 })
