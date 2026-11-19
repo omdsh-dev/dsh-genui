@@ -16,9 +16,12 @@ describe('iOS mobile container fallback (issue #442)', () => {
     expect(source).toMatch(/@supports \(-webkit-touch-callout: none\) \{[\s\S]*?\.block \{ container-type: normal; \}[\s\S]*?\.reveal \{ animation: none; \}/)
   })
 
-  it('applies the same fallback on narrow viewports', () => {
+  it('limits the viewport-based container fallback to narrow touch devices', () => {
     const source = css()
-    expect(source).toMatch(/@media \(max-width: 760px\) \{[\s\S]*?\.block \{ container-type: normal; \}[\s\S]*?\.reveal \{ animation: none; \}/)
+    const touch = /@media \(max-width: 760px\) and \(hover: none\) and \(pointer: coarse\) \{([^]*?)\n\}/.exec(source)
+    expect(touch?.[1]).toContain('.block { container-type: normal; }')
+    expect(touch?.[1]).toContain('.reveal { animation: none; }')
+    expect(source).not.toMatch(/@media \(max-width: 760px\) \{\s*\.block\s*\{\s*container-type: normal;/)
   })
 
   it('keeps the grid/row collapse rules without container queries', () => {

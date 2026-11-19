@@ -2326,15 +2326,11 @@ button.ftNameBtn[aria-expanded] { cursor: pointer; }
     }
   }
 }
-@media (max-width: 760px) {
-  /* 窄屏（含 iOS Safari）同样退掉尺寸容器与入场 transform，避免合成层
-     在滚动容器内的整块不绘制。 */
+/* Narrow touch devices also use the mobile layout when the iOS feature
+   query is unavailable. Narrow desktop reply columns keep container queries. */
+@media (max-width: 760px) and (hover: none) and (pointer: coarse) {
   .block { container-type: normal; }
   .reveal { animation: none; }
-}
-/* 兜底：iOS Safari 的触屏媒体查询（即使 -webkit-touch-callout 特性检测
-   失效也能命中）。表格不再依赖横向滚动层，改用容器宽度 + 自动换行。 */
-@media (max-width: 760px) and (hover: none) and (pointer: coarse) {
   .tableWrap { overflow-x: visible; }
   .table { width: 100%; min-width: 0; table-layout: fixed; font-size: var(--dsl-g-font-data); }
   .table th, .table td {
