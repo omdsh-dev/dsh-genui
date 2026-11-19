@@ -38,6 +38,16 @@ describe('repairGenuiSpec: diagram', () => {
     expect(d.nodes).toHaveLength(0)
   })
 
+  it('defaults a missing kind to flowchart', () => {
+    const { kind: _kind, ...noKind } = diagram({})
+    const spec = repairGenuiSpec({ items: [noKind] })
+    const d = spec?.items[0] as { kind: string; nodes: unknown[] }
+    // A fence that omits `kind` must still render: column layout needs no
+    // coordinates, and the whole node used to be dropped otherwise.
+    expect(d.kind).toBe('flowchart')
+    expect(d.nodes).toHaveLength(1)
+  })
+
   it('budgets nodes and edges', () => {
     const many = Array.from({ length: 20 }, (_, i) => ({ id: `n${i}`, label: `N${i}` }))
     const edges = Array.from({ length: 20 }, (_, i) => ({ from: `n${i}`, to: `n${(i + 1) % 20}` }))
@@ -71,10 +81,19 @@ describe('repairGenuiSpec: diagram', () => {
 })
 
 describe('validateGenuiSpec: diagram', () => {
-  it('reports missing kind / nodes', () => {
+  it('accepts a diagram that omits kind (repair defaults it)', () => {
+    const v = validateGenuiSpec({ items: [{ type: 'diagram', nodes: [{ id: 'a', label: 'A' }] }] })
+    expect(v.errors.join('\n')).not.toContain('requires kind')
+  })
+
+  it('reports a non-string kind', () => {
+    const v = validateGenuiSpec({ items: [{ type: 'diagram', kind: 3, nodes: [{ id: 'a', label: 'A' }] }] })
+    expect(v.errors.join('\n')).toContain('requires kind (string)')
+  })
+
+  it('reports missing nodes', () => {
     const v = validateGenuiSpec({ items: [{ type: 'diagram' }] })
     expect(v.ok).toBe(false)
-    expect(v.errors.join('\n')).toContain('requires kind')
     expect(v.errors.join('\n')).toContain('requires nodes')
   })
 
