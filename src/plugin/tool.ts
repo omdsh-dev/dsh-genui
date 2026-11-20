@@ -180,8 +180,22 @@ function formatInlineContentWarnings(spec: GenuiSpec): string[] {
     `warning=block_markdown path=${warning.path} kind=${warning.kind} replacement=${warning.replacement}`)
 }
 
-/** Format chart-specific process errors while keeping other schema errors generic. */
+/** Format table/chart-specific process errors while keeping other schema errors generic. */
 function formatProcessFailure(processed: GenuiProcessResult): string | undefined {
+  // A row whose cell count differs from the header shifts every later cell one
+  // column left during repair, so the reader sees values under the wrong header.
+  // Report it as its own repairable class, with the one edit that fixes it,
+  // instead of burying it in the generic schema list.
+  const tableErrors = processed.errors.filter(error => / every row must have exactly \d+ cells$/u.test(error))
+  if (tableErrors.length > 0) {
+    return validationProtocol([
+      'status=invalid',
+      'error=invalid_table_rows',
+      ...tableErrors.map(error => `diagnostic=${JSON.stringify(error)}`),
+      'fix=每一行的单元格数必须等于 columns 的数量：请重发这张表格（保留全部列、不要丢单元格），然后再次调用 validate_dsh_ui',
+      'next=fix_and_revalidate',
+    ])
+  }
   const chartErrors = processed.errors.filter(error => /(?:variant is unsupported|kind must be bars, line, or donut|requires data or series|(?:data|series) is required for|(?:\.data|\.series)(?:\[\d+\])?(?:\.(?:data|label|value|color))? must|series is only supported for bars)/.test(error))
   return chartErrors.length === 0 ? undefined : validationProtocol([
     'status=invalid',

@@ -1281,6 +1281,39 @@ export function wrapSingleComponentRoot(value: unknown): GenuiSpec | null {
 }
 
 /**
+ * Adopt a spec whose root `items` is ONE component instead of a list.
+ *
+ * The envelope takes a list, and a body that names a single component at the root
+ * is already accepted — `{"type":"callout",…}` wraps into a one-item spec. The same
+ * intent written one level down, as `{"items":{"type":"callout",…}}`, was rejected
+ * outright, so two spellings of the same thing disagreed: the bare form rendered
+ * and the envelope form kept degrading to a code block with a parse banner.
+ *
+ * Returns null unless the value really is that shape, so nothing else is affected:
+ * the root must be a spec envelope (`items` present, not a component itself) and
+ * the value under `items` must be component-shaped — an object carrying a non-empty
+ * `type` string. An `items` holding anything else stays rejected, because there is
+ * no single component to adopt and guessing one would invent content.
+ *
+ * @param value - the parsed fence body, before validation.
+ * @returns the same spec with `items` wrapped in an array, or null when the body
+ *   is not this particular mistake.
+ */
+export function adoptSingleItemEnvelope(value: unknown): GenuiSpec | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+  // Only the ENVELOPE is healed here: a component root has its own `items`
+  // vocabulary (steps/list/timeline records) and must keep going through
+  // `wrapSingleComponentRoot`.
+  if (isComponentRoot(value)) return null
+  const v = value as Record<string, unknown>
+  const inner = v.items
+  if (typeof inner !== 'object' || inner === null || Array.isArray(inner)) return null
+  const candidate = inner as { type?: unknown }
+  if (typeof candidate.type !== 'string' || candidate.type === '') return null
+  return { ...v, items: [inner] } as unknown as GenuiSpec
+}
+
+/**
  * Basic structural guard: is this object a valid GenuiSpec?
  *
  * A bare component root is not a spec (it is wrapped instead), so
