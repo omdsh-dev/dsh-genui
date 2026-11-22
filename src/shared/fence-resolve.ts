@@ -62,12 +62,15 @@ export function resolveFence(raw: string, options: FenceResolveOptions): FenceRe
   }
   const parsed = parsePartialGenuiSpec(raw)
   let resolution = parsed === null ? unresolvedFence() : resolveParsedFence(parsed)
-  if (resolution.spec !== null) return resolution
+  // A settled body can have a renderable prefix before an invalid escape.
+  // Prefer a whole syntax repair so the later components are not lost.
+  if (resolution.spec !== null && completed === null) return resolution
 
   const repaired = repairFenceJson(raw)
   if (repaired !== null) {
     const reparsed = parsePartialGenuiSpec(repaired.text)
-    resolution = reparsed === null ? unresolvedFence() : resolveParsedFence(reparsed)
+    const candidate = reparsed === null ? unresolvedFence() : resolveParsedFence(reparsed)
+    if (candidate.spec !== null || resolution.spec === null) resolution = candidate
   }
   if (resolution.spec !== null || !options.settled) return resolution
 

@@ -363,7 +363,7 @@ function bracketDiagnostic(raw: string): string[] {
   return fields
 }
 
-const COMMON_CAUSES = 'likely_causes=unbalanced_delimiters,unescaped_quote,trailing_comma,unterminated_string'
+const COMMON_CAUSES = 'likely_causes=unbalanced_delimiters,unescaped_quote,trailing_comma,unterminated_string,unescaped_backslash'
 
 /** Build the validate_dsh_ui tool definition (registered alongside render_ui). */
 export function createValidateDshUiTool(fenceEnabled = true): ToolDefinition {

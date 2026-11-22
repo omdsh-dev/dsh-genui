@@ -391,7 +391,7 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 1. **按呈现位置选择通道**：正文内联内容使用围栏；工具结果区域的独立 UI 使用 `render_ui`（仅在该工具可用时）；持续更新的会话面板使用 `panel:true`。围栏和工具都支持交互状态保存，不以是否交互或是否保存状态区分。围栏一闭合就立即渲染（不等整条回答结束），前后可以自然衔接文字。
 2. **组合优先**：复杂界面用 `grid`+`card`+`stat`+`table` 拼，不要追求单一巨型组件
 3. **JSON 必须严格合法**：调用校验工具后，`next=emit_fence` 时逐字复制 `native_fence_json` 或 `validated_json`；`next=emit_repaired_fence` 时逐字复制 `repaired_json`。不要凭记忆重新拼写 JSON，也不要在复制后增删节点、改文案或改括号；要改内容就修改规格并重新验证。未通过校验时按诊断修正，不以渲染器可能补齐标点或括号为交付依据。
-3.5. **字段名逐个核对**：未知组件类型（包括 `Card` / `Text` 等大小写误写）以及缺失必填字段会被校验工具拒绝。正文可保留其余有效组件；无法修复时展示源码和诊断，不会假报渲染成功。`tabs[].items` 必须提供（允许显式空数组），`content` 可作为别名；`card.body` / `card.content` 会归一化为 `items` 并提示。高频误写：`callout` 正文是 `content`（不是 text/body）；`table` 要 `columns` + `rows`（只给二维 rows 时首行会当表头）；`keyvalue` 要 `pairs:[{key,value}]`；`diff` 是 `diffs`；图片/音视频是 `src`；`code` 是 `code`、`copy` 是 `text`。拿不准就调 `validate_dsh_ui`，不要凭直觉命名。
+3.5. **字段名逐个核对**：未知组件类型（包括 `Card` / `Text` 等大小写误写）以及缺失必填字段会被校验工具拒绝。正文可保留其余有效组件；无法修复时展示源码和诊断，不会假报渲染成功。`tabs[].items` 必须提供（允许显式空数组），`content` 可作为别名；`card.body` / `card.content` 会归一化为 `items` 并提示。高频误写：`callout` 正文是 `content`（不是 text/body）；`table` 要 `columns` + `rows`（只给二维 rows 时首行会当表头）；`keyvalue` 要 `pairs:[{key,value}]`；`diff` 是 `diffs`；图片/音视频是 `src`；`code`、`mermaid`、`svg` 的源码字段是 `code`，`copy` 是 `text`。拿不准就调 `validate_dsh_ui`，不要凭直觉命名。
 4. **不要嵌套围栏**：dsh-ui 里不要再包 ``` 代码围栏
 5. **深色主题友好**：配色选深底亮色；UI 主题跟随应用
 6. **场景判断**：根据组件是否能帮助读者理解或操作来决定是否使用，并遵循当前系统提示的档位；需要组件时，查阅上面的映射表选择合适的组件。
