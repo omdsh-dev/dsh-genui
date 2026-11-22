@@ -170,10 +170,14 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
     const member = submissionRegistry.members.get(group)
     return member?.kind === 'radio' && member.options.includes(choice)
   })), [storedAnswers, submissionRegistry])
-  const multiAnswers = useMemo(() => Object.fromEntries(Object.entries(storedMultiAnswers).flatMap(([group, choices]) => {
-    const member = submissionRegistry.members.get(group)
-    return member?.kind === 'checkbox' ? [[group, choices.filter(choice => member.choices.has(choice))]] : []
-  })), [storedMultiAnswers, submissionRegistry])
+  const multiAnswers = useMemo(() => Object.fromEntries([...submissionRegistry.members].flatMap(([group, member]) => {
+    if (member.kind !== 'checkbox') return []
+    const recorded = Object.hasOwn(storedMultiAnswers, group) ? storedMultiAnswers[group] : undefined
+    // Earlier clients saved a grouped multi-choice selection as a single answer.
+    const legacy = member.limit !== undefined && Object.hasOwn(storedAnswers, group) ? storedAnswers[group] : undefined
+    const choices = recorded ?? (legacy !== undefined && member.choices.has(legacy) ? [legacy] : undefined)
+    return choices === undefined ? [] : [[group, choices.filter(choice => member.choices.has(choice)).slice(0, member.limit ?? choices.length)]]
+  })), [storedAnswers, storedMultiAnswers, submissionRegistry])
   const [locked, setLocked] = useState(persisted?.locked === true)
   const [round, setRound] = useState(0)
   // Secret (password) field ids: their values never persist and never join
@@ -193,13 +197,18 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
     setAnswers(prev => (prev[group] === choice ? prev : { ...prev, [group]: choice }))
   }, [])
   const setMultiAnswer = useCallback((group: string, choice: string, checked: boolean) => {
+    const member = submissionRegistry.members.get(group)
     setMultiAnswers(prev => {
-      const current = prev[group] ?? []
+      const recorded = Object.hasOwn(prev, group) ? prev[group] : undefined
+      let current = recorded ?? (Object.hasOwn(multiAnswers, group) ? multiAnswers[group] : undefined) ?? []
+      if (member?.kind === 'checkbox' && member.limit !== undefined) {
+        current = current.filter(value => member.choices.has(value)).slice(0, member.limit)
+        if (!member.choices.has(choice) || (checked && !current.includes(choice) && current.length >= member.limit)) return prev
+      }
       const next = checked
         ? current.includes(choice) ? current : [...current, choice]
         : current.filter(item => item !== choice)
-      const hadGroup = Object.prototype.hasOwnProperty.call(prev, group)
-      if (hadGroup && next.length === current.length && next.every((item, index) => item === current[index])) {
+      if (recorded !== undefined && next.length === recorded.length && next.every((item, index) => item === recorded[index])) {
         return prev
       }
       // Keep an explicit empty array: it distinguishes "user cleared this
@@ -207,7 +216,7 @@ function GenuiBlockInstance({ spec, stateKey, animateEntrance = true, initialSta
       // reappear after a refresh.
       return { ...prev, [group]: next }
     })
-  }, [])
+  }, [multiAnswers, submissionRegistry])
   const setField = useCallback((id: string, value: string) => {
     // Field state presence means "the user has touched this field" — a blank
     // value is stored as '' instead of deleting the entry, so a user who

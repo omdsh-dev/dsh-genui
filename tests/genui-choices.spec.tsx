@@ -10,7 +10,9 @@ import { analyzeSubmissionRegistry } from '../src/client/submission-registry.ts'
 import { ChoicesNode } from '../src/client/blocks/choices.tsx'
 import { processGenuiSpec } from '../src/client/guard.ts'
 import { t } from '../src/client/i18n/index.ts'
-import type { GenuiChoices } from '../src/client/spec.ts'
+import { GenuiBlock } from '../src/client/GenuiBlock.tsx'
+import type { BlockInteractionState } from '../src/client/interaction-store.ts'
+import type { GenuiChoices, GenuiSpec } from '../src/client/spec.ts'
 
 afterEach(cleanup)
 
@@ -149,13 +151,11 @@ describe('choices as a paper question (what retires radio)', () => {
     expect(inputs[1]?.checked).toBe(true)
   })
 
-  it('renders single-select controls even when the spec carries mode: multi', () => {
+  it('keeps a graded question single-select even when the spec carries mode: multi', () => {
     const answers = { answers: {}, multiAnswers: {}, fields: {}, secretFields: new Set(), invalidNumericFields: new Set(), registry: { members: new Map() }, locked: false, round: 0, setAnswer: vi.fn() } as never
     const { container } = render(<ChoicesNode node={{ ...paper, mode: 'multi', max: 2 }} answers={answers} />)
     const inputs = [...container.querySelectorAll<HTMLInputElement>('input')]
-    // A grouped list is graded from exactly one answer (submission-registry
-    // registers it as kind 'radio'), so checkbox rows would promise a
-    // multi-select that can never be recorded.
+    // A declared correct answer keeps this group eligible for single-answer grading.
     expect(inputs.map(input => input.type)).toEqual(['radio', 'radio'])
     expect(container.querySelector('[role="radiogroup"]')).not.toBeNull()
     expect(container.querySelector('[role="group"]')).toBeNull()
@@ -163,8 +163,7 @@ describe('choices as a paper question (what retires radio)', () => {
   })
 
   it('stays single-select in an export/panel context without block state', () => {
-    // No `answers` provider: the condition above keys on `group`, not on
-    // `paper`, so an exported document shows the same single-select contract.
+    // An exported question keeps the same controls without an answers provider.
     const { container } = render(<ChoicesNode node={{ ...paper, mode: 'multi', max: 2 }} />)
     expect([...container.querySelectorAll<HTMLInputElement>('input')].map(input => input.type)).toEqual(['radio', 'radio'])
   })
@@ -178,6 +177,49 @@ describe('choices as a paper question (what retires radio)', () => {
       kind: 'radio',
       answer: '方案 A',
       options: ['方案 A', '方案 B'],
+    })
+  })
+})
+
+describe('grouped multi-select choices', () => {
+  it('preserves a legacy choice, enforces max, and submits an array alongside a single choice', () => {
+    const send = vi.fn()
+    const stateKey = 'choices-multi-regression'
+    const spec: GenuiSpec = {
+      items: [
+        { type: 'choices', group: 'approval', items: [{ label: 'Ask first' }, { label: 'Write directly' }] },
+        {
+          type: 'choices', group: 'features', mode: 'multi', max: 2,
+          items: [{ label: 'Separate panels' }, { label: 'Dark cards' }, { label: 'Status badge' }, { label: 'Unavailable', disabled: true }],
+        },
+        { type: 'submit', label: 'Apply', action: 'apply', groups: ['approval', 'features'] },
+      ],
+    }
+    const mount = (initialState?: BlockInteractionState) => render(
+      <GenuiActionContext.Provider value={send}>
+        <GenuiBlock spec={spec} stateKey={stateKey} initialState={initialState} />
+      </GenuiActionContext.Provider>,
+    )
+    const view = mount({ answers: { features: 'Status badge' }, locked: false })
+    const [panels, cards, badge, unavailable] = screen.getAllByRole<HTMLInputElement>('checkbox')
+    expect(badge?.checked).toBe(true)
+    fireEvent.click(screen.getAllByRole('radio')[0]!)
+    fireEvent.click(panels!)
+    expect([panels?.checked, cards?.checked, badge?.checked]).toEqual([true, false, true])
+    fireEvent.click(cards!)
+    expect(cards?.checked).toBe(false)
+    expect(unavailable?.disabled).toBe(true)
+    expect(send).not.toHaveBeenCalled()
+
+    fireEvent.click(badge!)
+    fireEvent.click(cards!)
+    view.unmount()
+    mount()
+    expect(screen.getAllByRole<HTMLInputElement>('checkbox').map(input => input.checked)).toEqual([true, true, false, false])
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(send).toHaveBeenCalledExactlyOnceWith('apply', {
+      type: 'submit', answers: { approval: 'Ask first', features: ['Separate panels', 'Dark cards'] },
+      total: 2, answered: 2,
     })
   })
 })

@@ -420,9 +420,9 @@ export interface GenuiChoices {
   /** `multi` cap; extra clicks are ignored instead of silently replacing. */
   max?: number
   /**
-   * Paper member key. With `group`, the selection joins the block's shared
-   * answers registry instead of staying local, so a sibling `submit` can
-   * collect it and grade locally — this is what retires `radio`.
+   * Shared submission key. A sibling `submit` collects a label in single mode
+   * or an array of labels in multi mode. If an answer is set for local
+   * grading, the grouped question uses single mode.
    */
   group?: string
   /** Correct option for LOCAL grading: index or label. */
