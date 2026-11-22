@@ -410,6 +410,8 @@ describe('validate_dsh_ui tool', () => {
     [{ type: 'callout', text: 'hello' }, { type: 'callout', content: 'hello' }],
     [{ type: 'callout', body: 'hello' }, { type: 'callout', content: 'hello' }],
     [{ type: 'code', content: 'x = 1' }, { type: 'code', code: 'x = 1' }],
+    [{ type: 'mermaid', content: 'flowchart TD\n A-->B' }, { type: 'mermaid', code: 'flowchart TD\n A-->B' }],
+    [{ type: 'svg', text: '<svg/>' }, { type: 'svg', code: '<svg/>' }],
     [{ type: 'copy', content: 'x = 1' }, { type: 'copy', text: 'x = 1' }],
     [{ type: 'image', url: 'https://example.com/a.png' }, { type: 'image', src: 'https://example.com/a.png' }],
   ])('adopts the model field name for %j instead of dropping the node', async (node, canonical) => {
@@ -656,6 +658,16 @@ describe('validate_dsh_ui tool', () => {
     expect(repaired).not.toMatch(/,\]/)
   })
 
+  it('returns repaired JSON with a literal Windows path (issue #467)', async () => {
+    const raw = String.raw`{"title":"stm32 资料\参考手册\ 现在的内容","items":[{"type":"list","items":["a"]}]}`
+    const value = String(await vtool.execute({ spec: raw }))
+    expect(value).toContain('repair=applied')
+    expect(value).toContain('next=emit_repaired_fence')
+    const match = /```\n([\s\S]*?)\n```/.exec(value)
+    expect(match).not.toBeNull()
+    expect(JSON.parse(match![1]!).title).toBe(String.raw`stm32 资料\参考手册\ 现在的内容`)
+  })
+
   it('keeps process warnings when repaired JSON becomes valid', async () => {
     const value = String(await vtool.execute({
       spec: '{"items":[{"type":"text","text":"legacy","content":"canonical","extension":true},],}',
@@ -673,5 +685,6 @@ describe('validate_dsh_ui tool', () => {
     const bad = '{"title": "x", garbage'
     const v2 = String(await vtool.execute({ spec: bad }))
     expect(v2).toContain('repair=failed')
+    expect(v2).toMatch(/likely_causes=.*unescaped_backslash/)
   })
 })

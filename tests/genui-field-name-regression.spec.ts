@@ -37,6 +37,21 @@ describe('field-name regression corpus (real-session fences)', () => {
     expect(renders(raw)).toBe(true)
   })
 
+  it.each([
+    ['mermaid', 'flowchart TD\n A-->B'],
+    ['svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>'],
+  ])('renders %s when the model puts its source in content or text (issue #466)', (type, code) => {
+    for (const field of ['content', 'text']) {
+      expect(renders(JSON.stringify({ items: [{ type, [field]: code }] }))).toBe(true)
+    }
+    // Canonical source wins if supplied. A non-string alias still fails validation.
+    const canonical = processGenuiSpec({ items: [{ type, code, content: 'ignored' }] })
+    expect(canonical.repaired?.items[0]).toMatchObject({ type, code })
+    const invalid = processGenuiSpec({ items: [{ type, content: 42 }] })
+    expect(invalid.errors).toContain(`items[0]: type '${type}' requires code (string)`)
+    expect(isRenderableProcess(invalid)).toBe(false)
+  })
+
   // Issue #186 corpus: high-frequency miswrites observed across ten degraded
   // real-session fences (0.11.0 / DSH 0.1.5-rc.2). Each must now render
   // outright — the aliases/normalization fix them before validation.

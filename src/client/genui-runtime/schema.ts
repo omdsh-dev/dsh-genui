@@ -434,8 +434,8 @@ const RAW_COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   link: schema(['label'], { ...nodeFields, label: 'string', href: 'string' }),
   list: schema(['items'], { ...nodeFields, items: 'array', filter: 'string' }),
   map: schema(['locations'], { ...nodeFields, id: 'string', title: 'string', locations: 'array', routes: 'array', selected: 'string', center: 'array', zoom: 'number', height: 'number' }, {}, { nested: { locations: recordSchema(['id', 'label', 'coordinates'], { id: 'string', label: 'string', coordinates: 'array', description: 'string' }), routes: recordSchema(['id', 'label', 'coordinates'], { id: 'string', label: 'string', coordinates: 'array' }) } }),
-  mermaid: schema(['code'], { ...nodeFields, code: 'string' }),
-  svg: schema(['code'], { ...nodeFields, code: 'string', title: 'string', height: 'number' }),
+  mermaid: schema(['code'], { ...nodeFields, code: 'string' }, { content: 'code', text: 'code' }),
+  svg: schema(['code'], { ...nodeFields, code: 'string', title: 'string', height: 'number' }, { content: 'code', text: 'code' }),
   plot: schema(['series'], { ...nodeFields, series: 'array', xMin: 'number', xMax: 'number', yMin: 'number', yMax: 'number', title: 'string' }, {}, { nested: { series: plotSeriesSchema } }),
   progress: schema(['value'], { ...nodeFields, value: 'number', label: 'string', valueLabel: 'string', variant: 'string', target: 'number' }, {}, { enums: { variant: PROGRESS_VARIANTS } }),
   // `items` joins the §175 aliases: it is the field name models reach for when

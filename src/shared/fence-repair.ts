@@ -7,8 +7,8 @@
  * Three repair layers behind two caller gates (streaming-safe vs settled-only):
  * - Tier-1 (`repairFenceJson`): heals the most common model JSON typos that
  *   do NOT change the body's structure — unescaped half-width quotes inside
- *   string values and trailing commas. Safe at any time (streaming included),
- *   adopted only when the WHOLE body parses afterwards.
+ *   string values, invalid escapes, and trailing commas. Safe at any time
+ *   (streaming included), adopted only when the WHOLE body parses afterwards.
  * - Tier-2 (`completeFenceJson`): heals structural incompleteness — missing
  *   closing quotes/brackets — by appending the missing terminators, and
  *   skips mismatched closers (a `]` mistyped as `}`, duplicated terminators).
@@ -67,6 +67,7 @@ export function describeJsonFailure(raw: string): string | null {
  * 2. Trailing commas before `}` / `]` or at end of input.
  * 3. Valueless object keys immediately before a complete key-and-colon pair.
  * 4. CJK commas/colons in structural positions, never inside string content.
+ * 5. Invalid escape sequences inside strings, preserving the literal backslash.
  *
  * A shared grammar-aware scan distinguishes object keys from values and
  * checks the continuation after a potential string terminator. Ambiguous
@@ -213,6 +214,14 @@ function quoteCanClose(raw: string, index: number, key: boolean, scopes: JsonSco
   return true
 }
 
+/** A final backslash may be an escape awaiting the next streamed character. */
+function isInvalidJsonEscape(raw: string, slash: number): boolean {
+  const next = raw[slash + 1]
+  if (next === undefined) return false
+  if (next === 'u') return !/^[0-9a-f]{4}$/i.test(raw.slice(slash + 2, slash + 6))
+  return !'"\\/bfnrt'.includes(next)
+}
+
 /** Both tiers share the same string-aware scan and quote decisions. */
 function scanFenceCandidate(raw: string, complete: boolean, contentQuotes: ReadonlySet<number>): RepairScan {
   let out = ''
@@ -239,7 +248,15 @@ function scanFenceCandidate(raw: string, complete: boolean, contentQuotes: Reado
       continue
     }
     if (inString) {
-      if (ch === '\\') { out += ch; escaped = true; continue }
+      if (ch === '\\') {
+        if (isInvalidJsonEscape(raw, i)) {
+          out += '\\'
+          repairs++
+        }
+        out += ch
+        escaped = true
+        continue
+      }
       if (ch !== '"') { out += ch; continue }
       let next = i + 1
       while (next < raw.length && isJsonSpace(raw[next])) next++
