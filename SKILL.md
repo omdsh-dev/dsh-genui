@@ -46,6 +46,7 @@ SVG 可通过 `dsh-ui` 中的 `svg` 组件展示，也可以直接输出 `svg` �
 图表：`chart`（bars/line/donut，可多序列）`plot`（数学函数图）`echart`（ECharts 全功能图表）`map`
 交互：`button` `input` `select` `checkbox` `radio` `switch` `slider` `textarea` `editor` `date-picker` `segmented-control` `tabs` `accordion` `copy` `link` `submit` `popover` `choices`
 高级：`svg` `mermaid` `diagram` `scene3d` `quiz` `entity-card`
+社交帖预览：`x-post` `linkedin-post`（发布前预览 X / LinkedIn 帖子草稿）
 
 ### 布局
 - text: `{"type":"text","size":"display|h1|h2|h3|body|muted|caption","content":"...","align":"left|center|right"?}`（`tone:"danger|success|warning|info|muted"` 给整行文字上语义色，不用套 badge；`mono:true` 走等宽字体，用于十六进制/二进制/标识符，不带行内代码底色）（`size:"display"` 比标题大一档，作引言/开篇点题句，**一条回答 ≤1**；`center:true` 是旧写法，等价 `align:"center"`，新写一律用 `align`）
@@ -100,6 +101,11 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 - echart: `{"type":"echart","title":"...","height":300,"preset":"bar|line|area|pie|scatter","data":[{"label":"...","value":n}],"series":[...]?}` — **ECharts 全功能图表**，视觉效果远超 `chart`（渐变、tooltip、动画、图例交互）；**preset 模式**：用和 `chart` 一样的 `data`/`series` 格式，自动构建主题化的 ECharts 配置（颜色跟随宿主主题）；**preset 一览**（只写 preset + data/series/links，主题自动跟随）：
 `bar` · `line` · `area` · `pie` · `scatter` · **`radar`**（每 series 一个多边形，指标取第一条 series 的 label）· **`gauge`**（每个 datum 一个仪表，适合单 KPI）· **`funnel`**（漏斗/转化）· **`treemap`**（体积/层级占比）· **`sankey`**（流向，用 `links:[{from,to,value}]`）· **`graph`**（关系图，`links` 驱动，节点大小随连接数）· **`heatmap`**（`series` 当行、第一条 series 的 label 当列）· **`bigline`**（长序列 + 内置缩放）· **`wordCloud`**（词云，`data:[{label,value}]` 的 value 表示权重；颜色跟随 `palette` 或主题调色板）
 **full option 模式**：传 `"option":{...}` 直接写 ECharts 原生配置（支持 ECharts 内置图表及已注册的 `wordCloud` 词云扩展；其他第三方扩展不保证可用），option 中的函数会被过滤（只接受数据）。选择原则：**chart 轻量（无额外下载）适合 ≤8 点的快速对比；echart 视觉更丰富（渐变、tooltip、图例交互、dataZoom），但会按需下载约 1MB 引擎，多序列/大屏/交互场景优先**
+
+### 社交帖预览
+**何时用**：用户要在发布前审阅社交帖草稿（X 帖子/串推、LinkedIn 帖子）时，用这两个组件代替纯文字卡片——读者能看到真实的排版、每条推的字数、LinkedIn 信息流里「…see more」之前露出多少。正文**逐字照抄草稿**：换行与空行原样保留，不写 Markdown（平台不渲染 `**`），`\n` 就是换行。
+- x-post: `{"type":"x-post","author":{"name":"Alex Example","handle":"alex","avatar":"/api/file?path=...","verified":true},"timestamp":"Draft","posts":[{"text":"第一条\n\n第二段","images":["https://example.com/a.png"]},{"text":"第二条","quote":{"name":"Someone","handle":"someone","text":"被引用的帖子"}}],"limit":280}` — 一条 `posts` 就是单帖，多条画成串推（头像下的竖线把推文连起来）。每条右下角是 X 式字数环：用 X 官方 `twitter-text` 解析器（`parseTweet`，v3 默认配置）计加权字数——URL 固定 23（不带 `http` 的裸域名、括号配对的 `…/Foo_(bar)` 都算一个完整链接，句末标点不算进链接），中日韩字符与 emoji 各算 2（键帽 `1️⃣`、肤色、国旗和常见 ZWJ 组合都算一个 emoji），换行算 1。emoji 识别跟随 twitter-text 3.1.0 自带的 emoji 数据（Unicode 12 前后）：部分较新的 emoji 会被拆开、算得更多（如 `❤️‍🔥` 算 5）。显示 `加权字数/limit`，最后 20 字变黄，超出 `limit`（默认 280，Premium 长帖可调大）变红并显示负数；含 X 不允许的字符（如 U+FFFE、U+FEFF）时也变红并提示「X would reject this post」；空帖保持中性（草稿还没写，不算错误）。链接按 X 的 t.co 显示方式缩短（去掉协议和 `www.`，过长截断），悬停可见完整地址。`images` 每条最多 4 张，地址规则同 `image`（http(s) 或同源相对，如 `/api/file?path=`）；`avatar` 缺失或加载失败时画首字母头像。`handle` 带不带 `@` 都行。最多 25 条。
+- linkedin-post: `{"type":"linkedin-post","author":{"name":"Alex Example","headline":"Product designer","avatar":"..."},"text":"开头一句钩子\n\n正文……","images":["..."],"device":"desktop|mobile","timestamp":"1h"}` — 按 LinkedIn 信息流**估算**折叠：桌面约 210 字符、手机约 140 字符，且最多 3 行（每个换行/空行占掉一整行），先到哪个就在哪里截断并显示「…see more」；点击本地展开/收起（零往返）。LinkedIn 不公开折叠位置，数值是 2026 年的实测近似，所以卡片下方的说明以「≈」开头并明确标注为估算（如「≈ First 115 of 269 characters visible before “see more” on desktop (estimate; LinkedIn doesn’t publish the cut-off …)」），同时给出截断原因，并带桌面/手机切换。超过 3000 字符会标红提示。
 
 ### 交互
 **本地优先（v2.6）**：UI 自己能做的状态变化——判卷、判题、重置、展开、选中——一律本地即时完成，**零模型往返**。action 只用于必须模型参与的事（生成新内容、执行工具、下一步建议）。**交互组件必须带 action：不带 action 的按钮渲染为禁用态，用户点不了；带 action 的按钮点击后有「已触发」本地反馈。**

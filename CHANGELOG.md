@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### 新增
+
+- 社交帖预览组件 `x-post` 与 `linkedin-post`：发布前按平台样式预览草稿。`x-post` 一条或多条（串推用竖线相连），每条带 X 加权字数环，由 X 官方 `twitter-text` 解析器（`parseTweet`，v3 默认配置，开启 emoji 解析）计数并识别链接（URL 计 23、中日韩与 emoji 计 2，键帽 `1️⃣` 等 emoji 序列整体计 2，括号配对的 URL 整体识别；emoji 识别跟随 twitter-text 3.1.0 自带的 emoji 数据，部分较新的 emoji 会算得更多，如 `❤️‍🔥` 计 5；最后 20 字变黄、超出 280 或自定义 `limit` 变红，含 X 不允许的字符时同样变红并提示 X 会拒绝，空帖保持中性）；`linkedin-post` 按信息流**估算**折叠（桌面约 210 字符、手机约 140 字符，且最多 3 行，空行占整行；LinkedIn 未公布折叠位置，说明文字以「≈」开头并标注为估算），「…see more」本地展开，注明可见字符数并可切换桌面/手机。`twitter-text`（Apache-2.0）在构建时完整打包进 `lib/index.js`、`lib/client.js` 与独立导出运行时，列为开发依赖，安装本包不会再拉取它及其 core-js 2 依赖（见 `THIRD_PARTY_NOTICES.md`）。正文逐字保留换行与空行；图片沿用 `image` 的地址规则，头像缺失时画首字母。
+
 ## [0.17.0] - 2026-11-22
 
 ### 新增

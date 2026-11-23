@@ -114,6 +114,8 @@ export const ICON_TONES = ['default', 'muted', 'info', 'success', 'warning', 'da
 /** Hero cover tones. */
 export const HERO_TONES = ['accent', 'success', 'warning', 'danger'] as const
 /** Table cell renderers (`table.types`, one entry per column). */
+/** Feed layouts a LinkedIn preview can emulate. */
+export const LINKEDIN_DEVICES = ['desktop', 'mobile'] as const
 export const TABLE_CELL_TYPES = ['text', 'num', 'delta', 'bar', 'badge', 'spark', 'ring', 'index', 'group'] as const
 
 const schema = (
@@ -239,6 +241,15 @@ const imageGroupItemSchema = recordSchema(['src'], {
 const entityMetadataSchema = recordSchema(['label', 'value'], { label: 'string', value: 'string' })
 const entityActionSchema = recordSchema(['label', 'action'], { label: 'string', action: 'string', tone: 'string' }, {}, { tone: BUTTON_TONES })
 
+/** Author of a social post preview (`x-post` / `linkedin-post`). */
+const socialAuthorSchema = recordSchema(['name'], {
+  name: 'string', handle: 'string', headline: 'string', avatar: 'string', verified: 'boolean',
+}, {}, {}, { username: 'handle', image: 'avatar', title: 'headline' })
+const xQuoteSchema = recordSchema(['text'], { text: 'string', name: 'string', handle: 'string' }, {}, {}, { content: 'text' })
+const xPostItemSchema = recordSchema(['text'], {
+  text: 'string', images: 'array', quote: 'object',
+}, { quote: xQuoteSchema }, {}, { content: 'text', body: 'text', media: 'images' })
+
 /** One side of a `compare` pair: the same media policy, plus a visible chip. */
 /** One option row: label + cost + optional evidence and state. */
 const choiceItemSchema = recordSchema(['label'], {
@@ -347,6 +358,14 @@ const RAW_COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   'entity-card': schema(['name'], {
     ...nodeFields, name: 'string', image: 'string', imageAlt: 'string', description: 'string', metadata: 'array', href: 'string', sourceLabel: 'string', actions: 'array',
   }, {}, { nested: { metadata: entityMetadataSchema, actions: entityActionSchema } }),
+  // Social post previews: drafts reviewed before publishing. `tweets`/`thread`
+  // are what models call the post list; `content`/`body` the LinkedIn text.
+  'x-post': schema(['author', 'posts'], {
+    ...nodeFields, author: 'object', posts: 'array', timestamp: 'string', limit: 'number',
+  }, { tweets: 'posts', thread: 'posts', user: 'author' }, { nested: { author: socialAuthorSchema, posts: xPostItemSchema } }),
+  'linkedin-post': schema(['author', 'text'], {
+    ...nodeFields, author: 'object', text: 'string', images: 'array', device: 'string', timestamp: 'string',
+  }, { content: 'text', body: 'text', media: 'images', user: 'author' }, { nested: { author: socialAuthorSchema }, enums: { device: LINKEDIN_DEVICES } }),
   popover: schema(['label', 'content'], {
     ...nodeFields, label: 'string', content: 'string', trigger: 'string', placement: 'string',
   }, {}, { enums: { trigger: POPOVER_TRIGGERS, placement: POPOVER_PLACEMENTS } }),

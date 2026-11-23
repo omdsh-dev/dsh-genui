@@ -1,4 +1,5 @@
 allowBuilds:
+  core-js: false
   esbuild: true
 minimumReleaseAgeExclude:
   - '@deepseek-ai/cordis-plugin-include@1.0.7'

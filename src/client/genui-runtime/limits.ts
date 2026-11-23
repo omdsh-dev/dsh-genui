@@ -45,6 +45,11 @@ export const GENUI_LIMITS = {
   maxEditorChars: 12_000,
   maxEntityMetadata: 24,
   maxEntityActions: 8,
+  /** Social post previews: posts per X thread, images per post, text length. */
+  maxXThreadPosts: 25,
+  maxSocialImages: 4,
+  maxXPostText: 10_000,
+  maxLinkedInText: 6000,
   /** Maximum `quiz` options. */
   maxQuizOptions: 8,
   /** Maximum `steps` / `timeline` / `breadcrumb` / `keyvalue` entries. */

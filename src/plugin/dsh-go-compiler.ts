@@ -4,6 +4,7 @@ import type { GenuiNode, GenuiSpec } from '../client/spec.ts'
 import { evaluateComputed, resolveComputedSpec } from '../client/computed.ts'
 import { tableCellText, tableToCsv, tableToMarkdown } from '../client/table-export.ts'
 import { nativeSubmission } from './dsh-go-submission.ts'
+import { X_POST_LIMIT, linkedInFold, xCharStatus } from '../client/social-text.ts'
 import { emptyNativeState } from './dsh-go-types.ts'
 import type { NativeState, NativeView } from './dsh-go-types.ts'
 
@@ -179,6 +180,18 @@ export function compileDshGo(spec: GenuiSpec, surface: NativeSurface, state: Nat
         if (surface !== 'panel') return panelOnly(key)
         const selected = state.choices[key] ?? [], answer = selected[0] === undefined ? undefined:item.options[Number(selected[0])]
         return stack([text(item.question),{type:'options',id:action(item,key),options:item.options.map((o,i) => ({label:o.label,value:String(i)})),selected},...(answer ? [{type:'callout',tone:answer.correct ? 'good':'warn',text:answer.feedback ?? item.explanation ?? (answer.correct ? en ? 'Correct':'回答正确':en ? 'Try again':'再想一想')}]:[])])
+      }
+      case 'x-post': {
+        const handle = item.author.handle ? ` @${item.author.handle.replace(/^@+/u,'')}`:''
+        const limit = item.limit ?? X_POST_LIMIT
+        return stack([text(`${item.author.name}${handle}`),...item.posts.map((post,i) => {
+          const s = xCharStatus(post.text,limit)
+          return stack([text(post.text.slice(0,2000)),{type:'text',tone:'muted',text:`${item.posts.length > 1 ? `${i+1}/${item.posts.length} · `:''}${s.weightedLength}/${limit}${s.level === 'over' || s.level === 'invalid' ? en ? ' · X would reject this post':' · X 会拒绝这条帖子':''}`}])
+        })])
+      }
+      case 'linkedin-post': {
+        const fold = linkedInFold(item.text,item.device ?? 'desktop')
+        return stack([text([item.author.name,item.author.headline].filter(Boolean).join(' · ')),text(item.text.slice(0,2000)),{type:'text',tone:'muted',text:fold.truncated ? en ? `≈ First ${fold.visibleChars} of ${fold.totalChars} characters visible before "see more" (estimate; LinkedIn doesn't publish the cut-off)`:`≈ “see more”前可见 ${fold.totalChars} 字符中的前 ${fold.visibleChars} 个（估算；LinkedIn 未公布折叠位置）`:en ? `≈ No "see more" fold (estimate; LinkedIn doesn't publish the cut-off)`:'≈ 全文可见，无“see more”（估算；LinkedIn 未公布折叠位置）'}])
       }
       case 'code': return text(item.code)
       case 'json': return text(JSON.stringify(item.value,null,2))
