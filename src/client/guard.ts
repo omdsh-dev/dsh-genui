@@ -23,7 +23,7 @@ import {
   BADGE_TONES, BUTTON_TONES, CALLOUT_TONES, CARD_TONES, CHART_KINDS, CHOICE_MODES, COMPARE_MODES, COMPONENT_SCHEMAS, HERO_TONES, WHEN_OPS,
   DIAGRAM_EDGE_KINDS, DIAGRAM_KINDS, DIAGRAM_NODE_TYPES, DIAGRAM_ROUTES, DIAGRAM_VARIANTS, POPOVER_PLACEMENTS, POPOVER_TRIGGERS,
   DATE_PICKER_MODES, ECHART_PRESETS, FILE_TYPES, GENUI_NATIVE_TYPES, GENUI_SPEC_SCHEMA, INPUT_TYPES, getComponentSchema,
-  ARROW_DIRS, BLOCKS_VARIANTS, BLOCK_CELL_TONES, ICON_TONES, MEDIA_ASPECT_RATIOS, MESH_SHAPES, PLOT_KINDS, PROGRESS_VARIANTS, ROW_JUSTIFY, TABLE_CELL_TYPES, TEXT_ALIGNS, TEXT_SIZES, TEXT_TONES,
+  ARROW_DIRS, BLOCKS_VARIANTS, LINKEDIN_DEVICES, BLOCK_CELL_TONES, ICON_TONES, MEDIA_ASPECT_RATIOS, MESH_SHAPES, PLOT_KINDS, PROGRESS_VARIANTS, ROW_JUSTIFY, TABLE_CELL_TYPES, TEXT_ALIGNS, TEXT_SIZES, TEXT_TONES,
 } from './genui-runtime/schema.ts'
 import type { ComponentFieldKind, ComponentRecordSchema, ComponentSchema } from './genui-runtime/schema.ts'
 import { normalizeGenuiSpec } from './genui-runtime/normalize.ts'
@@ -454,6 +454,42 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
         ...opt('href', href),
         ...opt('sourceLabel', str(v.sourceLabel, 120)),
         ...opt('actions', actions),
+      }
+    }
+    case 'x-post': {
+      const author = repairSocialAuthor(v.author ?? v.user)
+      const rawPosts = Array.isArray(v.posts) ? v.posts : Array.isArray(v.tweets) ? v.tweets : Array.isArray(v.thread) ? v.thread : undefined
+      if (author === undefined || rawPosts === undefined) return null
+      const posts = rawPosts.slice(0, GENUI_LIMITS.maxXThreadPosts).flatMap(entry => {
+        const record = typeof entry === 'string' ? { text: entry } : obj(entry)
+        const text = str(record?.text ?? record?.content ?? record?.body, GENUI_LIMITS.maxXPostText)
+        if (record === undefined || text === undefined) return []
+        const images = repairSocialImages(record.images ?? record.media)
+        const quoteRecord = obj(record.quote)
+        const quoteText = str(quoteRecord?.text ?? quoteRecord?.content, GENUI_LIMITS.maxXPostText)
+        const quote = quoteRecord === undefined || quoteText === undefined ? undefined : {
+          text: quoteText,
+          ...opt('name', str(quoteRecord.name, 120)),
+          ...opt('handle', str(quoteRecord.handle, 60)),
+        }
+        return [{ text, ...opt('images', images), ...opt('quote', quote) }]
+      })
+      if (posts.length === 0) return null
+      return {
+        type: 'x-post', author, posts,
+        ...opt('timestamp', str(v.timestamp, 80)),
+        ...opt('limit', int(v.limit, 1, 25_000)),
+      }
+    }
+    case 'linkedin-post': {
+      const author = repairSocialAuthor(v.author ?? v.user)
+      const text = str(v.text ?? v.content ?? v.body, GENUI_LIMITS.maxLinkedInText)
+      if (author === undefined || text === undefined) return null
+      return {
+        type: 'linkedin-post', author, text,
+        ...opt('images', repairSocialImages(v.images ?? v.media)),
+        ...opt('device', enu(v.device, LINKEDIN_DEVICES)),
+        ...opt('timestamp', str(v.timestamp, 80)),
       }
     }
     case 'popover': {
@@ -980,6 +1016,30 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
 }
 
 /* ---------------- per-type sub-repairers ---------------- */
+
+/** Author of a social post preview: a name is required, the rest is optional. */
+function repairSocialAuthor(value: unknown): { name: string; handle?: string; headline?: string; avatar?: string; verified?: boolean } | undefined {
+  const record = typeof value === 'string' ? { name: value } : obj(value)
+  const name = str(record?.name, 120)
+  if (record === undefined || name === undefined) return undefined
+  return {
+    name,
+    ...opt('handle', str(record.handle ?? record.username, 60)),
+    ...opt('headline', str(record.headline ?? record.title, 220)),
+    ...opt('avatar', safeMediaSrc(record.avatar ?? record.image)),
+    ...opt('verified', record.verified === true ? true : undefined),
+  }
+}
+
+/** Attached images: URL strings (or `{src}` records) under the `image` URL policy, at most four. */
+function repairSocialImages(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const images = value.flatMap(entry => {
+    const src = safeMediaSrc(typeof entry === 'string' ? entry : obj(entry)?.src)
+    return src === undefined ? [] : [src]
+  }).slice(0, GENUI_LIMITS.maxSocialImages)
+  return images.length === 0 ? undefined : images
+}
 
 /** Whether an untrusted JSON payload nests deeper than the JSON tree can show.
  *  Iterative on purpose: the value is model input, so a recursive depth check
@@ -2676,6 +2736,31 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
     case 'entity-card':
       if (typeof v.name !== 'string') errors.push(`${at}: type 'entity-card' requires name (string)`)
       break
+    case 'x-post':
+    case 'linkedin-post': {
+      const author = obj(v.author)
+      if (author === undefined || typeof author.name !== 'string') errors.push(`${at}: type '${type}' requires author.name (string)`)
+      else if (author.avatar !== undefined && safeMediaSrc(author.avatar) === undefined) errors.push(`${at}.author.avatar must be an http(s) or same-origin relative image URL`)
+      const imageLists: Array<[unknown, string]> = []
+      if (type === 'x-post') {
+        if (!Array.isArray(v.posts) || v.posts.length === 0) errors.push(`${at}: type 'x-post' requires posts (non-empty array of {text})`)
+        else {
+          v.posts.slice(0, GENUI_LIMITS.maxXThreadPosts).forEach((post, i) => { const record = obj(post); if (record !== undefined) imageLists.push([record.images, `${at}.posts[${i}].images`]) })
+        }
+        isNum('limit')
+      } else {
+        if (typeof v.text !== 'string') errors.push(`${at}: type 'linkedin-post' requires text (string)`)
+        imageLists.push([v.images, `${at}.images`])
+      }
+      for (const [images, path] of imageLists) {
+        if (images === undefined) continue
+        if (!Array.isArray(images)) { errors.push(`${path} must be an array of image URLs`); continue }
+        images.slice(0, GENUI_LIMITS.maxSocialImages).forEach((src, j) => {
+          if (safeMediaSrc(src) === undefined) errors.push(`${path}[${j}] must be an http(s) or same-origin relative image URL`)
+        })
+      }
+      break
+    }
     case 'popover':
       if (typeof v.label !== 'string' || typeof v.content !== 'string') errors.push(`${at}: type 'popover' requires label and content (strings)`)
       break

@@ -37,6 +37,17 @@ export function collectGenuiMediaRefs(spec: GenuiSpec): GenuiMediaRef[] {
       case 'entity-card':
         if (typeof node.image === 'string') refs.push({ src: node.image, set: next => { node.image = next }, image: true })
         break
+      case 'x-post':
+      case 'linkedin-post': {
+        const author = node.author
+        if (typeof author.avatar === 'string') refs.push({ src: author.avatar, set: next => { author.avatar = next }, image: true })
+        const lists = node.type === 'x-post' ? node.posts.map(post => post.images) : [node.images]
+        for (const images of lists) {
+          if (images === undefined) continue
+          images.forEach((src, index) => refs.push({ src, set: next => { images[index] = next }, image: true }))
+        }
+        break
+      }
     }
   })
   return refs

@@ -109,6 +109,8 @@ export type GenuiNode = (
   | GenuiEditor
   | GenuiEntityCard
   | GenuiPopover
+  | GenuiXPost
+  | GenuiLinkedInPost
 ) & GenuiLayoutHints
 
   | (GenuiEChart & GenuiLayoutHints)
@@ -238,6 +240,54 @@ export interface GenuiEntityCard {
   href?: string
   sourceLabel?: string
   actions?: GenuiEntityAction[]
+}
+
+/** Who a social post preview is attributed to. */
+export interface GenuiSocialAuthor {
+  name: string
+  /** X handle without or with the leading `@`. */
+  handle?: string
+  /** LinkedIn headline shown under the name. */
+  headline?: string
+  /** http(s) or same-origin relative image; initials are drawn when missing or broken. */
+  avatar?: string
+  verified?: boolean
+}
+
+/** A post quoted inside an X post. */
+export interface GenuiXQuote {
+  text: string
+  name?: string
+  handle?: string
+}
+
+/** One post of an X thread. */
+export interface GenuiXPostItem {
+  text: string
+  /** Up to four attached images (same URL rules as `image`). */
+  images?: string[]
+  quote?: GenuiXQuote
+}
+
+/** Preview of an X post or thread, one card per post, with a weighted character counter. */
+export interface GenuiXPost {
+  type: 'x-post'
+  author: GenuiSocialAuthor
+  posts: GenuiXPostItem[]
+  /** Free text shown after the handle, e.g. "Draft" or "2h". */
+  timestamp?: string
+  /** Character limit per post; 280 unless the account has a longer limit. */
+  limit?: number
+}
+
+/** Preview of a LinkedIn feed post with the "…see more" fold. */
+export interface GenuiLinkedInPost {
+  type: 'linkedin-post'
+  author: GenuiSocialAuthor
+  text: string
+  images?: string[]
+  device?: 'desktop' | 'mobile'
+  timestamp?: string
 }
 
 /** A keyboard-operable floating explanation attached to a labelled trigger. */

@@ -55,6 +55,7 @@ const SHAPE_BY_TYPE: Readonly<Record<string, SkeletonShape>> = {
   divider: 'rule', spacer: 'rule',
   hero: 'media', carousel: 'media', map: 'media', svg: 'media',
   blocks: 'card', grid: 'card', 'entity-card': 'card',
+  'x-post': 'card', 'linkedin-post': 'card',
 }
 
 /** The `type` of the first component written, if it is already readable. */
