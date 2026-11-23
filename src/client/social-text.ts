@@ -1,119 +1,97 @@
 /**
  * Pure text measurement for the social post previews (`x-post`,
  * `linkedin-post`). Kept free of React so the counting rules are unit-tested
- * on their own and shared by the renderer and the native projection.
+ * on their own and shared by the renderer, the standalone HTML export (same
+ * renderer) and the native projection. X counting and URL detection come from
+ * the official `twitter-text` parser; LinkedIn's fold is an estimate.
  * @module @changfenhuang/dsh-genui/client/social-text
  */
 
-/** X's limit for a standard (non-Premium) post, in weighted characters. */
-export const X_POST_LIMIT = 280
+/// <reference path="./twitter-text.d.ts" />
+// ^ Types for the per-function entry points, reachable from every program that imports this module.
+import extractUrlsWithIndices from 'twitter-text/dist/extractUrlsWithIndices.js'
+import twitterTextConfigs from 'twitter-text/dist/configs.js'
+import parseTweet from 'twitter-text/dist/parseTweet.js'
+
+/** X's limit for a standard (non-Premium) post, in weighted characters (twitter-text v3). */
+export const X_POST_LIMIT = twitterTextConfigs.defaults.maxWeightedTweetLength
 /** Every URL counts as this many characters, whatever its real length (t.co wrapping). */
-export const X_URL_WEIGHT = 23
+export const X_URL_WEIGHT = twitterTextConfigs.defaults.transformedURLLength
 /** LinkedIn's hard limit for a post body. */
 export const LINKEDIN_POST_LIMIT = 3000
 
-/**
- * Code point ranges that weigh 1 in twitter-text v3 (`config/v3.json`):
- * Latin, Greek, Cyrillic, Hebrew, Arabic, Indic and the general punctuation
- * that sits next to them. Everything else (CJK, most symbols) weighs 2.
- */
-const LIGHT_RANGES: ReadonlyArray<readonly [number, number]> = [
-  [0x0000, 0x10ff],
-  [0x2000, 0x200d],
-  [0x2010, 0x201f],
-  [0x2032, 0x2037],
-]
+/* ---------------- X: official twitter-text counting ---------------- */
 
 /**
- * URLs as X auto-links them: an explicit http(s) scheme, or a bare host that
- * ends in a common TLD (`example.com/path`). Trailing sentence punctuation is
- * not part of the link. The TLD list is deliberately short: a false negative
- * only means a bare domain is counted by its letters.
+ * Text as X stores and counts it: NFC-normalised. `parseTweet` normalises
+ * internally; the preview renders and links the same normalised string so the
+ * highlighted URLs line up with the ones that were weighed.
  */
-const URL_PATTERN = /\bhttps?:\/\/[^\s<>"]+|(?<![@\w.-])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|org|net|io|ai|co|dev|app|xyz|me|gg|so|ly|sh|tv|fm|to|info|biz|edu|gov|uk|de|fr|nl|jp|cn|th|sg|au|ca|us|eu|tech|news|blog|link|site|page|cloud)\b(?:\/[^\s<>"]*)?/giu
-const TRAILING_PUNCTUATION = /[.,:;!?'")\]}…]+$/u
-
-const PICTOGRAPHIC = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u
-
-function codePointWeight(codePoint: number): 1 | 2 {
-  for (const [lo, hi] of LIGHT_RANGES) if (codePoint >= lo && codePoint <= hi) return 1
-  return 2
-}
-
-let segmenter: Intl.Segmenter | undefined
-function graphemes(text: string): Iterable<string> {
-  if (typeof Intl === 'object' && typeof Intl.Segmenter === 'function') {
-    segmenter ??= new Intl.Segmenter(undefined, { granularity: 'grapheme' })
-    return Array.from(segmenter.segment(text), part => part.segment)
-  }
-  return Array.from(text)
-}
-
-/** Weighted length of plain text (no URL handling). */
-function weighPlain(text: string): number {
-  let total = 0
-  for (const cluster of graphemes(text)) {
-    // A whole emoji sequence (ZWJ family, skin tone, flag, keycap) counts as 2.
-    if (PICTOGRAPHIC.test(cluster)) { total += 2; continue }
-    for (const char of cluster) total += codePointWeight(char.codePointAt(0) ?? 0)
-  }
-  return total
+export function normalizeXText(text: string): string {
+  return text.normalize('NFC')
 }
 
 /** One auto-linked URL inside a post, as UTF-16 offsets into the NFC text. */
 export interface XUrlMatch { start: number; end: number; url: string }
 
-/** Find the URLs X would shorten, with trailing punctuation removed. */
+/**
+ * The URLs X auto-links (and wraps in t.co), found by twitter-text's own
+ * extractor on the NFC text: scheme-less domains count too, trailing sentence
+ * punctuation is excluded and balanced parentheses (`Foo_(bar)`) stay inside.
+ */
 export function findXUrls(text: string): XUrlMatch[] {
-  const found: XUrlMatch[] = []
-  for (const match of text.matchAll(URL_PATTERN)) {
-    const url = match[0].replace(TRAILING_PUNCTUATION, '')
-    if (url === '') continue
-    const start = match.index ?? 0
-    found.push({ start, end: start + url.length, url })
-  }
-  return found
+  return extractUrlsWithIndices(normalizeXText(text)).map(({ url, indices: [start, end] }) => ({ start, end, url }))
 }
 
 /**
- * X's weighted character count (twitter-text v3 rules): NFC-normalised text,
- * every URL = 23, emoji sequences = 2, CJK and other heavy scripts = 2 per
- * character, Latin and friends = 1. Line breaks count as one character each.
+ * How X displays a t.co-wrapped link in a post: scheme and `www.` dropped,
+ * long links cut with an ellipsis. The full URL stays available as a tooltip.
  */
-export function countXChars(text: string): number {
-  const normalized = text.normalize('NFC')
-  let total = 0
-  let cursor = 0
-  for (const { start, end } of findXUrls(normalized)) {
-    total += weighPlain(normalized.slice(cursor, start)) + X_URL_WEIGHT
-    cursor = end
-  }
-  return total + weighPlain(normalized.slice(cursor))
+export function xDisplayUrl(url: string): string {
+  const shown = url.replace(/^https?:\/\/(www\.)?/iu, '')
+  return shown.length > 30 ? `${shown.slice(0, 29)}…` : shown
 }
 
-/** Counter state for one post: remaining characters and the warning tier X shows. */
+/** Counter state for one post, straight from twitter-text's `parseTweet`. */
 export interface XCharStatus {
-  count: number
+  /** Weighted length (URL = 23, emoji sequence = 2, CJK = 2, Latin = 1). */
+  weightedLength: number
   limit: number
   remaining: number
-  /** `ok`; `near` in the last 20 characters (X turns the ring amber); `over` past the limit. */
+  /** `parseTweet().valid`: non-empty, within the limit and free of characters X rejects. */
+  valid: boolean
+  /** `parseTweet().permillage`: how full the ring is, in thousandths of the limit (can exceed 1000). */
+  permillage: number
+  /** `ok`; `near` in the last 20 characters (X turns the ring amber); `over` past the limit (red, negative). */
   level: 'ok' | 'near' | 'over'
 }
 
-export function xCharStatus(text: string, limit = X_POST_LIMIT): XCharStatus {
-  const count = countXChars(text)
-  const remaining = limit - count
-  return { count, limit, remaining, level: remaining < 0 ? 'over' : remaining <= 20 ? 'near' : 'ok' }
+/**
+ * X's counter for one post, computed by the official parser with the default
+ * v3 config (emoji parsing on). A custom `limit` (Premium long posts) only
+ * changes `maxWeightedTweetLength`; every weight stays X's.
+ */
+export function xCharStatus(text: string, limit: number = X_POST_LIMIT): XCharStatus {
+  const options = limit === X_POST_LIMIT ? twitterTextConfigs.defaults : { ...twitterTextConfigs.defaults, maxWeightedTweetLength: limit }
+  const { weightedLength, valid, permillage } = parseTweet(text, options)
+  const remaining = limit - weightedLength
+  return { weightedLength, limit, remaining, valid, permillage, level: remaining < 0 ? 'over' : remaining <= 20 ? 'near' : 'ok' }
+}
+
+/** X's weighted character count for one post (see {@link xCharStatus}). */
+export function countXChars(text: string): number {
+  return xCharStatus(text).weightedLength
 }
 
 /* ---------------- LinkedIn "…see more" fold ---------------- */
 
 /**
- * The feed clamps a post to about three rendered lines and also to a
- * character budget, whichever runs out first. LinkedIn publishes neither
- * number; these are the widely reproduced 2026 measurements (about 210
- * characters on desktop, 140 in the mobile app, 3 lines on both, blank lines
- * spend a whole line). Characters per line follow from the budget.
+ * An ESTIMATE of the feed fold: the feed clamps a post to about three
+ * rendered lines and also to a character budget, whichever runs out first.
+ * LinkedIn publishes neither number; these are the widely reproduced 2026
+ * measurements (about 210 characters on desktop, 140 in the mobile app,
+ * 3 lines on both, blank lines spend a whole line). Characters per line follow
+ * from the budget. Every surface that shows the result labels it an estimate.
  */
 export const LINKEDIN_FOLD = {
   desktop: { chars: 210, lines: 3, charsPerLine: 70 },

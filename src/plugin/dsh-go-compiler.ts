@@ -186,12 +186,12 @@ export function compileDshGo(spec: GenuiSpec, surface: NativeSurface, state: Nat
         const limit = item.limit ?? X_POST_LIMIT
         return stack([text(`${item.author.name}${handle}`),...item.posts.map((post,i) => {
           const s = xCharStatus(post.text,limit)
-          return stack([text(post.text.slice(0,2000)),{type:'text',tone:'muted',text:`${item.posts.length > 1 ? `${i+1}/${item.posts.length} · `:''}${s.count}/${limit}`}])
+          return stack([text(post.text.slice(0,2000)),{type:'text',tone:'muted',text:`${item.posts.length > 1 ? `${i+1}/${item.posts.length} · `:''}${s.weightedLength}/${limit}`}])
         })])
       }
       case 'linkedin-post': {
         const fold = linkedInFold(item.text,item.device ?? 'desktop')
-        return stack([text([item.author.name,item.author.headline].filter(Boolean).join(' · ')),text(item.text.slice(0,2000)),{type:'text',tone:'muted',text:fold.truncated ? en ? `First ${fold.visibleChars} of ${fold.totalChars} characters visible before "see more"`:`“see more”前可见 ${fold.totalChars} 字符中的前 ${fold.visibleChars} 个`:en ? 'No "see more" fold':'全文可见，无“see more”'}])
+        return stack([text([item.author.name,item.author.headline].filter(Boolean).join(' · ')),text(item.text.slice(0,2000)),{type:'text',tone:'muted',text:fold.truncated ? en ? `≈ First ${fold.visibleChars} of ${fold.totalChars} characters visible before "see more" (estimate; LinkedIn doesn't publish the cut-off)`:`≈ “see more”前可见 ${fold.totalChars} 字符中的前 ${fold.visibleChars} 个（估算；LinkedIn 未公布折叠位置）`:en ? `≈ No "see more" fold (estimate; LinkedIn doesn't publish the cut-off)`:'≈ 全文可见，无“see more”（估算；LinkedIn 未公布折叠位置）'}])
       }
       case 'code': return text(item.code)
       case 'json': return text(JSON.stringify(item.value,null,2))

@@ -13,7 +13,8 @@ import { useT } from '../i18n/index.ts'
 import { genuiMediaSrc } from '../media-overrides.ts'
 import type { GenuiLinkedInPost, GenuiSocialAuthor, GenuiXPost } from '../spec.ts'
 import {
-  LINKEDIN_FOLD, LINKEDIN_POST_LIMIT, X_POST_LIMIT, countLinkedInChars, findXUrls, linkedInFold, xCharStatus,
+  LINKEDIN_FOLD, LINKEDIN_POST_LIMIT, X_POST_LIMIT, countLinkedInChars, findXUrls, linkedInFold, normalizeXText, xCharStatus,
+  xDisplayUrl,
   type LinkedInDevice,
 } from '../social-text.ts'
 import { avatarColor } from './basic.tsx'
@@ -41,9 +42,14 @@ function Avatar({ author, size }: { author: GenuiSocialAuthor; size: number }): 
   return <span className={css.avatar} aria-hidden="true" style={{ ...style, backgroundColor: avatarColor(author.name) }}>{initials(author.name)}</span>
 }
 
-/** Colour URLs, @mentions and #hashtags like the platforms; everything else is verbatim text. */
-function PostText({ text, className }: { text: string; className: string | undefined }): ReactElement {
+/**
+ * Colour URLs, @mentions and #hashtags like the platforms; everything else is
+ * verbatim text. URLs are the ones twitter-text auto-links, found on the same
+ * NFC text the counter weighs (NFC is canonically equivalent, so it looks the same).
+ */
+function PostText({ text: raw, className }: { text: string; className: string | undefined }): ReactElement {
   const parts: ReactNode[] = []
+  const text = normalizeXText(raw)
   const urls = findXUrls(text)
   let cursor = 0
   const pushPlain = (chunk: string): void => {
@@ -59,8 +65,7 @@ function PostText({ text, className }: { text: string; className: string | undef
   }
   for (const url of urls) {
     pushPlain(text.slice(cursor, url.start))
-    const shown = url.url.replace(/^https?:\/\/(www\.)?/iu, '')
-    parts.push(<span className={css.entity} key={`u${url.start}`} title={url.url}>{shown.length > 30 ? `${shown.slice(0, 29)}…` : shown}</span>)
+    parts.push(<span className={css.entity} key={`u${url.start}`} title={url.url} data-url={url.url}>{xDisplayUrl(url.url)}</span>)
     cursor = url.end
   }
   pushPlain(text.slice(cursor))
@@ -95,18 +100,22 @@ function handleOf(author: { handle?: string }): string | undefined {
   return handle === undefined || handle === '' ? undefined : `@${handle}`
 }
 
-/** X's circular counter: fills toward the limit, amber in the last 20, red and negative past it. */
+/**
+ * X's circular counter, driven by twitter-text's `parseTweet`: the ring fills by
+ * `permillage`, the label shows `weightedLength/limit`, amber in the last 20,
+ * red and negative past the limit. `data-valid` mirrors `parseTweet().valid`.
+ */
 function CharCounter({ text, limit }: { text: string; limit: number }): ReactElement {
   const t = useT()
   const status = xCharStatus(text, limit)
   const radius = 9
   const circumference = 2 * Math.PI * radius
-  const fraction = Math.min(1, status.count / limit)
+  const fraction = Math.min(1000, status.permillage) / 1000
   const label = status.level === 'over'
     ? t('social.charOver', { over: -status.remaining, limit })
-    : t('social.charCount', { count: status.count, limit })
+    : t('social.charCount', { count: status.weightedLength, limit })
   return (
-    <div className={css.counter} data-level={status.level} title={label} aria-label={label} role="status">
+    <div className={css.counter} data-level={status.level} data-valid={status.valid ? 'true' : 'false'} title={label} aria-label={label} role="status">
       <svg viewBox="0 0 22 22" width="22" height="22" aria-hidden="true">
         <circle cx="11" cy="11" r={radius} className={css.counterTrack} />
         <circle
@@ -115,7 +124,7 @@ function CharCounter({ text, limit }: { text: string; limit: number }): ReactEle
           transform="rotate(-90 11 11)"
         />
       </svg>
-      <span className={css.counterText}>{status.level === 'over' ? status.remaining : `${status.count}/${limit}`}</span>
+      <span className={css.counterText}>{status.level === 'over' ? status.remaining : `${status.weightedLength}/${limit}`}</span>
     </div>
   )
 }

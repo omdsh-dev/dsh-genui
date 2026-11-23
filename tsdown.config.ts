@@ -10,6 +10,7 @@
  * builds byte-identical client.js every time.
  */
 import { createHash } from 'node:crypto'
+import { createRequire } from 'node:module'
 import { readFile, realpath } from 'node:fs/promises'
 import { basename, dirname, extname, relative, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -151,6 +152,37 @@ function maplibreResourcesPlugin(): NonNullable<UserConfig['plugins']>[number] {
   }
 }
 
+/** Packages that make up the official `twitter-text` counter (and its own dependencies). */
+const TWITTER_TEXT_PACKAGES = /^(?:twitter-text|twemoji-parser|punycode|@babel\/runtime|core-js)(?:\/|$)/u
+
+/**
+ * Bundle the official `twitter-text` parser (X counting for `x-post`) without
+ * its ES5-era side effects. Its per-function CJS files `require()` core-js 2
+ * polyfill modules for Array/RegExp/Object built-ins every supported browser
+ * and Node already ship natively; loaded for real they add globals
+ * (`__core-js_shared__`, `core`) and may patch built-ins in the host page.
+ * Those imports resolve to an empty module here. `punycode` is pinned to the
+ * package's own npm dependency rather than Node's deprecated built-in.
+ * The counting code itself is bundled unchanged.
+ */
+function twitterTextPlugin(): NonNullable<UserConfig['plugins']>[number] {
+  const emptyId = '\0dsh-genui-core-js-noop'
+  const fromTwitterText = (importer: string | undefined): boolean =>
+    importer !== undefined && /[\\/](?:twitter-text|twemoji-parser)[\\/]/u.test(importer)
+  return {
+    name: 'dsh-genui-twitter-text',
+    resolveId(source: string, importer: string | undefined) {
+      if (!fromTwitterText(importer)) return null
+      if (source.startsWith('core-js/modules/')) return { id: emptyId, moduleSideEffects: false }
+      if (source === 'punycode') return createRequire(importer!).resolve('punycode/')
+      return null
+    },
+    load(id: string) {
+      return id === emptyId ? 'export {}' : null
+    },
+  }
+}
+
 function purityGate(): NonNullable<UserConfig['plugins']>[number] {
   return {
     name: 'dsh-client-bundle-purity',
@@ -248,7 +280,7 @@ const clientConfig: UserConfig = {
     'import.meta.env.MODE': JSON.stringify(process.env.NODE_ENV ?? 'production'),
     'import.meta.env': JSON.stringify({ MODE: process.env.NODE_ENV ?? 'production' }),
   },
-  plugins: [purityGate(), cssModulesPlugin()],
+  plugins: [purityGate(), twitterTextPlugin(), cssModulesPlugin()],
   outputOptions: {
     entryFileNames: 'client.js',
     // The loader fetches one script per plugin; the lazy mermaid/three
@@ -278,7 +310,7 @@ const standaloneConfig: UserConfig = {
     'import.meta.env.MODE': JSON.stringify(process.env.NODE_ENV ?? 'production'),
     'import.meta.env': JSON.stringify({ MODE: process.env.NODE_ENV ?? 'production' }),
   },
-  plugins: [standaloneAliasPlugin(), cssModulesPlugin(), standaloneKatexCssPlugin()],
+  plugins: [standaloneAliasPlugin(), twitterTextPlugin(), cssModulesPlugin(), standaloneKatexCssPlugin()],
   outputOptions: { entryFileNames: '[name].js', codeSplitting: false },
 }
 
@@ -332,6 +364,11 @@ const libConfig: UserConfig = {
   dts: false,
   // Keep the output name aligned with the package's root export.
   outputOptions: { entryFileNames: '[name].js' },
+  // The native projection (dsh-go) counts X posts with twitter-text too: bundle
+  // it with the same polyfill-free resolution instead of loading core-js into
+  // the host process at runtime.
+  deps: { alwaysBundle: TWITTER_TEXT_PACKAGES },
+  plugins: [twitterTextPlugin()],
   // Cleanup happens in the build script (`rm -rf lib` before tsc): tsdown
   // must never wipe lib/types (tsc's declaration output) mid-pipeline.
   clean: false,

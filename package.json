@@ -77,7 +77,8 @@
   "dependencies": {
     "katex": "0.16.47",
     "mdast-util-from-markdown": "2.0.3",
-    "react": "^18.3.1"
+    "react": "^18.3.1",
+    "twitter-text": "3.1.0"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1 || ^4.0.6-alpha.1",
@@ -166,6 +167,7 @@
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@types/three": "^0.185.4",
+    "@types/twitter-text": "3.1.10",
     "anser": "2.3.5",
     "clsx": "2.1.1",
     "diff": "9.0.0",
