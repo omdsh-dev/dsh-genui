@@ -186,7 +186,7 @@ export function compileDshGo(spec: GenuiSpec, surface: NativeSurface, state: Nat
         const limit = item.limit ?? X_POST_LIMIT
         return stack([text(`${item.author.name}${handle}`),...item.posts.map((post,i) => {
           const s = xCharStatus(post.text,limit)
-          return stack([text(post.text.slice(0,2000)),{type:'text',tone:'muted',text:`${item.posts.length > 1 ? `${i+1}/${item.posts.length} · `:''}${s.weightedLength}/${limit}`}])
+          return stack([text(post.text.slice(0,2000)),{type:'text',tone:'muted',text:`${item.posts.length > 1 ? `${i+1}/${item.posts.length} · `:''}${s.weightedLength}/${limit}${s.level === 'over' || s.level === 'invalid' ? en ? ' · X would reject this post':' · X 会拒绝这条帖子':''}`}])
         })])
       }
       case 'linkedin-post': {

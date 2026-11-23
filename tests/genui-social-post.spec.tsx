@@ -68,13 +68,21 @@ describe('X weighted character count (official twitter-text parser)', () => {
   // (digit, VS16, combining keycap) and reported 283 for this draft.
   it('fits 278 ASCII characters plus a keycap emoji at exactly 280, valid', () => {
     const status = xCharStatus(`${DRAFT_278}1️⃣`)
-    expect(status).toEqual({ weightedLength: 280, limit: 280, remaining: 0, valid: true, permillage: 1000, level: 'near' })
+    expect(status).toEqual({ weightedLength: 280, limit: 280, remaining: 0, valid: true, empty: false, permillage: 1000, level: 'near' })
     expect(xCharStatus(`${DRAFT_278}1️⃣!`)).toMatchObject({ weightedLength: 281, remaining: -1, valid: false, level: 'over' })
   })
 
   it('counts every emoji sequence as two: keycaps, ZWJ families, skin tones, flags', () => {
     for (const emoji of ['1️⃣', '#️⃣', '*️⃣', '👨‍👩‍👧‍👦', '👩🏾‍💻', '👍🏽', '🇹🇭', '🏴‍☠️']) expect(countXChars(emoji), emoji).toBe(2)
     expect(countXChars('#️⃣*️⃣1️⃣')).toBe(6)
+  })
+
+  // Known limitation, pinned on purpose: twitter-text 3.1.0 ships twemoji-parser 11
+  // (Unicode 12 era), so a newer ZWJ sequence splits into its parts. This is what
+  // parseTweet reports; update it together with the parser.
+  it('follows twitter-text 3.1.0 emoji data, so some newer emoji count more than two', () => {
+    expect(countXChars('❤️‍🔥')).toBe(5)
+    expect(countXChars('🧑‍🧑‍🧒')).toBe(8)
   })
 
   it('detects a URL with balanced parentheses as one URL weighing 23', () => {
@@ -95,9 +103,12 @@ describe('X weighted character count (official twitter-text parser)', () => {
   })
 
   it('reports valid and permillage the way parseTweet does', () => {
-    expect(xCharStatus('')).toMatchObject({ weightedLength: 0, valid: false, permillage: 0, level: 'ok' })
-    expect(xCharStatus('a'.repeat(140))).toMatchObject({ valid: true, permillage: 500 })
-    expect(xCharStatus('bad \uFFFE char')).toMatchObject({ valid: false, level: 'ok' })
+    // An empty draft is not valid for X, but it is not an error either: it stays neutral.
+    expect(xCharStatus('')).toMatchObject({ weightedLength: 0, valid: false, empty: true, permillage: 0, level: 'ok' })
+    expect(xCharStatus('a'.repeat(140))).toMatchObject({ valid: true, empty: false, permillage: 500 })
+    // Within the limit but containing a character X rejects: surfaced as `invalid`.
+    expect(xCharStatus('bad \uFFFE char')).toMatchObject({ weightedLength: 11, valid: false, empty: false, level: 'invalid' })
+    expect(xCharStatus('\uFEFF')).toMatchObject({ valid: false, level: 'invalid' })
     expect(xCharStatus('a'.repeat(400), 4000)).toMatchObject({ weightedLength: 400, limit: 4000, valid: true, permillage: 100, level: 'ok' })
   })
 
@@ -114,7 +125,7 @@ describe('X weighted character count (official twitter-text parser)', () => {
     expect(xCharStatus('a'.repeat(259)).level).toBe('ok')
     expect(xCharStatus('a'.repeat(260)).level).toBe('near')
     expect(xCharStatus('a'.repeat(280)).level).toBe('near')
-    expect(xCharStatus('a'.repeat(281))).toEqual({ weightedLength: 281, limit: 280, remaining: -1, valid: false, permillage: 1003, level: 'over' })
+    expect(xCharStatus('a'.repeat(281))).toEqual({ weightedLength: 281, limit: 280, remaining: -1, valid: false, empty: false, permillage: 1003, level: 'over' })
     expect(xCharStatus('a'.repeat(281), 4000).level).toBe('ok')
   })
 })
@@ -215,6 +226,9 @@ describe('x-post / linkedin-post guard', () => {
   it('projects the same twitter-text count and the estimate wording natively', () => {
     const x = compileDshGo(repairGenuiSpec({ items: [{ type: 'x-post', author: { name: 'n' }, posts: [{ text: `${DRAFT_278}1️⃣` }] }] })!, 'fence', undefined, 'en')
     expect(JSON.stringify(x.view)).toContain('280/280')
+    expect(JSON.stringify(x.view)).not.toContain('would reject')
+    const bad = compileDshGo(repairGenuiSpec({ items: [{ type: 'x-post', author: { name: 'n' }, posts: [{ text: 'a'.repeat(281) }] }] })!, 'fence', undefined, 'en')
+    expect(JSON.stringify(bad.view)).toContain('281/280 · X would reject this post')
     const li = compileDshGo(repairGenuiSpec(LINKEDIN_EXAMPLE)!, 'fence', undefined, 'en')
     expect(JSON.stringify(li.view)).toContain('(estimate; LinkedIn doesn\'t publish the cut-off)')
   })
@@ -251,6 +265,25 @@ describe('x-post / linkedin-post rendering', () => {
     expect(screen.getByRole('status', { name: `${5 + 23 + 5 + 23 + 2} / 280 characters` })).toBeTruthy()
   })
 
+  it('marks a post X would reject in red with a spoken reason, counts it in the thread footer, and keeps an empty draft neutral', () => {
+    render(<GenuiBlock spec={{ items: [{ type: 'x-post', author: { name: 'n' }, posts: [{ text: 'bad \uFFFE char' }, { text: '' }, { text: 'fine' }] }] } as GenuiSpec} />)
+    const invalid = screen.getByRole('status', { name: '11 / 280 characters: X would reject this post (it contains characters X does not allow)' })
+    expect(invalid.getAttribute('data-level')).toBe('invalid')
+    expect(invalid.getAttribute('title')).toContain('X would reject this post')
+    expect(invalid.textContent).toBe('11/280')
+    const empty = screen.getByRole('status', { name: 'Empty post: 0 / 280 characters' })
+    expect(empty.getAttribute('data-level')).toBe('ok')
+    expect(empty.textContent).toBe('0/280')
+    expect(screen.getByText('3 posts · X would reject 1')).toBeTruthy()
+  })
+
+  it('uses the singular for one character over', () => {
+    render(<GenuiBlock spec={{ items: [{ type: 'x-post', author: { name: 'n' }, posts: [{ text: 'x'.repeat(281) }, { text: 'x'.repeat(282) }] }] } as GenuiSpec} />)
+    expect(screen.getByRole('status', { name: '1 character over the 280 limit' }).textContent).toBe('-1')
+    expect(screen.getByRole('status', { name: '2 characters over the 280 limit' }).textContent).toBe('-2')
+    expect(screen.getByText('2 posts · X would reject 2')).toBeTruthy()
+  })
+
   it('falls back to an initials avatar when none is given', () => {
     const { container } = render(<GenuiBlock spec={{ items: [{ type: 'x-post', author: { name: 'Sam Sample' }, posts: [{ text: 'hi' }] }] } as GenuiSpec} />)
     expect(container.querySelector('[data-genui-x-post] span[aria-hidden="true"]')?.textContent).toBe('SS')
@@ -261,7 +294,8 @@ describe('x-post / linkedin-post rendering', () => {
     const post = screen.getByRole('article', { name: 'LinkedIn post preview' })
     expect(post.textContent).not.toContain('combined.')
     const note = screen.getByText(/visible before “see more” on desktop/)
-    expect(note.textContent).toMatch(/^≈ First \d+ of 180 characters visible before “see more” on desktop \(estimate; LinkedIn doesn’t publish the cut-off\. /)
+    expect(note.textContent).toMatch(/^≈ First \d+ of 180 characters visible before “see more” on desktop \(estimate; LinkedIn doesn’t publish the cut-off\. Modeled on about 210 characters or 3 lines: cut by /)
+    expect(note.textContent?.match(/estimate/g)).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: '…see more' }))
     expect(post.textContent).toContain('combined.')
     fireEvent.click(screen.getByRole('button', { name: 'show less' }))

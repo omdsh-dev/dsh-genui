@@ -103,7 +103,8 @@ function handleOf(author: { handle?: string }): string | undefined {
 /**
  * X's circular counter, driven by twitter-text's `parseTweet`: the ring fills by
  * `permillage`, the label shows `weightedLength/limit`, amber in the last 20,
- * red and negative past the limit. `data-valid` mirrors `parseTweet().valid`.
+ * red and negative past the limit, red with "X would reject this post" when
+ * `valid` is false for any other reason than an empty draft.
  */
 function CharCounter({ text, limit }: { text: string; limit: number }): ReactElement {
   const t = useT()
@@ -112,8 +113,12 @@ function CharCounter({ text, limit }: { text: string; limit: number }): ReactEle
   const circumference = 2 * Math.PI * radius
   const fraction = Math.min(1000, status.permillage) / 1000
   const label = status.level === 'over'
-    ? t('social.charOver', { over: -status.remaining, limit })
-    : t('social.charCount', { count: status.weightedLength, limit })
+    ? (status.remaining === -1 ? t('social.charOverOne', { limit }) : t('social.charOver', { over: -status.remaining, limit }))
+    : status.level === 'invalid'
+      ? t('social.charInvalid', { count: status.weightedLength, limit })
+      : status.empty
+        ? t('social.charEmpty', { limit })
+        : t('social.charCount', { count: status.weightedLength, limit })
   return (
     <div className={css.counter} data-level={status.level} data-valid={status.valid ? 'true' : 'false'} title={label} aria-label={label} role="status">
       <svg viewBox="0 0 22 22" width="22" height="22" aria-hidden="true">
@@ -135,7 +140,7 @@ export function XPostNode({ node }: { node: GenuiXPost }): ReactElement {
   const handle = handleOf(node.author)
   const limit = node.limit ?? X_POST_LIMIT
   const posts = node.posts.slice(0, GENUI_LIMITS.maxXThreadPosts)
-  const overCount = posts.filter(post => xCharStatus(post.text, limit).level === 'over').length
+  const rejectedCount = posts.filter(post => { const level = xCharStatus(post.text, limit).level; return level === 'over' || level === 'invalid' }).length
   const label = posts.length > 1 ? t('social.xThread', { count: posts.length }) : t('social.xPost')
   return (
     <article className={`${css.social} ${css.x}`} data-genui-x-post aria-label={label}>
@@ -179,8 +184,8 @@ export function XPostNode({ node }: { node: GenuiXPost }): ReactElement {
           </div>
         )
       })}
-      {posts.length > 1 && overCount > 0 && (
-        <div className={css.summary} data-level="over">{t('social.threadTotal', { count: posts.length, over: overCount })}</div>
+      {posts.length > 1 && rejectedCount > 0 && (
+        <div className={css.summary} data-level="over">{t('social.threadTotal', { count: posts.length, rejected: rejectedCount })}</div>
       )}
     </article>
   )

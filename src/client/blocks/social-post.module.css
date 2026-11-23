@@ -70,6 +70,8 @@
 .counter[data-level='near'] .counterText { color: #c98a00; }
 .counter[data-level='over'] .counterFill { stroke: #f4212e; }
 .counter[data-level='over'] .counterText { color: #f4212e; font-weight: 700; }
+.counter[data-level='invalid'] .counterFill { stroke: #f4212e; }
+.counter[data-level='invalid'] .counterText { color: #f4212e; font-weight: 700; }
 .summary { padding: 8px 16px 12px 68px; font-size: 13px; color: #f4212e; font-weight: 600; }
 
 /* ---------------- LinkedIn ---------------- */

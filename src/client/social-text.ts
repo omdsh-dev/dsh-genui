@@ -44,8 +44,10 @@ export function findXUrls(text: string): XUrlMatch[] {
 }
 
 /**
- * How X displays a t.co-wrapped link in a post: scheme and `www.` dropped,
- * long links cut with an ellipsis. The full URL stays available as a tooltip.
+ * Display text for a link, approximating how X shows t.co-wrapped links: the
+ * scheme and `www.` are dropped and anything past 30 characters is cut with an
+ * ellipsis. This is a plain length cut, not X's own display_url algorithm; the
+ * full URL stays available as a tooltip.
  */
 export function xDisplayUrl(url: string): string {
   const shown = url.replace(/^https?:\/\/(www\.)?/iu, '')
@@ -60,10 +62,17 @@ export interface XCharStatus {
   remaining: number
   /** `parseTweet().valid`: non-empty, within the limit and free of characters X rejects. */
   valid: boolean
+  /** Nothing typed yet (`valid` is false, but a draft in progress is not an error). */
+  empty: boolean
   /** `parseTweet().permillage`: how full the ring is, in thousandths of the limit (can exceed 1000). */
   permillage: number
-  /** `ok`; `near` in the last 20 characters (X turns the ring amber); `over` past the limit (red, negative). */
-  level: 'ok' | 'near' | 'over'
+  /**
+   * `ok`; `near` in the last 20 characters (X turns the ring amber); `over` past
+   * the limit (red, negative); `invalid` within the limit but rejected by
+   * `parseTweet` because of characters X does not allow (U+FFFE, U+FEFF,
+   * bidi overrides…). An empty post stays `ok`: it is a draft, not an error.
+   */
+  level: 'ok' | 'near' | 'over' | 'invalid'
 }
 
 /**
@@ -75,7 +84,9 @@ export function xCharStatus(text: string, limit: number = X_POST_LIMIT): XCharSt
   const options = limit === X_POST_LIMIT ? twitterTextConfigs.defaults : { ...twitterTextConfigs.defaults, maxWeightedTweetLength: limit }
   const { weightedLength, valid, permillage } = parseTweet(text, options)
   const remaining = limit - weightedLength
-  return { weightedLength, limit, remaining, valid, permillage, level: remaining < 0 ? 'over' : remaining <= 20 ? 'near' : 'ok' }
+  const empty = text.length === 0
+  const level = remaining < 0 ? 'over' : !valid && !empty ? 'invalid' : remaining <= 20 ? 'near' : 'ok'
+  return { weightedLength, limit, remaining, valid, empty, permillage, level }
 }
 
 /** X's weighted character count for one post (see {@link xCharStatus}). */

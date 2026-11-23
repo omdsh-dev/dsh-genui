@@ -178,7 +178,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 [`twitter-text`](https://github.com/twitter/twitter-text) (npm `twitter-text`
 3.1.0, `parseTweet`, `extractUrlsWithIndices` and the shipped v3 config,
 imported from the package's per-function `dist/` entry points). It is bundled
-into `lib/index.js`, `lib/client.js` and `lib/assets/standalone-runtime.js`.
+into `lib/index.js`, `lib/client.js` and `lib/assets/standalone-runtime.js`. It is a
+build-time (dev) dependency: installing this package does not install
+`twitter-text` or its dependencies; the bundled copies are the ones that run.
 
 Local packaging modification: the ES5-era `core-js` 2 polyfill imports in
 those files resolve to an empty module at build time (every supported browser
