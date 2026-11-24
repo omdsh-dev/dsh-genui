@@ -9,6 +9,52 @@ import { setLocale } from '../src/client/i18n/index.ts'
 // locale switching are covered explicitly in tests/i18n.spec.ts.
 setLocale('zh')
 
+// Node 22+ ships an experimental globalThis.localStorage getter that shadows
+// jsdom's implementation and yields undefined unless the process was started
+// with --localstorage-file. Persistence specs (panel/interaction/achievement)
+// then fail on `localStorage.clear()` with a TypeError that has nothing to do
+// with the code under test. Install an in-memory Storage instead of depending
+// on that runtime flag so the suite is runner-agnostic.
+function installMemoryStorage(name: 'localStorage' | 'sessionStorage'): void {
+  const store = new Map<string, string>()
+  const methods = {
+    key: (index: number) => [...store.keys()][index] ?? null,
+    getItem: (key: string) => (store.has(key) ? store.get(key)! : null),
+    setItem: (key: string, value: string) => { store.set(key, String(value)) },
+    removeItem: (key: string) => { store.delete(key) },
+    clear: () => { store.clear() },
+  }
+  // A Proxy (not a plain object) so Object.keys/values/entries enumerate the
+  // stored keys exactly like jsdom's Storage does — specs assert on
+  // Object.values(localStorage), which item access alone would not satisfy.
+  const storage = new Proxy({} as Storage, {
+    get(_target, prop) {
+      if (prop === 'length') return store.size
+      if (prop in methods) return methods[prop as keyof typeof methods]
+      return store.get(String(prop))
+    },
+    set(_target, prop, value) { store.set(String(prop), String(value)); return true },
+    has(_target, prop) { return prop in methods || store.has(String(prop)) },
+    deleteProperty(_target, prop) { store.delete(String(prop)); return true },
+    ownKeys() { return [...store.keys()] },
+    getOwnPropertyDescriptor(_target, prop) {
+      const key = String(prop)
+      return store.has(key) ? { configurable: true, enumerable: true, value: store.get(key) } : undefined
+    },
+  })
+  for (const target of [globalThis, typeof window === 'undefined' ? undefined : window] as const) {
+    if (target === undefined) continue
+    Object.defineProperty(target, name, { value: storage, configurable: true, writable: true })
+  }
+}
+
+if (typeof globalThis.localStorage === 'undefined' || globalThis.localStorage === null) {
+  installMemoryStorage('localStorage')
+}
+if (typeof globalThis.sessionStorage === 'undefined' || globalThis.sessionStorage === null) {
+  installMemoryStorage('sessionStorage')
+}
+
 // jsdom lacks rAF: the reveal animation uses it per item; manual tick below.
 if (typeof globalThis.requestAnimationFrame !== 'function') {
   // @ts-expect-error test-only stub
