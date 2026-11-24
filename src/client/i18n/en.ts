@@ -419,6 +419,8 @@ export const EN = {
   'err.boundary.fence': 'this interface',
   'err.boundary.body': '⚠️ {label} failed to render (isolated — the rest of the reply is unaffected)',
   'err.fieldValidation': 'GenUI field validation failed: {errors}',
+  'placeholder.unknownType': 'Unsupported component: {type} (skipped)',
+  'action.failed': 'Action "{action}" was not delivered — please retry',
   'err.unknownType': 'Unsupported component: {type}. Correct the component type and resend.',
   'err.chartValidation': 'chart field validation failed: {errors}',
   'err.fenceTrailingContent': '⚠️ Text follows the UI JSON inside this fence. The original is kept visible; close the fence before the explanation and resend without omitting any content.',

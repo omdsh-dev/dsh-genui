@@ -29,7 +29,10 @@ afterEach(() => { cleanup(); clearSessionPanel(session); localStorage.clear() })
 describe('invalid GenUI input (#390)', () => {
   it('shows a visible unsupported-type message even for direct renderer callers', () => {
     const view = render(<GenuiBlock spec={{ items: [{ type: 'Card' }] } as unknown as GenuiSpec} />)
-    expect(view.getByRole('alert').textContent).toContain('Card')
+    // Contract (issue #390) is a VISIBLE message naming the type. It is now a
+    // polite status placeholder rather than an assertive alert: one wrong type
+    // name is not a page-level failure, but it must still reach assistive tech.
+    expect(view.getByRole('status').textContent).toContain('Card')
   })
 
   it('normalizes documented card/grid aliases and warns instead of losing content', () => {

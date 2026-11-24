@@ -28,6 +28,8 @@ import { createPanelSlashSource } from './panel-command.ts'
 import { GenuiPanel, type GenuiPanelInjected } from './panel.tsx'
 import { GenuiToolView } from './toolview.tsx'
 import { mountAchievementToasts } from './achievement-toast.tsx'
+import { relayAction } from './action-relay.ts'
+import { showActionFailure } from './action-notice.ts'
 import { bridgeHostLocale, t } from './i18n/index.ts'
 import type { InputTriggerServiceContract } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { assetUrl } from './asset-loader.ts'
@@ -98,12 +100,18 @@ function panelActionSend(ctx: Context, sessionId: SessionId): GenuiPanelInjected
       const payloadText = Object.keys(payload).length === 0
         ? ''
         : t('action.payload', { json: JSON.stringify(payload) })
-      void conversation.send(t('action.panel', { action, payload: payloadText })).catch((err: unknown) => {
-        // A failed prompt (session gone, agent busy) drops the action; the
-        // panel stays interactive — the component is not disabled. Log the
-        // failure WITHOUT the action payload or any secret values (the
-        // message may contain field content).
-        console.warn(`[genui] 面板动作 "${action}" 发送失败（session ${sessionId}）：`, err instanceof Error ? err.message : String(err))
+      // Bounded retry then a visible failure: a dropped click used to leave
+      // the reader with a button that silently did nothing. The panel stays
+      // interactive — the component is never disabled.
+      const text = t('action.panel', { action, payload: payloadText })
+      void relayAction(() => conversation.send(text), action, {
+        shouldAbort: () => ctx.sessions.scope(sessionId)?.get('conversation') === undefined,
+        onFailure: (failedAction, err) => {
+          // Log WITHOUT the action payload or any secret values (the message
+          // may contain field content).
+          console.warn(`[genui] 面板动作 "${failedAction}" 发送失败（session ${sessionId}）：`, err instanceof Error ? err.message : String(err))
+          showActionFailure(failedAction)
+        },
       })
     },
     insertTemplate: (text) => {
@@ -144,9 +152,15 @@ function sendInlineGenuiAction(ctx: Context, sessionId: SessionId, action: strin
   const payloadText = Object.keys(payload).length === 0
     ? ''
     : t('action.payload', { json: JSON.stringify(payload) })
-  void conversation.send(t('action.inline', { action, payload: payloadText })).catch(() => {
-    // A failed prompt (session gone, agent busy) drops the action;
-    // the UI stays interactive — the component is not disabled.
+  // Same bounded retry + visible failure as the panel path; a silent drop is
+  // what made inline clicks feel broken.
+  const text = t('action.inline', { action, payload: payloadText })
+  void relayAction(() => conversation.send(text), action, {
+    shouldAbort: () => ctx.sessions.scope(sessionId)?.get('conversation') === undefined,
+    onFailure: (failedAction, err) => {
+      console.warn(`[genui] 内联动作 "${failedAction}" 发送失败（session ${sessionId}）：`, err instanceof Error ? err.message : String(err))
+      showActionFailure(failedAction)
+    },
   })
 }
 

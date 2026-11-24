@@ -649,7 +649,15 @@ function renderNodeBody(
     case 'diagram': return <DiagramNode key={key} node={node} answers={answers} />
 
     case 'echart': return <EChartNode key={key} node={node} />
-    default: return <div key={key} role="alert" data-genui-error>{t('err.unknownType', { type: String((node as { type: string }).type) })}</div>
+    // An unknown type is usually a model typo in one component, not a
+    // page-level failure: degrade to a muted placeholder that names the type
+    // so the reader can see what was meant without an alarm-red strip. The
+    // node's children are deliberately not rendered — their shape is unknown.
+    default: return (
+      <div key={key} data-genui-unknown role="status" className={css.unknownType}>
+        {t('placeholder.unknownType', { type: String((node as { type: unknown }).type) })}
+      </div>
+    )
   }
 }
 

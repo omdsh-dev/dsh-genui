@@ -414,6 +414,8 @@ export const ZH: Record<keyof typeof EN, string> = {
   'err.boundary.fence': '该界面',
   'err.boundary.body': '⚠️ {label}渲染失败（已隔离，不影响其他内容）',
   'err.fieldValidation': 'GenUI 字段验证失败：{errors}',
+  'placeholder.unknownType': '不支持的组件：{type}（已跳过渲染）',
+  'action.failed': '操作「{action}」未送达，请重试',
   'err.unknownType': '不支持的组件：{type}。请修正组件类型后重新发送。',
   'err.chartValidation': 'chart 字段验证失败：{errors}',
   'err.fenceTrailingContent': '⚠️ UI JSON 后还有未分离的内容，已保留全部原文。请在解释文字前结束围栏，并完整重发，勿省略内容。',

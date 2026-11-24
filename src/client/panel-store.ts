@@ -282,6 +282,45 @@ function compareOrder(a: PanelOrder, b: PanelOrder): number {
  * append later than the overflow barrier); otherwise the state to commit.
  * Never mutates the session state.
  */
+// Op objects stay reference-stable once kept in state.ops, so memoizing on the
+// op itself turns per-op validation into a one-time cost. Without this an
+// append-heavy panel re-ran processGenuiSpec over every retained op on every
+// fold — O(N^2) validation for N appends, the main jank source on long
+// sessions. Bounded by the WeakMap: a dropped op is collected with its entry.
+const validatedOpCache = new WeakMap<PanelOperation, ReturnType<typeof processGenuiSpec>>()
+const opBudgetCache = new WeakMap<PanelOperation, boolean>()
+
+function validatePanelOp(op: PanelOperation): ReturnType<typeof processGenuiSpec> {
+  const cached = validatedOpCache.get(op)
+  if (cached !== undefined) return cached
+  const result = processGenuiSpec(op.spec, { panelOperation: op.mode })
+  validatedOpCache.set(op, result)
+  return result
+}
+
+// The merged document is usually a fresh object per fold, but NOT always:
+// mergePanelSpecs returns `next` unchanged when the previous side is empty, so
+// the first append's canonical spec can become the merge base and be validated
+// again on every later fold. Keying this cache on the object reference covers
+// exactly those reuses and never returns a stale verdict for new content.
+const mergedValidationCache = new WeakMap<GenuiSpec, ReturnType<typeof processGenuiSpec>>()
+
+function validateMergedSpec(spec: GenuiSpec): ReturnType<typeof processGenuiSpec> {
+  const cached = mergedValidationCache.get(spec)
+  if (cached !== undefined) return cached
+  const result = processGenuiSpec(spec)
+  mergedValidationCache.set(spec, result)
+  return result
+}
+
+function opExceedsBudget(op: PanelOperation): boolean {
+  const cached = opBudgetCache.get(op)
+  if (cached !== undefined) return cached
+  const verdict = exceedsPanelBudget(op.spec)
+  opBudgetCache.set(op, verdict)
+  return verdict
+}
+
 function fold(state: SessionPanelState, extra: PanelOperation | null): FoldResult | null {
   if (extra !== null) {
     if (extra.order[0] <= state.localBarrier || extra.order[0] <= state.replayBarrier) return null // old replay under a barrier
@@ -297,14 +336,14 @@ function fold(state: SessionPanelState, extra: PanelOperation | null): FoldResul
   if (state.overflow !== null && state.overflow.order[0] > state.localBarrier && state.overflow.order[0] > state.replayBarrier) ops.push(state.overflow)
   if (extra !== null) ops.push(extra)
   ops.sort((a, b) => compareOrder(a.order, b.order))
-  const checked = new Map(ops.map(op => [op, processGenuiSpec(op.spec, { panelOperation: op.mode })]))
+  const checked = new Map(ops.map(op => [op, validatePanelOp(op)]))
   // The latest VALID replace resets everything before it; start the fold
   // there. (A replace beyond the node budget — only reachable with
   // non-default limits — never becomes the base.)
   let start = 0
   for (let i = 0; i < ops.length; i++) {
     const op = ops[i]!
-    if (op.mode === 'replace' && checked.get(op)!.errors.length === 0 && !exceedsPanelBudget(op.spec)) start = i
+    if (op.mode === 'replace' && checked.get(op)!.errors.length === 0 && !opExceedsBudget(op)) start = i
   }
   let snapshot: GenuiSpec | null = state.local
   let stateIdentity = state.baseIdentity
@@ -323,7 +362,7 @@ function fold(state: SessionPanelState, extra: PanelOperation | null): FoldResul
     }
     const canonical = canonicalPanelSpec(op.spec, validation.spec!)
     if (op.mode === 'replace') {
-      if (exceedsPanelBudget(op.spec)) {
+      if (opExceedsBudget(op)) {
         // Pathological replace beyond the node budget: rejected like any
         // over-budget op (remembered as the overflow barrier, fold kept).
         if (overflow === null || compareOrder(op.order, overflow.order) < 0) overflow = op
@@ -341,7 +380,7 @@ function fold(state: SessionPanelState, extra: PanelOperation | null): FoldResul
     // rejection never retroactively drops ops that already fit.
     const merged = mergePanelSpecs(snapshot, canonical)
     if (appendCount >= limits.maxAppends
-      || exceedsPanelBudget(op.spec)
+      || opExceedsBudget(op)
       || exceedsPanelBudget(merged)) {
       if (overflow === null || compareOrder(op.order, overflow.order) < 0) overflow = op
       continue
@@ -350,7 +389,7 @@ function fold(state: SessionPanelState, extra: PanelOperation | null): FoldResul
     kept.push(op)
     // 检查完整文档，不单独检查追加增量。暂存未通过检查的操作，供迟到的较早基项重新计算；
     // 该操作不会改变当前有效内容。
-    const mergedValidation = processGenuiSpec(merged)
+    const mergedValidation = validateMergedSpec(merged)
     if (mergedValidation.errors.length > 0 || mergedValidation.spec === null) {
       invalid.set(op.sourceId, mergedValidation.errors.join('；') || 'invalid panel spec')
       continue
