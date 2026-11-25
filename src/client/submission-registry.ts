@@ -1,5 +1,5 @@
 import { GENUI_LIMITS } from './genui-runtime/index.ts'
-import type { GenuiSpec } from './spec.ts'
+import type { GenuiChoices, GenuiSpec } from './spec.ts'
 import { isDatePickerValueValid } from './date-picker.ts'
 import { GENUI_CHECKBOX_VALUE } from './spec.ts'
 import { walkGenuiNodes } from './walk-spec.ts'
@@ -20,6 +20,8 @@ export interface CheckboxSubmissionMember {
   key: string
   /** 来源文案模板 → 当前显示文案。 */
   choices: Map<string, string>
+  /** Defined only for a grouped choices list. */
+  limit?: number
 }
 
 export interface FieldSubmissionMember {
@@ -51,6 +53,11 @@ export interface ResolvedSubmitState {
   hasOutOfScopePayload: boolean
 }
 
+/** Grouped decisions can select several labels. Graded questions use one answer. */
+export function isGroupedMultiChoice(node: GenuiChoices): boolean {
+  return node.group !== undefined && node.mode === 'multi' && node.answer === undefined
+}
+
 /** 从 spec 建立成员表，并诊断 submission key 和 submit.groups。 */
 export function analyzeSubmissionRegistry(spec: GenuiSpec, allowExternalGroups = false): { registry: SubmissionRegistry; diagnostics: string[] } {
   const members = new Map<string, SubmissionMember>()
@@ -72,10 +79,18 @@ export function analyzeSubmissionRegistry(spec: GenuiSpec, allowExternalGroups =
         keyPath = `${path}.group`
         break
       case 'choices':
-        // A `choices` list with a `group` is a paper question: single-select,
-        // graded from `answer` exactly like `radio` — but each option keeps its
-        // cost line, which `radio`'s bare strings cannot carry.
         if (node.group === undefined) return
+        keyPath = `${path}.group`
+        if (isGroupedMultiChoice(node)) {
+          const items = node.items.slice(0, GENUI_LIMITS.maxOptions)
+          member = {
+            kind: 'checkbox',
+            key: node.group,
+            choices: new Map(items.filter(item => !item.disabled).map(item => [item.label, item.label])),
+            limit: Math.max(1, Math.min(node.max ?? items.length, items.length)),
+          }
+          break
+        }
         member = {
           kind: 'radio',
           key: node.group,
@@ -84,7 +99,6 @@ export function analyzeSubmissionRegistry(spec: GenuiSpec, allowExternalGroups =
           ...(node.answer === undefined ? {} : { answer: node.answer }),
           ...(node.explanation === undefined ? {} : { explanation: node.explanation }),
         }
-        keyPath = `${path}.group`
         break
       case 'checkbox':
         if (node.group === undefined) return
@@ -113,7 +127,7 @@ export function analyzeSubmissionRegistry(spec: GenuiSpec, allowExternalGroups =
     if (member === undefined) return
     const existing = members.get(member.key)
     if (existing !== undefined) {
-      if (existing.kind !== 'checkbox' || member.kind !== 'checkbox') {
+      if (existing.kind !== 'checkbox' || member.kind !== 'checkbox' || existing.limit !== undefined || member.limit !== undefined) {
         diagnostics.push(`${keyPath} conflicts with ${paths.get(member.key)}: submission key '${member.key}' is already used`)
       } else {
         for (const [value, label] of member.choices) existing.choices.set(value, label)

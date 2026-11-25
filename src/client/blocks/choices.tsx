@@ -14,6 +14,7 @@ import { useGenuiAction } from '../action-context.ts'
 import { renderInline } from '../inline.ts'
 import { useT } from '../i18n/index.ts'
 import type { GenuiChoices } from '../spec.ts'
+import { isGroupedMultiChoice } from '../submission-registry.ts'
 import type { AnswersState } from './state.ts'
 import css from './choices.module.css'
 
@@ -30,33 +31,25 @@ export function ChoicesNode({ node, onAction, answers }: {
   const send = onAction ?? contextAction
   const name = useId()
   const group = node.group
-  // Paper mode: the selection lives in the block's shared registry so a sibling
-  // `submit` can collect and grade it. Local mode keeps its own state and can
-  // fire its own action.
-  const paper = group !== undefined && answers !== undefined
-  const localOnly = !paper && (node.action === undefined || node.action.trim() === '')
-  const locked = paper && answers?.locked === true
-  const mode = node.mode ?? 'single'
-  // A grouped list is a paper question graded from one answer
-  // (submission-registry registers it as kind 'radio'), so it is single-select
-  // even when the spec says `mode: 'multi'`. Present what is actually graded
-  // instead of a checkbox row whose second pick can never be recorded.
-  const single = group !== undefined || mode === 'single'
+  const grouped = group !== undefined && answers !== undefined
+  const localOnly = !grouped && (node.action === undefined || node.action.trim() === '')
+  const locked = grouped && answers.locked
+  const single = node.mode !== 'multi' || (group !== undefined && !isGroupedMultiChoice(node))
   const max = single ? 1 : Math.max(1, Math.min(node.max ?? node.items.length, node.items.length))
   const items = useMemo(() => node.items.slice(0, MAX_OPTIONS), [node.items])
   const [localSelected, setLocalSelected] = useState<readonly string[]>([])
   const [submitted, setSubmitted] = useState(false)
-  const recorded = paper ? answers?.answers[group] : undefined
-  const selected: readonly string[] = paper
-    ? (recorded === undefined ? [] : [recorded])
-    : localSelected
+  const recorded = grouped && Object.hasOwn(answers.answers, group) ? answers.answers[group] : undefined
+  const groupedMulti = grouped && Object.hasOwn(answers.multiAnswers, group) ? answers.multiAnswers[group] : undefined
+  const selected: readonly string[] = !grouped
+    ? localSelected
+    : single ? (recorded === undefined ? [] : [recorded]) : groupedMulti ?? []
 
   const toggle = useCallback((label: string): void => {
     if (locked) return
-    if (paper) {
-      // Paper questions are single-select; re-clicking the same option keeps it
-      // (a paper answer is not a toggle).
-      answers?.setAnswer(group, label)
+    if (grouped) {
+      if (single) answers.setAnswer(group, label)
+      else answers.setMultiAnswer(group, label, !selected.includes(label))
       return
     }
     // Editing after submit is allowed and clears the "已提交" line: the model
@@ -68,7 +61,7 @@ export function ChoicesNode({ node, onAction, answers }: {
       if (previous.length >= max) return previous
       return [...previous, label]
     })
-  }, [answers, group, locked, max, single, paper])
+  }, [answers, group, grouped, locked, max, selected, single])
 
   const submit = (): void => {
     if (selected.length === 0 || node.action === undefined || node.action.trim() === '') return
@@ -76,8 +69,6 @@ export function ChoicesNode({ node, onAction, answers }: {
     send?.(node.action, {
       question: node.prompt ?? node.title ?? '',
       selected: [...selected],
-      // A grouped paper question is graded as one answer, so report the mode
-      // that is actually presented rather than a `multi` that never applies.
       mode: single ? 'single' : 'multi',
     })
   }
@@ -129,7 +120,7 @@ export function ChoicesNode({ node, onAction, answers }: {
       </div>
 
       <div className={css.footer}>
-        {!paper && node.submit !== undefined && node.submit !== '' && (
+        {!grouped && node.submit !== undefined && node.submit !== '' && (
           <button
             type="button"
             className={css.submit}
