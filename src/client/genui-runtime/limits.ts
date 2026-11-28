@@ -57,6 +57,9 @@ export const GENUI_LIMITS = {
   maxTimelineItems: 24,
   maxBreadcrumbItems: 12,
   maxKeyValuePairs: 24,
+  /** Maximum `schedule` / `gantt` top-level rows and items per group. */
+  maxScheduleRows: 60,
+  maxScheduleItemsPerGroup: 60,
   /** Maximum `file-tree` nesting. */
   maxTreeDepth: 6,
   /** Maximum `blocks` figure rows / cells per row. Cells are data, not nodes,

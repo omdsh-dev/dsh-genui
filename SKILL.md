@@ -42,7 +42,7 @@ SVG 可通过 `dsh-ui` 中的 `svg` 组件展示，也可以直接输出 `svg` �
 ## 组件词汇（只允许这些 type）
 
 布局：`text` `row` `col` `grid` `card` `carousel` `divider` `spacer` `arrow` `hero`
-展示：`stat` `badge` `progress` `list` `table` `keyvalue` `avatar` `image` `image-group` `compare` `audio` `video` `timeline` `file-tree` `breadcrumb` `diff` `json` `code` `callout` `steps` `icon` `blocks`
+展示：`stat` `badge` `progress` `list` `table` `keyvalue` `avatar` `image` `image-group` `compare` `audio` `video` `timeline` `schedule` `gantt` `file-tree` `breadcrumb` `diff` `json` `code` `callout` `steps` `icon` `blocks`
 图表：`chart`（bars/line/donut，可多序列）`plot`（数学函数图）`echart`（ECharts 全功能图表）`map`
 交互：`button` `input` `select` `checkbox` `radio` `switch` `slider` `textarea` `editor` `date-picker` `segmented-control` `tabs` `accordion` `copy` `link` `submit` `popover` `choices`
 高级：`svg` `mermaid` `diagram` `scene3d` `quiz` `entity-card`
@@ -76,6 +76,8 @@ SVG 可通过 `dsh-ui` 中的 `svg` 组件展示，也可以直接输出 `svg` �
 - table: `{"type":"table","columns":["..."],"rows":[["...","..."]],"types":["text|num|delta|bar|badge"]?,"details":[[...]]?,"total":true?}` — 表头点击本地排序（升/降/还原，零往返）；数值感知：千分位（`1,234`）、`k/m/b`、`万/亿`、`%`、货币符号都能按真实数值比较，纯数值列自动右对齐；**带符号单元格自动着色**（`+12.4%` 绿、`-3` 红，无需额外字段）；`types` 可按列指定 `bar`（0-100 内联进度条）、`ring`（0-100 小环）、`spark`（单元格写 `"3,5,4,8"` 画微趋势线）、`badge`（胶囊标签）、`delta`（强制涨跌色）、`num`（强制右对齐）、`index`（行号）、`group`（首列当分组标题：该行只有第一格有内容时渲染成跨列小标题）；`"total":true` 追加合计行（数值列自动求和）；**`"export":true`**：表格上方出现「复制 Markdown / 复制 CSV」两个小按钮（纯本地剪贴板，不发请求）；**`"filter":"输入框id"`**：把表格和某个 input/select 绑定，读者输入即时过滤（`filterColumn` 可限定列）——数据多时**默认就该配一个**；**`"sortField":"下拉id"`** 用下拉的值（列名）排序；**`"details"` 与 rows 同序**，第 i 项是该行展开后的内容（可放任意组件，`null` = 该行不可展开）——首列出现 chevron，点开在整行下方展开明细，适合「主表 + 明细」；**`"wrap":true`** 开启长文本排版：单元格、长标识符和行内代码自动折行，保留显式换行；列有可读宽度下限，窄容器仍可横向滚动，嵌套表格独立选择模式（默认关闭，数据表保持单行紧凑；当某列是整句描述时开启）
 - keyvalue: `{"type":"keyvalue","pairs":[{"key":"...","value":"..."}]}`
 - timeline: `{"type":"timeline","items":[{"title":"...","desc":"...","time":"..."}]}`
+- schedule: `{"type":"schedule","title":"<title>","axis":{"start":"08:00","end":"18:00"},"rows":[{"group":"<day>","items":[{"label":"<course>","start":"09:00","end":"10:30","hint":"<room>","tone":"accent"}]}]}` — 时间块的位置和长度按实际分钟计算。默认 `view:"week"`，每组一列，适合课表；`view:"timeline"` 将时间横放，每组或单项一行，适合排期。单项可直接写进 `rows`，同组时间重叠时自动分开。所有时间用 24 小时制 `HH:mm`，项目须位于轴范围内且结束晚于开始。跨午夜的日程分到两个日期组，前一段可用 `24:00` 结束。可选 `hint` 放地点或备注，`tone` 支持 accent/success/warning/danger/muted，`color` 可覆盖配色。悬停或聚焦可看详情。配置 `action` 时，点击回传 `{type:"schedule",label,start,end,group?}`，其余点击在本地显示详情。
+- gantt: `{"type":"gantt","title":"<title>"?,"axis":{"start":"08:00","end":"20:00"}?,"now":"14:30"?,"nowLabel":"<now>"?,"rows":[{"label":"<task>","start":"15:00","end":"16:30","progress":60?,"hint":"<note>","color":"#fb923c"},{"group":"<phase>","items":[{"label":"<milestone>","start":"18:00","milestone":true,"tone":"success"}]}]}` — 左栏固定任务名、时间段与备注，右侧按实际起止时间绘制横条与进度填充。支持同日 `HH:mm`、多日 `YYYY-MM-DD`（含双休日底纹与起止日包含计算）、跨日 `YYYY-MM-DD HH:mm` 三种时间尺度；省略 `axis` 时按任务自动推导区间。支持 `{group,items}` 可折叠分组（默认共用根轴并展示阶段汇总跨度条，也可在分组上写 `axis:{start,end}` 与 `now`）、`milestone:true` 里程碑菱形（可省略 `end`）、`progress`（0–100）和 `now`/`nowLabel` 参考线。事件 `hint`/`tone`/`color`/`action` 同 schedule，点击带 `action` 的任务回传 `{type:"gantt",label,start,end,group?}`。
 - file-tree: `{"type":"file-tree","items":[{"name":"...","type":"file|dir","children":[...]?}]}` — 目录行可点击折叠/展开（本地，零往返）
 - breadcrumb: `{"type":"breadcrumb","items":["<user-language text>","<user-language text>","<user-language text>"]}`
 - diff: `{"type":"diff","diffs":[{"path":"...","oldText":"..."|null,"newText":"..."}]}`
@@ -172,7 +174,9 @@ Check CheckCircle Info InfoCircle Warning Error X Plus Minus Circle ArrowDown Ar
 | 回答的视觉锚点（第一个组件） | `hero`（封面块，一条回答最多一个） |
 | 想排版不呆板 | `grid` + 子节点 `span`（bento：宽窄混排） |
 | 数据多、需要读者自己找 | `input`（id）+ `table`/`chart`/`list` 的 `filter` 绑定 |
-| 流程 / 步骤 / 阶段 / 时间线 | `steps`、`timeline`、`mermaid`（flowchart/sequence/gantt） |
+| 流程 / 步骤 / 阶段 / 时间线 | `steps`、`timeline`、`mermaid`（flowchart/sequence） |
+| 课程表 / 日程 | `schedule`（按天分栏或横向时间轴） |
+| 按时长逐行对比任务 | `gantt`（甘特图） |
 | 架构 / 系统拓扑 / 数据流 / 品牌图 | `diagram`（编辑级，27 种类型；自动布局需求才用 `mermaid`） |
 | 目录 / 文件结构 / 层级关系 | `file-tree`、`mermaid`、`accordion` |
 | 状态一览 / 检查结果 | `badge` + `table` + `progress` 组合 |

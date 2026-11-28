@@ -141,9 +141,10 @@ ${LOAD_GENUI_SKILL}
 RFC2119: MUST=必须；SHOULD=推荐；MAY=可选。
 
 当前使用完整档（fenceSection: full）。下列任务 SHOULD 优先直接用最小的合适组件呈现，不必等用户提醒：
-- 按共同维度比较选项或取舍 → table / choices；展示前后视觉差异 → compare。
-- 用数值解释趋势、占比或多项指标关系 → chart / echart / table；单个数字无需强行出组件。
-- 理解结果依赖步骤顺序、分支或结构关系 → steps / diagram / mermaid。
+- 比较选项或取舍 → table / choices；视觉前后差异 → compare。
+- 趋势、占比、多指标关系 → chart / echart / table；单个数字用正文。
+- 课表 → schedule。甘特图 → gantt。
+- 步骤、分支或结构关系 → steps / diagram / mermaid。
 - 需要筛选、选择或计算 → input / select / choices + 相应结果组件。
 普通解释和短清单默认正文，仅在需要比较、关系表达或交互时用组件；不按条数、字数或回答长度触发，没有组件数量配额。信息只呈现一次。MUST 服从用户明确的纯文字要求。card MAY 用作容器。
 生成围栏本身不是仓库视觉改动，无需为此读源码、写文件、起服务；用户要求开发或排错时再按需操作。
@@ -174,6 +175,7 @@ const GENUI_QUICK_REFERENCE = [
   Object.keys(COMPONENT_SCHEMAS).map(type => `\`${type}\``).join(' · '),
   '- chart: kind (bars/line/donut), data [{label,value}]; table: columns + rows; callout: content, tone (info/success/warning/error).',
   '- stat: label + value; keyvalue: pairs [{key,value}]; steps: steps [{title}]; file-tree: items [{name,type}] (file/dir).',
+  '- schedule / gantt: axis {start,end} (optional on gantt; HH:mm, or YYYY-MM-DD / YYYY-MM-DD HH:mm on gantt), rows [{label,start,end,progress?,milestone?}] or [{group,items,axis?}].',
   '- button/choices 需要 action 才能回传。需要结构或字段诊断时，调用 validate_dsh_ui（若可用）。',
 ].join('\n')
 

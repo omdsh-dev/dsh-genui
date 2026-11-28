@@ -40,6 +40,8 @@ import { PopoverNode } from './popover.tsx'
 import { LinkedInPostNode, XPostNode } from './social-post.tsx'
 import { DatePickerNode } from './date-picker.tsx'
 import { SegmentedControlNode } from './segmented-control.tsx'
+import { ScheduleNode } from './schedule.tsx'
+import { GanttNode } from './gantt.tsx'
 
 import { EChartNode } from '../EChartNode.tsx'
 
@@ -643,6 +645,8 @@ function renderNodeBody(
     case 'svg': return <SvgNode key={key} node={node} />
     case 'scene3d': return <Scene3DNode key={key} node={node} />
     case 'timeline': return <TimelineNode key={key} node={node} />
+    case 'schedule': return <ScheduleNode key={key} node={node} onAction={onAction} />
+    case 'gantt': return <GanttNode key={key} node={node} onAction={onAction} />
     case 'file-tree': return <FileTreeNode key={key} node={node} />
     case 'breadcrumb': return <BreadcrumbNode key={key} node={node} />
     case 'quiz': return <QuizNode key={key} node={node} onAction={onAction} />
