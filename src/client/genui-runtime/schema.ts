@@ -69,6 +69,7 @@ export const BUTTON_TONES = ['primary', 'danger', 'success', 'ghost'] as const
 export const BADGE_TONES = ['success', 'warn', 'danger', 'accent'] as const
 export const INPUT_TYPES = ['text', 'email', 'password', 'color', 'number'] as const
 export const DATE_PICKER_MODES = ['single', 'range'] as const
+export const SCHEDULE_VIEWS = ['week', 'timeline'] as const
 export const CALLOUT_TONES = ['info', 'success', 'warning', 'error'] as const
 export const CHART_KINDS = ['bars', 'line', 'donut'] as const
 export const PLOT_KINDS = ['line', 'area', 'scatter'] as const
@@ -166,6 +167,25 @@ const recordSchema = (
 const nodeFields = {
   type: 'string', span: 'number', when: 'object', enableWhen: 'object', disabledReason: 'string',
 } as const
+
+const clockRangeFields = { start: 'string', end: 'string' } as const
+const clockRangeSchema = recordSchema(['start', 'end'], clockRangeFields)
+const scheduleFields = { ...nodeFields, title: 'string', axis: 'object', rows: 'array' } as const
+const scheduleEventFields = {
+  ...clockRangeFields, label: 'string', hint: 'string', color: 'string', tone: 'string', action: 'string',
+} as const
+const scheduleEventEnums = { tone: BLOCK_CELL_TONES }
+const scheduleEventSchema = recordSchema(['label', 'start', 'end'], scheduleEventFields, {}, scheduleEventEnums)
+const scheduleRowFields = { ...scheduleEventFields, group: 'string', items: 'array' } as const
+const scheduleRowSchema = recordSchema([], scheduleRowFields,
+  { items: scheduleEventSchema }, scheduleEventEnums)
+const ganttEventFields = {
+  ...scheduleEventFields, progress: 'number', milestone: 'boolean',
+} as const
+const ganttEventSchema = recordSchema(['label', 'start'], ganttEventFields, {}, scheduleEventEnums)
+const ganttRowSchema = recordSchema([], {
+  ...ganttEventFields, group: 'string', items: 'array', axis: 'object', now: 'string', nowLabel: 'string',
+}, { items: ganttEventSchema, axis: clockRangeSchema }, scheduleEventEnums)
 
 /** Conditional visibility carried by any node: `{ field, op, value? }`. */
 const whenSchema = recordSchema(['field', 'op'], {
@@ -463,6 +483,13 @@ const RAW_COMPONENT_SCHEMAS: Readonly<Record<string, ComponentSchema>> = {
   quiz: schema(['question', 'options'], { ...nodeFields, question: 'string', options: 'array', explanation: 'string', id: 'string', action: 'string' }, { title: 'question', text: 'question', choices: 'options', items: 'options' }),
   radio: schema(['options'], { ...nodeFields, label: 'string', options: 'array', selected: 'number', action: 'string', group: 'string', answer: 'unknown', explanation: 'string' }, { items: 'options' }),
   row: schema(['items'], { ...nodeFields, items: 'nodes', wrap: 'boolean', spacer: 'boolean', justify: 'string' }, {}, { enums: { justify: ROW_JUSTIFY } }),
+  gantt: schema(['rows'], { ...scheduleFields, now: 'string', nowLabel: 'string' }, {}, {
+    nested: { axis: clockRangeSchema, rows: ganttRowSchema },
+  }),
+  schedule: schema(['axis', 'rows'], { ...scheduleFields, view: 'string' }, {}, {
+    nested: { axis: clockRangeSchema, rows: scheduleRowSchema },
+    enums: { view: SCHEDULE_VIEWS },
+  }),
   scene3d: schema(['meshes'], { ...nodeFields, title: 'string', meshes: 'array', ambient: 'number', background: 'string' }, {}, { nested: { meshes: sceneMeshSchema } }),
   select: schema(['options'], { ...nodeFields, label: 'string', options: 'array', action: 'string', selected: 'number', id: 'string' }, { items: 'options' }),
   'segmented-control': schema(['options'], { ...nodeFields, label: 'string', options: 'array', value: 'string', id: 'string', action: 'string' }),

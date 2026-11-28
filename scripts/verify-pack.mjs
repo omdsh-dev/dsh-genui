@@ -36,7 +36,10 @@ const MAX_TARBALL = Number(process.env.GENUI_PACK_MAX_TARBALL ?? 4.5 * 1024 * 10
 // 若要压缩回来：749 字形集（icon-data-full.ts 1.0 MB + icons.js 0.97 MB）或某个懒加载
 // 引擎（mermaid 3.4 MB / maplibre 1.7 MB / echarts-full 1.0 MB）是可裁的两处，
 // 都需要产品决定，不该由包体预算被动触发。
-const MAX_UNPACKED = Number(process.env.GENUI_PACK_MAX_UNPACKED ?? 14 * 1024 * 1024)
+// 2026-11-28: 新增 schedule / gantt 区块与 3 尺度时间引擎（issue #472）后，
+// 解包体积实测 14,767,322 B（超出 14 MiB 上限 87,258 B），tarball 仍为 4,414,890 B
+//（低于 4.5 MiB）。将解包预算调整为 15 MiB。
+const MAX_UNPACKED = Number(process.env.GENUI_PACK_MAX_UNPACKED ?? 15 * 1024 * 1024)
 
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 

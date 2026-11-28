@@ -36,6 +36,7 @@ import { walkGenuiNodes } from './walk-spec.ts'
 import { color, enu, int, num, obj, opt, safeMediaSrc, str } from './genui-runtime/value-utils.ts'
 import { repairMap, validateMap } from './map-data.ts'
 import { isDatePickerValueValid, isIsoDate } from './date-picker.ts'
+import { repairSchedule, validateSchedule } from './schedule-data.ts'
 import { classifyLinkTarget } from './file-link.ts'
 import { buildComputedGraph, getComputedInputIds, getDuplicateComputedInputIds, getComputedTemplateScope, getComputedChildNodeScope } from './computed.ts'
 import type { ComputedTemplateScope, ComputedNodeScope } from './computed.ts'
@@ -946,6 +947,7 @@ function repairNodeFields(value: unknown, ctx: RepairCtx, depth: number): GenuiN
       if (items === undefined) return null
       return { type: 'timeline', items }
     }
+    case 'schedule': case 'gantt': return repairSchedule(v)
     case 'file-tree': {
       const items = repairTree(v.items, GENUI_LIMITS.maxListItems, ctx)
       if (items === undefined) return null
@@ -2782,6 +2784,9 @@ function validateNode(value: unknown, depth: number, at: string, errors: string[
       break
     case 'timeline':
       if (!Array.isArray(v.items)) errors.push(`${at}: type 'timeline' requires items (array)`)
+      break
+    case 'schedule': case 'gantt':
+      validateSchedule(v, at, errors)
       break
     case 'file-tree':
       if (!Array.isArray(v.items)) errors.push(`${at}: type 'file-tree' requires items (array)`)

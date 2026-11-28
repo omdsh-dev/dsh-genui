@@ -8,7 +8,7 @@
  * v1 interactivity is client-side only: buttons, tabs, checkboxes, and inputs
  * are operable, but events do NOT flow back to the model.
  */
-import { COMPONENT_SCHEMAS, GENUI_NATIVE_TYPES, POPOVER_PLACEMENTS, WHEN_OPS } from './genui-runtime/schema.ts'
+import { BLOCK_CELL_TONES, COMPONENT_SCHEMAS, GENUI_NATIVE_TYPES, POPOVER_PLACEMENTS, SCHEDULE_VIEWS, WHEN_OPS } from './genui-runtime/schema.ts'
 
 /** One node in the component tree. */
 /** Layout hints accepted by every node: `span` is how many columns the node
@@ -99,6 +99,8 @@ export type GenuiNode = (
   | GenuiScene3D
   | GenuiMap
   | GenuiTimeline
+  | GenuiSchedule
+  | GenuiGantt
   | GenuiFileTree
   | GenuiBreadcrumb
   | GenuiQuiz
@@ -1059,6 +1061,65 @@ export interface GenuiTimelineItem {
 export interface GenuiTimeline {
   type: 'timeline'
   items: GenuiTimelineItem[]
+}
+
+/** Same-day clock times in HH:mm. 24:00 is valid as an end only. */
+export interface GenuiScheduleRange {
+  start: string
+  end: string
+}
+
+export interface GenuiScheduleEvent extends GenuiScheduleRange {
+  label: string
+  hint?: string
+  tone?: typeof BLOCK_CELL_TONES[number]
+  color?: string
+  action?: string
+}
+
+export interface GenuiScheduleGroup {
+  group: string
+  items: GenuiScheduleEvent[]
+}
+
+export type GenuiScheduleRow = GenuiScheduleEvent | GenuiScheduleGroup
+
+export interface GenuiSchedule {
+  type: 'schedule'
+  title?: string
+  /** Week columns by default. Timeline puts the shared clock axis across the top. */
+  view?: typeof SCHEDULE_VIEWS[number]
+  axis: GenuiScheduleRange
+  rows: GenuiScheduleRow[]
+}
+
+export interface GenuiGanttEvent extends GenuiScheduleEvent {
+  /** Completion percentage (0..100) rendered inside the bar. */
+  progress?: number
+  /** Point-in-time milestone diamond; `end` may be omitted or equal to `start`. */
+  milestone?: boolean
+}
+
+export interface GenuiGanttGroup {
+  group: string
+  items: GenuiGanttEvent[]
+  axis?: GenuiScheduleRange
+  now?: string
+  nowLabel?: string
+}
+
+export type GenuiGanttRow = GenuiGanttEvent | GenuiGanttGroup
+
+export interface GenuiGantt {
+  type: 'gantt'
+  title?: string
+  /** Optional on gantt: inferred from top-level and shared-axis tasks when omitted. */
+  axis?: GenuiScheduleRange
+  /** Reference timestamp marker drawn as a vertical line across the timeline. */
+  now?: string
+  nowLabel?: string
+  /** Each task gets a row. A group axis replaces the shared axis for that group. */
+  rows: GenuiGanttRow[]
 }
 
 export interface GenuiFileTreeNode {
